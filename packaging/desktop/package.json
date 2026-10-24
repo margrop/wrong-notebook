@@ -13,7 +13,7 @@
   "private": true,
   "type": "commonjs",
   "devDependencies": {
-    "electron": "42.11.3",
+    "electron": "42.11.16",
     "electron-builder": "25.1.8"
   },
   "build": {
