@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Maximize, Minimize, Pause, Play, RotateCcw } from "lucide-react";
+import { NarrationControls } from "@/components/svg-animation/narration-controls";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { buildSvgAnimationDocument, getSvgAnimationDuration, getSvgAspectRatio } from "@/lib/svg-animation";
+import { buildSvgAnimationDocument, extractSubtitleNarration, getEmbeddedNarration, getSvgAnimationDuration, getSvgAspectRatio } from "@/lib/svg-animation";
+import type { NarrationSegment } from "@/lib/svg-animation";
+import { useSvgNarration } from "@/lib/use-svg-narration";
 import { cn } from "@/lib/utils";
 
 interface SvgAnimationPlayerProps {
@@ -17,13 +20,14 @@ function formatTime(seconds: number): string {
 }
 
 /**
- * SVG 动画播放器：支持播放/暂停、拖动进度条、重播和全屏。
+ * SVG 动画播放器：支持播放/暂停、拖动进度条、重播、全屏和语音讲解。
  * 全屏优先用浏览器的 Fullscreen API；不支持时（如 iPhone Safari）改为铺满窗口的浮层。
  * SVG 放在不允许脚本的 sandbox iframe 中（仅 allow-same-origin，便于本页调用 SMIL 时间轴接口），
  * 其中的脚本和事件属性都不会执行。
+ * 语音讲解优先朗读动画内保存的讲解稿，旧动画没有讲解稿时朗读字幕区的文字。
  */
 export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const containerRef = useRef<HTMLDivElement>(null);
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const svgRef = useRef<SVGSVGElement | null>(null);
@@ -36,6 +40,9 @@ export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
     const duration = useMemo(() => getSvgAnimationDuration(svg), [svg]);
     const aspectRatio = useMemo(() => getSvgAspectRatio(svg), [svg]);
     const srcDoc = useMemo(() => buildSvgAnimationDocument(svg), [svg]);
+    const embeddedNarration = useMemo(() => getEmbeddedNarration(svg), [svg]);
+    const [subtitleNarration, setSubtitleNarration] = useState<NarrationSegment[] | null>(null);
+    const narrationSegments = embeddedNarration ?? subtitleNarration;
 
     /** CSS 动画（若有）跟随 SMIL 时间轴 */
     const cssAnimations = useCallback(() => {
@@ -43,17 +50,35 @@ export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
         return typeof doc?.getAnimations === "function" ? doc.getAnimations() : [];
     }, []);
 
-    const pause = useCallback(() => {
+    /** 只暂停或恢复画面，不改变播放状态（等待语音读完时使用） */
+    const holdAnimation = useCallback((hold: boolean) => {
+        if (hold) svgRef.current?.pauseAnimations();
+        else svgRef.current?.unpauseAnimations();
+        cssAnimations().forEach((animation) => (hold ? animation.pause() : animation.play()));
+    }, [cssAnimations]);
+
+    const narration = useSvgNarration({ segments: narrationSegments, language, holdAnimation });
+    const { stop: stopNarration, update: updateNarration } = narration;
+
+    /** 暂停画面；播完自动暂停时不打断最后一段朗读 */
+    const pauseAnimation = useCallback(() => {
         svgRef.current?.pauseAnimations();
         cssAnimations().forEach((animation) => animation.pause());
         setPlaying(false);
     }, [cssAnimations]);
 
+    const pause = useCallback(() => {
+        // 先停止朗读（会恢复等待中的画面），再暂停画面
+        stopNarration(svgRef.current?.getCurrentTime() ?? 0);
+        pauseAnimation();
+    }, [pauseAnimation, stopNarration]);
+
     const seek = useCallback((time: number) => {
         svgRef.current?.setCurrentTime(time);
         cssAnimations().forEach((animation) => { animation.currentTime = time * 1000; });
         setCurrent(time);
-    }, [cssAnimations]);
+        stopNarration(time);
+    }, [cssAnimations, stopNarration]);
 
     const play = useCallback(() => {
         const element = svgRef.current;
@@ -67,6 +92,8 @@ export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
 
     const handleLoad = () => {
         svgRef.current = iframeRef.current?.contentDocument?.querySelector("svg") ?? null;
+        setSubtitleNarration(svgRef.current ? extractSubtitleNarration(svgRef.current) : null);
+        stopNarration(0);
         setCurrent(0);
         setPlaying(!!svgRef.current);
     };
@@ -118,9 +145,10 @@ export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
         let frame = 0;
         const tick = () => {
             const time = svgRef.current?.getCurrentTime() ?? 0;
+            updateNarration(time);
             if (duration > 0 && time >= duration) {
                 svgRef.current?.setCurrentTime(duration);
-                pause();
+                pauseAnimation();
                 setCurrent(duration);
                 return;
             }
@@ -129,7 +157,7 @@ export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
         };
         frame = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(frame);
-    }, [playing, duration, pause]);
+    }, [playing, duration, pauseAnimation, updateNarration]);
 
     return (
         <div
@@ -191,16 +219,28 @@ export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
                         </span>
                     </>
                 )}
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn("ml-auto h-8 w-8 shrink-0 p-0", fullscreen && "text-white hover:bg-white/20 hover:text-white")}
-                    onClick={toggleFullscreen}
-                    aria-label={fullscreen ? t.svgAnimation.exitFullscreen : t.svgAnimation.fullscreen}
-                    title={fullscreen ? t.svgAnimation.exitFullscreen : t.svgAnimation.fullscreen}
-                >
-                    {fullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-                </Button>
+                <div className="ml-auto flex shrink-0 items-center gap-1">
+                    {!!narrationSegments?.length && (
+                        <NarrationControls
+                            supported={narration.supported}
+                            enabled={narration.enabled}
+                            rate={narration.rate}
+                            fullscreen={fullscreen}
+                            onToggle={() => narration.setEnabled(!narration.enabled, svgRef.current?.getCurrentTime() ?? 0)}
+                            onCycleRate={narration.cycleRate}
+                        />
+                    )}
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn("h-8 w-8 shrink-0 p-0", fullscreen && "text-white hover:bg-white/20 hover:text-white")}
+                        onClick={toggleFullscreen}
+                        aria-label={fullscreen ? t.svgAnimation.exitFullscreen : t.svgAnimation.fullscreen}
+                        title={fullscreen ? t.svgAnimation.exitFullscreen : t.svgAnimation.fullscreen}
+                    >
+                        {fullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                    </Button>
+                </div>
             </div>
         </div>
     );

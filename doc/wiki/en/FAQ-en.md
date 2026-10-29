@@ -20,6 +20,10 @@ A successful connection does not mean the model accepts images. Make sure the ch
 
 Check whether the model follows the tag or JSON output format and whether its maximum output length is large enough. Animations contain long SVG code and are easily truncated by short output limits. Switch to a more suitable model; on timeouts, check the network and adjust the admin analysis timeout.
 
+## Animation narration is silent, or the speaker button is unavailable?
+
+Narration uses the browser's built-in speech synthesis and does not call any AI service. A grayed-out speaker button means the browser has no voice for that language: Linux browsers often lack a Chinese voice that must be installed in the system, and the Android app's built-in browser is not supported yet. If the button works but there is no sound, check the device volume and mute switch; on iPhone, turn off silent mode.
+
 ## The screenshot button is unavailable?
 
 Screenshots use the browser's `getDisplayMedia()`, which requires an HTTPS or `localhost` secure context plus browser and OS support with permission to share the screen. Accessing the app through a LAN HTTP address usually does not qualify; even with HTTPS, mobile browsers may not support it, so take a photo, upload or paste an image instead.

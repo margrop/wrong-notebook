@@ -849,7 +849,8 @@ export const DEFAULT_SVG_ANIMATION_TEMPLATE = `【角色与核心任务 (ROLE AN
 - 用 SMIL 动画（<animate>、<set>、<animateTransform>、<animateMotion>）实现，用 begin 属性按时间排列（如 begin="4s"）；需要先隐藏的元素设 opacity="0" 再用 <animate> 或 <set> 显示。
 - 公式不要用 LaTeX，用普通文字和 Unicode 符号（如 x²、√2、π、×、÷、≤、≥、∠、△、⊥、∥）。
 - 输出一个完整的 <svg> 元素，包含 xmlns="http://www.w3.org/2000/svg" 和 viewBox="0 0 800 500"，第一个元素是铺满画面的白色背景 rect；文字用 <text>（font-family="sans-serif"，正文 font-size 18~22），线条为黑色，高亮可用红色 #e53935、蓝色 #1e88e5、绿色 #43a047。
-- 只使用基本图形元素：line、polyline、polygon、rect、circle、ellipse、path、text、tspan、g、defs、marker 以及上述动画元素。
+- 语音讲解稿：在 <svg> 开头放一个 <metadata id="narration">，内容为 JSON 数组，每个步骤一项 {"begin": 该步开始的秒数, "text": "朗读的讲解"}，begin 与该步字幕出现的时间一致。{{narration_rule}}讲解要口语化、比字幕更完整，朗读时长与该步时长相近；符号写成读法（如“x 的平方”“根号 2”“角 ABC”），不要写 <、>、& 字符。
+- 只使用基本图形元素：line、polyline、polygon、rect、circle、ellipse、path、text、tspan、g、defs、marker、metadata 以及上述动画元素。
 - 代码保持精简：坐标取整数，相同样式放在 <g> 上统一设置，不要重复绘制相同的元素，整个 SVG 控制在 15000 个字符以内。
 - 严禁使用 <image>、<script>、<foreignObject>、外部链接、外部字体或事件属性。
 
@@ -859,6 +860,12 @@ export const DEFAULT_SVG_ANIMATION_TEMPLATE = `【角色与核心任务 (ROLE AN
 <svg_animation>
 完整的 SVG 动画
 </svg_animation>`;
+
+/** 语音讲解稿的语言与长度要求（按每秒约 4 个汉字或 2.5 个英文单词估算） */
+const NARRATION_RULES: Record<'zh' | 'en', string> = {
+    zh: '讲解使用简体中文，按该步时长每秒约 4 个字（如 5 秒的步骤约 20 字）。',
+    en: 'Write the narration in English, about 2.5 words per second of the step (e.g. about 12 words for a 5-second step).',
+};
 
 /** 生成 SVG 动画讲解时随提示词发送的用户消息 */
 export const SVG_ANIMATION_REQUEST: Record<'zh' | 'en', string> = {
@@ -880,6 +887,7 @@ export function generateSvgAnimationPrompt(
         subtitle_rule: language === 'en'
             ? '英文，每行不超过 48 个字符，最多两行'
             : '简体中文，每行不超过 24 个字，最多两行',
+        narration_rule: NARRATION_RULES[language],
         language_instruction: language === 'en'
             ? 'IMPORTANT: All text in the animation (title, labels, table headers, subtitles and conclusions) must be in English. If the question, answer or analysis is in Chinese, translate it into natural English; keep names of points, variables and numbers unchanged.'
             : '动画中的全部文字（标题、标注、表头、字幕和结论）使用简体中文；题目为英文时，题目原文中的专有名词与变量可保留英文。',

@@ -1030,6 +1030,10 @@ export const translations = {
             failed: "Failed to generate the animation, please try again later",
             noQuestionText: "The question text is empty, so no animation can be generated",
             invalid: "AI did not return a valid animation, please try again",
+            voiceOn: "Turn on voice narration",
+            voiceOff: "Turn off voice narration",
+            voiceRate: "Narration speed",
+            voiceUnsupported: "This browser has no voice for this language, so narration is unavailable",
         },
         backgroundTasks: {
             title: "Background tasks",
@@ -2198,6 +2202,10 @@ export const translations = {
             failed: "生成动画讲解失败，请稍后重试",
             noQuestionText: "题目文字为空，无法生成动画讲解",
             invalid: "AI 未返回有效的动画，请重试",
+            voiceOn: "开启语音讲解",
+            voiceOff: "关闭语音讲解",
+            voiceRate: "朗读语速",
+            voiceUnsupported: "当前浏览器没有该语言的语音，无法朗读讲解",
         },
         backgroundTasks: {
             title: "后台任务",
