@@ -109,6 +109,30 @@ describe('useSvgNarration', () => {
         expect(spoken.map((u) => u.text)).toEqual(['第一步', '第二步']);
     });
 
+    it('在下一段开始前、换步过渡之前暂停等待，并对外提示正在等待', async () => {
+        await render();
+        act(() => narration.update(0));
+        expect(narration.speaking).toBe(true);
+
+        act(() => narration.update(3));
+        expect(hold).not.toHaveBeenCalled();
+
+        act(() => narration.update(4.3));
+        expect(hold).toHaveBeenLastCalledWith(true);
+        expect(narration.holding).toBe(true);
+
+        act(() => spoken[0].onend?.());
+        expect(hold).toHaveBeenLastCalledWith(false);
+        expect(narration.holding).toBe(false);
+        expect(narration.speaking).toBe(false);
+
+        // 恢复后到下一段开始才朗读
+        act(() => narration.update(4.5));
+        expect(spoken).toHaveLength(1);
+        act(() => narration.update(5));
+        expect(spoken.map((u) => u.text)).toEqual(['第一步', '第二步']);
+    });
+
     it('停止时取消朗读并恢复等待中的画面，继续播放从当前段重新朗读', async () => {
         await render();
         act(() => narration.update(0));

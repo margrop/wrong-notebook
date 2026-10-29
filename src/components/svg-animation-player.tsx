@@ -58,6 +58,8 @@ export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
     }, [cssAnimations]);
 
     const narration = useSvgNarration({ segments: narrationSegments, language, holdAnimation });
+    // 画面在等朗读（等待中或动画已播完、语音还在读）时，只在外框提示，不遮挡内容
+    const waitingForVoice = narration.enabled && (narration.holding || (!playing && narration.speaking));
     const { stop: stopNarration, update: updateNarration, prime: primeNarration } = narration;
 
     /** 暂停画面；播完自动暂停时不打断最后一段朗读 */
@@ -176,7 +178,11 @@ export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
                 sandbox="allow-same-origin"
                 title={t.svgAnimation.alt}
                 onLoad={handleLoad}
-                className={cn("mx-auto block rounded border bg-white", !fullscreen && "w-full max-w-3xl")}
+                className={cn(
+                    "mx-auto block rounded border bg-white transition-shadow",
+                    !fullscreen && "w-full max-w-3xl",
+                    waitingForVoice && "border-primary ring-2 ring-primary/40"
+                )}
                 // 全屏时按宽高比放到最大，留出控制栏的高度
                 style={fullscreen
                     ? { aspectRatio, width: `min(100%, calc((100dvh - 96px) * ${aspectRatio}))` }

@@ -42,6 +42,12 @@ function findVoice(voices: SpeechSynthesisVoice[], language: "zh" | "en"): Speec
         ?? matches[0];
 }
 
+/**
+ * 等待朗读时提前暂停的秒数：在下一段开始前、换步的淡入淡出之前停下，画面停在上一步完整的样子，
+ * 不会停在两步之间半透明的过渡中
+ */
+const HOLD_LEAD_S = 0.8;
+
 /** 朗读开始的最长等待；超时（如 iOS 未解锁时被静默拦截）视为读完，避免画面一直等待 */
 const START_TIMEOUT_MS = 2500;
 
@@ -87,13 +93,16 @@ interface UseSvgNarrationOptions {
 
 /**
  * SVG 动画的语音讲解：用浏览器的语音合成（Web Speech API）朗读讲解稿，由语音控制时间轴——
- * 播放到某段的 begin 时朗读该段；画面到了下一段而上一段还没读完时，先暂停画面，读完再继续。
+ * 播放到某段的 begin 时朗读该段；画面快到下一段而上一段还没读完时，先暂停画面，读完再继续。
  * 暂停或拖动进度时停止朗读，继续播放时从当前所在段的开头重新朗读。
  */
 export function useSvgNarration({ segments, language, holdAnimation }: UseSvgNarrationOptions) {
     const [supported, setSupported] = useState(false);
     const [enabled, setEnabledState] = useState(false);
     const [rate, setRateState] = useState<number>(1);
+    // 正在朗读、画面在等待朗读，供播放器在外框提示
+    const [speaking, setSpeaking] = useState(false);
+    const [holding, setHolding] = useState(false);
     const voiceRef = useRef<SpeechSynthesisVoice | undefined>(undefined);
     // 已开始朗读的段；-1 表示还没有
     const spokenRef = useRef(-1);
@@ -153,8 +162,10 @@ export function useSvgNarration({ segments, language, holdAnimation }: UseSvgNar
             if (generation !== generationRef.current || utteranceRef.current !== utterance) return;
             utteranceRef.current = null;
             speakingRef.current = false;
+            setSpeaking(false);
             if (waitingRef.current === null) return;
             waitingRef.current = null;
+            setHolding(false);
             holdRef.current(false);
         };
         utterance.onend = finish;
@@ -167,6 +178,7 @@ export function useSvgNarration({ segments, language, holdAnimation }: UseSvgNar
         watchdog = setTimeout(finish, START_TIMEOUT_MS);
         utteranceRef.current = utterance;
         speakingRef.current = true;
+        setSpeaking(true);
         synth.speak(utterance);
     }, [segments, language]);
 
@@ -175,24 +187,31 @@ export function useSvgNarration({ segments, language, holdAnimation }: UseSvgNar
         generationRef.current++;
         utteranceRef.current = null;
         speakingRef.current = false;
+        setSpeaking(false);
         if (waitingRef.current !== null) {
             waitingRef.current = null;
+            setHolding(false);
             holdRef.current(false);
         }
         spokenRef.current = segments ? segmentIndexAt(segments, time) - 1 : -1;
         getSynth()?.cancel();
     }, [segments]);
 
-    /** 播放中每帧调用：进入新的段时朗读，上一段未读完则暂停画面等待 */
+    /** 播放中每帧调用：进入新的段时朗读；上一段未读完、画面快到下一段时暂停等待 */
     const update = useCallback((time: number) => {
         if (!enabledRef.current || !segments?.length || waitingRef.current !== null) return;
-        const index = segmentIndexAt(segments, time);
-        if (index <= spokenRef.current) return;
         if (speakingRef.current) {
-            waitingRef.current = index;
+            const next = spokenRef.current + 1;
+            if (next >= segments.length) return;
+            const gap = next > 0 ? segments[next].begin - segments[next - 1].begin : segments[next].begin;
+            if (time < segments[next].begin - Math.min(HOLD_LEAD_S, gap / 2)) return;
+            waitingRef.current = next;
+            setHolding(true);
             holdRef.current(true);
             return;
         }
+        const index = segmentIndexAt(segments, time);
+        if (index <= spokenRef.current) return;
         spokenRef.current = index;
         speak(index);
     }, [segments, speak]);
@@ -235,5 +254,5 @@ export function useSvgNarration({ segments, language, holdAnimation }: UseSvgNar
         getSynth()?.cancel();
     }, [segments]);
 
-    return { supported, enabled, rate, setEnabled, cycleRate, update, stop, prime };
+    return { supported, enabled, rate, speaking, holding, setEnabled, cycleRate, update, stop, prime };
 }
