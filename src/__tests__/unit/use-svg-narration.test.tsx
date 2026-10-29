@@ -5,7 +5,7 @@ import { act, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { segmentIndexAt, useSvgNarration } from '@/lib/use-svg-narration';
+import { resetSpeechUnlockForTest, segmentIndexAt, useSvgNarration } from '@/lib/use-svg-narration';
 import type { NarrationSegment } from '@/lib/svg-animation';
 
 type Narration = ReturnType<typeof useSvgNarration>;
@@ -13,6 +13,8 @@ type Narration = ReturnType<typeof useSvgNarration>;
 class FakeUtterance {
     lang = '';
     rate = 1;
+    volume = 1;
+    onstart: (() => void) | null = null;
     voice: unknown = null;
     onend: (() => void) | null = null;
     onerror: (() => void) | null = null;
@@ -54,6 +56,7 @@ beforeEach(() => {
     vi.stubGlobal('SpeechSynthesisUtterance', FakeUtterance);
     Object.defineProperty(window, 'speechSynthesis', { value: synth, configurable: true });
     spoken = [];
+    resetSpeechUnlockForTest();
     voices = [{ lang: 'zh-CN', localService: true }, { lang: 'en-US', localService: true }];
     localStorage.setItem('svg-narration-enabled', '1');
     host = document.createElement('div');
@@ -132,7 +135,7 @@ describe('useSvgNarration', () => {
         act(() => narration.cycleRate());
         expect(narration.rate).toBe(1.25);
         act(() => narration.update(0));
-        expect(spoken[0].rate).toBe(1.25);
+        expect(spoken.at(-1)?.rate).toBe(1.25);
     });
 
     it('没有该语言的语音或浏览器不支持时不可用', async () => {
@@ -143,5 +146,38 @@ describe('useSvgNarration', () => {
         delete (window as { speechSynthesis?: unknown }).speechSynthesis;
         await render('zh');
         expect(narration.supported).toBe(false);
+    });
+
+    it('开启语音的点击中先读一段无声内容，解锁 iOS 上的朗读，整页只解锁一次', async () => {
+        localStorage.clear();
+        await render();
+        act(() => narration.setEnabled(true, 0));
+        expect(spoken).toHaveLength(1);
+        expect(spoken[0]).toMatchObject({ text: ' ', volume: 0 });
+
+        act(() => narration.prime());
+        expect(spoken).toHaveLength(1);
+    });
+
+    it('已开启但未解锁时，页面上的下一次点击会解锁', async () => {
+        await render();
+        expect(spoken).toHaveLength(0);
+        act(() => { document.body.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+        expect(spoken[0]).toMatchObject({ text: ' ', volume: 0 });
+    });
+
+    it('朗读被浏览器拦截（一直没开始）时超时视为读完，画面不会一直等待', async () => {
+        vi.useFakeTimers();
+        try {
+            await render();
+            act(() => narration.update(0));
+            act(() => narration.update(5));
+            expect(hold).toHaveBeenLastCalledWith(true);
+
+            act(() => { vi.advanceTimersByTime(2500); });
+            expect(hold).toHaveBeenLastCalledWith(false);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });

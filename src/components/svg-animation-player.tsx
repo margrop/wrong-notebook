@@ -58,7 +58,7 @@ export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
     }, [cssAnimations]);
 
     const narration = useSvgNarration({ segments: narrationSegments, language, holdAnimation });
-    const { stop: stopNarration, update: updateNarration } = narration;
+    const { stop: stopNarration, update: updateNarration, prime: primeNarration } = narration;
 
     /** 暂停画面；播完自动暂停时不打断最后一段朗读 */
     const pauseAnimation = useCallback(() => {
@@ -88,7 +88,9 @@ export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
         element.unpauseAnimations();
         cssAnimations().forEach((animation) => animation.play());
         setPlaying(true);
-    }, [cssAnimations, duration, seek]);
+        // 播放和重播由点击触发，借此解锁 iOS 上的朗读
+        primeNarration();
+    }, [cssAnimations, duration, seek, primeNarration]);
 
     const handleLoad = () => {
         svgRef.current = iframeRef.current?.contentDocument?.querySelector("svg") ?? null;
