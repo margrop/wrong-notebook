@@ -543,6 +543,24 @@ describe('Azure OpenAI Provider SVG 动画讲解', () => {
     });
 });
 
+const narrationSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><metadata id="narration">[{"begin":0,"text":"旧的"}]</metadata><text y="480">第一步<set attributeName="opacity" to="1" begin="3s"/></text></svg>';
+const narrationReply = '<narration>[{"begin":3,"text":"第二步"},{"begin":0,"text":"第一步"}]</narration>';
+const expectedNarration = [{ begin: 0, text: '第一步' }, { begin: 3, text: '第二步' }];
+
+describe('Azure OpenAI Provider 补写语音讲解稿', () => {
+    it('提示词包含动画，解析讲解稿', async () => {
+        mockAzureCompletionCreate.mockResolvedValue({ choices: [{ finish_reason: 'stop', message: { content: narrationReply } }] });
+        const provider = new AzureOpenAIProvider({ apiKey: 'test-key', endpoint: 'https://test.openai.azure.com', deploymentName: 'gpt-4o' });
+
+        expect(await provider.generateSvgNarration('求面积', '6', '解析', narrationSvg, 'en')).toEqual(expectedNarration);
+
+        const request = mockAzureCompletionCreate.mock.calls.at(-1)?.[0];
+        expect(request.messages[0].content).toContain('begin="3s"');
+        expect(request.messages[0].content).toContain('Write the narration in English');
+        expect(request.messages[1].content).toContain('in English');
+    });
+});
+
 describe('Azure OpenAI Provider 修复 LaTeX', () => {
     const latexInput = { answerText: { text: '$\\frac{1}{2$', issues: ['Expected }'] } };
 

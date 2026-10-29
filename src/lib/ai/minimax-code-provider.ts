@@ -52,6 +52,10 @@ export class MiniMaxCodeProvider implements AIService {
         return this.run((p) => p.generateSvgAnimation(...args));
     }
 
+    generateSvgNarration(...args: Parameters<AIService['generateSvgNarration']>) {
+        return this.run((p) => p.generateSvgNarration(...args));
+    }
+
     evaluateMastery(...args: Parameters<AIService['evaluateMastery']>) {
         return this.run((p) => p.evaluateMastery(...args));
     }

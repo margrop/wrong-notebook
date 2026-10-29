@@ -13,6 +13,7 @@ export type BackgroundTaskKind =
     | 'batch_upload'     // Openclaw 批量上传识别
     | 'data_import'      // 导入备份数据
     | 'svg_animation'    // 生成 SVG 动画讲解
+    | 'svg_narration'    // 补写动画的语音讲解稿
     | 'reanswer'         // 重新生成解答
     | 'fix_latex'        // 修复 LaTeX
     | 'figure'           // 重绘配图

@@ -411,6 +411,33 @@ describe('OpenAI Provider SVG 动画讲解', () => {
     });
 });
 
+const narrationSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><metadata id="narration">[{"begin":0,"text":"旧的"}]</metadata><text y="480">第一步<set attributeName="opacity" to="1" begin="3s"/></text></svg>';
+const narrationReply = '<narration>[{"begin":3,"text":"第二步"},{"begin":0,"text":"第一步"}]</narration>';
+const expectedNarration = [{ begin: 0, text: '第一步' }, { begin: 3, text: '第二步' }];
+
+describe('OpenAI Provider 补写语音讲解稿', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it('把题目、解析和动画放进提示词，解析讲解稿', async () => {
+        mockCompletionCreate.mockResolvedValue({ choices: [{ finish_reason: 'stop', message: { content: narrationReply } }] });
+        const provider = new OpenAIProvider({ apiKey: 'test-key', model: 'gpt-4o' });
+
+        expect(await provider.generateSvgNarration('求三角形面积', '6', '底乘高除以二', narrationSvg)).toEqual(expectedNarration);
+
+        const request = mockCompletionCreate.mock.calls[0][0];
+        expect(request.max_tokens).toBe(4096);
+        expect(request.messages[0].content).toContain('求三角形面积');
+        expect(request.messages[0].content).toContain('底乘高除以二');
+        expect(request.messages[0].content).toContain('总时长约 3 秒');
+        expect(request.messages[0].content).toContain('讲解使用简体中文');
+    });
+
+    it('回复中没有有效讲解稿时返回 null', async () => {
+        mockCompletionCreate.mockResolvedValue({ choices: [{ finish_reason: 'stop', message: { content: '<narration>[]</narration>' } }] });
+        expect(await new OpenAIProvider({ apiKey: 'test-key', model: 'gpt-4o' }).generateSvgNarration('题目', '', '', narrationSvg)).toBeNull();
+    });
+});
+
 describe('OpenAI Provider 修复 LaTeX', () => {
     const latexInput = { answerText: { text: '$\\frac{1}{2$', issues: ['Expected }'] } };
 

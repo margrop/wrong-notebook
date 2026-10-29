@@ -1,5 +1,5 @@
 /**
- * /api/error-items/:id/svg-animation 集成测试：生成与删除 SVG 动画讲解；
+ * /api/error-items/:id/svg-animation 集成测试：生成与删除 SVG 动画讲解、补写语音讲解稿；
  * 以及 DELETE /api/error-items/:id/geogebra 删除 GeoGebra 演示
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -8,16 +8,18 @@ const mocks = vi.hoisted(() => ({
     user: { findUnique: vi.fn() },
     errorItem: { findUnique: vi.fn(), update: vi.fn() },
     generateSvgAnimation: vi.fn(),
+    generateSvgNarration: vi.fn(),
     session: { user: { email: 'user@example.com' }, expires: '2099-01-01' } as { user: { email: string }; expires: string } | null,
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: { user: mocks.user, errorItem: mocks.errorItem } }));
-vi.mock('@/lib/ai', () => ({ getAIService: vi.fn(() => ({ generateSvgAnimation: mocks.generateSvgAnimation })) }));
+vi.mock('@/lib/ai', () => ({ getAIService: vi.fn(() => ({ generateSvgAnimation: mocks.generateSvgAnimation, generateSvgNarration: mocks.generateSvgNarration })) }));
 vi.mock('next-auth', () => ({ getServerSession: vi.fn(() => Promise.resolve(mocks.session)) }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 
 import { POST, DELETE } from '@/app/api/error-items/[id]/svg-animation/route';
 import { DELETE as DELETE_GEOGEBRA } from '@/app/api/error-items/[id]/geogebra/route';
+import { POST as POST_NARRATION } from '@/app/api/error-items/[id]/svg-animation/narration/route';
 
 const context = { params: Promise.resolve({ id: 'e1' }) };
 const generate = (body?: unknown) => POST(new Request('http://localhost', { method: 'POST', ...(body ? { body: JSON.stringify(body) } : {}) }), context);
@@ -119,6 +121,61 @@ describe('SVG 动画讲解接口', () => {
         expect((await remove()).status).toBe(404);
         expect(mocks.errorItem.update).not.toHaveBeenCalled();
         expect(mocks.generateSvgAnimation).not.toHaveBeenCalled();
+    });
+});
+
+describe('POST /api/error-items/:id/svg-animation/narration', () => {
+    const narrate = (body?: unknown) => POST_NARRATION(new Request('http://localhost', { method: 'POST', ...(body ? { body: JSON.stringify(body) } : {}) }), context);
+    const narration = [{ begin: 0, text: '先看 a<b' }];
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mocks.session = { user: { email: 'user@example.com' }, expires: '2099-01-01' };
+        mocks.user.findUnique.mockResolvedValue({ id: 'user-1' });
+        mocks.errorItem.findUnique.mockResolvedValue({ userId: 'user-1', questionText: '求面积', answerText: '6', analysis: '底乘高', svgAnimation: svg, svgAnimationEn: null });
+        mocks.errorItem.update.mockResolvedValue({});
+    });
+
+    it('为中文版动画补写讲解稿，写入 SVG 后保存，画面不变', async () => {
+        mocks.generateSvgNarration.mockResolvedValue(narration);
+
+        const response = await narrate();
+
+        expect(response.status).toBe(200);
+        expect(mocks.generateSvgNarration).toHaveBeenCalledWith('求面积', '6', '底乘高', svg, 'zh');
+        const saved = mocks.errorItem.update.mock.calls[0][0].data.svgAnimation as string;
+        expect(saved).toContain('<metadata id="narration">');
+        expect(saved).toContain('a&lt;b');
+        expect(saved.replace(/<metadata[\s\S]*?<\/metadata>/, '')).toBe(svg);
+        expect((await response.json()).svgAnimation).toBe(saved);
+    });
+
+    it('英文版动画不存在时返回 NO_ANIMATION，不调用 AI', async () => {
+        const response = await narrate({ language: 'en' });
+
+        expect(response.status).toBe(400);
+        expect((await response.json()).message).toBe('NO_ANIMATION');
+        expect(mocks.generateSvgNarration).not.toHaveBeenCalled();
+    });
+
+    it('AI 未返回有效讲解稿时返回 NO_VALID_NARRATION，不修改动画', async () => {
+        mocks.generateSvgNarration.mockResolvedValue(null);
+
+        const response = await narrate();
+
+        expect(response.status).toBe(400);
+        expect((await response.json()).message).toBe('NO_VALID_NARRATION');
+        expect(mocks.errorItem.update).not.toHaveBeenCalled();
+    });
+
+    it('未登录返回 401，不能操作他人的题目', async () => {
+        mocks.session = null;
+        expect((await narrate()).status).toBe(401);
+
+        mocks.session = { user: { email: 'user@example.com' }, expires: '2099-01-01' };
+        mocks.errorItem.findUnique.mockResolvedValue({ userId: 'other', svgAnimation: svg });
+        expect((await narrate()).status).toBe(404);
+        expect(mocks.generateSvgNarration).not.toHaveBeenCalled();
     });
 });
 

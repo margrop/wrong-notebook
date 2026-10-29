@@ -45,7 +45,7 @@ New sign-ups are off by default, so strangers cannot register and use up your AI
 
 To keep children from using up your API quota by regenerating explanations and questions, admins can set "Daily AI Limit per User" under "Settings → User Management". The user list also shows how many AI actions each person has used today.
 
-- Counted actions are the AI features a user starts: recognizing questions, re-solving, generating and grading practice questions, figures, LaTeX fixes, GeoGebra, animated explanations, re-tagging and exam papers. Each action counts once; a whole exam paper or re-tagging a whole notebook also counts once. An answer that matches the reference exactly is marked without the AI and does not count.
+- Counted actions are the AI features a user starts: recognizing questions, re-solving, generating and grading practice questions, figures, LaTeX fixes, GeoGebra, animated explanations (including narration scripts), re-tagging and exam papers. Each action counts once; a whole exam paper or re-tagging a whole notebook also counts once. An answer that matches the reference exactly is marked without the AI and does not count.
 - Mastery evaluation that runs automatically in the background is not counted.
 - 0 means unlimited (the default); admins are not limited. The environment variable `AI_DAILY_LIMIT` sets the default; a value saved on the web page takes precedence.
 - Counts reset at midnight in the application time zone. Once the limit is reached, AI features show "You have used up today's AI allowance".
@@ -54,7 +54,7 @@ The default admin is only for initializing a fresh install. Upgrades of existing
 
 ## Background tasks and progress
 
-The task entry at the bottom right of the page shows the status of long operations such as recognition, animations, re-solving, batch tagging, data import and exam generation. Some batch tasks show processed and failed counts.
+The task entry at the bottom right of the page shows the status of long operations such as recognition, animations, narration scripts, re-solving, batch tagging, data import and exam generation. Some batch tasks show processed and failed counts.
 
 The percentage on the entry screen is an estimate by stage (compress, upload, analyze, process, save), not the AI's real progress; the elapsed time shows how long you have been waiting.
 

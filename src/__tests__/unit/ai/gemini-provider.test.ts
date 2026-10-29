@@ -299,6 +299,22 @@ describe('Gemini Provider SVG 动画讲解', () => {
     });
 });
 
+const narrationSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><metadata id="narration">[{"begin":0,"text":"旧的"}]</metadata><text y="480">第一步<set attributeName="opacity" to="1" begin="3s"/></text></svg>';
+const narrationReply = '<narration>[{"begin":3,"text":"第二步"},{"begin":0,"text":"第一步"}]</narration>';
+const expectedNarration = [{ begin: 0, text: '第一步' }, { begin: 3, text: '第二步' }];
+
+describe('Gemini Provider 补写语音讲解稿', () => {
+    it('提示词包含动画，解析讲解稿，没有标签时从正文中取 JSON', async () => {
+        const provider = new GeminiProvider({ apiKey: 'test-key' });
+        mockGenerateContent.mockResolvedValue({ text: narrationReply });
+        expect(await provider.generateSvgNarration('求面积', '6', '解析', narrationSvg)).toEqual(expectedNarration);
+        expect(JSON.stringify(mockGenerateContent.mock.calls.at(-1)?.[0].contents)).toContain('求面积');
+
+        mockGenerateContent.mockResolvedValue({ text: '讲解稿：[{"begin":0,"text":"第一步"}]' });
+        expect(await provider.generateSvgNarration('求面积', '6', '解析', narrationSvg)).toEqual([{ begin: 0, text: '第一步' }]);
+    });
+});
+
 describe('Gemini Provider 修复 LaTeX', () => {
     const latexInput = { answerText: { text: '$\\frac{1}{2$', issues: ['Expected }'] } };
 

@@ -4,6 +4,7 @@ import type { ParsedQuestionFromSchema } from './schema';
 
 // Import and re-export MistakeStatus from the single source of truth
 import type { MistakeStatus } from '../mistake-status';
+import type { NarrationSegment } from '../svg-animation';
 export type { MistakeStatus };
 
 export type DifficultyLevel = 'easy' | 'medium' | 'hard' | 'harder';
@@ -102,6 +103,8 @@ export interface AIService {
     fixLatex(input: LatexFixInput): Promise<LatexFixResult>;
     /** 生成 SVG 动画讲解（已净化），无有效 SVG 时返回 null；figureSvg 为题目配图，language 决定动画中文字的语言 */
     generateSvgAnimation(questionText: string, answerText: string, analysis: string, figureSvg?: string | null, language?: 'zh' | 'en'): Promise<string | null>;
+    /** 为已有的 SVG 动画补写语音讲解稿（画面不变），无有效讲解稿时返回 null；language 决定讲解的语言 */
+    generateSvgNarration(questionText: string, answerText: string, analysis: string, svgAnimation: string, language?: 'zh' | 'en'): Promise<NarrationSegment[] | null>;
     evaluateMastery(input: MasteryEvaluationInput): Promise<MasteryEvaluationResult>;
     /** 对照标准答案判定学生答案是否正确 */
     gradeAnswer(input: AnswerGradingInput): Promise<AnswerGradingResult>;

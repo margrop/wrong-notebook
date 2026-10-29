@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/api-client', () => ({ apiClient: { post: mocks.post, delete: mocks.delete } }));
-vi.mock('@/lib/feedback', () => ({ toast: { error: vi.fn() }, confirmDialog: mocks.confirmDialog }));
+vi.mock('@/lib/feedback', () => ({ toast: { error: vi.fn(), success: vi.fn() }, confirmDialog: mocks.confirmDialog }));
 vi.mock('@/components/svg-animation-player', () => ({ SvgAnimationPlayer: ({ svg }: { svg: string }) => <div data-testid="player">{svg}</div> }));
 
 const svg = '<svg xmlns="http://www.w3.org/2000/svg"/>';
@@ -91,5 +91,29 @@ describe('SVG 动画讲解按界面语言生成', () => {
     it('当前语言未生成但另一语言已有动画时提示切换语言查看', async () => {
         await render({ hasOtherLanguage: true });
         expect(container.textContent).toContain('已有英文版动画讲解');
+    });
+
+    it('已有动画可补充讲解稿，已有讲解稿时显示重写', async () => {
+        const narrated = '<svg xmlns="http://www.w3.org/2000/svg"><metadata id="narration">[{"begin":0,"text":"讲解"}]</metadata></svg>';
+        mocks.post.mockResolvedValue({ svgAnimation: narrated });
+        const onChange = vi.fn();
+        await render({ svgAnimation: svg, onChange });
+
+        await clickButton('补充讲解稿');
+
+        expect(mocks.post).toHaveBeenCalledWith('/api/error-items/e1/svg-animation/narration', { language: 'zh' }, expect.anything());
+        expect(onChange).toHaveBeenCalledWith('zh', narrated);
+
+        await render({ svgAnimation: narrated, onChange });
+        expect(container.textContent).toContain('重写讲解稿');
+    });
+
+    it('补充讲解稿失败时显示原因', async () => {
+        mocks.post.mockRejectedValue({ data: { message: 'NO_VALID_NARRATION' } });
+        await render({ svgAnimation: svg });
+
+        await clickButton('补充讲解稿');
+
+        expect(container.textContent).toContain('AI 未返回有效的讲解稿');
     });
 });

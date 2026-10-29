@@ -233,6 +233,29 @@ describe('Anthropic Provider SVG 动画讲解', () => {
     });
 });
 
+const narrationSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><metadata id="narration">[{"begin":0,"text":"旧的"}]</metadata><text y="480">第一步<set attributeName="opacity" to="1" begin="3s"/></text></svg>';
+const narrationReply = '<narration>[{"begin":3,"text":"第二步"},{"begin":0,"text":"第一步"}]</narration>';
+const expectedNarration = [{ begin: 0, text: '第一步' }, { begin: 3, text: '第二步' }];
+
+describe('Anthropic Provider 补写语音讲解稿', () => {
+    it('提示词包含去掉旧讲解稿的动画，解析讲解稿', async () => {
+        mocks.create.mockResolvedValue(message(narrationReply));
+        const provider = new AnthropicProvider({ apiKey: 'sk-ant' });
+
+        expect(await provider.generateSvgNarration('求面积', '6', '解析', narrationSvg)).toEqual(expectedNarration);
+
+        const request = mocks.create.mock.calls.at(-1)?.[0];
+        expect(request.max_tokens).toBe(4096);
+        expect(request.system).toContain('begin="3s"');
+        expect(request.system).not.toContain('旧的');
+    });
+
+    it('没有有效讲解稿时返回 null', async () => {
+        mocks.create.mockResolvedValue(message('<narration>无法生成</narration>'));
+        expect(await new AnthropicProvider({ apiKey: 'sk-ant' }).generateSvgNarration('题目', '', '', narrationSvg)).toBeNull();
+    });
+});
+
 describe('Anthropic Provider 修复 LaTeX', () => {
     const latexInput = { answerText: { text: '$\\frac{1}{2$', issues: ['Expected }'] } };
 

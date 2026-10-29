@@ -4,6 +4,7 @@
  */
 
 import { createLogger } from '../logger';
+import { embedNarration, getSvgAnimationDuration } from '../svg-animation';
 import type { CandidateTags, GradeLevel } from './types';
 
 const logger = createLogger('ai:prompts');
@@ -895,6 +896,63 @@ export function generateSvgAnimationPrompt(
         answer_text: answerText.trim() || '（无）',
         analysis: analysis.trim() || '（无）',
         figure_reference: figureSvg ? `【题目配图 (FIGURE)】\n题目配图如下（SVG），动画中的图形须与之一致：\n${figureSvg}` : '',
+    }).trim();
+}
+
+/**
+ * 为已有的 SVG 动画补写语音讲解稿的提示词（画面不变，只输出讲解稿）
+ */
+export const DEFAULT_SVG_NARRATION_TEMPLATE = `【角色与核心任务 (ROLE AND CORE TASK)】
+你是一位擅长讲题的老师。下面是一道题和已经做好的 SVG 动画讲解（SMIL 动画{{duration_hint}}）。请为这段动画写语音讲解稿：按动画的步骤和时间，写出每一步要朗读的讲解，让学生边看动画边听讲解。
+
+【题目内容 (QUESTION)】
+{{question_text}}
+
+【答案内容 (ANSWER)】
+{{answer_text}}
+
+【解析内容 (ANALYSIS)】
+{{analysis}}
+
+【SVG 动画 (ANIMATION)】
+{{svg_animation}}
+
+【讲解稿要求】
+- 根据动画中各元素的 begin 时间找出每一步的开始时间（通常是该步字幕出现的时间），每一步写一段，begin 与之一致，第一段 begin 为 0。
+- 讲解内容与该步画面一致，口语化、比字幕更完整，朗读时长与该步时长相近。{{narration_rule}}
+- 符号写成读法（如“x 的平方”“根号 2”“角 ABC”），不要使用 LaTeX，不要写 <、>、& 字符。
+
+【输出格式】
+只输出以下标签，标签内是 JSON 数组，不要用 Markdown 代码块包裹，不要输出其他内容：
+
+<narration>
+[{"begin": 0, "text": "第一步的讲解"}, {"begin": 5, "text": "第二步的讲解"}]
+</narration>`;
+
+/** 补写讲解稿时随提示词发送的用户消息 */
+export const SVG_NARRATION_REQUEST: Record<'zh' | 'en', string> = {
+    zh: '请为上述动画写语音讲解稿。',
+    en: 'Please write the voice narration for the animation above, in English.',
+};
+
+/**
+ * 补写语音讲解稿的提示词；svgAnimation 为已有动画（会去掉其中旧的讲解稿），language 决定讲解的语言
+ */
+export function generateSvgNarrationPrompt(
+    questionText: string,
+    answerText: string,
+    analysis: string,
+    svgAnimation: string,
+    language: 'zh' | 'en' = 'zh'
+): string {
+    const duration = Math.round(getSvgAnimationDuration(svgAnimation));
+    return replaceVariables(DEFAULT_SVG_NARRATION_TEMPLATE, {
+        duration_hint: duration > 0 ? `，总时长约 ${duration} 秒` : '',
+        narration_rule: NARRATION_RULES[language],
+        question_text: questionText.trim() || '（无题目文字）',
+        answer_text: answerText.trim() || '（无）',
+        analysis: analysis.trim() || '（无）',
+        svg_animation: embedNarration(svgAnimation, null),
     }).trim();
 }
 
