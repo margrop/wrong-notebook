@@ -40,6 +40,7 @@ const EXPECTED: Record<VendorProviderId, { baseUrl: string; model: string }> = {
     glm: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.3-flash' },
     deepseek: { baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash' },
     kimi: { baseUrl: 'https://api.moonshot.cn/v1', model: 'kimi-k3' },
+    qwen: { baseUrl: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1', model: 'qwen3.8-max' },
 };
 
 const adminSession = { user: { id: 'admin-1', role: 'admin' }, expires: '2099-01-01' };

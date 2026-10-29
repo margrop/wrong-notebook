@@ -65,7 +65,7 @@ After changing logic, run at least the unit and integration tests. Changes to do
 
 ## Changing AI features
 
-AI logic changes must consider all providers: Gemini, OpenAI (including the MiniMax, GLM, DeepSeek and Kimi channels), Azure and Anthropic. Prompts live in `prompts.ts`; the type and format contract of generated questions is also validated by modules such as `generated-question.ts`.
+AI logic changes must consider all providers: Gemini, OpenAI (including the MiniMax, GLM, DeepSeek, Kimi and Qwen channels), Azure and Anthropic. Prompts live in `prompts.ts`; the type and format contract of generated questions is also validated by modules such as `generated-question.ts`.
 
 Cover normal results, malformed output, timeouts and truncated output when verifying. After changing an output structure, also check callers such as practice, exam papers, figures and re-solving.
 

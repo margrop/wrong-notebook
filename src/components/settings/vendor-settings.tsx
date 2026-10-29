@@ -41,7 +41,7 @@ export function VendorSettings({ provider, value, onChange }: VendorSettingsProp
                     onChange={(e) => update("baseUrl", e.target.value)}
                     placeholder={preset.baseUrl}
                 />
-                <p className="text-xs text-muted-foreground">{t.settings?.ai?.vendorBaseUrlHint}</p>
+                <p className="text-xs text-muted-foreground">{provider === "qwen" ? t.settings?.ai?.qwenBaseUrlHint : t.settings?.ai?.vendorBaseUrlHint}</p>
             </div>
             <ModelSelector
                 provider={provider}

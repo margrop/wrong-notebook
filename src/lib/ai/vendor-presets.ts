@@ -40,6 +40,14 @@ export const VENDOR_PRESETS = {
         envPrefix: 'KIMI',
         consoleUrl: 'https://platform.kimi.com',
     },
+    // 默认为百炼 Token Plan 专属地址（Key 以 sk-sp- 开头）；按量付费的 Key 改用 https://dashscope.aliyuncs.com/compatible-mode/v1
+    qwen: {
+        name: '千问 Qwen',
+        baseUrl: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
+        model: 'qwen3.8-max',
+        envPrefix: 'QWEN',
+        consoleUrl: 'https://bailian.console.aliyun.com',
+    },
 } as const satisfies Record<string, VendorPreset>;
 
 export type VendorProviderId = keyof typeof VENDOR_PRESETS;
