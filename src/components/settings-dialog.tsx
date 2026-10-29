@@ -23,6 +23,7 @@ import { DangerZoneSettings } from "@/components/settings/danger-zone-settings";
 import { DataBackupSettings } from "@/components/settings/data-backup-settings";
 import { GeneralSettings } from "@/components/settings/general-settings";
 import { PromptSettings } from "@/components/settings/prompt-settings";
+import { TtsSettings } from "@/components/settings/tts-settings";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { apiClient } from "@/lib/api-client";
@@ -149,6 +150,7 @@ export function SettingsDialog() {
 
                     <TabsContent value="ai" className="space-y-4 py-4">
                         <AiProviderSettings config={config} setConfig={setConfig} loading={loading} saving={saving} onSave={handleSaveSettings} />
+                        {!loading && <TtsSettings config={config} setConfig={setConfig} saving={saving} onSave={handleSaveSettings} />}
                     </TabsContent>
 
                     <TabsContent value="prompts" className="space-y-4 py-4">

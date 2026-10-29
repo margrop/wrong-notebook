@@ -9,12 +9,25 @@ import { createLogger } from "@/lib/logger";
 import type { OpenAIInstance } from "@/types/api";
 import { isValidTimeZone } from "@/lib/date-time";
 import { VENDOR_PROVIDER_IDS } from "@/lib/ai/vendor-presets";
+import { TTS_MODES } from "@/lib/tts/constants";
 
 const logger = createLogger('api:settings');
 
 const minimaxCodeSchema = z.object({
     model: z.string().trim().max(100).optional(),
     autoCheckin: z.boolean().optional(),
+});
+
+const cloudTtsSchema = z.object({
+    model: z.string().trim().max(100).optional(),
+    voice: z.string().trim().max(200).optional(),
+    endpoint: z.union([z.literal(''), z.string().trim().url().max(500)]).optional(),
+});
+
+const ttsSchema = z.object({
+    mode: z.enum(TTS_MODES).optional(),
+    minimax: cloudTtsSchema.optional(),
+    qwen: cloudTtsSchema.optional(),
 });
 
 export const dynamic = 'force-dynamic';
@@ -56,6 +69,11 @@ export async function POST(req: Request) {
             if (!parsed.success) return badRequest('INVALID_MINIMAX_CODE_CONFIG');
             // 只保存模型和自动签到开关；登录凭据与签到记录由服务端单独管理
             body.minimaxCode = parsed.data;
+        }
+        if (body.tts !== undefined) {
+            const parsed = ttsSchema.safeParse(body.tts);
+            if (!parsed.success) return badRequest('INVALID_TTS_CONFIG');
+            body.tts = parsed.data;
         }
         const currentConfig = getAppConfig();
 

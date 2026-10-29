@@ -5,6 +5,32 @@ import { act, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+class FakeAudio {
+    src = '';
+    playbackRate = 1;
+    onplaying: (() => void) | null = null;
+    onended: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    play = vi.fn(() => Promise.resolve());
+    pause = vi.fn();
+}
+
+const cloud = vi.hoisted(() => ({
+    mode: 'browser' as 'browser' | 'cloud',
+    audio: null as unknown,
+    requestSpeech: vi.fn(),
+    unlock: vi.fn(),
+}));
+
+vi.mock('@/lib/cloud-speech', () => ({
+    getSpeechMode: () => Promise.resolve(cloud.mode),
+    getSpeechAudio: () => cloud.audio,
+    isSpeechAudioUnlocked: () => false,
+    requestSpeech: cloud.requestSpeech,
+    unlockSpeechAudio: cloud.unlock,
+}));
+
 import { resetSpeechUnlockForTest, segmentIndexAt, useSvgNarration } from '@/lib/use-svg-narration';
 import type { NarrationSegment } from '@/lib/svg-animation';
 
@@ -56,6 +82,8 @@ beforeEach(() => {
     vi.stubGlobal('SpeechSynthesisUtterance', FakeUtterance);
     Object.defineProperty(window, 'speechSynthesis', { value: synth, configurable: true });
     spoken = [];
+    cloud.mode = 'browser';
+    cloud.audio = null;
     resetSpeechUnlockForTest();
     voices = [{ lang: 'zh-CN', localService: true }, { lang: 'en-US', localService: true }];
     localStorage.setItem('svg-narration-enabled', '1');
@@ -203,5 +231,100 @@ describe('useSvgNarration', () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+});
+
+describe('useSvgNarration 云端语音', () => {
+    let audio: FakeAudio;
+    const flush = () => act(async () => { await Promise.resolve(); });
+
+    beforeEach(() => {
+        cloud.mode = 'cloud';
+        audio = new FakeAudio();
+        cloud.audio = audio;
+        cloud.requestSpeech.mockImplementation((text: string) => Promise.resolve(`/api/tts/${text}`));
+    });
+
+    it('播放服务端合成的语音并提前合成后面的段；读完前暂停画面，播完恢复', async () => {
+        await render();
+        expect(narration.supported).toBe(true);
+        // 开启语音时提前合成前两段
+        expect(cloud.requestSpeech).toHaveBeenCalledWith('第一步', 'zh');
+        expect(cloud.requestSpeech).toHaveBeenCalledWith('第二步', 'zh');
+
+        act(() => narration.update(0));
+        await flush();
+        expect(audio.src).toBe('/api/tts/第一步');
+        expect(audio.play).toHaveBeenCalled();
+        act(() => audio.onplaying?.());
+
+        act(() => narration.update(5));
+        expect(hold).toHaveBeenLastCalledWith(true);
+        act(() => audio.onended?.());
+        expect(hold).toHaveBeenLastCalledWith(false);
+
+        act(() => narration.update(5));
+        await flush();
+        expect(audio.src).toBe('/api/tts/第二步');
+        expect(spoken).toHaveLength(0);
+    });
+
+    it('语速作用于正在播放的语音；停止时暂停播放', async () => {
+        await render();
+        act(() => narration.update(0));
+        await flush();
+        act(() => narration.cycleRate());
+        expect(audio.playbackRate).toBe(1.25);
+
+        act(() => narration.stop(0));
+        expect(audio.pause).toHaveBeenCalled();
+        // 已停止的语音播完不再影响画面
+        hold.mockClear();
+        act(() => audio.onended?.());
+        expect(hold).not.toHaveBeenCalled();
+    });
+
+    it('合成失败或播放出错时改用浏览器语音', async () => {
+        cloud.requestSpeech.mockImplementation(() => Promise.reject(new Error('502')));
+        await render();
+        act(() => narration.update(0));
+        await flush();
+        expect(spoken.map((u) => u.text)).toEqual(['第一步']);
+
+        cloud.requestSpeech.mockImplementation((text: string) => Promise.resolve(`/api/tts/${text}`));
+        act(() => spoken[0].onend?.());
+        act(() => narration.update(5));
+        await flush();
+        act(() => audio.onerror?.());
+        act(() => audio.onerror?.());
+        expect(spoken.map((u) => u.text)).toEqual(['第一步', '第二步']);
+    });
+
+    it('合成较慢时暂停画面等待，开始播放后恢复', async () => {
+        vi.useFakeTimers();
+        try {
+            let resolve!: (url: string) => void;
+            cloud.requestSpeech.mockImplementation(() => new Promise((r) => { resolve = r; }));
+            await render();
+            act(() => narration.update(0));
+            act(() => { vi.advanceTimersByTime(300); });
+            expect(hold).toHaveBeenLastCalledWith(true);
+            expect(narration.holding).toBe(true);
+
+            resolve('/api/tts/slow');
+            await flush();
+            act(() => audio.onplaying?.());
+            expect(hold).toHaveBeenLastCalledWith(false);
+            expect(narration.holding).toBe(false);
+            expect(narration.speaking).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('点击播放时同时解锁音频播放', async () => {
+        await render();
+        act(() => narration.prime());
+        expect(cloud.unlock).toHaveBeenCalled();
     });
 });

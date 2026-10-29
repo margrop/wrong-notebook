@@ -36,13 +36,14 @@ async function downloadExport(url: string, fallbackName: string) {
 }
 
 function formatImportResult(stats: ImportStats, t: Translations): string {
-    return (t.settings?.importResultDesc || "Imported {subjects} notebooks, {tags} tags, {items} error items, {schedules} review schedules, {records} practice records, {papers} exam papers.")
+    return (t.settings?.importResultDesc || "Imported {subjects} notebooks, {tags} tags, {items} error items, {schedules} review schedules, {records} practice records, {papers} exam papers and {voices} cloud voice clips.")
         .replace('{subjects}', String(stats.subjectsCreated))
         .replace('{tags}', String(stats.tagsCreated))
         .replace('{items}', String(stats.errorItemsCreated))
         .replace('{schedules}', String(stats.reviewSchedulesCreated))
         .replace('{records}', String(stats.practiceRecordsCreated))
         .replace('{papers}', String(stats.examPapersCreated ?? 0))
+        .replace('{voices}', String(stats.ttsSpeechesImported ?? 0))
         .replace('{duplicates}', String(stats.duplicateErrorItems ?? 0));
 }
 

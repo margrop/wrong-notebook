@@ -19,6 +19,7 @@ dist
 # 本机配置与登录凭据（含密钥），运行时由挂载的配置目录提供
 config/app-config.json
 config/minimax-code.json
+config/tts-cache/
 
 # 构建阶段运行单元/集成测试；最终 standalone 镜像不复制测试目录
 coverage

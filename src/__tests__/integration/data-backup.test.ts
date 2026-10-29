@@ -24,7 +24,8 @@ vi.mock('@/lib/mastery', async (importOriginal) => ({
 import { GET as EXPORT } from '@/app/api/export/route';
 import { POST as IMPORT } from '@/app/api/import/route';
 import { sanitizeFigureSvg } from '@/lib/figure-svg';
-import { sanitizeSvgAnimation } from '@/lib/svg-animation';
+import { embedNarration, sanitizeSvgAnimation } from '@/lib/svg-animation';
+import { encodeMp3 } from '@/lib/tts/mp3';
 
 let database: PrismaClient;
 let directory: string;
@@ -59,6 +60,8 @@ async function clearUserData() {
 beforeAll(() => {
     // 所有真实读写和迁移均使用系统临时数据库，不接触开发或生产数据。
     directory = mkdtempSync(join(tmpdir(), 'wrong-notebook-backup-test-'));
+    // 云端语音缓存同样写到临时目录
+    process.env.CONFIG_DIR = join(directory, 'config');
     const url = `file:${join(directory, 'test.db')}`;
     execFileSync(process.execPath, [resolve('node_modules/prisma/build/index.js'), 'migrate', 'deploy'], {
         env: { ...process.env, DATABASE_URL: url },
@@ -98,6 +101,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+    delete process.env.CONFIG_DIR;
     await database?.$disconnect();
     if (directory) rmSync(directory, { recursive: true, force: true });
 });
@@ -180,6 +184,32 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.examPaper.count({ where: { userId: 'user-1' } })).toBe(1);
         const examRecords = await database.practiceRecord.findMany({ where: { source: 'exam' } });
         expect(examRecords.map((record) => record.examQuestionId)).toEqual([paper.questions[0].id, paper.questions[0].id]);
+    });
+
+    it('云端语音随备份导入、导出：只导出与动画讲解一致的语音，不合法的跳过，已有的不重复写入', async () => {
+        const narrated = embedNarration(animation('画面'), [{ begin: 0, text: '先看条件' }]);
+        await database.errorItem.update({ where: { id: 'item-1' }, data: { svgAnimation: narrated } });
+        const audio = encodeMp3({ sampleRate: 24000, samples: new Float32Array(2400) }).toString('base64');
+        const speech = { provider: 'minimax', model: 'speech-2.8-hd', voice: 'male-qn-jingying', language: 'zh', text: '先看条件', audio };
+
+        const backup = await exportBackup();
+        expect(backup.ttsSpeeches).toEqual([]);
+
+        const { stats } = await importBackup({
+            ...backup,
+            ttsSpeeches: [
+                speech,
+                { ...speech, text: '与动画无关的话' },
+                { ...speech, text: '不是 MP3', audio: Buffer.from('not mp3').toString('base64') },
+                { ...speech, provider: 'unknown' },
+                { ...speech, text: '' },
+            ],
+        });
+        expect(stats.ttsSpeechesImported).toBe(2);
+
+        const exported = await exportBackup();
+        expect(exported.ttsSpeeches).toEqual([speech]);
+        expect((await importBackup(exported)).stats.ttsSpeechesImported).toBe(0);
     });
 
     it('还原本人的偏好设置，不合法的单项跳过', async () => {

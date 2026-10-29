@@ -152,7 +152,7 @@ Practice statistics show total practice, accuracy and active months, with distri
 
 ### Explanations and demos
 
-- **🎬 SVG animated explanations**: AI generates step-by-step SVG animations of the solution, with play/pause, seeking, replay and full screen. Click the speaker icon in the player for voice narration: the browser reads each step aloud, the animation waits for the narration before moving on, and the speed is adjustable. Older animations without a narration script read the on-screen subtitles, or click **Add narration** to have AI write only the script while keeping the picture unchanged. Animation text follows the interface language: the English interface generates an English version and the Chinese interface a Chinese one. Both are kept, and switching the language shows the matching version automatically. On by default; turn it off in **Settings → General**.
+- **🎬 SVG animated explanations**: AI generates step-by-step SVG animations of the solution, with play/pause, seeking, replay and full screen. Click the speaker icon in the player for voice narration: each step is read aloud, the animation waits for the narration before moving on, and the speed is adjustable. The browser's voice is used by default; admins can switch to a cloud voice (MiniMax or Qwen) under **Settings → AI → Voice narration**, where the server synthesizes a young male voice normalized to about -15 LUFS. Existing animations can **Regenerate voice**, and synthesized voice is included in data export and import. Older animations without a narration script read the on-screen subtitles, or click **Add narration** to have AI write only the script while keeping the picture unchanged. Animation text follows the interface language: the English interface generates an English version and the Chinese interface a Chinese one. Both are kept, and switching the language shows the matching version automatically. On by default; turn it off in **Settings → General**.
 - **📐 GeoGebra demos**: for math and physics questions, AI can generate interactive GeoGebra figures. Off by default; turn it on in **Settings → General**.
 - Generated animations and GeoGebra demos can be deleted (with confirmation).
 
@@ -346,6 +346,7 @@ Data directories, default accounts and local builds are described in [INSTALL_PA
 | `HTTP_PROXY` / `HTTPS_PROXY` | Proxy | None | Proxy for requests to AI services |
 | `ALLOW_REGISTRATION` | Allow sign-ups | `false` | When `true`, registration is open by default; the switch saved by an admin under **Settings → User Management** takes precedence |
 | `AI_DAILY_LIMIT` | Daily AI limit per user | `0` (unlimited) | AI actions each regular user can start per day; admins are not limited. The value saved under **Settings → User Management** takes precedence |
+| `TTS_MODE` | How animation narration is voiced | `browser` | `browser` uses the browser's voice; `minimax` or `qwen` uses a cloud voice with that channel's API key. The value saved under **Settings → AI → Voice narration** takes precedence |
 
 **AI** (settings saved in the web UI take precedence over environment variables)
 

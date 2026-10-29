@@ -15,6 +15,7 @@ import { parseDifficultyStars } from "@/lib/ai/schema";
 import { resolveNotebookScope } from "@/lib/notebook-scope";
 import { sanitizeFigureSvg } from "@/lib/figure-svg";
 import { sanitizeSvgAnimation } from "@/lib/svg-animation";
+import { importSpeeches } from "@/lib/tts/speech-cache";
 import { parseLastPractice } from "@/lib/last-practice";
 import { getDefaultPaperLevel } from "@/lib/paper-level";
 import { EXAM_DIFFICULTIES, EXAM_SCOPES, summarizePaperStatus } from "@/lib/exam";
@@ -150,6 +151,8 @@ interface ImportData {
             error: string | null;
         }>;
     }>;
+    /** 动画讲解的云端语音（服务商、模型、音色、文字与 Base64 编码的 MP3），写入语音缓存 */
+    ttsSpeeches?: unknown;
 }
 
 // 与用户设置接口的取值范围一致，单项不合法时只跳过该项
@@ -258,6 +261,7 @@ export async function POST(req: Request) {
             practiceRecordsCreated: 0,
             tagsLinked: 0,
             duplicateErrorItems: 0,
+            ttsSpeechesImported: 0,
         };
         const masteryIds = new Set<string>();
         // 已带掌握概率导入的新题无需重新评估
@@ -582,6 +586,11 @@ export async function POST(req: Request) {
         });
 
         if (masteryIds.size) scheduleMasteryEvaluation([...masteryIds]);
+        // 语音缓存不在数据库中，数据导入成功后再写入；失败只记录日志，不影响已导入的数据
+        stats.ttsSpeechesImported = await importSpeeches(body.ttsSpeeches).catch((error: unknown) => {
+            logger.warn({ error }, 'Failed to import TTS speeches');
+            return 0;
+        });
         task.succeed();
 
         logger.info({

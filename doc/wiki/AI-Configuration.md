@@ -44,6 +44,21 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 
 该渠道使用 MiniMax Code 桌面客户端的登录方式，不是官方开放接口，MiniMax 可能随时调整或限制，请遵守其服务条款。
 
+## 云端语音讲解
+
+动画的语音讲解默认由浏览器本地语音（Web Speech）朗读。管理员可在「设置 → AI 设置 → 语音讲解」改用云端语音，由服务端合成后播放，所有设备听到的音色一致：
+
+| 方式 | API Key | 默认模型与音色 | 默认接口 |
+| --- | --- | --- | --- |
+| MiniMax（建议使用 M Plan） | 与 MiniMax 渠道共用 | `speech-2.8-hd`，音色 `male-qn-jingying`（精英青年） | MiniMax Base URL 加 `/t2a_v2`，即 `https://api.minimax.cn/v1/t2a_v2` |
+| 千问（建议使用百炼 Token Plan） | 与千问渠道共用 | `qwen-audio-3.0-tts-plus`，音色 `longanlufeng`（龙安鲁风） | 千问 Base URL 的域名加 `/api/v1/services/audio/tts/SpeechSynthesizer` |
+
+- 默认音色为年轻男声，自然、清晰、略带科技感；千问另用指令要求不用播音腔、不模仿角色。模型、音色和接口地址都可修改，「保存并试听」会先保存设置再朗读一段示例。
+- 合成结果统一到约 -15 LUFS 的响度（峰值不超过 -1.5 dBFS），编码为 48kbps 的 MP3，按服务商、模型、音色和文字缓存在配置目录的 `tts-cache/`，同一段讲解只合成一次，超过 500MB 时删除最早的缓存。
+- 已有动画可点「重新生成语音」逐段重新合成。合成会消耗服务商额度，不计入每人每日的 AI 次数。
+- 云端语音失败（未配置 Key、服务商报错等）时，播放器自动改用浏览器语音。
+- 网页数据导出包含与动画讲解文字一致的云端语音，导入后写回缓存，无需重新合成。
+
 ## 环境变量
 
 基础选择使用 `AI_PROVIDER`，默认 `minimax`，可选 `minimax`、`minimax-code`、`glm`、`deepseek`、`kimi`、`qwen`、`anthropic`、`azure`、`openai`、`gemini`。

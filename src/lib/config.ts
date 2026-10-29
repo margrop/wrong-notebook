@@ -5,6 +5,8 @@ import { DEFAULT_TIME_ZONE, isValidTimeZone } from './date-time';
 import { VENDOR_PROVIDER_IDS, VENDOR_PRESETS } from './ai/vendor-presets';
 import type { VendorConfig, VendorProviderId } from './ai/vendor-presets';
 import type { MiniMaxCodeConfig } from './minimax-code/constants';
+import { isTtsMode } from './tts/constants';
+import type { TtsConfig } from './tts/constants';
 
 const logger = createLogger('config');
 
@@ -62,6 +64,8 @@ export interface AppConfig extends VendorConfigs {
     timeouts?: {
         analyze?: number; // 毫秒
     };
+    /** 动画语音讲解的朗读方式：浏览器本地语音或云端语音合成 */
+    tts?: TtsConfig;
 }
 
 // 旧版 OpenAI 配置格式（用于迁移检测）
@@ -151,6 +155,8 @@ const DEFAULT_CONFIG: AppConfig = {
         model: process.env.MINIMAX_CODE_MODEL,
         autoCheckin: process.env.MINIMAX_CODE_AUTO_CHECKIN !== 'false',
     },
+    // 动画语音讲解默认用浏览器本地语音；TTS_MODE=minimax 或 qwen 时改用云端语音合成
+    tts: { mode: isTtsMode(process.env.TTS_MODE) ? process.env.TTS_MODE : 'browser' },
     ...Object.fromEntries(VENDOR_PROVIDER_IDS.map((id) => {
         const prefix = VENDOR_PRESETS[id].envPrefix;
         return [id, {
@@ -171,6 +177,15 @@ const DEFAULT_CONFIG: AppConfig = {
 // 合并各国产大模型渠道的配置，保证每个渠道都有对象
 function mergeVendorConfigs(base: Partial<AppConfig>, override: Partial<AppConfig>): VendorConfigs {
     return Object.fromEntries(VENDOR_PROVIDER_IDS.map((id) => [id, { ...base[id], ...override[id] }]));
+}
+
+/** 朗读方式与各云端语音的设置分别合并 */
+function mergeTtsConfig(base: TtsConfig | undefined, override: TtsConfig | undefined): TtsConfig {
+    return {
+        mode: override?.mode ?? base?.mode ?? 'browser',
+        minimax: { ...base?.minimax, ...override?.minimax },
+        qwen: { ...base?.qwen, ...override?.qwen },
+    };
 }
 
 /** 读取配置文件；文件不存在时返回 null（直接读取并处理 ENOENT，避免先判断再读取之间文件被改动） */
@@ -232,6 +247,7 @@ export function getAppConfig(): AppConfig {
                 ...mergeVendorConfigs(DEFAULT_CONFIG, userConfig),
                 prompts: { ...DEFAULT_CONFIG.prompts, ...userConfig.prompts },
                 timeouts: { ...DEFAULT_CONFIG.timeouts, ...userConfig.timeouts },
+                tts: mergeTtsConfig(DEFAULT_CONFIG.tts, userConfig.tts),
             };
         } catch (error) {
             logger.error({ error }, 'Failed to read config file');
@@ -261,6 +277,7 @@ export function updateAppConfig(newConfig: Partial<AppConfig>) {
         ...mergeVendorConfigs(currentConfig, newConfig),
         prompts: { ...currentConfig.prompts, ...newConfig.prompts },
         timeouts: { ...currentConfig.timeouts, ...newConfig.timeouts },
+        tts: mergeTtsConfig(currentConfig.tts, newConfig.tts),
     };
 
     try {

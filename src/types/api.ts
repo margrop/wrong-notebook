@@ -2,6 +2,7 @@ import { ParsedQuestion } from "@/lib/ai/types";
 import type { VendorConfig, VendorProviderId } from "@/lib/ai/vendor-presets";
 import type { MiniMaxCodeConfig } from "@/lib/minimax-code/constants";
 import type { MasteryStatus } from "@/lib/mastery-status";
+import type { TtsConfig } from "@/lib/tts/constants";
 
 // 通用分页响应类型
 export interface PaginatedResponse<T> {
@@ -196,6 +197,8 @@ export interface AppConfig extends VendorConfigs {
     timeouts?: {
         analyze?: number; // 毫秒
     };
+    /** 动画语音讲解的朗读方式：浏览器本地语音或云端语音合成 */
+    tts?: TtsConfig;
 }
 
 

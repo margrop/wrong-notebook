@@ -44,6 +44,21 @@ The credentials are stored in `minimax-code.json` in the config directory, and t
 
 This channel uses the sign-in of the MiniMax Code desktop client rather than an official open API. MiniMax may change or restrict it at any time; follow its terms of service.
 
+## Cloud voice narration
+
+Animation narration is read by the browser's own voice (Web Speech) by default. Admins can switch to a cloud voice under **Settings → AI → Voice narration**; the server synthesizes the speech, so every device hears the same voice:
+
+| Option | API key | Default model and voice | Default endpoint |
+| --- | --- | --- | --- |
+| MiniMax (M Plan recommended) | Shared with the MiniMax channel | `speech-2.8-hd`, voice `male-qn-jingying` | MiniMax base URL plus `/t2a_v2`, i.e. `https://api.minimax.cn/v1/t2a_v2` |
+| Qwen (Model Studio Token Plan recommended) | Shared with the Qwen channel | `qwen-audio-3.0-tts-plus`, voice `longanlufeng` | Domain of the Qwen base URL plus `/api/v1/services/audio/tts/SpeechSynthesizer` |
+
+- The default voice is a young male voice that sounds natural, clear and slightly techy; for Qwen, an instruction also asks for no broadcast tone and no character imitation. Model, voice and endpoint can be changed, and **Save and preview** saves the settings before reading a sample.
+- Speech is normalized to about -15 LUFS (peaks at most -1.5 dBFS), encoded as 48 kbps MP3 and cached in `tts-cache/` under the config directory by provider, model, voice and text. Each segment is synthesized once; the oldest files are removed beyond 500 MB.
+- **Regenerate voice** on an existing animation synthesizes it again segment by segment. Synthesis uses the provider's quota and does not count toward the per-user daily AI limit.
+- If cloud voice fails (no key, provider error and so on), the player falls back to the browser's voice.
+- Web data export includes the cloud voice matching the animation narration; import writes it back to the cache, so it does not need to be synthesized again.
+
 ## Environment variables
 
 `AI_PROVIDER` selects the provider. It defaults to `minimax` and accepts `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `anthropic`, `azure`, `openai` and `gemini`.

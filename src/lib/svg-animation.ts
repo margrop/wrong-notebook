@@ -40,7 +40,7 @@ const NARRATION_METADATA = /<metadata\b[^>]*\bid\s*=\s*["']narration["'][^>]*>([
 
 const XML_ENTITIES: Record<string, string> = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" };
 
-function decodeXmlText(text: string): string {
+export function decodeXmlText(text: string): string {
     return text.replace(/&(#x[0-9a-f]+|#\d+|lt|gt|amp|quot|apos);/gi, (entity, name: string) => {
         if (name[0] !== '#') return XML_ENTITIES[name.toLowerCase()];
         const code = name[1] === 'x' || name[1] === 'X' ? parseInt(name.slice(2), 16) : Number(name.slice(1));

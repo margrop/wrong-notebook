@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AudioLines, Clapperboard, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SvgAnimationPlayer } from "@/components/svg-animation-player";
+import { RegenerateVoiceButton } from "@/components/svg-animation/regenerate-voice-button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
 import { getApiErrorMessage, getErrorMessage } from "@/lib/error-message";
@@ -30,13 +31,14 @@ interface SvgAnimationExplainerProps {
 /**
  * 题目的 SVG 动画讲解，按界面语言分别生成和显示：中文界面用中文版动画，英文界面用英文版动画。
  * 未生成时显示生成入口；已生成时可播放/暂停、拖动进度、重新生成和删除（删除需二次确认，只删除当前语言的动画）。
- * 已有动画可单独补写或重写语音讲解稿，画面不变。
+ * 已有动画可单独补写或重写语音讲解稿，画面不变；使用云端语音时可重新生成讲解语音。
  */
 export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLanguage, onChange }: SvgAnimationExplainerProps) {
     const { t, language } = useLanguage();
     const [generating, setGenerating] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [narrating, setNarrating] = useState(false);
+    const [voicing, setVoicing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const hasNarration = useMemo(() => !!svgAnimation && !!getEmbeddedNarration(svgAnimation), [svgAnimation]);
 
@@ -114,7 +116,7 @@ export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLangu
         );
     }
 
-    const busy = generating || deleting || narrating;
+    const busy = generating || deleting || narrating || voicing;
     return (
         <div className="rounded-lg border bg-card">
             <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b bg-muted/30">
@@ -134,6 +136,7 @@ export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLangu
                         {narrating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <AudioLines className="h-3.5 w-3.5" />}
                         <span>{narrating ? t.svgAnimation.narrationGenerating : hasNarration ? t.svgAnimation.narrationRegenerate : t.svgAnimation.narrationGenerate}</span>
                     </Button>
+                    <RegenerateVoiceButton svg={svgAnimation} disabled={busy} onBusyChange={setVoicing} />
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={handleGenerate} disabled={busy}>
                         {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                         <span>{generating ? t.svgAnimation.generating : t.svgAnimation.regenerate}</span>

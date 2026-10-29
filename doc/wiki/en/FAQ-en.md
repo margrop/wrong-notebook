@@ -22,7 +22,7 @@ Check whether the model follows the tag or JSON output format and whether its ma
 
 ## Animation narration is silent, or the speaker button is unavailable?
 
-Narration uses the browser's built-in speech synthesis and does not call any AI service. A grayed-out speaker button means the browser has no voice for that language: Linux browsers often lack a Chinese voice that must be installed in the system, and the Android app's built-in browser is not supported yet. If the button works but there is no sound, check the device volume and mute switch; on iPhone, turn off silent mode. Safari on iPhone and iPad only plays speech after a tap: if an auto-playing animation is silent, tap the page or the play button to start the narration.
+By default, narration uses the browser's built-in speech synthesis and does not call any AI service. Admins can switch to cloud voice under **Settings → AI → Voice narration**; cloud voice does not depend on the voices installed on the device and falls back to the browser's voice if synthesis fails. A grayed-out speaker button means the browser has no voice for that language: Linux browsers often lack a Chinese voice that must be installed in the system, and the Android app's built-in browser is not supported yet. If the button works but there is no sound, check the device volume and mute switch; on iPhone, turn off silent mode. Safari on iPhone and iPad only plays speech after a tap: if an auto-playing animation is silent, tap the page or the play button to start the narration.
 
 ## The screenshot button is unavailable?
 

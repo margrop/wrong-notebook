@@ -6,6 +6,7 @@ import { unauthorized, internalError, forbidden } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
+import { exportSpeeches } from "@/lib/tts/speech-cache";
 
 const logger = createLogger('api:export');
 
@@ -70,6 +71,12 @@ export async function GET(req: Request) {
             },
         });
 
+        // 与动画讲解文字一致的云端语音（MP3），导入后无需重新合成
+        const ttsSpeeches = await exportSpeeches(errorItems.flatMap((item) => [
+            ...(item.svgAnimation ? [{ language: 'zh' as const, svg: item.svgAnimation }] : []),
+            ...(item.svgAnimationEn ? [{ language: 'en' as const, svg: item.svgAnimationEn }] : []),
+        ]));
+
         const exportData = {
             version: 2,
             exportedAt: new Date().toISOString(),
@@ -93,6 +100,7 @@ export async function GET(req: Request) {
             reviewSchedules,
             practiceRecords,
             examPapers,
+            ttsSpeeches,
         };
 
         logger.info({
@@ -104,6 +112,7 @@ export async function GET(req: Request) {
             reviewSchedulesCount: reviewSchedules.length,
             practiceRecordsCount: practiceRecords.length,
             examPapersCount: examPapers.length,
+            ttsSpeechesCount: ttsSpeeches.length,
         }, 'Data export completed');
 
         const jsonString = JSON.stringify(exportData, null, 2);
