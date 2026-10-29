@@ -9,6 +9,7 @@ import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { parseLastPractice, serializeLastPractice } from "@/lib/last-practice";
 import type { LastPractice } from "@/lib/last-practice";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:practice:generate');
 
@@ -46,7 +47,7 @@ export async function GET(req: Request) {
     }
 }
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
@@ -120,3 +121,6 @@ export async function POST(req: Request) {
         return internalError(errorMessage);
     }
 }
+
+/** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
+export const POST = withRecoverableResponse(handlePost);

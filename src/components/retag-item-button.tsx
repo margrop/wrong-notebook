@@ -26,10 +26,10 @@ export function RetagItemButton({ errorItemId, onDone, onSuggested }: RetagItemB
         setRunning(true);
         try {
             if (onSuggested) {
-                const result = await apiClient.post<{ tags: string[] }>(`/api/error-items/${errorItemId}/retag`, { preview: true });
+                const result = await apiClient.post<{ tags: string[] }>(`/api/error-items/${errorItemId}/retag`, { preview: true }, { recoverable: true });
                 onSuggested(result.tags);
             } else {
-                await apiClient.post(`/api/error-items/${errorItemId}/retag`, {});
+                await apiClient.post(`/api/error-items/${errorItemId}/retag`, {}, { recoverable: true });
                 onDone?.();
             }
         } catch (error) {

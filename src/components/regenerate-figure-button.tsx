@@ -22,7 +22,7 @@ export function RegenerateFigureButton({ errorItemId, onDone }: RegenerateFigure
     const handleClick = async () => {
         setRunning(true);
         try {
-            const figure = await apiClient.post<{ hasFigure: boolean; figureSvg: string | null }>(`/api/error-items/${errorItemId}/figure`, {});
+            const figure = await apiClient.post<{ hasFigure: boolean; figureSvg: string | null }>(`/api/error-items/${errorItemId}/figure`, {}, { recoverable: true });
             onDone(figure);
             if (!figure.figureSvg) toast.warning(t.figure.noFigure);
         } catch (error) {

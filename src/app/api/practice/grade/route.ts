@@ -8,6 +8,7 @@ import { parseLastPractice } from "@/lib/last-practice";
 import { createLogger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:practice:grade');
 
@@ -22,7 +23,7 @@ const gradeSchema = z.object({
  * 由 AI 对照该错题最近一次生成的举一反三题目判定学生答案。
  * 题目和标准答案取自服务端暂存，不信任客户端传入的答案。
  */
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
         return unauthorized();
@@ -60,3 +61,6 @@ export async function POST(req: Request) {
         return internalError(error instanceof Error ? error.message : "Failed to grade answer");
     }
 }
+
+/** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
+export const POST = withRecoverableResponse(handlePost);

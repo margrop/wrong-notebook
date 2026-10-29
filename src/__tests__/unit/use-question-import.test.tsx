@@ -76,7 +76,7 @@ describe('题目导入流程', () => {
         await act(async () => flow.cropComplete(new Blob(['x'])));
         await act(async () => {});
 
-        expect(mocks.post).toHaveBeenCalledWith('/api/analyze', expect.objectContaining({ imageBase64: 'data:image/jpeg;base64,AAAA', subjectId: 'nb-1' }), { timeout: 120000 });
+        expect(mocks.post).toHaveBeenCalledWith('/api/analyze', expect.objectContaining({ imageBase64: 'data:image/jpeg;base64,AAAA', subjectId: 'nb-1' }), { timeout: 120000, recoverable: true });
         expect(mocks.saveParsedQuestion).toHaveBeenCalledWith(parsed, { subjectId: 'nb-1', imageUrl: 'data:image/jpeg;base64,AAAA' });
         expect(flow.lastImported).toEqual({ id: 'saved', duplicate: false });
         expect(flow.step).toBe('upload');
@@ -117,7 +117,7 @@ describe('题目导入流程', () => {
         await render({ textNotebook: { id: 'nb-3', name: '数学' } });
 
         await act(async () => { await flow.submitText('1 + 1 = ?'); });
-        expect(mocks.post).toHaveBeenCalledWith('/api/reanswer', expect.objectContaining({ questionText: '1 + 1 = ?', subject: '数学', subjectId: 'nb-3' }), { timeout: 120000 });
+        expect(mocks.post).toHaveBeenCalledWith('/api/reanswer', expect.objectContaining({ questionText: '1 + 1 = ?', subject: '数学', subjectId: 'nb-3' }), { timeout: 120000, recoverable: true });
         expect(flow.parsedData).toMatchObject({ questionText: '1 + 1 = ?', mistakeStatus: 'unknown', subject: '其他' });
         expect(flow.currentImage).toBeNull();
     });

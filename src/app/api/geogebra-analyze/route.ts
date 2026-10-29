@@ -6,6 +6,7 @@ import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { getAIService } from "@/lib/ai";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:geogebra-analyze');
 
@@ -14,7 +15,7 @@ const logger = createLogger('api:geogebra-analyze');
  * Used by the correction editor where the error item hasn't been saved yet.
  * Does NOT require an item ID.
  */
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
     const session = await getServerSession(authOptions);
 
     try {
@@ -62,3 +63,6 @@ export async function POST(req: Request) {
         );
     }
 }
+
+/** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
+export const POST = withRecoverableResponse(handlePost);

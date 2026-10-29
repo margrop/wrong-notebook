@@ -35,7 +35,7 @@ export function ExamQuestionRegenerate({ paperId, question, onDone }: ExamQuesti
         setRunning(mode);
         try {
             const updated = await apiClient.post<RegeneratedFields>(
-                `/api/exams/${paperId}/questions/${question.id}/regenerate`, { mode, language }, { timeout: REGENERATE_TIMEOUT_MS }
+                `/api/exams/${paperId}/questions/${question.id}/regenerate`, { mode, language }, { timeout: REGENERATE_TIMEOUT_MS, recoverable: true }
             );
             onDone(updated);
         } catch (error) {

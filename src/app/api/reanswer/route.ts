@@ -10,10 +10,11 @@ import { getNotebookCandidateTags } from "@/lib/ai/tag-service";
 import { resolveNotebookScope } from "@/lib/notebook-scope";
 import type { CandidateTags } from "@/lib/ai";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:reanswer');
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
     logger.info('Reanswer API called');
 
     const session = await getServerSession(authOptions);
@@ -85,3 +86,6 @@ export async function POST(req: Request) {
         return createErrorResponse(errorMessage, 500, ErrorCode.AI_ERROR);
     }
 }
+
+/** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
+export const POST = withRecoverableResponse(handlePost);

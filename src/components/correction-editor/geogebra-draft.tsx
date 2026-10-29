@@ -5,6 +5,7 @@ import { Box, Loader2 } from "lucide-react";
 import { GeogebraDemo } from "@/components/geogebra-demo";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { apiClient } from "@/lib/api-client";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import type { CorrectionDraft, UpdateDraft } from "./types";
@@ -33,16 +34,13 @@ export function GeogebraDraft({ data, onChange }: GeogebraDraftProps) {
         setAnalyzing(true);
         setError(null);
         try {
-            const response = await fetch("/api/geogebra-analyze", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ questionText: data.questionText, answerText: data.answerText, analysis: data.analysis }),
-            });
-            if (!response.ok) {
-                throw new Error("Analysis failed");
-            }
-            const result = await response.json();
-            if (result.suitable && result.commands?.length > 0) {
+            const result = await apiClient.post<{ suitable?: boolean; commands?: string[]; description?: string }>(
+                "/api/geogebra-analyze",
+                { questionText: data.questionText, answerText: data.answerText, analysis: data.analysis },
+                // 原先直接用 fetch，没有超时限制；AI 分析可能较慢
+                { timeout: 180000, recoverable: true },
+            );
+            if (result.suitable && result.commands && result.commands.length > 0) {
                 onChange({ geogebraCommands: JSON.stringify(result.commands) });
             } else {
                 setError(result.description || t.geogebra.notSuitable);

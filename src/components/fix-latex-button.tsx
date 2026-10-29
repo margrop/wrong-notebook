@@ -38,7 +38,7 @@ export function FixLatexButton({ errorItemId, fields, onDone }: FixLatexButtonPr
     const handleClick = async () => {
         setRunning(true);
         try {
-            const result = await apiClient.post<FixLatexResponse>(`/api/error-items/${errorItemId}/fix-latex`, {}, { timeout: FIX_TIMEOUT_MS });
+            const result = await apiClient.post<FixLatexResponse>(`/api/error-items/${errorItemId}/fix-latex`, {}, { timeout: FIX_TIMEOUT_MS, recoverable: true });
             onDone(result.updated);
             const fieldNames = result.fixedFields.map((field) => t.fixLatex.fields[field]).join("、");
             toast.info(

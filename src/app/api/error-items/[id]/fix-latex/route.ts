@@ -9,6 +9,7 @@ import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { countLatexIssues, findLatexIssuesByField, isAcceptableLatexFix, LATEX_FIELDS } from "@/lib/latex-check";
 import type { LatexField } from "@/lib/latex-check";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:error-items:fix-latex');
 
@@ -17,7 +18,7 @@ const logger = createLogger('api:error-items:fix-latex');
  * 用 KaTeX 检查题目、答案、解析、错误解答和错因分析中的 LaTeX，只把有问题的字段交给 AI 修复；
  * 修复后问题减少且内容长度变化不大时才保存，否则保留原文。
  */
-export async function POST(
+async function handlePost(
     _req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
@@ -82,3 +83,6 @@ export async function POST(
         return internalError(message.startsWith('AI_') ? message.split(':')[0] : "Failed to fix LaTeX");
     }
 }
+
+/** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
+export const POST = withRecoverableResponse(handlePost);

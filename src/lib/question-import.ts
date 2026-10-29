@@ -39,7 +39,7 @@ export async function analyzeQuestionImage(
         imageBase64,
         language: options.language,
         subjectId: options.subjectId || undefined,
-    }, { timeout: options.timeout });
+    }, { timeout: options.timeout, recoverable: true });
     if (!data || typeof data !== 'object') {
         throw new Error('Invalid API response: data is null or not an object');
     }

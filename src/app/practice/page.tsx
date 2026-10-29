@@ -120,7 +120,7 @@ function PracticeContent() {
                 errorItemId,
                 language,
                 difficulty
-            }, { timeout });
+            }, { timeout, recoverable: true });
             setQuestion(data);
             setGeneratedDifficulty(difficulty);
             setGeneratedAt(data.generatedAt ?? null);
@@ -166,7 +166,7 @@ function PracticeContent() {
                 errorItemId,
                 userAnswer,
                 language,
-            }, { timeout: config?.timeouts?.analyze || 180000 });
+            }, { timeout: config?.timeouts?.analyze || 180000, recoverable: true });
             setIsCorrect(graded.correct);
             setGradeReason(graded.reason);
         } catch (error) {

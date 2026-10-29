@@ -7,6 +7,7 @@ import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { resolveNotebookScope, SUBJECT_DISPLAY_NAMES } from "@/lib/notebook-scope";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:error-items:reanswer');
 
@@ -15,7 +16,7 @@ const logger = createLogger('api:error-items:reanswer');
  * 根据题目文字（有原图时一并提供）让 AI 重新生成完整的答案和解析并保存；
  * 只覆盖答案和解析，知识点、错误解答、错因分析和难度保持不变。
  */
-export async function POST(
+async function handlePost(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
@@ -77,3 +78,6 @@ export async function POST(
         return internalError(message.startsWith('AI_') ? message.split(':')[0] : "Failed to regenerate answer");
     }
 }
+
+/** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
+export const POST = withRecoverableResponse(handlePost);

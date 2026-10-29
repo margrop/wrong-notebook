@@ -27,7 +27,7 @@ export function RegenerateAnswerButton({ errorItemId, onDone }: RegenerateAnswer
         setRunning(true);
         try {
             const updated = await apiClient.post<{ answerText: string | null; analysis: string | null }>(
-                `/api/error-items/${errorItemId}/reanswer`, { language }, { timeout: REANSWER_TIMEOUT_MS }
+                `/api/error-items/${errorItemId}/reanswer`, { language }, { timeout: REANSWER_TIMEOUT_MS, recoverable: true }
             );
             onDone(updated);
         } catch (error) {

@@ -6,6 +6,7 @@ import { unauthorized, notFound, badRequest, internalError } from "@/lib/api-err
 import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:error-items:figure');
 
@@ -13,7 +14,7 @@ const logger = createLogger('api:error-items:figure');
  * POST /api/error-items/:id/figure
  * 用原题图片让 AI 重新判断是否有配图，并重绘 SVG 配图后保存
  */
-export async function POST(
+async function handlePost(
     _req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
@@ -63,3 +64,6 @@ export async function POST(
         return internalError(message.startsWith('AI_') ? message.split(':')[0] : "Failed to regenerate figure");
     }
 }
+
+/** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
+export const POST = withRecoverableResponse(handlePost);

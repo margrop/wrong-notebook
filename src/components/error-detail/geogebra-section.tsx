@@ -26,7 +26,7 @@ export function GeogebraSection({ errorItemId, commands, onUpdate }: GeogebraSec
         setAnalyzing(true);
         setError(null);
         try {
-            const result = await apiClient.post<{ suitable: boolean; commands: string[]; description: string }>(`/api/error-items/${errorItemId}/geogebra`, {});
+            const result = await apiClient.post<{ suitable: boolean; commands: string[]; description: string }>(`/api/error-items/${errorItemId}/geogebra`, {}, { recoverable: true });
             if (result.suitable && result.commands.length > 0) {
                 onUpdate({ geogebraCommands: JSON.stringify(result.commands) });
             } else {

@@ -132,7 +132,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
                 imageBase64: base64Image,
                 language,
                 subjectId: analyzeSubjectId || undefined,
-            }, { timeout: aiTimeout });
+            }, { timeout: aiTimeout, recoverable: true });
             if (!data || typeof data !== 'object') {
                 throw new Error('Invalid API response: data is null or not an object');
             }
@@ -165,7 +165,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
                 language,
                 subject: textNotebook?.name,
                 subjectId: textNotebook?.id,
-            }, { timeout: aiTimeout });
+            }, { timeout: aiTimeout, recoverable: true });
 
             setAnalysisStep('processing');
             await handleParsed({

@@ -14,10 +14,11 @@ import { trackBackgroundTask } from "@/lib/background-tasks";
 import { getAppTimeZone } from "@/lib/config";
 import { getErrorMessage } from "@/lib/error-message";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:analyze');
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
     logger.info('Analyze API called');
 
     const session = await getServerSession(authOptions);
@@ -161,3 +162,6 @@ export async function POST(req: Request) {
         return createErrorResponse(errorMessage, 500, ErrorCode.AI_ERROR, message);
     }
 }
+
+/** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
+export const POST = withRecoverableResponse(handlePost);

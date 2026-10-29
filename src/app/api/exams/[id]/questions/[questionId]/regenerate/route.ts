@@ -5,6 +5,7 @@ import { unauthorized, notFound, badRequest, conflict, validationError, internal
 import { createLogger } from "@/lib/logger";
 import { EXAM_REGENERATE_MODES, regenerateExamQuestion } from "@/lib/exam";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:exams:regenerate');
 
@@ -17,7 +18,7 @@ const regenerateSchema = z.object({
  * POST /api/exams/:id/questions/:questionId/regenerate
  * 单独重新生成一道题：未录入结果时可重新生成题目和解答，录入后只能重新生成解答
  */
-export async function POST(
+async function handlePost(
     req: Request,
     { params }: { params: Promise<{ id: string; questionId: string }> }
 ) {
@@ -48,3 +49,6 @@ export async function POST(
         return internalError(message.startsWith('AI_') ? message.split(':')[0] : "Failed to regenerate exam question");
     }
 }
+
+/** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
+export const POST = withRecoverableResponse(handlePost);

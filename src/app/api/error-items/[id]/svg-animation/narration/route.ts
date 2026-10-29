@@ -7,6 +7,7 @@ import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { embedNarration } from "@/lib/svg-animation";
+import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:error-items:svg-narration');
 
@@ -17,7 +18,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  * 由 AI 为已生成的动画补写语音讲解稿，写入动画 SVG 后保存，画面不变（替换已有的讲解稿）
  * 请求体 { language: 'zh' | 'en' }：处理该语言的动画，讲解使用该语言，未指定时为中文
  */
-export async function POST(req: Request, { params }: RouteContext) {
+async function handlePost(req: Request, { params }: RouteContext) {
     const { id } = await params;
     const body = await req.json().catch(() => ({})) as { language?: unknown };
     const language = body.language === 'en' ? 'en' : 'zh';
@@ -70,3 +71,6 @@ export async function POST(req: Request, { params }: RouteContext) {
         return internalError(message.startsWith('AI_') ? message.split(':')[0] : "Failed to generate SVG narration");
     }
 }
+
+/** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
+export const POST = withRecoverableResponse(handlePost);

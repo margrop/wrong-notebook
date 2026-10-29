@@ -6,6 +6,7 @@ import { unauthorized, notFound, badRequest, internalError } from "@/lib/api-err
 import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:error-items:svg-animation');
 
@@ -35,7 +36,7 @@ async function findOwnedItem(id: string, userId: string) {
  * 由 AI 根据题目、答案和解析生成 SVG 动画讲解并保存（覆盖该语言已有的动画）
  * 请求体 { language: 'zh' | 'en' }：动画中的文字使用该语言，未指定时为中文
  */
-export async function POST(req: Request, { params }: RouteContext) {
+async function handlePost(req: Request, { params }: RouteContext) {
     const { id } = await params;
     const body = await req.json().catch(() => ({})) as { language?: unknown };
     const language = parseLanguage(body.language);
@@ -110,3 +111,6 @@ export async function DELETE(req: Request, { params }: RouteContext) {
         return internalError("Failed to delete SVG animation");
     }
 }
+
+/** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
+export const POST = withRecoverableResponse(handlePost);

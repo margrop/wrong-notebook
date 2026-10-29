@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { SvgAnimationPlayer } from "@/components/svg-animation-player";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
-import { isNetworkError, waitForBackgroundTask } from "@/lib/background-task-recovery";
-import type { BackgroundTaskKind } from "@/lib/background-tasks";
 import { getApiErrorMessage, getErrorMessage } from "@/lib/error-message";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { toast, confirmDialog } from "@/lib/feedback";
@@ -47,34 +45,12 @@ export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLangu
         return typeof mapped === "string" ? mapped : fallback;
     };
 
-    /**
-     * 发起生成请求并返回新的动画；请求在服务端返回前被浏览器中断时（iPhone 上的 Safari 常见），
-     * 改为等待后台任务结束，再从题目中取回该语言的动画
-     */
-    const requestAnimation = async (path: string, kind: BackgroundTaskKind, timeout: number): Promise<string> => {
-        const since = Date.now();
-        try {
-            const result = await apiClient.post<{ svgAnimation: string }>(path, { language }, { timeout });
-            return result.svgAnimation;
-        } catch (err) {
-            if (!isNetworkError(err)) throw err;
-            frontendLogger.warn('[SvgAnimation]', 'Request interrupted, waiting for background task', { kind, error: getErrorMessage(err) });
-            const outcome = await waitForBackgroundTask({ kind, link: `/error-items/${errorItemId}`, since, timeoutMs: timeout });
-            if (!outcome) throw err;
-            // 与接口返回错误时相同的结构，交给调用方映射提示文案
-            if (outcome.status === "failed") throw Object.assign(new Error(outcome.error ?? ""), { data: { message: outcome.error ?? "" } });
-            const item = await apiClient.get<{ svgAnimation: string | null; svgAnimationEn: string | null }>(`/api/error-items/${errorItemId}`);
-            const svg = language === "en" ? item.svgAnimationEn : item.svgAnimation;
-            if (!svg) throw err;
-            return svg;
-        }
-    };
-
     const handleGenerate = async () => {
         setGenerating(true);
         setError(null);
         try {
-            onChange(language, await requestAnimation(`/api/error-items/${errorItemId}/svg-animation`, "svg_animation", GENERATE_TIMEOUT_MS));
+            const result = await apiClient.post<{ svgAnimation: string }>(`/api/error-items/${errorItemId}/svg-animation`, { language }, { timeout: GENERATE_TIMEOUT_MS, recoverable: true });
+            onChange(language, result.svgAnimation);
         } catch (err) {
             const code = getApiErrorMessage(err) || "";
             frontendLogger.error('[SvgAnimation]', 'Failed to generate SVG animation', { code, error: getErrorMessage(err) });
@@ -92,7 +68,8 @@ export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLangu
         setNarrating(true);
         setError(null);
         try {
-            onChange(language, await requestAnimation(`/api/error-items/${errorItemId}/svg-animation/narration`, "svg_narration", NARRATION_TIMEOUT_MS));
+            const result = await apiClient.post<{ svgAnimation: string }>(`/api/error-items/${errorItemId}/svg-animation/narration`, { language }, { timeout: NARRATION_TIMEOUT_MS, recoverable: true });
+            onChange(language, result.svgAnimation);
             toast.success(t.svgAnimation.narrationDone);
         } catch (err) {
             const code = getApiErrorMessage(err) || "";

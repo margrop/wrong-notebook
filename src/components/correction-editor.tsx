@@ -94,7 +94,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
             });
             frontendLogger.info('[Reanswer]', requestBody.imageBase64 ? 'Sending image + text (image available for mistake analysis)' : 'Sending text only (no image available)', { timeout: aiTimeout });
 
-            const result = await apiClient.post<ReanswerQuestionResult>("/api/reanswer", requestBody, { timeout: aiTimeout || 180000 });
+            const result = await apiClient.post<ReanswerQuestionResult>("/api/reanswer", requestBody, { timeout: aiTimeout || 180000, recoverable: true });
             setData(prev => ({
                 ...prev,
                 answerText: result.answerText,
