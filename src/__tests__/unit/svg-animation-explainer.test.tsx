@@ -10,11 +10,12 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 
 const mocks = vi.hoisted(() => ({
     post: vi.fn(),
+    get: vi.fn(),
     delete: vi.fn(),
     confirmDialog: vi.fn(),
 }));
 
-vi.mock('@/lib/api-client', () => ({ apiClient: { post: mocks.post, delete: mocks.delete } }));
+vi.mock('@/lib/api-client', () => ({ apiClient: { post: mocks.post, get: mocks.get, delete: mocks.delete } }));
 vi.mock('@/lib/feedback', () => ({ toast: { error: vi.fn(), success: vi.fn() }, confirmDialog: mocks.confirmDialog }));
 vi.mock('@/components/svg-animation-player', () => ({ SvgAnimationPlayer: ({ svg }: { svg: string }) => <div data-testid="player">{svg}</div> }));
 
@@ -115,5 +116,33 @@ describe('SVG 动画讲解按界面语言生成', () => {
         await clickButton('补充讲解稿');
 
         expect(container.textContent).toContain('AI 未返回有效的讲解稿');
+    });
+
+    it('请求被浏览器中断时等待后台任务完成，再从题目取回动画', async () => {
+        const narrated = '<svg xmlns="http://www.w3.org/2000/svg"><metadata id="narration">[{"begin":0,"text":"讲解"}]</metadata></svg>';
+        mocks.post.mockRejectedValue(new TypeError('Load failed'));
+        mocks.get.mockImplementation(async (url: string) => url === '/api/tasks'
+            ? { tasks: [{ kind: 'svg_narration', link: '/error-items/e1', status: 'succeeded', startedAt: new Date().toISOString() }] }
+            : { svgAnimation: narrated, svgAnimationEn: null });
+        const onChange = vi.fn();
+        await render({ svgAnimation: svg, onChange });
+
+        await clickButton('补充讲解稿');
+
+        expect(mocks.get).toHaveBeenCalledWith('/api/error-items/e1');
+        expect(onChange).toHaveBeenCalledWith('zh', narrated);
+        expect(container.textContent).not.toContain('失败');
+    });
+
+    it('请求中断后后台任务失败时显示任务的错误原因', async () => {
+        mocks.post.mockRejectedValue(new TypeError('Load failed'));
+        mocks.get.mockResolvedValue({ tasks: [{ kind: 'svg_animation', link: '/error-items/e1', status: 'failed', error: 'NO_VALID_ANIMATION', startedAt: new Date().toISOString() }] });
+        const onChange = vi.fn();
+        await render({ onChange });
+
+        await clickButton('生成动画讲解');
+
+        expect(onChange).not.toHaveBeenCalled();
+        expect(container.textContent).toContain('AI 未返回有效的动画');
     });
 });
