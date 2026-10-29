@@ -14,6 +14,8 @@
 
 An AI-powered notebook for the questions you got wrong. Snap a photo or type a question, and AI recognizes it, solves it, tags it with knowledge points and rates its difficulty. Manage your notebooks, practice with similar questions, build printable exams and track how well you have mastered each question.
 
+⬇️ **Download**: <https://blog.margrop.net/wrong-notebook-github-pages/en/download/> (detects your OS and architecture, and lists every installer for Windows, macOS, Linux, Android and fnOS)
+
 🌐 **Project website**: <https://blog.margrop.net/wrong-notebook-github-pages/en/>
 
 📝 **Articles**: [Stop Copying Mistakes. Start Learning from Them](https://blog.margrop.net/en/post/wrong-notebook-ai-family-learning/) · [Free MiniMax Accounts, fnOS, and Daily Review](https://blog.margrop.net/en/post/wrong-notebook-minimax-free-ai-review/)
