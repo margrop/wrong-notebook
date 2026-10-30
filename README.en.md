@@ -28,6 +28,15 @@ An AI-powered notebook for the questions you got wrong. Snap a photo or type a q
 
 🆓 **Works with a free MiniMax account**: choose the "MiniMax Code OAuth" channel and sign in with a MiniMax Code account in the browser to use `MiniMax-M3.1-Flash` without buying an API key. The app checks in every day to collect credits, and AI features such as recognition and explanations use the account's free credits. See [MiniMax Code OAuth](#minimax-code-oauth).
 
+🔊 **New: SVG animated explanations that talk**: AI turns the solution into a step-by-step animation with voice narration, and the animation waits for each step to be read before moving on. Two kinds of voice are available:
+
+| Voice | Sound | Cost |
+| :--- | :--- | :--- |
+| Browser voice (Web Speech) | Read by the device's built-in voice; sounds stiff, and the voice varies by device | Free |
+| Cloud TTS (MiniMax, Qwen, Zhipu GLM-TTS, StepFun, Volcengine Doubao Speech) | Natural, just like a real person explaining the problem, and the same on every device | Paid; **a Token Plan or similar subscription is recommended** over pay-as-you-go |
+
+Admins switch between them under **Settings → AI → Voice narration**. See [Cloud voice narration](doc/wiki/en/AI-Configuration-en.md#cloud-voice-narration).
+
 > This repository is a fork of [wttwins/wrong-notebook](https://github.com/wttwins/wrong-notebook) with many additional features (listed below).
 
 > The app's built-in knowledge-point library follows the Chinese K-12 curriculum (primary, junior high and senior high school). The interface is available in Simplified Chinese and English.
@@ -81,9 +90,9 @@ Each question shows its text, knowledge points, grade, term and paper level. You
 </details>
 
 <details>
-<summary><strong>SVG animated explanations: step-by-step animations of the solution</strong></summary>
+<summary><strong>SVG animated explanations: step-by-step animations of the solution, with voice narration</strong></summary>
 
-An English animated explanation of a hexagon coloring problem, showing region relationships and the recursive counting. The player supports pause, seeking, replay and full screen.
+An English animated explanation of a hexagon coloring problem, showing region relationships and the recursive counting. The player supports pause, seeking, replay and full screen. Click the speaker for voice narration: the browser voice is free but stiff, while cloud TTS sounds natural, just like a real person (paid; a Token Plan or similar subscription is recommended).
 
 ![English SVG explanation of a hexagon coloring problem with an English counting table and player controls](doc/screenshots/en/svg-animation.png)
 
@@ -152,7 +161,7 @@ Practice statistics show total practice, accuracy and active months, with distri
 
 ### Explanations and demos
 
-- **🎬 SVG animated explanations**: AI generates step-by-step SVG animations of the solution, with play/pause, seeking, replay and full screen. Click the speaker icon in the player for voice narration: each step is read aloud, the animation waits for the narration before moving on, and the speed is adjustable. The browser's voice is used by default; admins can switch to a cloud voice (MiniMax or Qwen) under **Settings → AI → Voice narration**, where the server synthesizes a young male voice normalized to about -15 LUFS. Existing animations can **Regenerate voice**, and synthesized voice is included in data export and import. Older animations without a narration script read the on-screen subtitles, or click **Add narration** to have AI write only the script while keeping the picture unchanged. Animation text follows the interface language: the English interface generates an English version and the Chinese interface a Chinese one. Both are kept, and switching the language shows the matching version automatically. On by default; turn it off in **Settings → General**.
+- **🎬 SVG animated explanations**: AI generates step-by-step SVG animations of the solution, with play/pause, seeking, replay and full screen. Click the speaker icon in the player for voice narration: each step is read aloud, the animation waits for the narration before moving on, and the speed is adjustable. There are two kinds of voice: the **browser voice** is free but sounds stiff and varies by device; **cloud TTS** (MiniMax, Qwen, Zhipu GLM-TTS, StepFun, Volcengine Doubao Speech) sounds natural, just like a real person, but is paid, and a Token Plan, Step Plan or similar subscription is recommended over pay-as-you-go. Admins switch under **Settings → AI → Voice narration**; the server synthesizes a young male voice normalized to about -15 LUFS. Voice generation is registered as a background task, animations with generated voice open with narration on, existing animations can **Regenerate voice**, and synthesized voice is included in data export and import. Older animations without a narration script read the on-screen subtitles, or click **Add narration** to have AI write only the script while keeping the picture unchanged. Animation text follows the interface language: the English interface generates an English version and the Chinese interface a Chinese one. Both are kept, and switching the language shows the matching version automatically. On by default; turn it off in **Settings → General**.
 - **📐 GeoGebra demos**: for math and physics questions, AI can generate interactive GeoGebra figures. Off by default; turn it on in **Settings → General**.
 - Generated animations and GeoGebra demos can be deleted (with confirmation).
 
