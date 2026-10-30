@@ -34,6 +34,16 @@
 
 > 本仓库 fork 自 [wttwins/wrong-notebook](https://github.com/wttwins/wrong-notebook)，在其基础上增加了上述及下文列出的大部分功能。
 
+## ⭐ Star 增长趋势
+
+<a href="https://www.star-history.com/#margrop/wrong-notebook&amp;Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date&amp;theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date">
+    <img src="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date" alt="margrop/wrong-notebook 的 GitHub Star 增长趋势图">
+  </picture>
+</a>
+
 ## 🖼️ 功能预览
 
 以下截图采集自实际运行的应用（2026-10-20），展示已有题目、讲解和试卷。用户名已遮挡，可点击图片查看大图。
@@ -509,14 +519,6 @@ bash scripts/ci.sh          # 完整 CI（Node.js 22+、Python 3，含生产构�
 也可以在 X 上关注作者 [@MargropMe](https://x.com/MargropMe)，获取更新动态或私信交流。
 
 欢迎提交 Issue 和 Pull Request，请先阅读[贡献指南](CONTRIBUTING.md)和[行为准则](CODE_OF_CONDUCT.md)。提问和反馈方式见[获取帮助](SUPPORT.md)，安全漏洞请按[安全策略](SECURITY.md)私下报告。各正式版的改动见[更新日志](CHANGELOG.md)。
-
-<a href="https://www.star-history.com/#margrop/wrong-notebook&amp;Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date&amp;theme=dark">
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date">
-    <img src="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date" alt="margrop/wrong-notebook 的 GitHub Star 增长趋势图">
-  </picture>
-</a>
 
 ## 📄 许可证
 
