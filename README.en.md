@@ -444,7 +444,7 @@ These channels call each vendor's official OpenAI-compatible API, so only an API
 
 #### Volcengine (free trial)
 
-Every Volcengine account gets a [free inference quota](https://www.volcengine.com/docs/82379/1399514) for each model (500,000 tokens per model, per the official docs). Turn on worry-free trial mode (安心体验模式) under Activation Management in the Ark console: calls only use the free quota and pause when it is nearly used up, so you are never charged. Choose the **Volcengine (free trial)** channel and enter your Ark API key. To keep going after the quota runs out, verify your identity and switch to the **Volcengine Doubao** channel.
+Every Volcengine account gets a [free inference quota](https://www.volcengine.com/docs/82379/1399514) for each model (500,000 tokens per model, per the official docs). Turn on worry-free trial mode under Activation Management in the Ark console: calls only use the free quota and pause when it is nearly used up, so you are never charged. Choose the **Volcengine (free trial)** channel and enter your Ark API key. To keep going after the quota runs out, verify your identity and switch to the **Volcengine Doubao** channel.
 
 #### MiniMax Code OAuth
 

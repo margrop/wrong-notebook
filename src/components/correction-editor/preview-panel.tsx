@@ -52,7 +52,7 @@ export function PreviewPanel({ data, children }: PreviewPanelProps) {
 
             <PreviewCard title={t.editor.preview?.mistakeAnalysis || "Mistake Analysis Preview"} className="space-y-3 text-sm">
                 <div className="text-muted-foreground">
-                    {t.editor.mistakeStatus || "Attempt Status"}：{statusLabels[data.mistakeStatus as keyof typeof statusLabels] ?? statusLabels.unknown}
+                    {t.editor.mistakeStatus || "Attempt Status"}{t.common.colon}{statusLabels[data.mistakeStatus as keyof typeof statusLabels] ?? statusLabels.unknown}
                 </div>
                 {data.wrongAnswerText && (
                     <div>

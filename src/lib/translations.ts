@@ -12,6 +12,10 @@ export const translations = {
         },
         common: {
             loading: "Loading...",
+            /** 标签与内容之间的冒号 */
+            colon: ": ",
+            /** 并列项之间的分隔符 */
+            listSeparator: ", ",
             showPassword: "Show",
             hidePassword: "Hide",
             error: "Error",
@@ -514,7 +518,7 @@ export const translations = {
                 volcengineBaseUrlHint: "Agent Plan, Coding Plan or similar subscriptions are recommended over pay-as-you-go. A plan may use its own endpoint; copy it from the Volcengine Ark console. For the international site (BytePlus ModelArk), enter https://ark.ap-southeast.bytepluses.com/api/v3.",
                 volcengineFree: {
                     title: "Free trial",
-                    body: "New Volcengine accounts get a free inference quota for each model (500,000 tokens per model, per Volcengine's docs). Turn on worry-free trial mode (安心体验模式) under Activation Management in the Ark console: calls only use the free quota and pause when it is nearly used up, so you are never charged. To keep going afterwards, verify your identity and switch to the regular Volcengine channel.",
+                    body: "New Volcengine accounts get a free inference quota for each model (500,000 tokens per model, per Volcengine's docs). Turn on worry-free trial mode under Activation Management in the Ark console: calls only use the free quota and pause when it is nearly used up, so you are never charged. To keep going afterwards, verify your identity and switch to the regular Volcengine channel.",
                 },
                 qwenBaseUrlHint: "The default is the Alibaba Cloud Model Studio Token Plan endpoint (recommended; keys start with sk-sp-). For a pay-as-you-go key, enter https://dashscope.aliyuncs.com/compatible-mode/v1.",
                 minimaxCode: {
@@ -1068,7 +1072,7 @@ export const translations = {
             title: "SVG Animated Explanation",
             alt: "Animated explanation",
             hint: "AI explains the solution step by step with an SVG animation in English",
-            otherLanguageAvailable: "A Chinese version of the animation exists. Switch the language to 中文 to view it, or generate an English version here.",
+            otherLanguageAvailable: "A Chinese version of the animation exists. Switch the language to Chinese to view it, or generate an English version here.",
             generate: "Generate animation",
             generating: "Generating animation, this takes a few minutes…",
             regenerate: "Regenerate",
@@ -1254,6 +1258,10 @@ export const translations = {
         },
         common: {
             loading: "加载中...",
+            /** 标签与内容之间的冒号 */
+            colon: "：",
+            /** 并列项之间的分隔符 */
+            listSeparator: "、",
             showPassword: "显示",
             hidePassword: "隐藏",
             error: "错误",

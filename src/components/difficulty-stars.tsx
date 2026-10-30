@@ -29,7 +29,7 @@ export function DifficultyStars({ value, onChange, disabled, size = "sm", showUn
             return showUnrated ? <span className={cn("text-xs text-muted-foreground", className)}>{t.difficulty.unrated}</span> : null;
         }
         return (
-            <span className={cn("inline-flex items-center", className)} role="img" aria-label={`${t.difficulty.label}：${label}`} title={label}>
+            <span className={cn("inline-flex items-center", className)} role="img" aria-label={`${t.difficulty.label}${t.common.colon}${label}`} title={label}>
                 {STAR_VALUES.map((n) => (
                     <Star key={n} className={cn(iconClass, n <= stars ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30")} aria-hidden />
                 ))}
@@ -38,7 +38,7 @@ export function DifficultyStars({ value, onChange, disabled, size = "sm", showUn
     }
 
     return (
-        <span className={cn("inline-flex items-center gap-0.5", className)} role="group" aria-label={`${t.difficulty.label}：${label}`} title={t.difficulty.clearHint}>
+        <span className={cn("inline-flex items-center gap-0.5", className)} role="group" aria-label={`${t.difficulty.label}${t.common.colon}${label}`} title={t.difficulty.clearHint}>
             {STAR_VALUES.map((n) => (
                 <button
                     key={n}

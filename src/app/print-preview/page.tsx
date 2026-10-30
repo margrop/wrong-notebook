@@ -192,7 +192,7 @@ function PrintPreviewContent() {
                                         <span className="font-semibold">
                                             {t.printPreview?.questionNumber?.replace('{num}', String(index + 1)) || `Question ${index + 1}`}
                                         </span>
-                                        {item.questionText ? `：${item.questionText}` : ''}
+                                        {item.questionText ? `${t.common.colon}${item.questionText}` : ''}
                                     </span>
                                 </label>
                             ))}

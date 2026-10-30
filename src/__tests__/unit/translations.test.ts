@@ -24,4 +24,12 @@ describe('界面文案', () => {
             expect(empty, language).toEqual([]);
         }
     });
+
+    it('英文文案不含中文字符', () => {
+        const withChinese = leafPaths(translations.en).filter((path) => {
+            const text = path.split('.').reduce<unknown>((node, key) => (node as Record<string, unknown>)[key], translations.en);
+            return typeof text === 'string' && /[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef]/.test(text);
+        });
+        expect(withChinese).toEqual([]);
+    });
 });

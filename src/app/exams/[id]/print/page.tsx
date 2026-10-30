@@ -73,9 +73,9 @@ export default function ExamPrintPage() {
             <div ref={sheetRef} className="exam-sheet">
                 <h1>{paper.title}</h1>
                 <div className="exam-meta">
-                    <span>{t.exam.nameLine}：________</span>
-                    <span>{t.exam.dateLine}：________</span>
-                    <span>{t.exam.scoreLine}：________</span>
+                    <span>{t.exam.nameLine}{t.common.colon}________</span>
+                    <span>{t.exam.dateLine}{t.common.colon}________</span>
+                    <span>{t.exam.scoreLine}{t.common.colon}________</span>
                 </div>
                 {questions.map((question, index) => (
                     <section key={question.id} className="exam-question">
@@ -99,13 +99,13 @@ export default function ExamPrintPage() {
                                 </div>
                                 {question.answerText && (
                                     <div>
-                                        <span className="exam-label">{t.exam.answerLabel}：</span>
+                                        <span className="exam-label">{t.exam.answerLabel}{t.common.colon}</span>
                                         <MarkdownRenderer content={question.answerText} />
                                     </div>
                                 )}
                                 {question.analysis && (
                                     <div>
-                                        <span className="exam-label">{t.exam.analysisLabel}：</span>
+                                        <span className="exam-label">{t.exam.analysisLabel}{t.common.colon}</span>
                                         <MarkdownRenderer content={question.analysis} />
                                     </div>
                                 )}

@@ -87,7 +87,7 @@ export function ExamQuestionCard({ paperId, question, editingResult, onResultCha
                     </p>
                 )}
                 {question.status === "failed" && (
-                    <p className="text-sm text-destructive">{t.exam.questionFailed}{errorText ? `：${errorText}` : ""}</p>
+                    <p className="text-sm text-destructive">{t.exam.questionFailed}{errorText ? `${t.common.colon}${errorText}` : ""}</p>
                 )}
                 {question.status === "ready" && question.questionText && (
                     <>

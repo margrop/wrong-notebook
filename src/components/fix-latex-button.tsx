@@ -40,7 +40,7 @@ export function FixLatexButton({ errorItemId, fields, onDone }: FixLatexButtonPr
         try {
             const result = await apiClient.post<FixLatexResponse>(`/api/error-items/${errorItemId}/fix-latex`, {}, { timeout: FIX_TIMEOUT_MS, recoverable: true });
             onDone(result.updated);
-            const fieldNames = result.fixedFields.map((field) => t.fixLatex.fields[field]).join("、");
+            const fieldNames = result.fixedFields.map((field) => t.fixLatex.fields[field]).join(t.common.listSeparator);
             toast.info(
                 result.issuesBefore === 0 ? t.fixLatex.noIssues
                     : result.fixedFields.length === 0 ? t.fixLatex.notFixed
