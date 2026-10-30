@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getSpeechAudio, getSpeechMode, isSpeechAudioUnlocked, requestSpeech, unlockSpeechAudio } from "@/lib/cloud-speech";
+import { getSpeechAudio, getSpeechMode, isSpeechAudioUnlocked, isSpeechReady, prepareSpeech, requestSpeech, unlockSpeechAudio } from "@/lib/cloud-speech";
 import type { SpeechMode } from "@/lib/cloud-speech";
 import type { NarrationSegment } from "@/lib/svg-animation";
 
@@ -93,6 +93,8 @@ export function segmentIndexAt(segments: NarrationSegment[], time: number): numb
 interface UseSvgNarrationOptions {
     segments: NarrationSegment[] | null;
     language: "zh" | "en";
+    /** 所属错题，云端语音合成登记后台任务时用于说明和跳转 */
+    errorItemId?: string;
     /** 上一段还没读完、画面已到下一段时暂停画面，读完后恢复 */
     holdAnimation: (hold: boolean) => void;
 }
@@ -103,7 +105,7 @@ interface UseSvgNarrationOptions {
  * 播放到某段的 begin 时朗读该段；画面快到下一段而上一段还没读完时，先暂停画面，读完再继续。
  * 暂停或拖动进度时停止朗读，继续播放时从当前所在段的开头重新朗读。
  */
-export function useSvgNarration({ segments, language, holdAnimation }: UseSvgNarrationOptions) {
+export function useSvgNarration({ segments, language, errorItemId, holdAnimation }: UseSvgNarrationOptions) {
     const [supported, setSupported] = useState(false);
     const [mode, setMode] = useState<SpeechMode>("browser");
     const [enabled, setEnabledState] = useState(false);
@@ -126,6 +128,8 @@ export function useSvgNarration({ segments, language, holdAnimation }: UseSvgNar
     // 云端语音还在合成、画面暂停等待时为 true
     const loadingHoldRef = useRef(false);
     const modeRef = useRef<SpeechMode>("browser");
+    // 用户在本页手动开关过语音后，不再按是否已生成语音自动开启
+    const userToggledRef = useRef(false);
     const enabledRef = useRef(false);
     const rateRef = useRef(1);
     const holdRef = useRef(holdAnimation);
@@ -321,6 +325,7 @@ export function useSvgNarration({ segments, language, holdAnimation }: UseSvgNar
     }, []);
 
     const setEnabled = useCallback((value: boolean, time: number) => {
+        userToggledRef.current = true;
         stop(time);
         enabledRef.current = value;
         setEnabledState(value);
@@ -355,11 +360,25 @@ export function useSvgNarration({ segments, language, holdAnimation }: UseSvgNar
         };
     }, [enabled, mode]);
 
-    // 开启云端语音后提前合成前两段，开始播放时不用等待
+    // 开启云端语音后一次合成全部段落（服务端登记为后台任务），播放时不用逐段等待
     useEffect(() => {
         if (!enabled || mode !== "cloud" || !segments?.length) return;
-        segments.slice(0, 2).forEach((segment) => requestSpeech(segment.text, language).catch(() => undefined));
-    }, [enabled, mode, segments, language]);
+        prepareSpeech(segments.map((segment) => segment.text), language, errorItemId).catch(() => undefined);
+    }, [enabled, mode, segments, language, errorItemId]);
+
+    // 已生成云端语音的动画默认开启语音讲解（不改变记住的开关设置）
+    useEffect(() => {
+        if (mode !== "cloud" || !segments?.length || enabledRef.current) return;
+        let active = true;
+        isSpeechReady(segments.map((segment) => segment.text), language).then((ready) => {
+            if (!active || !ready || enabledRef.current || userToggledRef.current) return;
+            enabledRef.current = true;
+            setEnabledState(true);
+        });
+        return () => {
+            active = false;
+        };
+    }, [mode, segments, language]);
 
     // 换了动画或离开页面时停止朗读
     useEffect(() => () => {

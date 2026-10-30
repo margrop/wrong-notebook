@@ -8,13 +8,14 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
     user: { findUnique: vi.fn() },
+    errorItem: { findUnique: vi.fn() },
     session: { user: { email: 'user@example.com' }, expires: '2099-01-01' } as { user: { email: string }; expires: string } | null,
     config: {} as Record<string, unknown>,
     fetch: vi.fn(),
     encoded: [] as PcmAudio[],
 }));
 
-vi.mock('@/lib/prisma', () => ({ prisma: { user: mocks.user } }));
+vi.mock('@/lib/prisma', () => ({ prisma: { user: mocks.user, errorItem: mocks.errorItem } }));
 vi.mock('next-auth', () => ({ getServerSession: vi.fn(() => Promise.resolve(mocks.session)) }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.mock('@/lib/config', () => ({ getAppConfig: () => mocks.config }));
@@ -36,6 +37,9 @@ vi.stubGlobal('fetch', mocks.fetch);
 
 import { GET as getMode, POST as synthesize } from '@/app/api/tts/route';
 import { GET as getAudio } from '@/app/api/tts/[id]/route';
+import { POST as batch } from '@/app/api/tts/batch/route';
+import { POST as status } from '@/app/api/tts/status/route';
+import { listBackgroundTasks, resetBackgroundTasksForTest } from '@/lib/background-tasks';
 import { measureLoudness } from '@/lib/tts/loudness';
 import { looksLikeMp3 } from '@/lib/tts/mp3';
 import type { PcmAudio } from '@/lib/tts/wav';
@@ -59,12 +63,17 @@ function miniMaxAudio(): string {
 const post = (body: unknown) => synthesize(new Request('http://localhost/api/tts', {
     method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' },
 }));
+const postTo = (handler: (req: Request) => Promise<Response>, body: unknown) => handler(new Request('http://localhost/api/tts/x', {
+    method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' },
+}));
 const audio = (id: string, headers: Record<string, string> = {}) =>
     getAudio(new Request(`http://localhost/api/tts/${id}`, { headers }), { params: Promise.resolve({ id }) });
 
 beforeEach(() => {
     vi.clearAllMocks();
     mocks.encoded.length = 0;
+    resetBackgroundTasksForTest();
+    mocks.errorItem.findUnique.mockResolvedValue({ userId: 'user-1', shortId: 'AbC234', questionText: '求解 x + 2 = 5' });
     mocks.session = { user: { email: 'user@example.com' }, expires: '2099-01-01' };
     mocks.user.findUnique.mockResolvedValue({ id: 'user-1', role: 'user' });
     mocks.config = { tts: { mode: 'minimax' }, minimax: { apiKey: 'mm-key' } };
@@ -170,3 +179,66 @@ describe('云端语音接口', () => {
         expect((await audio('b'.repeat(64))).status).toBe(404);
     });
 });
+
+describe('整个动画的语音', () => {
+    it('批量合成全部段落并登记后台任务（含进度和题目说明）；全部已有缓存时直接返回，不再登记', async () => {
+        const res = await postTo(batch, { texts: ['批量一', '批量二'], language: 'zh', errorItemId: 'item-1' });
+        expect(res.status).toBe(200);
+        const { items } = await res.json();
+        expect(items).toHaveLength(2);
+        expect(mocks.fetch).toHaveBeenCalledTimes(2);
+
+        const [task] = listBackgroundTasks('user-1');
+        expect(task).toMatchObject({
+            kind: 'tts_voice', status: 'succeeded', progress: { done: 2, total: 2 },
+            link: '/error-items/item-1', subject: expect.stringContaining('AbC234'),
+        });
+
+        const again = await (await postTo(batch, { texts: ['批量一', '批量二'], language: 'zh' })).json();
+        expect(again.items).toEqual(items);
+        expect(mocks.fetch).toHaveBeenCalledTimes(2);
+        expect(listBackgroundTasks('user-1')).toHaveLength(1);
+    });
+
+    it('只合成没有缓存的段落；重新生成时全部重新合成', async () => {
+        await post({ text: '已有一段', language: 'zh' });
+        await postTo(batch, { texts: ['已有一段', '新的一段'], language: 'zh' });
+        expect(mocks.fetch).toHaveBeenCalledTimes(2);
+
+        await postTo(batch, { texts: ['已有一段', '新的一段'], language: 'zh', regenerate: true });
+        expect(mocks.fetch).toHaveBeenCalledTimes(4);
+    });
+
+    it('别人的错题不显示题目说明；失败时任务标记失败，管理员看到服务商报错', async () => {
+        mocks.errorItem.findUnique.mockResolvedValue({ userId: 'someone-else', shortId: 'Zz9999', questionText: '别人的题' });
+        mocks.user.findUnique.mockResolvedValue({ id: 'user-1', role: 'admin' });
+        mocks.fetch.mockImplementation(async () => new Response(JSON.stringify({ base_resp: { status_code: 2056, status_msg: '用量上限' } })));
+
+        const res = await postTo(batch, { texts: ['失败的段落'], language: 'zh', errorItemId: 'item-x' });
+        expect(res.status).toBe(502);
+        expect(await res.json()).toMatchObject({ message: 'TTS_PROVIDER_ERROR', details: 'MiniMax 2056: 用量上限' });
+        expect(listBackgroundTasks('user-1')[0]).toMatchObject({ kind: 'tts_voice', status: 'failed', subject: null, link: null });
+    });
+
+    it('浏览器语音或参数无效时返回错误', async () => {
+        expect((await postTo(batch, { texts: [], language: 'zh' })).status).toBe(400);
+        expect((await postTo(batch, { texts: Array(21).fill('段'), language: 'zh' })).status).toBe(400);
+        mocks.config = { tts: { mode: 'browser' } };
+        expect(await (await postTo(batch, { texts: ['你好'] })).json()).toMatchObject({ message: 'TTS_DISABLED' });
+    });
+
+    it('查询语音是否已全部合成，不调用服务商', async () => {
+        expect(await (await postTo(status, { texts: ['查询一', '查询二'], language: 'zh' })).json()).toEqual({ ready: false });
+        await postTo(batch, { texts: ['查询一', '查询二'], language: 'zh' });
+        mocks.fetch.mockClear();
+        expect(await (await postTo(status, { texts: ['查询一', '查询二'], language: 'zh' })).json()).toEqual({ ready: true });
+        expect(await (await postTo(status, { texts: ['查询一'], language: 'en' })).json()).toEqual({ ready: false });
+        expect(mocks.fetch).not.toHaveBeenCalled();
+
+        mocks.config = { tts: { mode: 'browser' } };
+        expect(await (await postTo(status, { texts: ['查询一'], language: 'zh' })).json()).toEqual({ ready: false });
+        mocks.session = null;
+        expect((await postTo(status, { texts: ['查询一'] })).status).toBe(401);
+    });
+});
+

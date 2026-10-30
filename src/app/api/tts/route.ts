@@ -1,23 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/current-user";
-import { isAdmin } from "@/lib/auth-utils";
-import { badRequest, createErrorResponse, ErrorCode, unauthorized } from "@/lib/api-errors";
-import { getErrorDetail } from "@/lib/error-message";
-import { createLogger } from "@/lib/logger";
-import { MAX_NARRATION_TEXT_LENGTH } from "@/lib/svg-animation";
+import { badRequest, unauthorized } from "@/lib/api-errors";
 import { getTtsMode, synthesizeSpeech } from "@/lib/tts/speech-cache";
-import { TtsError } from "@/lib/tts/providers";
+import { speechErrorResponse, speechLanguageSchema, speechTextSchema } from "@/lib/tts/request";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
-
-const logger = createLogger('api:tts');
 
 export const dynamic = 'force-dynamic';
 
 const bodySchema = z.object({
-    text: z.string().trim().min(1).max(MAX_NARRATION_TEXT_LENGTH),
-    language: z.enum(['zh', 'en']).default('zh'),
-    /** 忽略缓存重新合成（已有动画重新生成云端语音） */
+    text: speechTextSchema,
+    language: speechLanguageSchema,
+    /** 忽略缓存重新合成 */
     regenerate: z.boolean().optional(),
 });
 
@@ -37,7 +31,7 @@ export async function GET() {
  * POST /api/tts
  * 用云端语音合成朗读一段讲解，请求体 { text, language, regenerate? }，返回 { id, version }，
  * 音频用 GET /api/tts/:id?v=version 获取。同样的文字只合成一次，regenerate 为 true 时重新合成；
- * 当前为浏览器本地语音时返回 TTS_DISABLED
+ * 当前为浏览器本地语音时返回 TTS_DISABLED。整个动画的语音用 POST /api/tts/batch 合成
  */
 async function handlePost(req: Request) {
     const user = await getCurrentUser();
@@ -53,13 +47,7 @@ async function handlePost(req: Request) {
         if (!result) return badRequest("TTS_DISABLED");
         return NextResponse.json(result);
     } catch (error) {
-        if (error instanceof TtsError && error.code === 'TTS_NOT_CONFIGURED') {
-            return badRequest("TTS_NOT_CONFIGURED");
-        }
-        const detail = getErrorDetail(error);
-        logger.error({ error: detail }, 'Speech synthesis failed');
-        // 服务商的原始报错只给管理员（试听、排查配置），普通用户只收到错误码
-        return createErrorResponse("TTS_PROVIDER_ERROR", 502, ErrorCode.AI_ERROR, isAdmin(user) ? detail : undefined);
+        return speechErrorResponse(error, user);
     }
 }
 

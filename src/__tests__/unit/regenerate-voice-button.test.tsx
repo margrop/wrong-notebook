@@ -33,7 +33,7 @@ const onBusyChange = vi.fn();
 
 async function render(svg: string) {
     await act(async () => {
-        root.render(<LanguageProvider><RegenerateVoiceButton svg={svg} disabled={false} onBusyChange={onBusyChange} /></LanguageProvider>);
+        root.render(<LanguageProvider><RegenerateVoiceButton svg={svg} errorItemId="item-1" disabled={false} onBusyChange={onBusyChange} /></LanguageProvider>);
     });
 }
 
@@ -67,17 +67,15 @@ describe('RegenerateVoiceButton', () => {
         expect(button()).toBeNull();
     });
 
-    it('逐段重新合成讲解稿的语音，显示进度，完成后提示', async () => {
+    it('重新合成讲解稿的全部语音（后台任务），完成前按钮禁用，完成后提示', async () => {
         let finish!: () => void;
-        mocks.regenerateSpeech.mockImplementation((_texts: string[], _language: string, onProgress: (done: number) => void) =>
-            new Promise<void>((resolve) => { onProgress(1); finish = resolve; }));
+        mocks.regenerateSpeech.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
         await render(narrated);
         expect(button()).not.toBeNull();
 
         await act(async () => { button()!.click(); });
-        expect(mocks.regenerateSpeech).toHaveBeenCalledWith(['先看条件', '再列方程'], expect.any(String), expect.any(Function));
+        expect(mocks.regenerateSpeech).toHaveBeenCalledWith(['先看条件', '再列方程'], expect.any(String), 'item-1');
         expect(onBusyChange).toHaveBeenLastCalledWith(true);
-        expect(button()!.textContent).toContain('1/2');
         expect(button()!.disabled).toBe(true);
 
         await act(async () => { finish(); });
@@ -87,10 +85,10 @@ describe('RegenerateVoiceButton', () => {
     });
 
     it('失败时提示错误', async () => {
-        mocks.regenerateSpeech.mockRejectedValue(new ApiError(502, 'Bad Gateway', { message: 'TTS_PROVIDER_ERROR' }));
+        mocks.regenerateSpeech.mockRejectedValue(new ApiError(502, 'Bad Gateway', { message: 'TTS_PROVIDER_ERROR', details: 'MiniMax 2056' }));
         await render(narrated);
         await act(async () => { button()!.click(); });
-        expect(mocks.toast.error).toHaveBeenCalled();
+        expect(mocks.toast.error).toHaveBeenCalledWith(expect.stringContaining('MiniMax 2056'));
         expect(onBusyChange).toHaveBeenLastCalledWith(false);
     });
 });

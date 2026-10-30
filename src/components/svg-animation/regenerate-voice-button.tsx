@@ -13,6 +13,8 @@ import type { NarrationSegment } from "@/lib/svg-animation";
 
 interface RegenerateVoiceButtonProps {
     svg: string;
+    /** 所属错题，用于后台任务的说明和跳转 */
+    errorItemId?: string;
     disabled: boolean;
     onBusyChange: (busy: boolean) => void;
 }
@@ -30,12 +32,13 @@ function narrationOf(svg: string): NarrationSegment[] | null {
 }
 
 /**
- * 管理员选用云端语音时，已有动画可重新生成讲解语音：逐段忽略缓存重新合成，之后播放使用新语音
+ * 管理员选用云端语音时，已有动画可重新生成讲解语音：服务端忽略缓存重新合成全部段落（登记为后台任务，
+ * 可在「后台任务」中查看进度），之后播放使用新语音
  */
-export function RegenerateVoiceButton({ svg, disabled, onBusyChange }: RegenerateVoiceButtonProps) {
+export function RegenerateVoiceButton({ svg, errorItemId, disabled, onBusyChange }: RegenerateVoiceButtonProps) {
     const { t, language } = useLanguage();
     const [cloud, setCloud] = useState(false);
-    const [progress, setProgress] = useState<number | null>(null);
+    const [regenerating, setRegenerating] = useState(false);
     const segments = useMemo(() => narrationOf(svg), [svg]);
 
     useEffect(() => {
@@ -51,10 +54,10 @@ export function RegenerateVoiceButton({ svg, disabled, onBusyChange }: Regenerat
     if (!cloud || !segments?.length) return null;
 
     const handleClick = async () => {
-        setProgress(0);
+        setRegenerating(true);
         onBusyChange(true);
         try {
-            await regenerateSpeech(segments.map((segment) => segment.text), language, setProgress);
+            await regenerateSpeech(segments.map((segment) => segment.text), language, errorItemId);
             toast.success(t.svgAnimation.voiceRegenerateDone);
         } catch (err) {
             const code = getApiErrorMessage(err) || "";
@@ -64,7 +67,7 @@ export function RegenerateVoiceButton({ svg, disabled, onBusyChange }: Regenerat
             const message = code === "TTS_DISABLED" ? t.svgAnimation.voiceRegenerateDisabled : t.svgAnimation.voiceRegenerateFailed;
             toast.error(detail ? `${message} (${detail})` : message);
         } finally {
-            setProgress(null);
+            setRegenerating(false);
             onBusyChange(false);
         }
     };
@@ -75,14 +78,12 @@ export function RegenerateVoiceButton({ svg, disabled, onBusyChange }: Regenerat
             size="sm"
             className="h-7 px-2 text-xs gap-1"
             onClick={handleClick}
-            disabled={disabled || progress !== null}
+            disabled={disabled || regenerating}
             title={t.svgAnimation.voiceRegenerateHint}
         >
-            {progress !== null ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+            {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
             <span>
-                {progress !== null
-                    ? t.svgAnimation.voiceRegenerating.replace("{done}", String(progress)).replace("{total}", String(segments.length))
-                    : t.svgAnimation.voiceRegenerate}
+                {regenerating ? t.svgAnimation.voiceRegenerating : t.svgAnimation.voiceRegenerate}
             </span>
         </Button>
     );

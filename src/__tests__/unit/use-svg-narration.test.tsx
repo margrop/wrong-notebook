@@ -20,6 +20,8 @@ const cloud = vi.hoisted(() => ({
     mode: 'browser' as 'browser' | 'cloud',
     audio: null as unknown,
     requestSpeech: vi.fn(),
+    prepareSpeech: vi.fn(),
+    ready: false,
     unlock: vi.fn(),
 }));
 
@@ -28,6 +30,8 @@ vi.mock('@/lib/cloud-speech', () => ({
     getSpeechAudio: () => cloud.audio,
     isSpeechAudioUnlocked: () => false,
     requestSpeech: cloud.requestSpeech,
+    prepareSpeech: cloud.prepareSpeech,
+    isSpeechReady: () => Promise.resolve(cloud.ready),
     unlockSpeechAudio: cloud.unlock,
 }));
 
@@ -84,6 +88,7 @@ beforeEach(() => {
     spoken = [];
     cloud.mode = 'browser';
     cloud.audio = null;
+    cloud.ready = false;
     resetSpeechUnlockForTest();
     voices = [{ lang: 'zh-CN', localService: true }, { lang: 'en-US', localService: true }];
     localStorage.setItem('svg-narration-enabled', '1');
@@ -243,14 +248,14 @@ describe('useSvgNarration 云端语音', () => {
         audio = new FakeAudio();
         cloud.audio = audio;
         cloud.requestSpeech.mockImplementation((text: string) => Promise.resolve(`/api/tts/${text}`));
+        cloud.prepareSpeech.mockResolvedValue(undefined);
     });
 
     it('播放服务端合成的语音并提前合成后面的段；读完前暂停画面，播完恢复', async () => {
         await render();
         expect(narration.supported).toBe(true);
-        // 开启语音时提前合成前两段
-        expect(cloud.requestSpeech).toHaveBeenCalledWith('第一步', 'zh');
-        expect(cloud.requestSpeech).toHaveBeenCalledWith('第二步', 'zh');
+        // 开启语音时一次合成全部段落
+        expect(cloud.prepareSpeech).toHaveBeenCalledWith(['第一步', '第二步'], 'zh', undefined);
 
         act(() => narration.update(0));
         await flush();
@@ -320,6 +325,29 @@ describe('useSvgNarration 云端语音', () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+
+    it('已生成语音的动画默认开启语音讲解，不改变记住的开关', async () => {
+        localStorage.clear();
+        cloud.ready = true;
+        await render();
+        expect(narration.enabled).toBe(true);
+        expect(localStorage.getItem('svg-narration-enabled')).toBeNull();
+    });
+
+    it('还没生成语音时保持关闭；浏览器语音时不查询', async () => {
+        localStorage.clear();
+        await render();
+        expect(narration.enabled).toBe(false);
+        expect(cloud.prepareSpeech).not.toHaveBeenCalled();
+
+        // 重新挂载，按浏览器语音重新查询朗读方式
+        act(() => root.unmount());
+        root = createRoot(host);
+        cloud.mode = 'browser';
+        cloud.ready = true;
+        await render();
+        expect(narration.enabled).toBe(false);
     });
 
     it('点击播放时同时解锁音频播放', async () => {

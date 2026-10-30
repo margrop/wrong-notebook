@@ -136,7 +136,7 @@ export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLangu
                         {narrating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <AudioLines className="h-3.5 w-3.5" />}
                         <span>{narrating ? t.svgAnimation.narrationGenerating : hasNarration ? t.svgAnimation.narrationRegenerate : t.svgAnimation.narrationGenerate}</span>
                     </Button>
-                    <RegenerateVoiceButton svg={svgAnimation} disabled={busy} onBusyChange={setVoicing} />
+                    <RegenerateVoiceButton svg={svgAnimation} errorItemId={errorItemId} disabled={busy} onBusyChange={setVoicing} />
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={handleGenerate} disabled={busy}>
                         {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                         <span>{generating ? t.svgAnimation.generating : t.svgAnimation.regenerate}</span>
@@ -149,7 +149,7 @@ export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLangu
             </div>
             {error && <p className="px-3 pt-2 text-xs text-destructive">{error}</p>}
             <div className="p-2 sm:p-3">
-                <SvgAnimationPlayer svg={svgAnimation} />
+                <SvgAnimationPlayer svg={svgAnimation} errorItemId={errorItemId} />
             </div>
         </div>
     );

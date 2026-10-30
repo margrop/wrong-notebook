@@ -102,6 +102,15 @@ async function speechVersion(id: string): Promise<number | null> {
     return stat ? Math.floor(stat.mtimeMs) : null;
 }
 
+/** 已合成的一段讲解（不触发合成）；没有缓存或当前为浏览器本地语音时返回 null */
+export async function getCachedSpeech(text: string, language: 'zh' | 'en'): Promise<SpeechResult | null> {
+    const settings = currentSettings();
+    if (!settings) return null;
+    const id = speechId({ provider: settings.provider, model: settings.model, voice: settings.voice, language, text });
+    const version = await speechVersion(id);
+    return version === null ? null : { id, version };
+}
+
 const pending = new Map<string, Promise<SpeechResult>>();
 
 export interface SpeechResult {

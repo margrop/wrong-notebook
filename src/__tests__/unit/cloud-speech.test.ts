@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 vi.mock('@/lib/api-client', () => ({ apiClient: api }));
 
-import { getSpeechAudio, getSpeechMode, isSpeechAudioUnlocked, regenerateSpeech, requestSpeech, resetCloudSpeechForTest, unlockSpeechAudio } from '@/lib/cloud-speech';
+import { getSpeechAudio, getSpeechMode, isSpeechAudioUnlocked, isSpeechReady, prepareSpeech, regenerateSpeech, requestSpeech, resetCloudSpeechForTest, unlockSpeechAudio } from '@/lib/cloud-speech';
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -38,21 +38,40 @@ describe('云端语音前端', () => {
         expect(await requestSpeech('第二步', 'zh')).toBe('/api/tts/def?v=2');
     });
 
-    it('重新生成逐段请求服务端忽略缓存，之后播放使用新版本的地址；失败时停止', async () => {
+    it('一次合成动画的全部讲解，之后逐段播放直接使用结果；已请求过的不重复请求', async () => {
+        api.post.mockResolvedValue({ items: [{ id: 'a', version: 1 }, { id: 'b', version: 2 }] });
+        await prepareSpeech(['第一步', '第二步', '第一步'], 'zh', 'item-1');
+        expect(api.post).toHaveBeenCalledWith('/api/tts/batch', { texts: ['第一步', '第二步'], language: 'zh', errorItemId: 'item-1' }, expect.objectContaining({ recoverable: true }));
+        expect(await requestSpeech('第二步', 'zh')).toBe('/api/tts/b?v=2');
+
+        await prepareSpeech(['第一步', '第二步'], 'zh');
+        expect(api.post).toHaveBeenCalledTimes(1);
+    });
+
+    it('批量合成失败时清除记录，播放时改为逐段请求', async () => {
+        api.post.mockRejectedValueOnce(new Error('502'));
+        await expect(prepareSpeech(['第一步'], 'zh')).rejects.toThrow('502');
+        api.post.mockResolvedValue({ id: 'one', version: 3 });
+        expect(await requestSpeech('第一步', 'zh')).toBe('/api/tts/one?v=3');
+        expect(api.post).toHaveBeenLastCalledWith('/api/tts', { text: '第一步', language: 'zh' }, expect.anything());
+    });
+
+    it('重新生成时整体忽略缓存，之后播放使用新版本的地址', async () => {
         api.post.mockResolvedValue({ id: 'abc', version: 1 });
         await requestSpeech('第一步', 'zh');
 
-        api.post.mockResolvedValue({ id: 'abc', version: 9 });
-        const progress = vi.fn();
-        await regenerateSpeech(['第一步', '第二步'], 'zh', progress);
-        expect(api.post).toHaveBeenCalledWith('/api/tts', { text: '第一步', language: 'zh', regenerate: true }, expect.anything());
-        expect(progress.mock.calls).toEqual([[1], [2]]);
+        api.post.mockResolvedValue({ items: [{ id: 'abc', version: 9 }] });
+        await regenerateSpeech(['第一步'], 'zh', 'item-1');
+        expect(api.post).toHaveBeenLastCalledWith('/api/tts/batch', { texts: ['第一步'], language: 'zh', regenerate: true, errorItemId: 'item-1' }, expect.anything());
         expect(await requestSpeech('第一步', 'zh')).toBe('/api/tts/abc?v=9');
-        expect(api.post).toHaveBeenCalledTimes(3);
+    });
 
-        api.post.mockRejectedValueOnce(new Error('502'));
-        await expect(regenerateSpeech(['第三步', '第四步'], 'zh', progress)).rejects.toThrow('502');
-        expect(api.post).toHaveBeenCalledTimes(4);
+    it('查询讲解语音是否已全部合成，失败时视为没有', async () => {
+        api.post.mockResolvedValue({ ready: true });
+        expect(await isSpeechReady(['第一步'], 'zh')).toBe(true);
+        expect(api.post).toHaveBeenCalledWith('/api/tts/status', { texts: ['第一步'], language: 'zh' });
+        api.post.mockRejectedValue(new Error('401'));
+        expect(await isSpeechReady(['第一步'], 'zh')).toBe(false);
     });
 
     it('在点击中播放一段静音解锁，被拒绝时下次再试', async () => {

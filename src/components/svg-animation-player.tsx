@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 
 interface SvgAnimationPlayerProps {
     svg: string;
+    /** 所属错题，合成云端语音时用于后台任务的说明和跳转 */
+    errorItemId?: string;
 }
 
 function formatTime(seconds: number): string {
@@ -26,7 +28,7 @@ function formatTime(seconds: number): string {
  * 其中的脚本和事件属性都不会执行。
  * 语音讲解优先朗读动画内保存的讲解稿，旧动画没有讲解稿时朗读字幕区的文字。
  */
-export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
+export function SvgAnimationPlayer({ svg, errorItemId }: SvgAnimationPlayerProps) {
     const { t, language } = useLanguage();
     const containerRef = useRef<HTMLDivElement>(null);
     const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -57,7 +59,7 @@ export function SvgAnimationPlayer({ svg }: SvgAnimationPlayerProps) {
         cssAnimations().forEach((animation) => (hold ? animation.pause() : animation.play()));
     }, [cssAnimations]);
 
-    const narration = useSvgNarration({ segments: narrationSegments, language, holdAnimation });
+    const narration = useSvgNarration({ segments: narrationSegments, language, errorItemId, holdAnimation });
     // 画面在等朗读（等待中或动画已播完、语音还在读）时，只在外框提示，不遮挡内容
     const waitingForVoice = narration.enabled && (narration.holding || (!playing && narration.speaking));
     const { stop: stopNarration, update: updateNarration, prime: primeNarration } = narration;

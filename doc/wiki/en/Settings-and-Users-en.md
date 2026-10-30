@@ -54,7 +54,7 @@ The default admin is only for initializing a fresh install. Upgrades of existing
 
 ## Background tasks and progress
 
-The task entry at the bottom right of the page shows the status of long operations such as recognition, animations, narration scripts, re-solving, batch tagging, data import and exam generation. Some batch tasks show processed and failed counts.
+The task entry at the bottom right of the page shows the status of long operations such as recognition, animations, narration scripts, animation voice (cloud voice), re-solving, batch tagging, data import and exam generation. Some batch tasks show processed and failed counts.
 
 The percentage on the entry screen is an estimate by stage (compress, upload, analyze, process, save), not the AI's real progress; the elapsed time shows how long you have been waiting.
 
