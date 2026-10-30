@@ -3,6 +3,41 @@
 本文件记录各正式版的改动，由 `scripts/changelog.sh` 根据提交信息生成，请勿手动编辑。
 预览版（`v年.月.日-n`）的改动见 [GitHub Releases](https://github.com/margrop/wrong-notebook/releases)，并归入其后的正式版。
 
+## [2026.10.30](https://github.com/margrop/wrong-notebook/releases/tag/v2026.10.30) - 2026-10-30
+
+### ✨ 新功能
+- 云端语音支持 OpenAI
+- 云端语音设置的 API Key 附上获取说明链接
+- AI 设置的 API Key 与模型名称附上服务商文档链接
+- 调整渠道默认模型：火山引擎套餐用 ark-code-latest，DeepSeek 用 deepseek-v4-flash，Kimi 用 kimi-k3.1-pro
+- 增加火山引擎 Coding Plan 渠道
+- 增加火山引擎 Agent Plan 渠道及其云端语音
+- 增加火山引擎豆包渠道、火山引擎（免费试用）渠道及豆包语音
+- 增加阶跃星辰 StepFun 渠道及其云端语音
+- 云端语音支持智谱 GLM-TTS
+- 动画语音的合成登记为后台任务，已生成语音的动画默认开启语音讲解
+- 云端语音设置的模型、音色和接口地址附上服务商文档链接
+- AI 设置附上各提供商的官方接入文档链接
+- 测试连接和语音试听失败时显示服务商的原始报错
+- 动画语音讲解支持云端语音（MiniMax、千问）
+- 国产大模型官方渠道增加千问 Qwen
+- 已有动画可单独补写语音讲解稿
+- SVG 动画讲解支持语音朗读
+- 已掌握阈值改为按用户独立配置，默认仍为 50%
+
+### 🛠 修复
+- 云端语音的音频接口禁止浏览器猜测内容类型
+- 英文界面中残留的中文文字和全角标点
+- 英文界面下 AI 提供商列表仍显示中文渠道名
+- 等待朗读时画面停在换步过渡中显得模糊
+- 耗时 AI 请求被浏览器中断后取回服务端的结果
+- iPhone 上动画语音讲解没有声音
+- iPhone 上生成动画或讲解稿时请求被中断后改为等待后台任务
+- 裁剪弹窗只渲染 blob 与 data 图片地址
+- E2E 准备脚本直接读取配置并处理文件不存在，消除先判断后读写的竞态
+
+**完整变更**：https://github.com/margrop/wrong-notebook/compare/v2026.10.26...v2026.10.30
+
 ## [2026.10.26](https://github.com/margrop/wrong-notebook/releases/tag/v2026.10.26) - 2026-10-26
 
 ### ✨ 新功能
