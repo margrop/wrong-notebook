@@ -41,7 +41,7 @@ wrong-notebook --port 3000 --host 0.0.0.0 --data-dir ~/.wrong-notebook
 - 服务只监听 `127.0.0.1`，默认端口 39300，被占用时自动顺延。
 - 数据目录：Windows `%APPDATA%\WrongNotebook\data`，macOS `~/Library/Application Support/WrongNotebook/data`，Linux `~/.config/WrongNotebook/data`。服务日志在数据目录的 `logs/server.log`。
 - 卸载不会删除数据目录。
-- 安装包未签名：Windows 可能出现 SmartScreen 提示，选择「仍要运行」；macOS 首次打开需右键「打开」，或执行 `xattr -dr com.apple.quarantine /Applications/WrongNotebook.app`。
+- 安装包未签名：Windows 可能出现 SmartScreen 提示，选择「仍要运行」；macOS 提示「已损坏」或无法打开时，执行 `xattr -cr /Applications/WrongNotebook.app` 和 `codesign --force --deep --sign - /Applications/WrongNotebook.app`（移除隔离属性并在本机重新自签名）。
 - Linux 的 Prisma 引擎需要 OpenSSL 3（Ubuntu 22.04、Debian 12 及更新版本）。
 
 ### 飞牛OS

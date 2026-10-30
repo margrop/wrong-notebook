@@ -187,6 +187,13 @@ Download the package for your platform from the [download page](https://blog.mar
 | Android phone / tablet (standalone) | `WrongNotebook-Android-Phone-<version>.apk` (portrait), `WrongNotebook-Android-Tablet-<version>.apk` (rotates between portrait and landscape) |
 | Android phone / tablet (client) | `WrongNotebook-Android-Client-Phone-<version>.apk`, `WrongNotebook-Android-Client-Tablet-<version>.apk` |
 
+> **macOS says the app is damaged or can't be opened**: the package is not signed by Apple. After dragging the app into Applications, run these commands in Terminal to remove the quarantine flag and re-sign it locally, then open it:
+>
+> ```bash
+> xattr -cr /Applications/WrongNotebook.app
+> codesign --force --deep --sign - /Applications/WrongNotebook.app
+> ```
+
 Or install with npm:
 
 ```bash

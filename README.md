@@ -187,6 +187,13 @@
 | 安卓手机 / 平板（单机版） | `WrongNotebook-Android-Phone-<版本>.apk`（竖屏）、`WrongNotebook-Android-Tablet-<版本>.apk`（横竖屏自动旋转） |
 | 安卓手机 / 平板（客户端） | `WrongNotebook-Android-Client-Phone-<版本>.apk`、`WrongNotebook-Android-Client-Tablet-<版本>.apk` |
 
+> **macOS 提示「已损坏」或无法打开**：安装包未经 Apple 签名。把应用拖入「应用程序」后，在终端执行以下命令移除隔离属性并在本机重新自签名，再打开即可：
+>
+> ```bash
+> xattr -cr /Applications/WrongNotebook.app
+> codesign --force --deep --sign - /Applications/WrongNotebook.app
+> ```
+
 也可以通过 npm 安装（Node.js 22 及以上）：
 
 ```bash
