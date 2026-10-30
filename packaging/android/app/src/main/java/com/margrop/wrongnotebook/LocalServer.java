@@ -114,6 +114,17 @@ final class LocalServer {
         throw new IOException("Server start timed out\n" + tail(log));
     }
 
+    /**
+     * 打开应用时加载的地址：全新安装还没有管理员时，服务端在配置目录写入一次性初始化令牌，
+     * 直接打开初始化页设置管理员账号；创建管理员后令牌被删除，回到首页
+     */
+    static String startUrl(Context context) {
+        String token = readText(new File(context.getFilesDir(), "data/config/setup-token")).trim();
+        // 令牌为 base64url 字符，其他内容视为无效，不拼进地址
+        if (!token.matches("[A-Za-z0-9_-]{16,128}")) return URL;
+        return URL + "/initialize?token=" + token;
+    }
+
     /** 服务正常时返回其版本号，否则返回 null */
     static String healthyVersion() {
         HttpURLConnection connection = null;

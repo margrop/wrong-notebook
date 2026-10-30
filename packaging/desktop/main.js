@@ -4,6 +4,7 @@
  *   - 启动时用 Electron 自带的 Node（ELECTRON_RUN_AS_NODE）运行 resources/server/launcher.js，
  *     服务只监听 127.0.0.1，端口被占用时自动顺延
  *   - 数据目录为系统的应用数据目录（userData/data），卸载或升级不会删除
+ *   - 全新安装还没有管理员时，直接打开一次性初始化链接设置管理员账号
  *   - 外部链接用系统浏览器打开；退出时结束服务进程
  */
 const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
@@ -22,6 +23,7 @@ const serverRoot = app.isPackaged
 let win = null;
 let server = null;
 let baseUrl = '';
+let dataDir = '';
 let quitting = false;
 
 function findFreePort(port, attempts = 50) {
@@ -52,7 +54,7 @@ async function waitForHealthy(url, timeoutMs) {
 }
 
 async function startServer() {
-    const dataDir = path.join(app.getPath('userData'), 'data');
+    dataDir = path.join(app.getPath('userData'), 'data');
     const logDir = path.join(dataDir, 'logs');
     fs.mkdirSync(logDir, { recursive: true });
     const logFile = path.join(logDir, 'server.log');
@@ -95,6 +97,20 @@ function nodeExecutable() {
     const name = `${path.basename(process.execPath)} Helper`;
     const helper = path.join(path.dirname(process.execPath), '..', 'Frameworks', `${name}.app`, 'Contents', 'MacOS', name);
     return fs.existsSync(helper) ? helper : process.execPath;
+}
+
+/**
+ * 启动后打开的地址：服务端在全新安装（还没有管理员）时把一次性初始化令牌写到配置目录，
+ * 有令牌就直接打开初始化页；创建管理员后令牌被删除，之后打开首页
+ */
+function startUrl() {
+    let token = '';
+    try {
+        token = fs.readFileSync(path.join(dataDir, 'config', 'setup-token'), 'utf8').trim();
+    } catch {
+        // 没有令牌：已经创建过管理员
+    }
+    return /^[\w-]{16,128}$/.test(token) ? `${baseUrl}/initialize?token=${token}` : baseUrl;
 }
 
 function stopServer() {
@@ -149,7 +165,7 @@ async function boot() {
         app.quit();
         return;
     }
-    if (win) win.loadURL(baseUrl);
+    if (win) win.loadURL(startUrl());
 }
 
 if (!app.requestSingleInstanceLock()) {

@@ -147,7 +147,7 @@ public class MainActivity extends Activity {
                 if (error != null) {
                     showError(error);
                 } else if (load) {
-                    webView.loadUrl(serverUrl);
+                    webView.loadUrl(LocalServer.startUrl(this));
                 }
             });
         });
