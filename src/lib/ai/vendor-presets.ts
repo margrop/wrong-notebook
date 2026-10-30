@@ -4,7 +4,8 @@
  */
 
 export interface VendorPreset {
-    name: string;        // 显示名称
+    name: string;        // 中文界面的显示名称
+    nameEn: string;      // 英文界面的显示名称
     baseUrl: string;     // 官方 OpenAI 兼容地址（中国大陆）
     model: string;       // 默认模型（当前最新、支持图片输入）
     envPrefix: string;   // 环境变量前缀：<PREFIX>_API_KEY / _BASE_URL / _MODEL
@@ -16,6 +17,7 @@ export interface VendorPreset {
 export const VENDOR_PRESETS = {
     minimax: {
         name: 'MiniMax',
+        nameEn: 'MiniMax',
         baseUrl: 'https://api.minimax.cn/v1',
         model: 'MiniMax-M3.1-Flash',
         envPrefix: 'MINIMAX',
@@ -24,6 +26,7 @@ export const VENDOR_PRESETS = {
     },
     glm: {
         name: '智谱 GLM',
+        nameEn: 'Zhipu GLM',
         baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
         model: 'glm-5.3-flash',
         envPrefix: 'GLM',
@@ -32,6 +35,7 @@ export const VENDOR_PRESETS = {
     },
     deepseek: {
         name: 'DeepSeek',
+        nameEn: 'DeepSeek',
         baseUrl: 'https://api.deepseek.com',
         model: 'deepseek-flash',
         envPrefix: 'DEEPSEEK',
@@ -40,6 +44,7 @@ export const VENDOR_PRESETS = {
     },
     kimi: {
         name: 'Kimi',
+        nameEn: 'Kimi',
         baseUrl: 'https://api.moonshot.cn/v1',
         model: 'kimi-k3',
         envPrefix: 'KIMI',
@@ -49,6 +54,7 @@ export const VENDOR_PRESETS = {
     // 默认为百炼 Token Plan 专属地址（Key 以 sk-sp- 开头）；按量付费的 Key 改用 https://dashscope.aliyuncs.com/compatible-mode/v1
     qwen: {
         name: '千问 Qwen',
+        nameEn: 'Qwen',
         baseUrl: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
         model: 'qwen3.8-max',
         envPrefix: 'QWEN',
@@ -58,6 +64,7 @@ export const VENDOR_PRESETS = {
     // 默认为 Step Plan 套餐地址（含语音合成）；按量付费改用 https://api.stepfun.com/v1，国际站为 https://api.stepfun.ai/v1
     stepfun: {
         name: '阶跃星辰 StepFun',
+        nameEn: 'StepFun',
         baseUrl: 'https://api.stepfun.com/step_plan/v1',
         model: 'step-5-preview',
         envPrefix: 'STEPFUN',
@@ -67,6 +74,7 @@ export const VENDOR_PRESETS = {
     // 火山方舟（豆包大模型）；推荐 Agent Plan、Coding Plan 等套餐，套餐的接口地址以火山引擎控制台为准。国际站为 BytePlus ModelArk
     volcengine: {
         name: '火山引擎 豆包',
+        nameEn: 'Volcengine Doubao',
         baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
         model: 'doubao-seed-2-1-lite-260915',
         envPrefix: 'VOLCENGINE',
@@ -76,6 +84,7 @@ export const VENDOR_PRESETS = {
     // 同为火山方舟，面向新用户的免费推理额度：每个模型有免费 token，开启「安心体验模式」后额度用完自动暂停，不产生费用
     'volcengine-free': {
         name: '火山引擎（免费试用）',
+        nameEn: 'Volcengine (free trial)',
         baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
         model: 'doubao-seed-2-1-lite-260915',
         envPrefix: 'VOLCENGINE_FREE',
@@ -92,6 +101,12 @@ export interface VendorConfig {
     apiKey?: string;
     baseUrl?: string;
     model?: string;
+}
+
+/** 按界面语言取渠道的显示名称 */
+export function getVendorName(provider: VendorProviderId, language: string): string {
+    const preset = VENDOR_PRESETS[provider];
+    return language === 'zh' ? preset.name : preset.nameEn;
 }
 
 export function isVendorProvider(provider: unknown): provider is VendorProviderId {

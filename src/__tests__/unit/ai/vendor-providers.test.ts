@@ -29,7 +29,7 @@ vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.stubGlobal('fetch', mocks.fetch);
 
 import { getAIService } from '@/lib/ai';
-import { VENDOR_PRESETS, VENDOR_PROVIDER_IDS, isVendorProvider, resolveVendorConfig } from '@/lib/ai/vendor-presets';
+import { VENDOR_PRESETS, VENDOR_PROVIDER_IDS, getVendorName, isVendorProvider, resolveVendorConfig } from '@/lib/ai/vendor-presets';
 import type { VendorProviderId } from '@/lib/ai/vendor-presets';
 import { POST as listModels } from '@/app/api/ai/models/route';
 import { POST as testConnection } from '@/app/api/ai/test/route';
@@ -55,6 +55,15 @@ function post(url: string, body: unknown): NextRequest {
 describe('国产大模型渠道预设', () => {
     it('预设与期望的渠道一致', () => {
         expect([...VENDOR_PROVIDER_IDS].sort()).toEqual(Object.keys(EXPECTED).sort());
+    });
+
+    it('按界面语言显示渠道名称，英文名称不含中文', () => {
+        for (const id of VENDOR_PROVIDER_IDS) {
+            expect(getVendorName(id, 'zh')).toBe(VENDOR_PRESETS[id].name);
+            expect(getVendorName(id, 'en'), id).not.toMatch(/[\u4e00-\u9fff（）]/);
+        }
+        expect(getVendorName('volcengine-free', 'en')).toBe('Volcengine (free trial)');
+        expect(getVendorName('glm', 'zh')).toBe('智谱 GLM');
     });
 
     it('只识别已知渠道', () => {

@@ -10,7 +10,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProviderErrorDetail } from "@/components/settings/provider-error-detail";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { VENDOR_PRESETS } from "@/lib/ai/vendor-presets";
+import { getVendorName } from "@/lib/ai/vendor-presets";
 import { apiClient } from "@/lib/api-client";
 import { getSpeechAudio, unlockSpeechAudio } from "@/lib/cloud-speech";
 import { getApiErrorDetails, getApiErrorMessage } from "@/lib/error-message";
@@ -48,7 +48,7 @@ interface TtsSettingsProps {
 }
 
 /**
- * 动画语音讲解的朗读方式（管理员）：浏览器本地语音，或由服务端调用 MiniMax / 千问的语音合成。
+ * 动画语音讲解的朗读方式（管理员）：浏览器本地语音，或由服务端调用 MiniMax、千问等渠道的语音合成。
  * 云端语音的 API Key 与「AI 设置」中对应渠道共用
  */
 export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsProps) {
@@ -120,7 +120,7 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
             {provider && (
                 <div key={provider} className="space-y-3 animate-in fade-in slide-in-from-top-2">
                     <div className="space-y-2">
-                        <Label>{ownApiKey ? texts.speechApiKey : `${VENDOR_PRESETS[provider].name} API Key`}</Label>
+                        <Label>{ownApiKey ? texts.speechApiKey : `${getVendorName(provider, language)} API Key`}</Label>
                         <PasswordInput
                             value={apiKey || ""}
                             onChange={(e) => updateApiKey(e.target.value)}

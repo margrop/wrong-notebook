@@ -14,7 +14,7 @@ import { OpenAIInstanceSettings } from "@/components/settings/openai-instance-se
 import { ProviderDocLinks } from "@/components/settings/provider-doc-links";
 import { VendorSettings } from "@/components/settings/vendor-settings";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { isVendorProvider, VENDOR_PRESETS, VENDOR_PROVIDER_IDS } from "@/lib/ai/vendor-presets";
+import { getVendorName, isVendorProvider, VENDOR_PROVIDER_IDS } from "@/lib/ai/vendor-presets";
 import type { AppConfig } from "@/types/api";
 
 interface AiProviderSettingsProps {
@@ -27,7 +27,7 @@ interface AiProviderSettingsProps {
 
 /** AI 渠道设置：选择渠道、填写对应配置、测试连接并保存 */
 export function AiProviderSettings({ config, setConfig, loading, saving, onSave }: AiProviderSettingsProps) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
 
     if (loading) {
         return (
@@ -50,10 +50,10 @@ export function AiProviderSettings({ config, setConfig, loading, saving, onSave 
                     </SelectTrigger>
                     <SelectContent>
                         {/* MiniMax Code OAuth 排在第 2 位，紧跟 MiniMax 官方渠道 */}
-                        <SelectItem value="minimax">{VENDOR_PRESETS.minimax.name}</SelectItem>
+                        <SelectItem value="minimax">{getVendorName("minimax", language)}</SelectItem>
                         <SelectItem value="minimax-code">MiniMax Code OAuth</SelectItem>
                         {VENDOR_PROVIDER_IDS.filter((id) => id !== 'minimax').map((id) => (
-                            <SelectItem key={id} value={id}>{VENDOR_PRESETS[id].name}</SelectItem>
+                            <SelectItem key={id} value={id}>{getVendorName(id, language)}</SelectItem>
                         ))}
                         <SelectItem value="anthropic">Anthropic / Compatible</SelectItem>
                         <SelectItem value="azure">Azure OpenAI</SelectItem>

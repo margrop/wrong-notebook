@@ -122,7 +122,7 @@ export function OpenAIInstanceSettings({ value, onChange }: OpenAIInstanceSettin
                         <Input
                             value={selected.name || ''}
                             onChange={(e) => updateSelected('name', e.target.value)}
-                            placeholder="e.g. 智谱 GLM-4V"
+                            placeholder="e.g. GLM-4V"
                             className={!selected.name?.trim() ? 'border-destructive' : ''}
                         />
                     </div>
