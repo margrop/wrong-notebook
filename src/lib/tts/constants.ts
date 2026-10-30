@@ -6,7 +6,7 @@ import { resolveVendorConfig } from "@/lib/ai/vendor-presets";
 import type { VendorConfig } from "@/lib/ai/vendor-presets";
 
 /** browser：浏览器本地语音（Web Speech API）；其余为服务端调用对应渠道的云端语音合成 */
-export const TTS_MODES = ['browser', 'minimax', 'qwen', 'glm', 'stepfun', 'volcengine', 'volcengine-agent'] as const;
+export const TTS_MODES = ['browser', 'minimax', 'qwen', 'glm', 'stepfun', 'volcengine', 'volcengine-agent', 'openai'] as const;
 export type TtsMode = typeof TTS_MODES[number];
 export type CloudTtsProvider = Exclude<TtsMode, 'browser'>;
 
@@ -27,7 +27,8 @@ export const CLOUD_TTS_PROVIDERS = TTS_MODES.filter((mode): mode is CloudTtsProv
  * 默认音色：年轻男性，自然、清晰、略带科技感，不用播音腔、不模仿角色。
  * MiniMax 用系统音色「精英青年」；千问用 Qwen-Audio-TTS 的男声「龙安鲁风」（25 岁，明亮开朗），再用指令约束语气；
  * 智谱 GLM-TTS 用「小陈」（年轻、专业）；阶跃星辰用「青年大学生」，同样用指令约束语气；
- * 火山引擎（豆包语音、Agent Plan）用豆包语音合成模型 2.0（资源 ID seed-tts-2.0）的「阳光青年」
+ * 火山引擎（豆包语音、Agent Plan）用豆包语音合成模型 2.0（资源 ID seed-tts-2.0）的「阳光青年」；
+ * OpenAI 用 gpt-4o-mini-tts 与官方推荐的 cedar，同样用指令约束语气
  */
 export const CLOUD_TTS_DEFAULTS: Record<CloudTtsProvider, Required<Pick<CloudTtsSettings, 'model' | 'voice'>>> = {
     minimax: { model: 'speech-2.8-hd', voice: 'male-qn-jingying' },
@@ -36,11 +37,33 @@ export const CLOUD_TTS_DEFAULTS: Record<CloudTtsProvider, Required<Pick<CloudTts
     stepfun: { model: 'stepaudio-2.5-tts', voice: 'qingniandaxuesheng' },
     volcengine: { model: 'seed-tts-2.0', voice: 'zh_male_yangguangqingnian_uranus_bigtts' },
     'volcengine-agent': { model: 'seed-tts-2.0', voice: 'zh_male_yangguangqingnian_uranus_bigtts' },
+    openai: { model: 'gpt-4o-mini-tts', voice: 'cedar' },
 };
 
-/** 使用单独 API Key 的语音（不复用 AI 渠道的 Key） */
+/**
+ * 在语音设置中填写 API Key 的语音：火山引擎豆包语音必须单独填写（与火山方舟不同）；
+ * OpenAI 可单独填写，留空时使用「AI 设置」中当前的 OpenAI 配置。其他语音复用对应渠道的 Key
+ */
 export function hasOwnTtsApiKey(provider: CloudTtsProvider): boolean {
-    return provider === 'volcengine';
+    return provider === 'volcengine' || provider === 'openai';
+}
+
+const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1';
+
+/** 读取语音复用的渠道配置所需的应用配置（前端与服务端的配置类型都满足） */
+interface TtsChannelSource {
+    openai?: { instances?: { id: string; apiKey: string; baseUrl: string }[]; activeInstanceId?: string };
+}
+
+/**
+ * 语音复用的 AI 渠道配置（API Key、Base URL）：OpenAI 取「AI 设置」中当前激活的实例，其余取同名的国产大模型渠道
+ */
+export function getTtsChannelConfig(config: TtsChannelSource, provider: CloudTtsProvider): VendorConfig | undefined {
+    if (provider === 'openai') {
+        const instance = config.openai?.instances?.find((item) => item.id === config.openai?.activeInstanceId);
+        return instance ? { apiKey: instance.apiKey, baseUrl: instance.baseUrl } : undefined;
+    }
+    return (config as Partial<Record<CloudTtsProvider, VendorConfig>>)[provider];
 }
 
 /** 火山引擎豆包语音的 HTTP 单向流式接口（与火山方舟的对话接口不同域名） */
@@ -81,6 +104,12 @@ export const CLOUD_TTS_DOCS: Record<CloudTtsProvider, { apiKey: string; model: s
         voice: 'https://www.volcengine.com/docs/6561/1257544',
         endpoint: 'https://www.volcengine.com/docs/6561/1598757',
     },
+    openai: {
+        apiKey: 'https://platform.openai.com/docs/quickstart',
+        model: 'https://developers.openai.com/api/docs/guides/text-to-speech',
+        voice: 'https://developers.openai.com/api/docs/guides/text-to-speech',
+        endpoint: 'https://developers.openai.com/api/docs/guides/text-to-speech',
+    },
     'volcengine-agent': {
         apiKey: 'https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh',
         model: 'https://docs.volcengine.com/docs/ark/agent-plan-personal-voice-model?lang=zh',
@@ -97,9 +126,14 @@ export const TARGET_LOUDNESS_LUFS = -15;
 /** 归一化后的峰值上限（dBFS），留出余量避免削波 */
 export const PEAK_CEILING_DBFS = -1.5;
 
-/** 该语音是否按语气指令合成：千问，以及阶跃星辰的 StepAudio 模型（其他阶跃模型传入指令会报错） */
+/**
+ * 该语音是否按语气指令合成：千问；阶跃星辰的 StepAudio 模型（其他阶跃模型传入指令会报错）；
+ * OpenAI 的 gpt-4o-mini-tts 等（tts-1 系列不支持指令）
+ */
 export function usesStyleInstruction(provider: CloudTtsProvider, model: string): boolean {
-    return provider === 'qwen' || (provider === 'stepfun' && model.startsWith('stepaudio-'));
+    return provider === 'qwen'
+        || (provider === 'stepfun' && model.startsWith('stepaudio-'))
+        || (provider === 'openai' && !model.startsWith('tts-'));
 }
 
 export function isTtsMode(value: unknown): value is TtsMode {
@@ -114,11 +148,12 @@ export function isCloudTtsProvider(value: unknown): value is CloudTtsProvider {
  * 默认的语音合成接口地址，按对应渠道的 Base URL 推算：
  * MiniMax 的语音接口与对话接口同在 /v1 下（https://api.minimax.cn/v1/t2a_v2）；
  * 百炼的语音接口在同一域名的 /api/v1 下（Token Plan 为 token-plan.cn-beijing.maas.aliyuncs.com）；
- * 智谱、阶跃星辰的语音接口与对话接口同在 Base URL 下（/audio/speech）
+ * 智谱、阶跃星辰、OpenAI 的语音接口与对话接口同在 Base URL 下（/audio/speech）
  */
 export function defaultTtsEndpoint(provider: CloudTtsProvider, vendor: VendorConfig | undefined): string {
     if (provider === 'volcengine') return VOLCENGINE_TTS_ENDPOINT;
     if (provider === 'volcengine-agent') return VOLCENGINE_AGENT_TTS_ENDPOINT;
+    if (provider === 'openai') return `${(vendor?.baseUrl || DEFAULT_OPENAI_BASE_URL).replace(/\/+$/, '')}/audio/speech`;
     const { baseUrl } = resolveVendorConfig(provider, vendor);
     if (provider === 'minimax') return `${baseUrl.replace(/\/+$/, '')}/t2a_v2`;
     if (provider === 'glm' || provider === 'stepfun') return `${baseUrl.replace(/\/+$/, '')}/audio/speech`;

@@ -117,6 +117,20 @@ describe('云端语音接口', () => {
         expect(mocks.fetch).toHaveBeenCalledTimes(2);
     });
 
+    it('OpenAI 语音使用当前激活的 OpenAI 实例的 Key 和地址', async () => {
+        mocks.config = {
+            tts: { mode: 'openai' },
+            openai: { instances: [{ id: 'x', name: 'X', apiKey: 'openai-key', baseUrl: 'https://proxy.example.com/v1', model: 'm' }], activeInstanceId: 'x' },
+        };
+        mocks.fetch.mockImplementation(async () => new Response(new Uint8Array(Buffer.from(miniMaxAudio(), 'hex')), { headers: { 'Content-Type': 'audio/pcm' } }));
+        const res = await post({ text: 'OpenAI 语音', language: 'zh' });
+        expect(res.status).toBe(200);
+        const [url, init] = mocks.fetch.mock.calls[0];
+        expect(url).toBe('https://proxy.example.com/v1/audio/speech');
+        expect(init.headers.Authorization).toBe('Bearer openai-key');
+        expect(measureLoudness(mocks.encoded[0])).toBeCloseTo(-15, 0);
+    });
+
     it('换了音色重新合成', async () => {
         const first = await (await post({ text: '换音色', language: 'zh' })).json();
         mocks.config = { tts: { mode: 'minimax', minimax: { voice: 'other-voice' } }, minimax: { apiKey: 'mm-key' } };

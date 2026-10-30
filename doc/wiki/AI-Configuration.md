@@ -60,6 +60,7 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 | 阶跃星辰（建议使用 Step Plan） | 与阶跃星辰渠道共用 | `stepaudio-2.5-tts`，音色 `qingniandaxuesheng`（青年大学生），并以指令约束语气 | 阶跃星辰 Base URL 加 `/audio/speech`，即 `https://api.stepfun.com/step_plan/v1/audio/speech` |
 | 火山引擎豆包语音（建议购买资源包） | 单独的豆包语音 API Key（在[豆包语音控制台](https://console.volcengine.com/speech)创建，与火山方舟不同） | 资源 ID `seed-tts-2.0`（填在「语音模型」），音色 `zh_male_yangguangqingnian_uranus_bigtts`（阳光青年 2.0） | `https://openspeech.bytedance.com/api/v3/tts/unidirectional` |
 | 火山引擎 Agent Plan（计入套餐额度） | 与火山引擎 Agent Plan 渠道共用 | 资源 ID `seed-tts-2.0`，音色 `zh_male_yangguangqingnian_uranus_bigtts` | `https://openspeech.bytedance.com/api/v3/plan/tts/unidirectional` |
+| OpenAI | 可单独填写；留空时使用「AI 设置」中当前激活的 OpenAI 配置 | `gpt-4o-mini-tts`，音色 `cedar`，并以指令约束语气（OpenAI 计划于 2027-01-06 下线该模型） | OpenAI Base URL 加 `/audio/speech`，即 `https://api.openai.com/v1/audio/speech` |
 | 智谱 GLM-TTS（建议使用 GLM Coding Plan） | 与智谱 GLM 渠道共用 | `glm-tts`，音色 `xiaochen`（小陈） | GLM Base URL 加 `/audio/speech`，即 `https://open.bigmodel.cn/api/paas/v4/audio/speech` |
 
 - 默认音色为年轻男声，自然、清晰、略带科技感；千问另用指令要求不用播音腔、不模仿角色。模型、音色和接口地址都可修改（API Key 旁附获取说明，其余字段旁附服务商的说明文档或音色列表链接），「保存并试听」会先保存设置再朗读一段示例，失败时在按钮下方显示服务商的原始报错（如 MiniMax 的 `2056` 表示 Token Plan 当前用量窗口的额度已用完）。

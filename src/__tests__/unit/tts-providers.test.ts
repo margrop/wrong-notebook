@@ -2,7 +2,7 @@
  * 云端语音合成：MiniMax 与千问的请求格式、默认设置、接口地址推算和错误处理
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, TTS_MODES, defaultTtsEndpoint } from '@/lib/tts/constants';
+import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, TTS_MODES, defaultTtsEndpoint, getTtsChannelConfig } from '@/lib/tts/constants';
 import { TtsError, resolveTtsSettings, splitJsonObjects, synthesizeWithProvider } from '@/lib/tts/providers';
 import { encodeWav } from '@/lib/tts/wav';
 
@@ -260,5 +260,57 @@ describe('火山引擎 Agent Plan 语音合成', () => {
         const [url, init] = fetchMock.mock.calls[0];
         expect(url).toBe('https://openspeech.bytedance.com/api/v3/plan/tts/unidirectional');
         expect(init.headers).toMatchObject({ 'X-Api-Key': 'agent-plan-key', 'X-Api-Resource-Id': 'seed-tts-2.0' });
+    });
+});
+
+describe('OpenAI 语音合成', () => {
+    const config = {
+        openai: {
+            instances: [
+                { id: 'a', name: 'A', apiKey: 'key-a', baseUrl: 'https://proxy.example.com/v1/', model: 'm' },
+                { id: 'b', name: 'B', apiKey: 'key-b', baseUrl: 'https://api.openai.com/v1', model: 'm' },
+            ],
+            activeInstanceId: 'a',
+        },
+        glm: { apiKey: 'glm-key' },
+    };
+
+    it('留空 Key 时使用当前激活的 OpenAI 实例的 Key 和 Base URL；单独填写的 Key 优先', () => {
+        expect(getTtsChannelConfig(config, 'openai')).toEqual({ apiKey: 'key-a', baseUrl: 'https://proxy.example.com/v1/' });
+        expect(getTtsChannelConfig(config, 'glm')).toEqual({ apiKey: 'glm-key' });
+        expect(getTtsChannelConfig({}, 'openai')).toBeUndefined();
+
+        const shared = resolveTtsSettings('openai', undefined, getTtsChannelConfig(config, 'openai'));
+        expect(shared).toMatchObject({ apiKey: 'key-a', endpoint: 'https://proxy.example.com/v1/audio/speech', model: 'gpt-4o-mini-tts', voice: 'cedar' });
+        expect(resolveTtsSettings('openai', { apiKey: 'own-key' }, getTtsChannelConfig(config, 'openai')).apiKey).toBe('own-key');
+        expect(resolveTtsSettings('openai', { apiKey: 'own-key' }, undefined)).toMatchObject({ endpoint: 'https://api.openai.com/v1/audio/speech' });
+    });
+
+    it('请求 PCM 并带语气指令，解码 24kHz 16 位 PCM', async () => {
+        const pcm = Buffer.alloc(4);
+        pcm.writeInt16LE(16384, 0);
+        pcm.writeInt16LE(-8192, 2);
+        fetchMock.mockResolvedValue(new Response(new Uint8Array(pcm), { headers: { 'Content-Type': 'audio/pcm' } }));
+        const settings = resolveTtsSettings('openai', { apiKey: 'own-key' }, undefined);
+
+        const audio = await synthesizeWithProvider('第一步', 'zh', settings);
+        expect(audio.sampleRate).toBe(24000);
+        expect(Array.from(audio.samples)).toEqual([0.5, -0.25]);
+        expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer own-key');
+        expect(requestBody()).toMatchObject({
+            model: 'gpt-4o-mini-tts', input: '第一步', voice: 'cedar', response_format: 'pcm', instructions: expect.stringContaining('不要播音腔'),
+        });
+    });
+
+    it('tts-1 系列不传指令；没有 Key 时报未配置；错误带上服务商说明', async () => {
+        fetchMock.mockResolvedValue(new Response(new Uint8Array(Buffer.alloc(2)), { headers: { 'Content-Type': 'audio/pcm' } }));
+        await synthesizeWithProvider('你好', 'zh', resolveTtsSettings('openai', { apiKey: 'k', model: 'tts-1-hd' }, undefined));
+        expect(requestBody()).not.toHaveProperty('instructions');
+
+        await expect(synthesizeWithProvider('你好', 'zh', resolveTtsSettings('openai', undefined, undefined))).rejects.toMatchObject({ code: 'TTS_NOT_CONFIGURED' });
+
+        fetchMock.mockResolvedValueOnce(json({ error: { message: 'Incorrect API key provided', code: 'invalid_api_key' } }, 401));
+        await expect(synthesizeWithProvider('你好', 'zh', resolveTtsSettings('openai', { apiKey: 'bad' }, undefined)))
+            .rejects.toMatchObject({ message: 'HTTP 401: invalid_api_key: Incorrect API key provided' });
     });
 });

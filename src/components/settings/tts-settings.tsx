@@ -17,7 +17,7 @@ import { getSpeechAudio, unlockSpeechAudio } from "@/lib/cloud-speech";
 import { getApiErrorDetails, getApiErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, TTS_MODES, defaultTtsEndpoint, hasOwnTtsApiKey, isCloudTtsProvider } from "@/lib/tts/constants";
+import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, TTS_MODES, defaultTtsEndpoint, getTtsChannelConfig, hasOwnTtsApiKey, isCloudTtsProvider } from "@/lib/tts/constants";
 import type { CloudTtsSettings, TtsMode } from "@/lib/tts/constants";
 import type { AppConfig } from "@/types/api";
 
@@ -48,7 +48,8 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
     };
     // 豆包语音的 Key 保存在语音设置中；其他语音与对应 AI 渠道共用 Key
     const ownApiKey = provider ? hasOwnTtsApiKey(provider) : false;
-    const apiKey = provider ? (ownApiKey ? settings?.apiKey : config[provider]?.apiKey) : undefined;
+    const channel = provider ? getTtsChannelConfig(config, provider) : undefined;
+    const apiKey = ownApiKey ? settings?.apiKey : channel?.apiKey;
     const updateApiKey = (value: string) => {
         if (!provider) return;
         if (ownApiKey) updateSettings("apiKey", value);
@@ -101,7 +102,7 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
             {provider && (
                 <div key={provider} className="space-y-3 animate-in fade-in slide-in-from-top-2">
                     <div className="space-y-2">
-                        <FieldLabel label={ownApiKey ? texts.speechApiKey : `${getVendorName(provider, language)} API Key`} href={CLOUD_TTS_DOCS[provider].apiKey} linkText={t.settings.ai.docLinks.apiKey} />
+                        <FieldLabel label={provider === "openai" ? "OpenAI API Key" : ownApiKey ? texts.speechApiKey : `${getVendorName(provider, language)} API Key`} href={CLOUD_TTS_DOCS[provider].apiKey} linkText={t.settings.ai.docLinks.apiKey} />
                         <PasswordInput
                             value={apiKey || ""}
                             onChange={(e) => updateApiKey(e.target.value)}
@@ -133,7 +134,7 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
                         <Input
                             value={settings?.endpoint || ""}
                             onChange={(e) => updateSettings("endpoint", e.target.value)}
-                            placeholder={defaultTtsEndpoint(provider, config[provider])}
+                            placeholder={defaultTtsEndpoint(provider, channel)}
                         />
                         <p className="text-xs text-muted-foreground">{texts.endpointHint}</p>
                     </div>

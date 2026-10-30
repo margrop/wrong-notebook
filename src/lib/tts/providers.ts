@@ -30,7 +30,11 @@ export interface ResolvedTtsSettings {
 
 /** 合并语音设置与渠道配置：模型、音色留空用默认值，接口地址留空按渠道 Base URL 推算 */
 export function resolveTtsSettings(provider: CloudTtsProvider, settings: CloudTtsSettings | undefined, vendor: VendorConfig | undefined): ResolvedTtsSettings {
-    const apiKey = hasOwnTtsApiKey(provider) ? settings?.apiKey?.trim() || '' : resolveVendorConfig(provider, vendor).apiKey;
+    const ownKey = hasOwnTtsApiKey(provider) ? settings?.apiKey?.trim() || '' : '';
+    // OpenAI 未单独填写时使用当前 OpenAI 实例的 Key；豆包语音只用单独填写的 Key
+    const apiKey = provider === 'openai' ? ownKey || vendor?.apiKey || ''
+        : provider === 'volcengine' ? ownKey
+            : resolveVendorConfig(provider, vendor).apiKey;
     const defaults = CLOUD_TTS_DEFAULTS[provider];
     return {
         provider,
@@ -223,6 +227,19 @@ async function synthesizeVolcengine(text: string, settings: ResolvedTtsSettings)
     return { sampleRate: SAMPLE_RATE, samples: pcm16ToFloat(audio) };
 }
 
+/** OpenAI：/audio/speech 返回 24kHz 16 位小端 PCM；gpt-4o-mini-tts 支持用指令控制语气 */
+async function synthesizeOpenAI(text: string, settings: ResolvedTtsSettings): Promise<PcmAudio> {
+    const { data, audio } = await postSpeech(settings.endpoint, settings.apiKey, {
+        model: settings.model,
+        input: text,
+        voice: settings.voice,
+        response_format: 'pcm',
+        ...(usesStyleInstruction('openai', settings.model) ? { instructions: VOICE_STYLE_INSTRUCTION } : {}),
+    });
+    if (!audio) throw new TtsError('TTS_PROVIDER_ERROR', `OpenAI: ${errorMessageOf(data, 'no audio')}`);
+    return { sampleRate: SAMPLE_RATE, samples: pcm16ToFloat(audio) };
+}
+
 export async function synthesizeWithProvider(text: string, language: 'zh' | 'en', settings: ResolvedTtsSettings): Promise<PcmAudio> {
     if (!settings.apiKey) {
         throw new TtsError('TTS_NOT_CONFIGURED', `${settings.provider} API key is not configured`);
@@ -239,5 +256,7 @@ export async function synthesizeWithProvider(text: string, language: 'zh' | 'en'
         case 'volcengine':
         case 'volcengine-agent':
             return synthesizeVolcengine(text, settings);
+        case 'openai':
+            return synthesizeOpenAI(text, settings);
     }
 }

@@ -9,7 +9,7 @@ import path from "path";
 import { getAppConfig } from "@/lib/config";
 import { createLogger } from "@/lib/logger";
 import { MAX_NARRATION_TEXT_LENGTH, decodeXmlText, getEmbeddedNarration } from "@/lib/svg-animation";
-import { TARGET_LOUDNESS_LUFS, VOICE_STYLE_INSTRUCTION, isCloudTtsProvider, usesStyleInstruction } from "./constants";
+import { TARGET_LOUDNESS_LUFS, VOICE_STYLE_INSTRUCTION, getTtsChannelConfig, isCloudTtsProvider, usesStyleInstruction } from "./constants";
 import type { CloudTtsProvider, TtsMode } from "./constants";
 import { normalizeLoudness } from "./loudness";
 import { encodeMp3, looksLikeMp3 } from "./mp3";
@@ -62,7 +62,7 @@ function currentSettings(): ResolvedTtsSettings | null {
     const config = getAppConfig();
     const mode = config.tts?.mode;
     if (!isCloudTtsProvider(mode)) return null;
-    return resolveTtsSettings(mode, config.tts?.[mode], config[mode]);
+    return resolveTtsSettings(mode, config.tts?.[mode], getTtsChannelConfig(config, mode));
 }
 
 export function speechId({ provider, model, voice, language, text }: SpeechSource): string {
