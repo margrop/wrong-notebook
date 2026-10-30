@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { Loader2, Play } from "lucide-react";
+import { ExternalLink, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,9 +16,29 @@ import { getSpeechAudio, unlockSpeechAudio } from "@/lib/cloud-speech";
 import { getApiErrorDetails, getApiErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { CLOUD_TTS_DEFAULTS, TTS_MODES, defaultTtsEndpoint, isCloudTtsProvider } from "@/lib/tts/constants";
+import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, TTS_MODES, defaultTtsEndpoint, isCloudTtsProvider } from "@/lib/tts/constants";
 import type { CloudTtsSettings, TtsMode } from "@/lib/tts/constants";
 import type { AppConfig } from "@/types/api";
+
+interface FieldLabelProps {
+    label: string;
+    /** 该字段的官方说明文档（可选值列表等） */
+    href: string;
+    linkText: string;
+}
+
+/** 字段名，右侧附官方文档链接，便于查询可选的模型、音色和接口地址 */
+function FieldLabel({ label, href, linkText }: FieldLabelProps) {
+    return (
+        <div className="flex items-center justify-between gap-2">
+            <Label>{label}</Label>
+            <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-muted-foreground underline">
+                {linkText}
+                <ExternalLink className="h-3 w-3" />
+            </a>
+        </div>
+    );
+}
 
 interface TtsSettingsProps {
     config: AppConfig;
@@ -106,7 +126,7 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-2">
-                            <Label>{texts.model}</Label>
+                            <FieldLabel label={texts.model} href={CLOUD_TTS_DOCS[provider].model} linkText={texts.docs} />
                             <Input
                                 value={settings?.model || ""}
                                 onChange={(e) => updateSettings("model", e.target.value)}
@@ -114,7 +134,7 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>{texts.voice}</Label>
+                            <FieldLabel label={texts.voice} href={CLOUD_TTS_DOCS[provider].voice} linkText={texts.voiceList} />
                             <Input
                                 value={settings?.voice || ""}
                                 onChange={(e) => updateSettings("voice", e.target.value)}
@@ -124,7 +144,7 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
                     </div>
                     <p className="text-xs text-muted-foreground">{texts.voiceHint[provider]}</p>
                     <div className="space-y-2">
-                        <Label>{texts.endpoint}</Label>
+                        <FieldLabel label={texts.endpoint} href={CLOUD_TTS_DOCS[provider].endpoint} linkText={texts.docs} />
                         <Input
                             value={settings?.endpoint || ""}
                             onChange={(e) => updateSettings("endpoint", e.target.value)}

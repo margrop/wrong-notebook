@@ -32,6 +32,20 @@ export const CLOUD_TTS_DEFAULTS: Record<CloudTtsProvider, Required<Omit<CloudTts
     qwen: { model: 'qwen-audio-3.0-tts-plus', voice: 'longanlufeng' },
 };
 
+/** 各云端语音的官方说明文档：模型、音色（可选值列表）和接口地址，设置页附上链接 */
+export const CLOUD_TTS_DOCS: Record<CloudTtsProvider, { model: string; voice: string; endpoint: string }> = {
+    minimax: {
+        model: 'https://platform.minimax.cn/docs/api-reference/speech-t2a-http',
+        voice: 'https://platform.minimax.cn/docs/faq/system-voice-id',
+        endpoint: 'https://platform.minimax.cn/docs/api-reference/speech-t2a-http',
+    },
+    qwen: {
+        model: 'https://help.aliyun.com/zh/model-studio/non-realtime-tts-user-guide',
+        voice: 'https://help.aliyun.com/zh/model-studio/qwen-audio-tts-voice-list',
+        endpoint: 'https://help.aliyun.com/zh/model-studio/non-realtime-tts-user-guide',
+    },
+};
+
 /** 千问语音的语气指令（中英文讲解通用） */
 export const QWEN_TTS_INSTRUCTION = '用年轻男性的声音讲题，自然、清晰，略带科技感，像面对面给同学讲解；语速适中，不要播音腔，不要模仿角色或夸张表演。';
 
