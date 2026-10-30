@@ -2,7 +2,7 @@
 
 ## What is the default admin? Does upgrading reset the password?
 
-A fresh install's default admin is `admin@localhost` with password `123456`; the first sign-in requires changing it before any other page can be used. When an existing database is upgraded with `PRESERVE_EXISTING_DATA=true`, the startup script skips admin seeding and keeps account state. If you forget the password, see [`scripts/reset-password.js`](https://github.com/margrop/wrong-notebook/blob/main/scripts/reset-password.js) in the repository, and back up first.
+A fresh install's default admin is `admin@localhost` with password `123456`; the first sign-in requires changing it before any other page can be used. The "First time here?" section under the sign-in form shows the default admin email and links to this page, without showing the password. When an existing database is upgraded with `PRESERVE_EXISTING_DATA=true`, the startup script skips admin seeding and keeps account state. If you forget the password, see [`scripts/reset-password.js`](https://github.com/margrop/wrong-notebook/blob/main/scripts/reset-password.js) in the repository, and back up first.
 
 ## Sign-in bounces back to the login page, or fails behind a reverse proxy?
 

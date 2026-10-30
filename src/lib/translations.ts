@@ -825,6 +825,11 @@ export const translations = {
                 action: "Login",
                 noAccount: "Don't have an account? ",
                 registerNow: "Register now",
+                registrationClosed: "Need an account? Ask your administrator to turn on registration.",
+                firstUseTitle: "First time here?",
+                firstUseAccount: "After a fresh install, sign in with the default admin account {email}. The initial password is in the documentation.",
+                firstUseNext: "You will be asked to change the password right away, then guided to set up AI and create your first notebook.",
+                firstUseDocs: "Open the documentation",
             },
             register: {
                 title: "Create an Account",
@@ -2084,6 +2089,11 @@ export const translations = {
                 action: "登录",
                 noAccount: "还没有账号？",
                 registerNow: "立即注册",
+                registrationClosed: "需要账号？请联系管理员开启注册。",
+                firstUseTitle: "首次使用？",
+                firstUseAccount: "全新安装后，用默认管理员账号 {email} 登录，初始密码见使用文档。",
+                firstUseNext: "登录后会要求立即修改密码，再引导你配置 AI、创建第一个错题本。",
+                firstUseDocs: "查看使用文档",
             },
             register: {
                 title: "注册新账号",

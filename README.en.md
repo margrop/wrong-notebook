@@ -167,12 +167,12 @@ Practice statistics show total practice, accuracy and active months, with distri
 - **💾 Import and export**: export or import data backups in **Settings**, including notebooks, questions, practice and answer records, exams, personal preferences and synthesized cloud voice; account credentials and AI settings are not included.
 - **🕒 Application time zone**: Beijing time by default and changeable by administrators; dates and statistics follow the application time zone. See [TIME_ZONE.md](doc/TIME_ZONE.md) (Chinese).
 - **🧭 Setup wizard**: on first sign-in the admin goes through a wizard: change the default password (required) → set up an AI provider (free MiniMax Code recommended) → create the first notebook. The last two steps can be skipped, and the wizard can be run again from **Settings → User Management**. Instances already in use are not interrupted after upgrading.
-- **🔐 Multiple users and admin console**: sign-up and sign-in, with data isolated per user. New sign-ups are off by default and can be turned on under **Settings → User Management**, where admins can also cap daily AI use per user and see today's usage. Administrators open the admin console from **Settings → User Management** to view usage statistics and enable, disable or delete users.
+- **🔐 Multiple users and admin console**: sign-up and sign-in, with data isolated per user. New sign-ups are off by default (the sign-in page then hides the sign-up link and asks visitors to contact the administrator) and can be turned on under **Settings → User Management**, where admins can also cap daily AI use per user and see today's usage. Administrators open the admin console from **Settings → User Management** to view usage statistics and enable, disable or delete users.
 - **🔌 Openclaw integration**: an external Openclaw agent can upload question images in bulk via `POST /api/openclaw/batch-upload`; see [Environment variables](#-environment-variables).
 
 ## 🚀 Quick Start
 
-Ordered from easiest to most hands-on. Every option signs in for the first time with the default admin account: email `admin@localhost`, password `123456`. The first sign-in opens the setup wizard: change the default password (required), then set up an AI provider and create your first notebook.
+Ordered from easiest to most hands-on. Every option signs in for the first time with the default admin account: email `admin@localhost`, password `123456`. The first sign-in opens the setup wizard: change the default password (required), then set up an AI provider and create your first notebook. The **First time here?** section under the sign-in form also shows the default admin email and links to these instructions.
 
 ### Option 1: Installers (Windows / macOS / Linux / fnOS / Android / npm)
 

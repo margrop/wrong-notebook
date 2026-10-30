@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import Link from "next/link";
 import { AuthShell } from "@/components/auth-shell";
+import { LoginHelp } from "@/components/login-help";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { frontendLogger } from "@/lib/frontend-logger";
 import { usePageTitle } from "@/lib/page-title";
 
 export default function LoginPage() {
@@ -19,6 +20,23 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [allowRegistration, setAllowRegistration] = useState<boolean | null>(null);
+
+    const checkRegistrationStatus = useCallback(async () => {
+        try {
+            const res = await fetch("/api/register/status");
+            const data = await res.json();
+            setAllowRegistration(data.allowRegistration === true);
+        } catch (error) {
+            frontendLogger.error('[Login]', 'Failed to check registration status', { error });
+            setAllowRegistration(false); // 无法确认时按关闭处理，不显示可能打不开的注册入口
+        }
+    }, []);
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- 数据请求：进入页面时获取是否开放注册
+        checkRegistrationStatus();
+    }, [checkRegistrationStatus]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -89,12 +107,7 @@ export default function LoginPage() {
                                 ? (t.auth?.login?.loggingIn || 'Logging in...')
                                 : (t.auth?.login?.action || 'Login')}
                         </Button>
-                        <div className="text-center text-sm text-muted-foreground">
-                            {t.auth?.login?.noAccount || "Don't have an account? "}
-                            <Link href="/register" className="text-primary hover:underline">
-                                {t.auth?.login?.registerNow || 'Register now'}
-                            </Link>
-                        </div>
+                        <LoginHelp allowRegistration={allowRegistration} />
                     </form>
                 </CardContent>
             </Card>

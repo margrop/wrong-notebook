@@ -2,7 +2,7 @@
 
 ## 默认管理员是什么？升级会重置密码吗？
 
-全新安装的默认管理员为 `admin@localhost`，密码 `123456`，首次登录时必须先修改密码才能使用其他页面。已有数据库在 `PRESERVE_EXISTING_DATA=true` 下升级时，启动脚本跳过管理员播种，保留账户状态。忘记密码可参考仓库的 [`scripts/reset-password.js`](https://github.com/margrop/wrong-notebook/blob/main/scripts/reset-password.js)，操作前先备份。
+全新安装的默认管理员为 `admin@localhost`，密码 `123456`，首次登录时必须先修改密码才能使用其他页面。登录页下方的“首次使用？”会给出默认管理员邮箱和本页链接，不显示密码。已有数据库在 `PRESERVE_EXISTING_DATA=true` 下升级时，启动脚本跳过管理员播种，保留账户状态。忘记密码可参考仓库的 [`scripts/reset-password.js`](https://github.com/margrop/wrong-notebook/blob/main/scripts/reset-password.js)，操作前先备份。
 
 ## 登录后跳回登录页，或反向代理下登录失败？
 
