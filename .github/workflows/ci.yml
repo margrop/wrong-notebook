@@ -27,6 +27,17 @@ jobs:
           python3 -m unittest discover -s tests/publication -v
           python3 scripts/check-public-history.py HEAD
 
+  windows-signing-check:
+    name: Windows Signature Validation
+    needs: publication-check
+    if: "!startsWith(github.ref, 'refs/tags/')"
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: 检查签名文件验证与异常拦截
+        shell: pwsh
+        run: ./tests/packaging/test-windows-signatures.ps1
+
   # ============================================
   # 测试阶段（仅 main 分支 push 或 PR）
   # ============================================
