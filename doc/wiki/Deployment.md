@@ -125,4 +125,13 @@ Dockerfile 在镜像内执行 Vitest、脚本语法检查和生产构建，并�
 | 安卓手机 / 平板（单机版） | 安装 `WrongNotebook-Android-Phone-<版本>.apk` 或 `WrongNotebook-Android-Tablet-<版本>.apk` | App 私有目录，卸载时删除 |
 | 安卓手机 / 平板（客户端） | 安装 `WrongNotebook-Android-Client-Phone-<版本>.apk` 或 `-Client-Tablet-<版本>.apk`，首次打开填写服务器地址 | 不保存数据，连接已部署的服务器 |
 
-桌面版只监听本机，默认端口 39300；飞牛OS 版监听 39300 端口，局域网内可访问。数据库、AI 配置和会话密钥都在数据目录中，备份时整体复制该目录。桌面安装包未签名，macOS 首次打开需右键选择「打开」。安卓单机版在手机上运行服务端，无需另行部署，需要 Android 8.0 及以上的 64 位 ARM 设备；安卓客户端版只是连接服务器的外壳，需要先用上面任一方式部署服务端。详细说明见 [INSTALL_PACKAGES.md](https://github.com/margrop/wrong-notebook/blob/main/doc/INSTALL_PACKAGES.md)。
+桌面版只监听本机，默认端口 39300；飞牛OS 版监听 39300 端口，局域网内可访问。数据库、AI 配置和会话密钥都在数据目录中，备份时整体复制该目录。
+
+桌面安装包未签名。macOS 提示「已损坏」或无法打开时，先把应用拖入「应用程序」，再在终端执行以下命令，移除隔离属性并在本机重新自签名，然后打开应用：
+
+```bash
+xattr -cr /Applications/WrongNotebook.app
+codesign --force --deep --sign - /Applications/WrongNotebook.app
+```
+
+安卓单机版在手机上运行服务端，无需另行部署，需要 Android 8.0 及以上的 64 位 ARM 设备；安卓客户端版只是连接服务器的外壳，需要先用上面任一方式部署服务端。详细说明见 [INSTALL_PACKAGES.md](https://github.com/margrop/wrong-notebook/blob/main/doc/INSTALL_PACKAGES.md)。
