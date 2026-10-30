@@ -17,7 +17,7 @@ describe('官方接入文档', () => {
     });
 
     it('同时有国内站和国际站的渠道两个都提供', () => {
-        expect(getProviderDocs('minimax')).toEqual({
+        expect(getProviderDocs('minimax')).toMatchObject({
             cn: 'https://platform.minimax.cn/docs/api-reference/api-overview',
             intl: 'https://platform.minimax.io/docs/api-reference/api-overview',
         });
@@ -27,8 +27,17 @@ describe('官方接入文档', () => {
 
     it('海外提供商只有一个入口；MiniMax Code OAuth 没有', () => {
         for (const id of ['openai', 'anthropic', 'azure', 'gemini'] as const) {
-            expect(getProviderDocs(id), id).toEqual({ intl: expect.stringMatching(/^https:\/\//) });
+            expect(getProviderDocs(id)?.cn, id).toBeUndefined();
+            expect(getProviderDocs(id)?.intl, id).toMatch(/^https:\/\//);
         }
         expect(getProviderDocs('minimax-code')).toBeNull();
+    });
+
+    it('每个提供商都附有获取 API Key 的说明和模型列表', () => {
+        for (const id of [...VENDOR_PROVIDER_IDS, 'openai', 'anthropic', 'azure', 'gemini'] as const) {
+            const docs = getProviderDocs(id);
+            expect(docs?.apiKey, id).toMatch(/^https:\/\//);
+            expect(docs?.models, id).toMatch(/^https:\/\//);
+        }
     });
 });

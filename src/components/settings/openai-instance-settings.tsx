@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ModelSelector } from "@/components/ui/model-selector";
+import { FieldLabel } from "@/components/settings/field-label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getProviderDocs } from "@/lib/ai/provider-docs";
 import { confirmDialog } from "@/lib/feedback";
 import type { AppConfig, OpenAIInstance } from "@/types/api";
 
@@ -32,6 +34,7 @@ interface OpenAIInstanceSettingsProps {
 /** OpenAI 及兼容接口：最多 10 个实例，当前激活的实例用于识别 */
 export function OpenAIInstanceSettings({ value, onChange }: OpenAIInstanceSettingsProps) {
     const { t } = useLanguage();
+    const docs = getProviderDocs("openai");
     const instances = value?.instances || [];
     const activeId = value?.activeInstanceId;
     const selected = instances.find((instance) => instance.id === activeId);
@@ -127,7 +130,7 @@ export function OpenAIInstanceSettings({ value, onChange }: OpenAIInstanceSettin
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label>API Key <span className="text-destructive">*</span></Label>
+                        <FieldLabel label={<>API Key <span className="text-destructive">*</span></>} href={docs?.apiKey} linkText={t.settings.ai.docLinks.apiKey} />
                         <PasswordInput
                             value={selected.apiKey || ''}
                             onChange={(e) => updateSelected('apiKey', e.target.value)}
@@ -150,6 +153,7 @@ export function OpenAIInstanceSettings({ value, onChange }: OpenAIInstanceSettin
                         baseUrl={selected.baseUrl}
                         currentModel={selected.model}
                         onModelChange={(model) => updateSelected('model', model)}
+                        docsHref={docs?.models}
                     />
                 </div>
             )}

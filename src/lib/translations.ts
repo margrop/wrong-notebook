@@ -508,6 +508,10 @@ export const translations = {
                 vendorApiKeyHint: "Get an API key from the official console:",
                 vendorBaseUrlHint: "Leave empty for the official mainland China endpoint shown above. For the international site, enter its OpenAI-compatible URL instead.",
                 providerErrorDetail: "Provider error: ",
+                docLinks: {
+                    apiKey: "How to get",
+                    models: "Model list",
+                },
                 providerDocs: {
                     title: "Official API docs:",
                     official: "Docs",
@@ -1759,6 +1763,10 @@ export const translations = {
                 vendorApiKeyHint: "在官方控制台获取 API Key：",
                 vendorBaseUrlHint: "留空使用上方的中国大陆官方地址；使用国际站时填写其 OpenAI 兼容地址。",
                 providerErrorDetail: "服务商报错：",
+                docLinks: {
+                    apiKey: "获取说明",
+                    models: "模型列表",
+                },
                 providerDocs: {
                     title: "官方接入文档：",
                     official: "接入文档",

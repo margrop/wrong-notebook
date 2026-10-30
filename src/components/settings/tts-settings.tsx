@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { ExternalLink, Loader2, Play } from "lucide-react";
+import { Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FieldLabel } from "@/components/settings/field-label";
 import { ProviderErrorDetail } from "@/components/settings/provider-error-detail";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getVendorName } from "@/lib/ai/vendor-presets";
@@ -19,26 +20,6 @@ import { frontendLogger } from "@/lib/frontend-logger";
 import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, TTS_MODES, defaultTtsEndpoint, hasOwnTtsApiKey, isCloudTtsProvider } from "@/lib/tts/constants";
 import type { CloudTtsSettings, TtsMode } from "@/lib/tts/constants";
 import type { AppConfig } from "@/types/api";
-
-interface FieldLabelProps {
-    label: string;
-    /** 该字段的官方说明文档（可选值列表等） */
-    href: string;
-    linkText: string;
-}
-
-/** 字段名，右侧附官方文档链接，便于查询可选的模型、音色和接口地址 */
-function FieldLabel({ label, href, linkText }: FieldLabelProps) {
-    return (
-        <div className="flex items-center justify-between gap-2">
-            <Label>{label}</Label>
-            <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-muted-foreground underline">
-                {linkText}
-                <ExternalLink className="h-3 w-3" />
-            </a>
-        </div>
-    );
-}
 
 interface TtsSettingsProps {
     config: AppConfig;

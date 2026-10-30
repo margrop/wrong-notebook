@@ -11,7 +11,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Loader2 } from "lucide-react";
+import { ExternalLink, RefreshCw, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { AIModel, ModelsResponse } from "@/types/api";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -25,9 +25,11 @@ interface ModelSelectorProps {
     baseUrl?: string;
     currentModel?: string;
     onModelChange: (model: string) => void;
+    /** 官方的模型列表文档，显示在字段名旁 */
+    docsHref?: string;
 }
 
-export function ModelSelector({ provider, apiKey, baseUrl, currentModel, onModelChange }: ModelSelectorProps) {
+export function ModelSelector({ provider, apiKey, baseUrl, currentModel, onModelChange, docsHref }: ModelSelectorProps) {
     const { t } = useLanguage();
     const [models, setModels] = useState<AIModel[]>([]);
     const [loading, setLoading] = useState(false);
@@ -101,6 +103,12 @@ export function ModelSelector({ provider, apiKey, baseUrl, currentModel, onModel
         <div className="space-y-2">
             <div className="flex items-center gap-2">
                 <Label className="flex-1">{t.modelSelector?.modelName || 'Model Name'}</Label>
+                {docsHref && (
+                    <a href={docsHref} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground underline">
+                        {t.settings.ai.docLinks.models}
+                        <ExternalLink className="h-3 w-3" />
+                    </a>
+                )}
                 <Button
                     type="button"
                     variant="outline"

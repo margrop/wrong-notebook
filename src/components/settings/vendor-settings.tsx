@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { ModelSelector } from "@/components/ui/model-selector";
+import { FieldLabel } from "@/components/settings/field-label";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { VENDOR_PRESETS } from "@/lib/ai/vendor-presets";
 import type { VendorConfig, VendorProviderId } from "@/lib/ai/vendor-presets";
@@ -37,7 +38,7 @@ export function VendorSettings({ provider, value, onChange }: VendorSettingsProp
                 </div>
             )}
             <div className="space-y-2">
-                <Label>API Key</Label>
+                <FieldLabel label="API Key" href={preset.docs.apiKey} linkText={t.settings.ai.docLinks.apiKey} />
                 <PasswordInput
                     value={value?.apiKey || ""}
                     onChange={(e) => update("apiKey", e.target.value)}
@@ -63,6 +64,7 @@ export function VendorSettings({ provider, value, onChange }: VendorSettingsProp
                 baseUrl={value?.baseUrl}
                 currentModel={value?.model || preset.model}
                 onModelChange={(model) => update("model", model)}
+                docsHref={preset.docs.models}
             />
         </div>
     );

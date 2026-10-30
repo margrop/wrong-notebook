@@ -2,8 +2,10 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldLabel } from "@/components/settings/field-label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getProviderDocs } from "@/lib/ai/provider-docs";
 import type { AppConfig } from "@/types/api";
 
 type AzureConfig = NonNullable<AppConfig["azure"]>;
@@ -16,6 +18,7 @@ interface AzureSettingsProps {
 /** Azure OpenAI 的配置表单，端点、部署名和 API Key 必填 */
 export function AzureSettings({ value, onChange }: AzureSettingsProps) {
     const { t } = useLanguage();
+    const docs = getProviderDocs("azure");
     const update = (key: keyof AzureConfig, next: string) => onChange({ ...value, [key]: next });
     const required = (field?: string) => !field?.trim() ? 'border-destructive' : '';
 
@@ -31,7 +34,7 @@ export function AzureSettings({ value, onChange }: AzureSettingsProps) {
                 />
             </div>
             <div className="space-y-2">
-                <Label>{t.settings?.ai?.azureDeployment || "Deployment Name"} <span className="text-destructive">*</span></Label>
+                <FieldLabel label={<>{t.settings?.ai?.azureDeployment || "Deployment Name"} <span className="text-destructive">*</span></>} href={docs?.models} linkText={t.settings.ai.docLinks.models} />
                 <Input
                     value={value?.deploymentName || ''}
                     onChange={(e) => update('deploymentName', e.target.value)}
@@ -40,7 +43,7 @@ export function AzureSettings({ value, onChange }: AzureSettingsProps) {
                 />
             </div>
             <div className="space-y-2">
-                <Label>API Key <span className="text-destructive">*</span></Label>
+                <FieldLabel label={<>API Key <span className="text-destructive">*</span></>} href={docs?.apiKey} linkText={t.settings.ai.docLinks.apiKey} />
                 <PasswordInput
                     value={value?.apiKey || ''}
                     onChange={(e) => update('apiKey', e.target.value)}
