@@ -4,6 +4,8 @@
 
 When creating a notebook, choose its school stage (primary, junior high or senior high) and subject. They decide which knowledge-point library the AI uses and cannot be changed later, so keep separate notebooks per stage and subject.
 
+The notebook list shows only each name and question count; click one to open its detail page, where you can rename or delete it. Only an empty notebook can be deleted, so move or delete its questions first.
+
 ## Add questions
 
 | Entry | When to use |
@@ -14,7 +16,7 @@ When creating a notebook, choose its school stage (primary, junior high or senio
 | AI solve | You already have the question text; Markdown and LaTeX are supported |
 | Direct entry | Manually record a known question, answer and analysis |
 
-Images can be cropped first. When one image contains several questions, select them all for a batch import. Keep the full question, any required figure and the student's work, and avoid blurry images or cut-off conditions.
+Images can be cropped first. While cropping or selecting several questions, zoom with the mouse wheel, a two-finger pinch or the buttons at the top right (100%–500%; click the percentage to reset). When one image contains several questions, select them all for a batch import. Keep the full question, any required figure and the student's work, and avoid blurry images or cut-off conditions.
 
 After enabling "Review before import" in "Settings → General", you can correct the recognition on the review page before saving. The AI may misread numbers, symbols and figure relationships, so check against the original before saving.
 

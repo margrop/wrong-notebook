@@ -44,6 +44,8 @@ The **Review** page in the navigation lists questions due today, and the home pa
 3. Check the progress in background tasks; when it finishes, open the paper and check the questions, figures and answers.
 4. Print or export it, and afterwards record the result for each question.
 
+In the exam list a paper shows Generating, then Generated (or Partly failed / Failed), and Completed once results have been entered.
+
 Exam papers keep the source question IDs so you can go back to the originals. Results can be correct, wrong or not attempted; the same question can keep several results, all linked to the original question's review history.
 
 ![Source IDs and recorded results in a generated exam paper](https://raw.githubusercontent.com/margrop/wrong-notebook/a5f816515e3dc31dcdb90c9fa456baed12eef94d/doc/screenshots/en/exam.png)
@@ -62,6 +64,8 @@ Before printing, check page breaks, formulas and figures. Paper size, scaling an
 ## Statistics
 
 Mistake statistics show total questions, mastered count, mastery rate, subject distribution and monthly trends. Practice statistics separately show practice count, accuracy, active months, and distribution by difficulty and subject.
+
+Knowledge points also live in the stats center: **Knowledge Point Stats** summarizes mistakes by knowledge point, and **Knowledge Points** lets you browse the standard knowledge points for each stage and subject and add custom tags. Old `/tags` links redirect here.
 
 Dates and statistics boundaries use the [app time zone](Settings-and-Users-en). Changing the time zone affects daily and monthly grouping but does not shift the times stored in the database.
 
