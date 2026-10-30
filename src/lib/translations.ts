@@ -517,6 +517,7 @@ export const translations = {
                 stepfunBaseUrlHint: "The default is the Step Plan endpoint (recommended; the plan includes speech synthesis). For a pay-as-you-go key, enter https://api.stepfun.com/v1; for the international site, https://api.stepfun.ai/v1.",
                 volcengineBaseUrlHint: "This channel is pay-as-you-go. With an Agent Plan or Coding Plan subscription, choose the matching Volcengine plan channel instead (it uses the plan endpoint, so calls count toward the plan). For the international site (BytePlus ModelArk), enter https://ark.ap-southeast.bytepluses.com/api/v3.",
                 volcengineAgentBaseUrlHint: "Agent Plan endpoint. Use the plan's dedicated API key from the Agent Plan page in the Ark console; a regular Ark key does not work here. The plan includes Doubao speech synthesis, which can be chosen under Voice narration.",
+                volcengineCodingBaseUrlHint: "Coding Plan endpoint, used with your Ark API key. Do not change it to /api/v3: calls there do not count toward the plan and are billed pay-as-you-go. Coding Plan does not include speech synthesis; for cloud voice choose Volcengine Agent Plan, Doubao Speech or another provider under Voice narration.",
                 volcengineFree: {
                     title: "Free trial",
                     body: "New Volcengine accounts get a free inference quota for each model (500,000 tokens per model, per Volcengine's docs). Turn on worry-free trial mode under Activation Management in the Ark console: calls only use the free quota and pause when it is nearly used up, so you are never charged. To keep going afterwards, verify your identity and switch to the regular Volcengine channel.",
@@ -1767,6 +1768,7 @@ export const translations = {
                 stepfunBaseUrlHint: "默认为 Step Plan 套餐地址（推荐，套餐含语音合成）；使用按量付费的 Key 时填写 https://api.stepfun.com/v1，国际站填写 https://api.stepfun.ai/v1。",
                 volcengineBaseUrlHint: "本渠道按量付费；订阅了 Agent Plan 或 Coding Plan 时请选择对应的火山引擎套餐渠道（使用套餐专属地址，计入套餐额度）。国际站（BytePlus ModelArk）填写 https://ark.ap-southeast.bytepluses.com/api/v3。",
                 volcengineAgentBaseUrlHint: "Agent Plan 专属地址。请使用方舟控制台 Agent Plan 管理页的专属 API Key，普通方舟 Key 不能用于此地址。套餐含豆包语音合成，可在「语音讲解」中选用。",
+                volcengineCodingBaseUrlHint: "Coding Plan 专属地址，使用方舟 API Key。不要改成 /api/v3：该地址不计入套餐额度，会按量计费。Coding Plan 不含语音合成，云端语音请在「语音讲解」中选择火山引擎 Agent Plan、豆包语音或其他渠道。",
                 volcengineFree: {
                     title: "免费试用",
                     body: "注册火山引擎即可获得每个模型的免费推理额度（官方文档为每个模型 50 万 tokens）。在火山方舟控制台的「开通管理」中开启「安心体验模式」后，调用只消耗免费额度，额度接近用完时自动暂停，不会产生费用。额度用完后如需继续使用，完成实名认证并改用「火山引擎 豆包」渠道。",

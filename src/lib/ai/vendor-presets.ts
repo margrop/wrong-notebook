@@ -91,6 +91,16 @@ export const VENDOR_PRESETS = {
         consoleUrl: 'https://console.volcengine.com/ark',
         docs: { cn: 'https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh' },
     },
+    // 火山方舟 Coding Plan 套餐：专属地址 /api/coding/v3（用 /api/v3 不计入套餐，会按量计费），套餐不含语音合成
+    'volcengine-coding': {
+        name: '火山引擎 Coding Plan',
+        nameEn: 'Volcengine Coding Plan',
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/coding/v3',
+        model: 'doubao-seed-2.1-lite',
+        envPrefix: 'VOLCENGINE_CODING',
+        consoleUrl: 'https://console.volcengine.com/ark',
+        docs: { cn: 'https://www.volcengine.com/docs/82379/1928261' },
+    },
     // 同为火山方舟，面向新用户的免费推理额度：每个模型有免费 token，开启「安心体验模式」后额度用完自动暂停，不产生费用
     'volcengine-free': {
         name: '火山引擎（免费试用）',

@@ -44,6 +44,7 @@ const EXPECTED: Record<VendorProviderId, { baseUrl: string; model: string }> = {
     stepfun: { baseUrl: 'https://api.stepfun.com/step_plan/v1', model: 'step-5-preview' },
     volcengine: { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-2-1-lite-260915' },
     'volcengine-agent': { baseUrl: 'https://ark.cn-beijing.volces.com/api/plan/v3', model: 'doubao-seed-2-1-pro-260628' },
+    'volcengine-coding': { baseUrl: 'https://ark.cn-beijing.volces.com/api/coding/v3', model: 'doubao-seed-2.1-lite' },
     'volcengine-free': { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-2-1-lite-260915' },
 };
 
