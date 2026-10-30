@@ -14,54 +14,31 @@
 
 一个基于 AI 的智能错题管理系统：拍照或输入题目后，由 AI 识别、解答、打知识点标签并评定难度，支持错题本管理、举一反三练习、组卷打印和掌握程度跟踪。
 
-⬇️ **下载安装包**：<https://blog.margrop.net/wrong-notebook-github-pages/download/>（自动识别系统与架构，列出 Windows、macOS、Linux、安卓、飞牛OS 全部安装包）
+**⬇️ [下载安装包](https://blog.margrop.net/wrong-notebook-github-pages/download/)** · **🚀 [在线演示](https://wrong-notebook-demo.vercel.app)**（账号 `demo@localhost`，密码 `demo123456`） · **🌐 [项目介绍页](https://blog.margrop.net/wrong-notebook-github-pages/)** · **📖 [使用文档（Wiki）](https://github.com/margrop/wrong-notebook/wiki)**
 
-🌐 **项目介绍页**：<https://blog.margrop.net/wrong-notebook-github-pages/>
+> 演示站点为共享账号，数据对所有访客可见，请勿录入个人信息。介绍文章：[别让错题本变成抄题本：我给孩子用的 AI 错题本开源了](https://blog.margrop.net/post/wrong-notebook-ai-family-learning/) · [不用先配 API Key：接上 MiniMax 免费账号](https://blog.margrop.net/post/wrong-notebook-minimax-free-ai-review/)
 
-📝 **介绍文章**：[别让错题本变成抄题本：我给孩子用的 AI 错题本开源了](https://blog.margrop.net/post/wrong-notebook-ai-family-learning/) · [不用先配 API Key：接上 MiniMax 免费账号](https://blog.margrop.net/post/wrong-notebook-minimax-free-ai-review/)
+## 🌟 亮点
 
-🚀 **在线演示**：<https://wrong-notebook-demo.vercel.app>（账号 `demo@localhost`，密码 `demo123456`）
+- **🤖 AI 识题与讲解**：拍照、截图或输入文字，AI 识别题目、生成答案和解析，分析错因，打知识点标签并评定 1～5 星难度。
+- **🔊 会说话的 SVG 动画讲解**：AI 把解题思路做成分步骤动画并逐步语音讲解，画面等语音读完再进入下一步。语音有两种选择：
 
-> 演示站点为共享账号，数据对所有访客可见，请勿录入个人信息。
+  | 语音 | 效果 | 费用 |
+  | :--- | :--- | :--- |
+  | 浏览器本地语音（Web Speech） | 由设备自带的语音朗读，听起来比较生硬，音色因设备而异 | 免费 |
+  | 云端 TTS 语音（MiniMax、千问、智谱 GLM-TTS、阶跃星辰、火山引擎豆包语音、火山引擎 Agent Plan、OpenAI） | 声音自然，与真人讲题无异，所有设备音色一致 | 需要付费，**建议购买 Token Plan 等套餐**，比按量付费划算；火山引擎有[免费试用额度](https://docs.volcengine.com/docs/ark/free-inference-quota?lang=zh)，可参考文档自行开通 |
 
-📦 **多平台安装**：Docker 镜像（amd64 / arm64）· npm（`npm i -g wrong-notebook`）· Windows · macOS · Linux · 飞牛OS · 安卓手机 / 平板（单机版内置服务端，或连接服务器的客户端），安装包见 [Releases](https://github.com/margrop/wrong-notebook/releases)，安装方式见[快速开始](#-快速开始)。
+- **🆓 免费账号就能用**：选择「MiniMax Code OAuth」渠道，用 MiniMax Code 账号网页登录即可使用，不需要购买 API Key，应用每天自动签到领取积分（见 [MiniMax Code OAuth](#minimax-code-oauth)）；火山引擎新用户也有[免费推理额度](#火山引擎免费试用)。
+- **📚 复习闭环**：举一反三变式题自动判题、AI 评估掌握概率、艾宾浩斯间隔的今日复习、按错题组卷打印并回填结果。
+- **📦 多平台安装**：Docker 镜像（amd64 / arm64）、npm、Windows、macOS、Linux、飞牛OS、安卓手机与平板（单机版或客户端），也可添加到手机主屏幕（PWA）。
 
-🆓 **免费的 MiniMax 账号就能用**：选择「MiniMax Code OAuth」渠道，用 MiniMax Code 账号网页登录即可调用 `MiniMax-M3.1-Flash`，不需要购买 API Key。应用每天自动签到领取积分，识题、讲解等 AI 功能消耗的是账号的免费积分额度，详见 [MiniMax Code OAuth](#minimax-code-oauth)。
-
-🔊 **新增：会说话的 SVG 动画讲解**：AI 把解题思路做成分步骤动画，并配上语音逐步讲解，画面等语音读完再进入下一步。语音有两种选择：
-
-| 语音 | 效果 | 费用 |
-| :--- | :--- | :--- |
-| 浏览器本地语音（Web Speech） | 由设备自带的语音朗读，听起来比较生硬，音色因设备而异 | 免费 |
-| 云端 TTS 语音（MiniMax、千问、智谱 GLM-TTS、阶跃星辰、火山引擎豆包语音、火山引擎 Agent Plan、OpenAI） | 声音自然，与真人讲题无异，所有设备音色一致 | 需要付费，**建议购买 Token Plan 等套餐**，比按量付费划算；火山引擎有[免费试用额度](https://docs.volcengine.com/docs/ark/free-inference-quota?lang=zh)，可参考文档自行开通 |
-
-管理员在「设置 → AI 设置 → 语音讲解」中切换，详见 [云端语音讲解](doc/wiki/AI-Configuration.md#云端语音讲解)。
-
-> 本仓库 fork 自 [wttwins/wrong-notebook](https://github.com/wttwins/wrong-notebook)，在其基础上增加了较多功能（见下文）。
-
-## 💬 用户交流群
-
-使用中遇到问题、想分享用法或提建议，欢迎加入 QQ 群 **964325781**，或用 QQ 扫描下方二维码。Bug 和功能需求仍建议提交到 [Issues](https://github.com/margrop/wrong-notebook/issues)，方便跟踪处理；在群里发截图前请隐去孩子姓名、学校、账号和访问地址。
-
-<img src="doc/images/qq-group.webp" alt="智能错题本用户交流 QQ 群二维码，群号 964325781" width="240">
-
-## ⭐ Star 增长趋势
-
-<a href="https://www.star-history.com/#margrop/wrong-notebook&amp;Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date&amp;theme=dark">
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date">
-    <img src="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date" alt="margrop/wrong-notebook 的 GitHub Star 增长趋势图">
-  </picture>
-</a>
+> 本仓库 fork 自 [wttwins/wrong-notebook](https://github.com/wttwins/wrong-notebook)，在其基础上增加了上述及下文列出的大部分功能。
 
 ## 🖼️ 功能预览
 
 以下截图采集自实际运行的应用（2026-10-20），展示已有题目、讲解和试卷。用户名已遮挡，可点击图片查看大图。
 
-**错题管理**：在同一页面查看题目摘要、难度星级和知识点，按年级、学期、掌握情况及 A/B 卷筛选，也可通过题目 ID 定位、比较相似度或批量打印。
-
-列表按需加载卡片数据，原图、答案和解析在详情或打印预览时读取，减少翻页时的数据传输。
+**错题管理**：在同一页面查看题目摘要、难度星级和知识点，按年级、学期、掌握情况及 A/B 卷筛选，也可通过题目 ID 定位、比较相似度或批量打印。列表按需加载卡片数据，原图、答案和解析在详情或打印预览时读取，减少翻页时的数据传输。
 
 ![错题本中的真实题目卡片、难度星级、知识点标签与筛选入口](doc/screenshots/notebook.png)
 
@@ -159,7 +136,8 @@
 
 ### 讲解与演示
 
-- **🎬 SVG 动画讲解**：AI 按解题思路生成分步骤的 SVG 动画，支持播放/暂停、拖动进度、重播和全屏。点击播放器上的喇叭可开启语音讲解，朗读每一步的讲解，画面会等语音读完再进入下一步，语速可调。语音有两种：**浏览器本地语音**免费，但听起来较生硬、音色因设备而异；**云端 TTS 语音**（MiniMax、千问、智谱 GLM-TTS、阶跃星辰、火山引擎豆包语音、火山引擎 Agent Plan、OpenAI）声音自然、与真人无异，需要付费，建议购买各家的 Token Plan、Step Plan 等套餐而不是按量付费。管理员在「设置 → AI 设置 → 语音讲解」中切换，服务端合成年轻男声并统一到约 -15 LUFS 的响度；生成语音登记为后台任务，已生成语音的动画打开时默认开启语音讲解，已有动画可「重新生成语音」，合成的语音随数据导出、导入备份；旧动画没有讲解稿时朗读画面字幕，也可点击「补充讲解稿」由 AI 只补写讲解稿，画面保持不变。动画文字与界面语言一致：中文界面生成中文版、英文界面生成英文版，两种版本分别保存，切换语言时自动显示对应版本。默认开启，可在「设置 → 通用」中关闭。
+- **🎬 SVG 动画讲解**：AI 按解题思路生成分步骤的 SVG 动画，支持播放/暂停、拖动进度、重播和全屏；动画文字与界面语言一致，中英文版本分别保存，切换语言时自动显示对应版本。默认开启，可在「设置 → 通用」中关闭。
+- **🔊 语音讲解**：点击播放器上的喇叭开启，画面等语音读完再进入下一步，语速可调。语音可选浏览器本地语音或云端 TTS（见[云端语音讲解](#-云端语音讲解)）；旧动画没有讲解稿时朗读画面字幕，也可点击「补充讲解稿」由 AI 只补写讲解稿，画面保持不变。
 - **📐 GeoGebra 动态演示**：数学、物理题可由 AI 生成交互式 GeoGebra 图形。默认关闭，可在「设置 → 通用」中开启。
 - 已生成的动画讲解和 GeoGebra 演示都可删除（需二次确认）。
 
@@ -175,75 +153,40 @@
 
 - **🔍 多维度筛选**：按掌握状态、时间范围、知识点、年级学期、试卷等级等条件筛选，支持批量操作和两题相似度比较。
 - **📊 数据统计**：错题与练习的掌握率、月度趋势和学科分布。
-- **⏳ 后台任务**：页面右下角的按钮可查看识别、AI 生成、批量标注、组卷等耗时事务的进度；离开页面后事务仍在服务器上继续。
-- **💾 数据导入导出**：在「设置」中导出或导入数据备份，包含错题本、错题、练习与作答记录、试卷和个人偏好；账户凭据和 AI 配置不在备份中。
+- **⏳ 后台任务**：页面右下角的按钮可查看识别、AI 生成、动画语音生成、批量标注、组卷等耗时事务的进度；离开页面后事务仍在服务器上继续。
+- **💾 数据导入导出**：在「设置」中导出或导入数据备份，包含错题本、错题、练习与作答记录、试卷、个人偏好和已合成的云端语音；账户凭据和 AI 配置不在备份中。
 - **🕒 应用时区**：默认北京时间，管理员可修改，日期显示与统计都按应用时区计算，详见 [时区说明](doc/TIME_ZONE.md)。
 - **🧭 安装向导**：管理员首次登录时进入向导：修改默认密码（必须）→ 配置 AI 渠道（推荐免费的 MiniMax Code）→ 创建第一个错题本，后两步可跳过；可在「设置 → 用户管理」中重新运行。已在使用的实例升级后不会自动弹出。
 - **🔐 多用户与管理后台**：支持注册、登录，数据按用户隔离；新用户注册默认关闭，管理员可在「设置 → 用户管理」中开启，并可限制每人每天的 AI 使用次数、查看今日用量；管理员可在「设置 → 用户管理」进入管理后台，查看使用统计，启用/禁用或删除用户。
-- **🔌 Openclaw 集成**：外部 Openclaw agent 可通过 `POST /api/openclaw/batch-upload` 批量上传题目图片，配置见下文环境变量。
-
-## 📸 屏幕截图功能 (HTTPS 设置)
-
-屏幕截图依赖浏览器的安全上下文 (HTTPS)。在 Docker 或局域网环境中使用时，请参考 **[HTTPS 配置指南](doc/HTTPS_SETUP.md)** 启用内置 HTTPS 支持。
-
-## 📱 PWA 支持 (添加到主屏幕)
-
-本项目支持 PWA，可将应用添加到手机或平板主屏幕，全屏运行、点击图标直接打开，平板可横屏使用。
-
-- **iPhone / iPad (Safari)**: 点击底部 **分享** 按钮 -> 选择 **"添加到主屏幕"**。
-- **Android (Chrome)**: 点击右上角 **菜单** -> 选择 **"添加到主屏幕"** 或 **"安装应用"**。也可以安装 [Releases](https://github.com/margrop/wrong-notebook/releases) 中的安卓 App（见下文安装包）。
-
-通过 HTTPS（或 `localhost`）访问时会启用 Service Worker：缓存页面脚本、样式和图标以加快打开速度，断网时显示离线提示页。题目、统计等数据始终从服务器读取，不做离线缓存。
-
-## 🛠️ 技术栈
-
-- **框架**: [Next.js 16](https://nextjs.org/) (App Router) + [React 19](https://react.dev/) + TypeScript
-- **数据库**: [SQLite](https://www.sqlite.org/) (via [Prisma 5](https://www.prisma.io/))
-- **样式**: [Tailwind CSS v4](https://tailwindcss.com/) + [Radix UI](https://www.radix-ui.com/)（shadcn/ui 风格组件）
-- **公式**: [KaTeX](https://katex.org/)（react-markdown + remark-math）
-- **AI**: MiniMax / MiniMax Code（网页登录）/ 智谱 GLM / DeepSeek / Kimi / 千问 Qwen / 阶跃星辰 StepFun / 火山引擎豆包（含 Agent Plan、Coding Plan、免费试用） / Anthropic（及兼容接口）/ Azure OpenAI / OpenAI（及兼容接口）/ Google Gemini
-- **认证**: [NextAuth.js v4](https://next-auth.js.org/)
-- **测试**: Vitest（单元、集成）、Playwright（E2E）
+- **🔌 Openclaw 集成**：外部 Openclaw agent 可通过 `POST /api/openclaw/batch-upload` 批量上传题目图片，配置见[环境变量](#-环境变量)。
 
 ## 🚀 快速开始
 
-### 方式一：本地源码运行
+按上手难度从易到难排列。所有方式首次登录都使用默认管理员账户：邮箱 `admin@localhost`，密码 `123456`；登录后进入安装向导，先修改默认密码（必须），再配置 AI 渠道、创建第一个错题本。
 
-1. **环境准备**：Node.js 22 及以上（推荐 24）和 npm。
+### 方式一：安装包（Windows / macOS / Linux / 飞牛OS / 安卓 / npm）
 
-2. **克隆并安装依赖**：
+从[下载页](https://blog.margrop.net/wrong-notebook-github-pages/download/)（自动识别系统与架构）或 [Releases](https://github.com/margrop/wrong-notebook/releases) 下载对应安装包，安装后直接打开：
 
-   ```bash
-   git clone https://github.com/margrop/wrong-notebook.git
-   cd wrong-notebook
-   npm ci
-   ```
+| 平台 | 安装包 |
+| :--- | :--- |
+| Windows | `WrongNotebook-Win-Setup-<版本>-x64.exe`（安装版）、`WrongNotebook-Win-Portable-<版本>-x64.exe`（免安装） |
+| macOS | `WrongNotebook-Mac-<版本>-arm64.dmg`（Apple 芯片）、`WrongNotebook-Mac-<版本>-x64.dmg`（Intel） |
+| Linux | `WrongNotebook-Linux-<版本>-<架构>.AppImage`、`.deb` |
+| 飞牛OS | `WrongNotebook-FnOS-<版本>-x86.fpk`、`WrongNotebook-FnOS-<版本>-arm.fpk` |
+| 安卓手机 / 平板（单机版） | `WrongNotebook-Android-Phone-<版本>.apk`（竖屏）、`WrongNotebook-Android-Tablet-<版本>.apk`（横竖屏自动旋转） |
+| 安卓手机 / 平板（客户端） | `WrongNotebook-Android-Client-Phone-<版本>.apk`、`WrongNotebook-Android-Client-Tablet-<版本>.apk` |
 
-3. **配置环境变量**：复制 `.env.example` 为 `.env`，按下文「环境变量」一节填写。
+也可以通过 npm 安装（Node.js 22 及以上）：
 
-   ```bash
-   cp .env.example .env
-   ```
+```bash
+npm install -g wrong-notebook
+wrong-notebook --port 3000
+```
 
-4. **初始化数据库**：创建表结构和管理员账户，再导入系统知识点（与 Docker 构建时相同）：
+安卓单机版内置服务端，安装后直接使用，数据保存在本机（卸载 App 会删除数据；数据含 API Key，不参与系统备份，卸载或换机前请在设置中导出备份）；需要 Android 8.0 及以上的 64 位 ARM 设备。客户端版不内置服务端，首次打开时填写已部署的服务器地址（如 `http://192.168.1.10:3000`），可在「设置 → 关于」中更换服务器，需要 Android 7.0 及以上。两种 App 都支持拍照上传、导出文件和系统打印，可以同时安装。数据目录、默认账号、本地构建方法见 [INSTALL_PACKAGES.md](doc/INSTALL_PACKAGES.md)。
 
-   ```bash
-   npx prisma migrate dev
-   npx prisma db seed
-   npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/rebuild-system-tags.ts
-   ```
-
-5. **启动开发服务器**：
-
-   ```bash
-   npm run dev
-   ```
-
-   访问 `http://localhost:3000`，使用默认管理员账户登录：邮箱 `admin@localhost`，密码 `123456`。首次登录会进入安装向导：先修改默认密码（必须），再配置 AI 渠道、创建第一个错题本。
-
-AI 的 API Key 等也可以在登录后通过网页设置填写，见下文「AI 模型配置」一节。
-
-### 方式二：Docker 镜像部署（推荐）
+### 方式二：Docker 镜像部署（推荐用于服务器 / NAS）
 
 每次发版都会把镜像发布到 GitHub Container Registry：`ghcr.io/margrop/wrong-notebook`，支持 `linux/amd64` 和 `linux/arm64`，可直接拉取，不需要源码。
 
@@ -252,8 +195,6 @@ AI 的 API Key 等也可以在登录后通过网页设置填写，见下文「AI
 | `2026.10.20` 等精确版本 | 推荐，升级时可控 |
 | `2026.10` | 当月最新版本 |
 | `latest` | 最新正式版本 |
-
-可用版本见 [Releases](https://github.com/margrop/wrong-notebook/releases)。
 
 1. **准备目录和密钥**：
 
@@ -264,8 +205,6 @@ AI 的 API Key 等也可以在登录后通过网页设置填写，见下文「AI
    ```
 
 2. **启动容器**（任选一种）：
-
-   使用 `docker run`：
 
    ```bash
    docker run -d --name wrong-notebook \
@@ -278,28 +217,44 @@ AI 的 API Key 等也可以在登录后通过网页设置填写，见下文「AI
      ghcr.io/margrop/wrong-notebook:latest
    ```
 
-   使用 Docker Compose：下载仓库中的 [`docker-compose.yml`](docker-compose.yml) 放到当前目录，修改 `NEXTAUTH_SECRET`（及 `NEXTAUTH_URL`）后执行：
+   或下载仓库中的 [`docker-compose.yml`](docker-compose.yml) 放到当前目录，修改 `NEXTAUTH_SECRET`（及 `NEXTAUTH_URL`）后执行 `docker compose up -d`。
 
-   ```bash
-   docker compose up -d
-   ```
+3. **登录**：访问 `http://你的IP或域名:3000`。
 
-3. **登录**：访问 `http://你的IP或域名:3000`，使用默认管理员账户登录：邮箱 `admin@localhost`，密码 `123456`。首次登录会进入安装向导：先修改默认密码（必须），再配置 AI 渠道、创建第一个错题本。
-
-4. **升级**：拉取新镜像并重建容器，数据保留在挂载目录中，启动时只执行数据库迁移。
+4. **升级**：拉取新镜像并重建容器，数据保留在挂载目录中，启动时只执行数据库迁移。升级前建议先备份 `data/` 目录。
 
    ```bash
    docker compose pull && docker compose up -d
    # 使用 docker run 时：docker pull 新镜像后 docker rm -f wrong-notebook，再执行上面的 docker run
    ```
 
-   升级前建议先备份 `data/` 目录。
-
-数据保存在挂载的 `data/`（SQLite 数据库）和 `config/`（网页中保存的 AI 配置等）目录。设置页「关于」和 `/api/health` 显示当前运行的版本。HTTPS 部署见 [HTTPS 配置指南](doc/HTTPS_SETUP.md) 和 `docker-compose.https.yml`。
+数据保存在挂载的 `data/`（SQLite 数据库）和 `config/`（网页中保存的 AI 配置、云端语音缓存等）目录。设置页「关于」和 `/api/health` 显示当前运行的版本。HTTPS 部署见 [HTTPS 配置指南](doc/HTTPS_SETUP.md) 和 `docker-compose.https.yml`。
 
 > 上游项目的镜像 `ghcr.io/wttwins/wrong-notebook` **不包含**本仓库新增的功能，请使用 `ghcr.io/margrop/wrong-notebook`。
 
-### 方式三：从源码构建镜像
+### 方式三：本地源码运行
+
+1. **环境准备**：Node.js 22 及以上（推荐 24）和 npm。
+2. **克隆并安装依赖**：
+
+   ```bash
+   git clone https://github.com/margrop/wrong-notebook.git
+   cd wrong-notebook
+   npm ci
+   cp .env.example .env   # 按「环境变量」一节填写
+   ```
+
+3. **初始化数据库**：创建表结构和管理员账户，再导入系统知识点（与 Docker 构建时相同）：
+
+   ```bash
+   npx prisma migrate dev
+   npx prisma db seed
+   npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/rebuild-system-tags.ts
+   ```
+
+4. **启动开发服务器**：`npm run dev`，访问 `http://localhost:3000`。
+
+### 方式四：从源码构建镜像
 
 需要修改代码或使用未发布的改动时，可以自行构建。构建过程中会在镜像内运行全部测试，并完成生产构建：
 
@@ -316,29 +271,107 @@ docker run -d --name wrong-notebook \
 
 使用 `docker-compose.yml` 时，把其中的 `image` 改为 `wrong-notebook:local` 即可。
 
-### 方式四：安装包（npm / Windows / macOS / Linux / 飞牛OS / 安卓）
+## ⚙️ AI 与语音配置
 
-不想使用 Docker 时，可以从 [Releases](https://github.com/margrop/wrong-notebook/releases) 下载桌面版或飞牛OS 安装包，也可以通过 npm 安装：
+AI 配置在网页中修改，保存后立即生效，无需重启：
 
-```bash
-npm install -g wrong-notebook
-wrong-notebook --port 3000
-```
+1. 管理员点击首页右上角的设置图标，打开「AI 设置」。
+2. 选择提供商，填写 API Key、Base URL（或 Endpoint）、模型（或部署名称）。提供商下方附有官方接入文档，「API Key」「模型名称」旁附有获取说明和模型列表链接。
+3. 点击「测试连接」检查文本与图片识别能力，失败时会显示服务商的原始报错；保存后配置写入 `config/app-config.json`，优先于 `.env`。
+4. 同一页下方的「语音讲解」切换浏览器语音或云端语音；「提示词」页可自定义识别和举一反三的提示词模板。
 
-| 平台 | 安装包 |
-| :--- | :--- |
-| Windows | `WrongNotebook-Win-Setup-<版本>-x64.exe`（安装版）、`WrongNotebook-Win-Portable-<版本>-x64.exe`（免安装） |
-| macOS | `WrongNotebook-Mac-<版本>-arm64.dmg`（Apple 芯片）、`WrongNotebook-Mac-<版本>-x64.dmg`（Intel） |
-| Linux | `WrongNotebook-Linux-<版本>-<架构>.AppImage`、`.deb` |
-| 飞牛OS | `WrongNotebook-FnOS-<版本>-x86.fpk`、`WrongNotebook-FnOS-<版本>-arm.fpk` |
-| 安卓手机 / 平板（单机版） | `WrongNotebook-Android-Phone-<版本>.apk`（竖屏）、`WrongNotebook-Android-Tablet-<版本>.apk`（横竖屏自动旋转） |
-| 安卓手机 / 平板（客户端） | `WrongNotebook-Android-Client-Phone-<版本>.apk`、`WrongNotebook-Android-Client-Tablet-<版本>.apk` |
+AI 设置、提示词、连接测试和模型列表只对管理员开放；普通用户在「设置 → 通用」中只能修改自己的偏好。
 
-安卓单机版内置服务端，安装后直接使用，数据保存在本机（卸载 App 会删除数据；数据含 API Key，不参与系统备份，卸载或换机前请在设置中导出备份），首次以默认管理员 `admin@localhost` / `123456` 登录并按提示修改密码；需要 Android 8.0 及以上的 64 位 ARM 设备。客户端版不内置服务端，首次打开时填写已部署的服务器地址（如 `http://192.168.1.10:3000`），可在「设置 → 关于」中更换服务器，需要 Android 7.0 及以上。两种 App 都支持拍照上传、导出文件和系统打印，可以同时安装。
+### 支持的 AI 提供商
 
-数据目录、默认账号、本地构建方法见 [INSTALL_PACKAGES.md](doc/INSTALL_PACKAGES.md)。
+国产大模型官方渠道通过各家的 OpenAI 兼容接口调用，只需填写 API Key，Base URL 和模型留空时使用下表默认值；使用国际站时改填国际站地址。
+
+| 提供商 | 推荐方式 | 默认 Base URL | 默认模型 |
+| :--- | :--- | :--- | :--- |
+| MiniMax | [MiniMax 开放平台](https://platform.minimax.cn) | `https://api.minimax.cn/v1`（国际站 `https://api.minimax.io/v1`） | `MiniMax-M3.1-Flash` |
+| MiniMax Code OAuth | **免费账号**，网页登录，见[下文](#minimax-code-oauth) | 固定接口 | `MiniMax-M3.1-Flash` |
+| 智谱 GLM | [智谱开放平台](https://open.bigmodel.cn) | `https://open.bigmodel.cn/api/paas/v4`（国际站 `https://api.z.ai/api/paas/v4`） | `glm-5.3-flash` |
+| DeepSeek | [DeepSeek 开放平台](https://platform.deepseek.com) | `https://api.deepseek.com` | `deepseek-v4-flash` |
+| Kimi | [Kimi 开放平台](https://platform.kimi.com) | `https://api.moonshot.cn/v1`（国际站 `https://api.moonshot.ai/v1`） | `kimi-k3.1-pro` |
+| 千问 Qwen | [阿里云百炼](https://bailian.console.aliyun.com)，推荐 Token Plan | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`（按量付费 `https://dashscope.aliyuncs.com/compatible-mode/v1`） | `qwen3.8-max` |
+| 阶跃星辰 StepFun | [阶跃星辰开放平台](https://platform.stepfun.com)，推荐 Step Plan | `https://api.stepfun.com/step_plan/v1`（按量付费 `https://api.stepfun.com/v1`，国际站 `https://api.stepfun.ai/v1`） | `step-5-preview` |
+| 火山引擎 豆包 | [火山方舟](https://console.volcengine.com/ark)，按量付费 | `https://ark.cn-beijing.volces.com/api/v3`（国际站 `https://ark.ap-southeast.bytepluses.com/api/v3`） | `doubao-seed-2-1-lite-260915` |
+| 火山引擎 Agent Plan | [Agent Plan](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh) 专属 Key，套餐含豆包语音合成 | `https://ark.cn-beijing.volces.com/api/plan/v3` | `ark-code-latest` |
+| 火山引擎 Coding Plan | [Coding Plan](https://www.volcengine.com/docs/82379/1928261)，方舟 API Key | `https://ark.cn-beijing.volces.com/api/coding/v3`（不要改成 `/api/v3`，否则不计入套餐） | `ark-code-latest` |
+| 火山引擎（免费试用） | 新用户**免费推理额度**，见[下文](#火山引擎免费试用) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-1-lite-260915` |
+| Anthropic 及兼容接口 | [Claude Console](https://platform.claude.com/) | `https://api.anthropic.com`（不含 `/v1`） | `claude-sonnet-5-5` |
+| Azure OpenAI | Azure 门户 → OpenAI 资源 → 密钥和终结点 | 填写资源 Endpoint 和部署名称 | 部署名称 |
+| OpenAI 及兼容接口 | [OpenAI Platform](https://platform.openai.com/api-keys)，可添加多个配置并切换 | `https://api.openai.com/v1` | `gpt-6.1-sol` |
+| Google Gemini | [Google AI Studio](https://aistudio.google.com/apikey) | 官方地址 | `gemini-2.5-flash`（推荐 `gemini-3.8-flash`） |
+
+> **兼容接口**：OpenAI 提供商可接入任何 OpenAI API 格式的第三方服务（如硅基流动），Anthropic 提供商可接入兼容 Messages API 的服务；把 Base URL 改为服务商地址，模型填写对应平台的完整模型 ID。推理模型返回的思考内容会被自动忽略。
+
+#### MiniMax Code OAuth
+
+**支持免费版 MiniMax 账号**：用 MiniMax Code 账号网页登录，不需要 API Key，也不需要开通付费套餐。
+
+- **每天自动签到**：登录后应用每天自动签到，领取 MiniMax Code 的签到积分（连续签到奖励更多），不用手动打开客户端。
+- **消耗免费积分**：识题、解析、举一反三、判题等 AI 调用消耗的是账号的免费积分额度；剩余积分随时可在设置页查看。
+- **默认模型 `MiniMax-M3.1-Flash`**：已实测可用，支持图片识别；也可选 `MiniMax-M3`、`MiniMax-M2.7` 等。
+
+使用方法：在“设置 → AI 设置”中选择 MiniMax Code OAuth，点击“网页登录”，在打开的 MiniMax 页面完成授权即可；设置页会显示登录状态、剩余积分和今天是否已自动签到。
+
+登录凭据保存在服务端配置目录的 `minimax-code.json`（与 `app-config.json` 同目录，不随数据备份导出），Access Token 到期前自动续期。登录后服务每小时检查一次，当天（北京时间）还没签到时自动领取 MiniMax Code 的签到积分，也可以在设置页关闭自动签到或手动立即签到。该渠道使用 MiniMax Code 桌面客户端的登录方式（OAuth 设备码授权），不是官方开放接口，MiniMax 可能随时调整或限制；请遵守 MiniMax 的服务条款。
+
+#### 火山引擎（免费试用）
+
+注册火山引擎即可获得每个模型的[免费推理额度](https://www.volcengine.com/docs/82379/1399514)（官方文档为每个模型 50 万 tokens）。在火山方舟控制台的「开通管理」中开启「安心体验模式」后，调用只消耗免费额度，额度接近用完时自动暂停，不会产生费用。选择「火山引擎（免费试用）」渠道并填写方舟的 API Key 即可；额度用完后如需继续使用，完成实名认证并改用「火山引擎 豆包」或对应的套餐渠道。
+
+### 🔊 云端语音讲解
+
+动画的语音讲解默认使用浏览器本地语音（免费，但较生硬）。管理员可在「设置 → AI 设置 → 语音讲解」改用云端 TTS 语音（声音自然，与真人无异）：
+
+| 云端语音 | API Key | 默认模型 / 音色 |
+| :--- | :--- | :--- |
+| MiniMax（建议 M Plan） | 与 MiniMax 渠道共用 | `speech-2.8-hd` / `male-qn-jingying` |
+| 千问（建议 Token Plan） | 与千问渠道共用 | `qwen-audio-3.0-tts-plus` / `longanlufeng` |
+| 智谱 GLM-TTS（建议 GLM Coding Plan） | 与智谱 GLM 渠道共用 | `glm-tts` / `xiaochen` |
+| 阶跃星辰（建议 Step Plan） | 与阶跃星辰渠道共用 | `stepaudio-2.5-tts` / `qingniandaxuesheng` |
+| 火山引擎豆包语音（可免费试用，建议资源包） | 单独的豆包语音 API Key | `seed-tts-2.0` / `zh_male_yangguangqingnian_uranus_bigtts` |
+| 火山引擎 Agent Plan（计入套餐额度） | 与 Agent Plan 渠道共用 | `seed-tts-2.0` / `zh_male_yangguangqingnian_uranus_bigtts` |
+| OpenAI | 可单独填写，留空时用当前 OpenAI 配置 | `gpt-4o-mini-tts` / `cedar` |
+
+- 默认音色为年轻男声，自然、清晰、略带科技感，不用播音腔；模型、音色和接口地址都可修改，各字段旁附有说明文档或音色列表链接，「保存并试听」会先保存再朗读一段示例。
+- 服务端把合成结果统一到约 -15 LUFS 的响度，编码为 MP3 缓存，同一段讲解只合成一次；开启语音时一次合成整个动画的讲解并登记为后台任务，已生成语音的动画打开时默认开启语音讲解，已有动画可「重新生成语音」。
+- 合成的语音随数据导出、导入备份；云端语音失败时自动改用浏览器语音。合成消耗语音服务商额度，不计入每人每日的 AI 次数。
+
+各服务商的接口说明见 Wiki 的 [AI 配置 · 云端语音讲解](doc/wiki/AI-Configuration.md#云端语音讲解)。
+
+### 模型要求
+
+所选模型需要满足以下条件，否则部分功能无法使用或效果较差：
+
+| 要求 | 用到的功能 | 说明 |
+| :--- | :--- | :--- |
+| **支持图片输入（多模态）** | 拍照/截图识别题目、AI 重新生成配图、有原图时的重新生成解答 | 纯文本模型只能使用文字录入，识别图片会失败 |
+| **能写准确的 SVG 代码** | 题目配图、举一反三和试卷新题的配图、SVG 动画讲解 | 这些「图片」都由模型输出 SVG 代码生成，**不调用图片生成模型**；模型的几何作图和 SVG 动画（SMIL）能力决定配图与动画的质量 |
+| **较长的单次输出** | SVG 动画讲解（上限 16384 token）、识别题目（含配图，上限 8192 token） | 输出被截断时会用 32768 token 重试一次，模型的最大输出不足 16K 时，动画讲解容易生成失败 |
+| **严格遵循输出格式** | 所有 AI 功能 | 结果按 `<answer_text>`、`<svg_animation>` 等标签或 JSON 解析，格式不符会提示「AI 返回格式异常，可能模型不兼容」 |
+| **规范的 LaTeX** | 题目、答案、解析 | 公式须能被 KaTeX 显示；出现语法错误时可用详情页的「修复 LaTeX」修正 |
+| **较强的数学推理** | 解答、错因分析、难度星级、掌握概率评估 | 推理（思考）模型可以使用，思考内容会被自动忽略；思考耗时较长时，管理员可在「设置 → 通用」中调大「AI 分析超时时间」 |
 
 ## 🔧 环境变量
+
+常用环境变量如下，完整列表见下方折叠表格和 [`.env.example`](.env.example)。AI 相关配置也可以登录后在网页中填写，网页中保存的配置优先。
+
+| 环境变量 | 说明 |
+| :--- | :--- |
+| `NEXTAUTH_SECRET` | Session 加密密钥，生产环境必须设置，可用 `openssl rand -base64 32` 生成 |
+| `NEXTAUTH_URL` | 部署后的访问地址，如 `http://your-domain:3000` |
+| `DATABASE_URL` | SQLite 数据库路径；源码默认 `file:./dev.db`，Docker 默认 `file:/app/data/dev.db` |
+| `AI_PROVIDER` | AI 提供商，默认 `minimax`，取值见完整列表 |
+| `<提供商>_API_KEY` | 对应提供商的 API Key，如 `MINIMAX_API_KEY`、`QWEN_API_KEY`、`OPENAI_API_KEY` |
+| `TTS_MODE` | 动画语音讲解的朗读方式，默认 `browser`（浏览器本地语音） |
+| `ALLOW_REGISTRATION` | 是否开放注册，默认 `false` |
+| `AI_DAILY_LIMIT` | 普通用户每天的 AI 次数，默认 `0`（不限制） |
+
+<details>
+<summary><strong>完整环境变量列表</strong></summary>
 
 **基础配置**
 
@@ -372,6 +405,7 @@ wrong-notebook --port 3000
 | `VOLCENGINE_AGENT_API_KEY` / `VOLCENGINE_AGENT_BASE_URL` / `VOLCENGINE_AGENT_MODEL` | 火山引擎 Agent Plan | 地址 `https://ark.cn-beijing.volces.com/api/plan/v3`，模型 `ark-code-latest` | Agent Plan 管理页的专属 API Key；套餐含豆包语音合成 |
 | `VOLCENGINE_CODING_API_KEY` / `VOLCENGINE_CODING_BASE_URL` / `VOLCENGINE_CODING_MODEL` | 火山引擎 Coding Plan | 地址 `https://ark.cn-beijing.volces.com/api/coding/v3`，模型 `ark-code-latest` | 方舟 API Key；不要改成 `/api/v3`（不计入套餐）；套餐不含语音合成 |
 | `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | 火山引擎（免费试用） | 地址 `https://ark.cn-beijing.volces.com/api/v3`，模型 `doubao-seed-2-1-lite-260915` | 新用户免费推理额度，开启「安心体验模式」后用完自动暂停 |
+| `VOLCENGINE_TTS_API_KEY` | 豆包语音 API Key | 无 | 云端语音选择火山引擎豆包语音时使用，与火山方舟的 Key 不同 |
 | `ANTHROPIC_API_KEY` | Anthropic API Key | 无 | 从 [Claude Console](https://platform.claude.com/) 获取 |
 | `ANTHROPIC_BASE_URL` | API 地址 | `https://api.anthropic.com` | 兼容服务填写不含 `/v1` 的地址 |
 | `ANTHROPIC_MODEL` | 模型 | `claude-sonnet-5-5` | 如 `claude-opus-5-5`、`claude-haiku-5-5` |
@@ -399,107 +433,34 @@ wrong-notebook --port 3000
 
 新增环境变量时需同步更新 `.env.example`。
 
-## ⚙️ AI 模型配置
+</details>
 
-AI 配置可在网页中动态修改，无需重启服务器。
+## 📚 更多
 
-1. **进入设置**：管理员点击首页右上角的设置图标，打开「AI 设置」。
-2. **选择提供商**：默认使用 MiniMax；可选 MiniMax、用 MiniMax Code 账号网页登录的 MiniMax Code OAuth、智谱 GLM、DeepSeek、Kimi、千问 Qwen、阶跃星辰 StepFun、火山引擎豆包、火山引擎 Agent Plan、火山引擎 Coding Plan、火山引擎（免费试用），以及 Anthropic、Azure OpenAI、OpenAI（含兼容接口）、Google Gemini，OpenAI 可添加多个配置并切换。
-3. **填写参数**：API Key、Base URL（或 Endpoint）、模型（或部署名称）；可测试连接并从接口获取模型列表。
-4. **保存生效**：配置保存到 `config/app-config.json`，优先级高于 `.env`。
+### PWA（添加到主屏幕）
 
-「提示词」页可自定义识别和举一反三的提示词模板。
+可将应用添加到手机或平板主屏幕，全屏运行、点击图标直接打开，平板可横屏使用。
 
-### 模型要求
+- **iPhone / iPad (Safari)**：点击底部 **分享** 按钮 → 选择 **"添加到主屏幕"**。
+- **Android (Chrome)**：点击右上角 **菜单** → 选择 **"添加到主屏幕"** 或 **"安装应用"**；也可以安装[安卓 App](#方式一安装包windows--macos--linux--飞牛os--安卓--npm)。
 
-所选模型需要满足以下条件，否则部分功能无法使用或效果较差：
+通过 HTTPS（或 `localhost`）访问时会启用 Service Worker：缓存页面脚本、样式和图标以加快打开速度，断网时显示离线提示页。题目、统计等数据始终从服务器读取，不做离线缓存。
 
-| 要求 | 用到的功能 | 说明 |
-| :--- | :--- | :--- |
-| **支持图片输入（多模态）** | 拍照/截图识别题目、AI 重新生成配图、有原图时的重新生成解答 | 纯文本模型只能使用文字录入，识别图片会失败 |
-| **能写准确的 SVG 代码** | 题目配图、举一反三和试卷新题的配图、SVG 动画讲解 | 这些「图片」都由模型输出 SVG 代码生成，**不调用图片生成模型**，也不需要模型具备出图能力；模型的几何作图和 SVG 动画（SMIL）能力决定配图与动画的质量 |
-| **较长的单次输出** | SVG 动画讲解（上限 16384 token）、识别题目（含配图，上限 8192 token） | 输出被截断时会用 32768 token 重试一次，模型的最大输出不足 16K 时，动画讲解容易生成失败 |
-| **严格遵循输出格式** | 所有 AI 功能 | 结果按 `<answer_text>`、`<svg_animation>` 等标签或 JSON 解析，格式不符会提示「AI 返回格式异常，可能模型不兼容」 |
-| **规范的 LaTeX** | 题目、答案、解析 | 公式须能被 KaTeX 显示；出现语法错误时可用详情页的「修复 LaTeX」修正 |
-| **较强的数学推理** | 解答、错因分析、难度星级、掌握概率评估 | 推理（思考）模型可以使用，思考内容会被自动忽略；思考耗时较长时，管理员可在「设置 → 通用」中调大「AI 分析超时时间」 |
+### 屏幕截图（需要 HTTPS）
 
-推荐使用各提供商当前的多模态旗舰或快速模型，例如 `MiniMax-M3.1-Flash`、`glm-5.3-flash`、`deepseek-v4-flash`、`kimi-k3.1-pro`、`qwen3.8-max`、`step-5-preview`、`doubao-seed-2-1-lite-260915`、`claude-sonnet-5-5`、`gpt-6.1-sol`、`gemini-3.8-flash`。使用兼容接口的第三方模型时，请先确认它支持图片输入。
+屏幕截图依赖浏览器的安全上下文（HTTPS）。在 Docker 或局域网环境中使用时，请参考 **[HTTPS 配置指南](doc/HTTPS_SETUP.md)** 启用内置 HTTPS 支持。
 
-### 配置样例
+### 技术栈
 
-#### 国产大模型官方渠道
+- **框架**：[Next.js 16](https://nextjs.org/)（App Router）+ [React 19](https://react.dev/) + TypeScript
+- **数据库**：[SQLite](https://www.sqlite.org/)（via [Prisma 5](https://www.prisma.io/)）
+- **样式**：[Tailwind CSS v4](https://tailwindcss.com/) + [Radix UI](https://www.radix-ui.com/)（shadcn/ui 风格组件）
+- **公式**：[KaTeX](https://katex.org/)（react-markdown + remark-math）
+- **AI**：MiniMax / MiniMax Code（网页登录）/ 智谱 GLM / DeepSeek / Kimi / 千问 Qwen / 阶跃星辰 StepFun / 火山引擎豆包（含 Agent Plan、Coding Plan、免费试用）/ Anthropic（及兼容接口）/ Azure OpenAI / OpenAI（及兼容接口）/ Google Gemini
+- **认证**：[NextAuth.js v4](https://next-auth.js.org/)
+- **测试**：Vitest（单元、集成）、Playwright（E2E）
 
-以下渠道通过各家官方的 OpenAI 兼容接口调用，只需填写 API Key；Base URL 和模型留空时使用下表默认值（中国大陆官方地址和当前最新的多模态模型）。使用国际站时把 Base URL 改为国际站地址即可。
-
-| 渠道 | API Key 获取 | 默认 Base URL | 默认模型 |
-| :--- | :--- | :--- | :--- |
-| MiniMax | [MiniMax 开放平台](https://platform.minimax.cn) | `https://api.minimax.cn/v1`（国际站 `https://api.minimax.io/v1`） | `MiniMax-M3.1-Flash` |
-| 智谱 GLM | [智谱开放平台](https://open.bigmodel.cn) | `https://open.bigmodel.cn/api/paas/v4`（国际站 `https://api.z.ai/api/paas/v4`） | `glm-5.3-flash` |
-| DeepSeek | [DeepSeek 开放平台](https://platform.deepseek.com) | `https://api.deepseek.com` | `deepseek-v4-flash` |
-| Kimi | [Kimi 开放平台](https://platform.kimi.com) | `https://api.moonshot.cn/v1`（国际站 `https://api.moonshot.ai/v1`） | `kimi-k3.1-pro` |
-| 千问 Qwen | [阿里云百炼](https://bailian.console.aliyun.com)（推荐 Token Plan） | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`（按量付费 `https://dashscope.aliyuncs.com/compatible-mode/v1`） | `qwen3.8-max` |
-| 阶跃星辰 StepFun | [阶跃星辰开放平台](https://platform.stepfun.com)（推荐 Step Plan） | `https://api.stepfun.com/step_plan/v1`（按量付费 `https://api.stepfun.com/v1`，国际站 `https://api.stepfun.ai/v1`） | `step-5-preview` |
-| 火山引擎 豆包 | [火山方舟](https://console.volcengine.com/ark)（按量付费） | `https://ark.cn-beijing.volces.com/api/v3`（国际站 `https://ark.ap-southeast.bytepluses.com/api/v3`） | `doubao-seed-2-1-lite-260915` |
-| 火山引擎 Agent Plan | [火山方舟](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh)（Agent Plan 专属 Key） | `https://ark.cn-beijing.volces.com/api/plan/v3` | `ark-code-latest` |
-| 火山引擎 Coding Plan | [火山方舟](https://www.volcengine.com/docs/82379/1928261) | `https://ark.cn-beijing.volces.com/api/coding/v3` | `ark-code-latest` |
-| 火山引擎（免费试用） | [火山方舟](https://console.volcengine.com/ark) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-1-lite-260915` |
-
-#### 火山引擎（免费试用）
-
-注册火山引擎即可获得每个模型的[免费推理额度](https://www.volcengine.com/docs/82379/1399514)（官方文档为每个模型 50 万 tokens）。在火山方舟控制台的「开通管理」中开启「安心体验模式」后，调用只消耗免费额度，额度接近用完时自动暂停，不会产生费用。选择「火山引擎（免费试用）」渠道并填写方舟的 API Key 即可；额度用完后如需继续使用，完成实名认证并改用「火山引擎 豆包」渠道。
-
-#### MiniMax Code OAuth
-
-**支持免费版 MiniMax 账号**：用 MiniMax Code 账号网页登录，不需要 API Key，也不需要开通付费套餐。
-
-- **每天自动签到**：登录后应用每天自动签到，领取 MiniMax Code 的签到积分（连续签到奖励更多），不用手动打开客户端。
-- **消耗免费积分**：识题、解析、举一反三、判题等 AI 调用消耗的是账号的免费积分额度；剩余积分随时可在设置页查看。
-- **默认模型 `MiniMax-M3.1-Flash`**：已实测可用，支持图片识别；也可选 `MiniMax-M3`、`MiniMax-M2.7` 等。
-
-使用方法：在“设置 → AI 设置”中选择 MiniMax Code OAuth，点击“网页登录”，在打开的 MiniMax 页面完成授权即可；设置页会显示登录状态、剩余积分和今天是否已自动签到。
-
-登录凭据保存在服务端配置目录的 `minimax-code.json`（与 `app-config.json` 同目录，不随数据备份导出），Access Token 到期前自动续期。登录后服务每小时检查一次，当天（北京时间）还没签到时自动领取 MiniMax Code 的签到积分，也可以在设置页关闭自动签到或手动立即签到。该渠道使用 MiniMax Code 桌面客户端的登录方式（OAuth 设备码授权），不是官方开放接口，MiniMax 可能随时调整或限制；请遵守 MiniMax 的服务条款。
-
-#### Anthropic
-
-| 参数 | 获取方式 |
-| :--- | :--- |
-| API Key | [Claude Console](https://platform.claude.com/) → API Keys |
-| Base URL | 默认 `https://api.anthropic.com`，通常无需修改 |
-| 模型 | `claude-sonnet-5-5`（推荐）、`claude-opus-5-5`、`claude-haiku-5-5` 等 |
-
-> **兼容模式**：Anthropic 提供商同样可以接入兼容 Anthropic Messages API 的第三方服务。Base URL 填写服务商提供的地址（不含 `/v1`，程序会自动拼接 `/v1/messages`），模型名称填写对应平台的模型 ID。推理模型返回的思考内容会被自动忽略。
-
-#### Azure OpenAI
-
-| 参数 | 获取方式 |
-| :--- | :--- |
-| API Key | Azure 门户 → 你的 OpenAI 资源 → 密钥和终结点 |
-| Endpoint | Azure 门户 → 你的 OpenAI 资源 → 终结点，如 `https://xxx.openai.azure.com` |
-| 部署名称 | Azure 中配置的模型部署名称，如 `gpt-4o` |
-| API 版本 | 默认 `2024-02-15-preview` |
-
-#### OpenAI
-
-| 参数 | 获取方式 |
-| :--- | :--- |
-| API Key | [OpenAI Platform](https://platform.openai.com/api-keys) → Create new secret key |
-| Base URL | 默认 `https://api.openai.com/v1` |
-| 模型 | `gpt-6.1-sol`（推荐）等 |
-
-> **兼容模式**：OpenAI 提供商兼容所有支持 OpenAI API 格式的第三方服务。将 Base URL 改为对应服务地址，即可使用硅基流动、通义千问 DashScope 等平台的模型，模型名称填写对应平台的完整模型 ID。
-
-#### Google Gemini
-
-| 参数 | 获取方式 |
-| :--- | :--- |
-| API Key | [Google AI Studio](https://aistudio.google.com/apikey) → 创建 API Key |
-| Base URL | 默认 `https://generativelanguage.googleapis.com`，通常无需修改 |
-| 模型 | `gemini-3.8-flash`（推荐）等 |
-
-> **权限**：AI 设置、提示词、连接测试和模型列表只对管理员开放；普通用户在「设置 → 通用」中只能修改自己的偏好（导入前人工确认、SVG 动画讲解、GeoGebra 动态演示、判重阈值、已掌握阈值）。应用时区由管理员设置。
-
-## 🧪 开发与测试
+### 开发与测试
 
 ```bash
 npm run lint                # ESLint（出现警告即失败）
@@ -513,7 +474,16 @@ bash scripts/ci.sh          # 完整 CI（Node.js 22+、Python 3，含生产构�
 
 修改 `prisma/schema.prisma` 后使用 `npx prisma migrate dev --name <名称>` 生成正式迁移并提交；迁移须兼容已有数据。更多开发约定见 [AGENTS.md](AGENTS.md)。
 
-## 📚 文档
+### 实用脚本
+
+`scripts/` 目录下提供维护和调试脚本，例如：
+
+- **重置密码**：`node scripts/reset-password.js <邮箱> <新密码>`
+- **重建管理员**：`node scripts/seed-admin.js`（默认 `admin@localhost` / `123456`）
+- **重建系统知识点**：`npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/rebuild-system-tags.ts`（保留自定义标签和题目关联；生产环境操作前请先备份）
+- **检查数据库**：`node scripts/check-db-users.js`、`node scripts/check-db-data.js`
+
+### 文档
 
 使用、部署和常见问题见 [Wiki](https://github.com/margrop/wrong-notebook/wiki)（另有 [English](https://github.com/margrop/wrong-notebook/wiki/Home-en) 版）。专项文档：
 
@@ -530,18 +500,21 @@ bash scripts/ci.sh          # 完整 CI（Node.js 22+、Python 3，含生产构�
 | [BRANCH_WORKFLOW.md](doc/BRANCH_WORKFLOW.md) | 公开主线与上传前检查 |
 | [setup-wsl-network.md](doc/setup-wsl-network.md) | WSL 网络配置 |
 
-## 🛠️ 实用脚本
+## 💬 交流与贡献
 
-`scripts/` 目录下提供维护和调试脚本，例如：
+使用中遇到问题、想分享用法或提建议，欢迎加入 QQ 群 **964325781**，或用 QQ 扫描下方二维码。Bug 和功能需求仍建议提交到 [Issues](https://github.com/margrop/wrong-notebook/issues)，方便跟踪处理；在群里发截图前请隐去孩子姓名、学校、账号和访问地址。
 
-- **重置密码**：`node scripts/reset-password.js <邮箱> <新密码>`
-- **重建管理员**：`node scripts/seed-admin.js`（默认 `admin@localhost` / `123456`）
-- **重建系统知识点**：`npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/rebuild-system-tags.ts`（保留自定义标签和题目关联；生产环境操作前请先备份）
-- **检查数据库**：`node scripts/check-db-users.js`、`node scripts/check-db-data.js`
-
-## 🤝 参与贡献
+<img src="doc/images/qq-group.webp" alt="智能错题本用户交流 QQ 群二维码，群号 964325781" width="240">
 
 欢迎提交 Issue 和 Pull Request，请先阅读[贡献指南](CONTRIBUTING.md)和[行为准则](CODE_OF_CONDUCT.md)。提问和反馈方式见[获取帮助](SUPPORT.md)，安全漏洞请按[安全策略](SECURITY.md)私下报告。各正式版的改动见[更新日志](CHANGELOG.md)。
+
+<a href="https://www.star-history.com/#margrop/wrong-notebook&amp;Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date&amp;theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date">
+    <img src="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date" alt="margrop/wrong-notebook 的 GitHub Star 增长趋势图">
+  </picture>
+</a>
 
 ## 📄 许可证
 

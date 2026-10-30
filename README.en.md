@@ -14,56 +14,31 @@
 
 An AI-powered notebook for the questions you got wrong. Snap a photo or type a question, and AI recognizes it, solves it, tags it with knowledge points and rates its difficulty. Manage your notebooks, practice with similar questions, build printable exams and track how well you have mastered each question.
 
-⬇️ **Download**: <https://blog.margrop.net/wrong-notebook-github-pages/en/download/> (detects your OS and architecture, and lists every installer for Windows, macOS, Linux, Android and fnOS)
+**⬇️ [Download](https://blog.margrop.net/wrong-notebook-github-pages/en/download/)** · **🚀 [Live demo](https://wrong-notebook-demo.vercel.app)** (account `demo@localhost`, password `demo123456`) · **🌐 [Project website](https://blog.margrop.net/wrong-notebook-github-pages/en/)** · **📖 [Docs (Wiki)](https://github.com/margrop/wrong-notebook/wiki/Home-en)**
 
-🌐 **Project website**: <https://blog.margrop.net/wrong-notebook-github-pages/en/>
+> The demo uses a shared account and its data is visible to every visitor. Do not enter personal information. Articles: [Stop Copying Mistakes. Start Learning from Them](https://blog.margrop.net/en/post/wrong-notebook-ai-family-learning/) · [Free MiniMax Accounts, fnOS, and Daily Review](https://blog.margrop.net/en/post/wrong-notebook-minimax-free-ai-review/)
 
-📝 **Articles**: [Stop Copying Mistakes. Start Learning from Them](https://blog.margrop.net/en/post/wrong-notebook-ai-family-learning/) · [Free MiniMax Accounts, fnOS, and Daily Review](https://blog.margrop.net/en/post/wrong-notebook-minimax-free-ai-review/)
+## 🌟 Highlights
 
-🚀 **Live demo**: <https://wrong-notebook-demo.vercel.app> (account `demo@localhost`, password `demo123456`)
+- **🤖 AI recognition and explanations**: snap a photo, take a screenshot or type the question; AI recognizes it, writes the answer and analysis, explains the mistake, tags knowledge points and rates difficulty from 1 to 5 stars.
+- **🔊 SVG animated explanations that talk**: AI turns the solution into a step-by-step animation with voice narration, and the animation waits for each step to be read before moving on. Two kinds of voice are available:
 
-> The demo uses a shared account and its data is visible to every visitor. Do not enter personal information.
+  | Voice | Sound | Cost |
+  | :--- | :--- | :--- |
+  | Browser voice (Web Speech) | Read by the device's built-in voice; sounds stiff, and the voice varies by device | Free |
+  | Cloud TTS (MiniMax, Qwen, Zhipu GLM-TTS, StepFun, Volcengine Doubao Speech, Volcengine Agent Plan, OpenAI) | Natural, just like a real person explaining the problem, and the same on every device | Paid; **a Token Plan or similar subscription is recommended** over pay-as-you-go. Volcengine offers a [free trial quota](https://docs.volcengine.com/docs/ark/free-inference-quota?lang=zh) you can turn on by following its docs |
 
-📦 **Install anywhere**: Docker image (amd64 / arm64) · npm (`npm i -g wrong-notebook`) · Windows · macOS · Linux · fnOS · Android phone / tablet (standalone with a built-in server, or a client for your server). Get the installers from [Releases](https://github.com/margrop/wrong-notebook/releases); see [Quick Start](#-quick-start) for instructions.
+- **🆓 Works with free accounts**: choose the "MiniMax Code OAuth" channel and sign in with a MiniMax Code account in the browser, with no API key to buy; the app checks in every day to collect credits (see [MiniMax Code OAuth](#minimax-code-oauth)). New Volcengine users also get a [free inference quota](#volcengine-free-trial).
+- **📚 A complete review loop**: auto-graded similar questions, AI mastery estimates, daily review at Ebbinghaus intervals, and printable exams built from your mistakes with per-question results.
+- **📦 Install anywhere**: Docker image (amd64 / arm64), npm, Windows, macOS, Linux, fnOS, Android phones and tablets (standalone or client), or add it to your home screen as a PWA.
 
-🆓 **Works with a free MiniMax account**: choose the "MiniMax Code OAuth" channel and sign in with a MiniMax Code account in the browser to use `MiniMax-M3.1-Flash` without buying an API key. The app checks in every day to collect credits, and AI features such as recognition and explanations use the account's free credits. See [MiniMax Code OAuth](#minimax-code-oauth).
-
-🔊 **New: SVG animated explanations that talk**: AI turns the solution into a step-by-step animation with voice narration, and the animation waits for each step to be read before moving on. Two kinds of voice are available:
-
-| Voice | Sound | Cost |
-| :--- | :--- | :--- |
-| Browser voice (Web Speech) | Read by the device's built-in voice; sounds stiff, and the voice varies by device | Free |
-| Cloud TTS (MiniMax, Qwen, Zhipu GLM-TTS, StepFun, Volcengine Doubao Speech, Volcengine Agent Plan, OpenAI) | Natural, just like a real person explaining the problem, and the same on every device | Paid; **a Token Plan or similar subscription is recommended** over pay-as-you-go. Volcengine offers a [free trial quota](https://docs.volcengine.com/docs/ark/free-inference-quota?lang=zh) you can turn on by following its docs |
-
-Admins switch between them under **Settings → AI → Voice narration**. See [Cloud voice narration](doc/wiki/en/AI-Configuration-en.md#cloud-voice-narration).
-
-> This repository is a fork of [wttwins/wrong-notebook](https://github.com/wttwins/wrong-notebook) with many additional features (listed below).
-
-> The app's built-in knowledge-point library follows the Chinese K-12 curriculum (primary, junior high and senior high school). The interface is available in Simplified Chinese and English.
-
-## 💬 Community
-
-To ask questions, share how you use the app or suggest ideas, join the QQ group **964325781** (conversations are mainly in Chinese), or scan the QR code below with QQ. Please still report bugs and feature requests in [Issues](https://github.com/margrop/wrong-notebook/issues) so they can be tracked. Before posting screenshots, hide your child's name, school, account details and server addresses.
-
-<img src="doc/images/qq-group.webp" alt="QR code for the wrong-notebook QQ user group, group number 964325781" width="240">
-
-## ⭐ Star History
-
-<a href="https://www.star-history.com/#margrop/wrong-notebook&amp;Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date&amp;theme=dark">
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date">
-    <img src="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date" alt="GitHub star history chart for margrop/wrong-notebook">
-  </picture>
-</a>
+> This repository is a fork of [wttwins/wrong-notebook](https://github.com/wttwins/wrong-notebook); most of the features above and below were added here. The built-in knowledge-point library follows the Chinese K-12 curriculum (primary, junior high and senior high school). The interface is available in Simplified Chinese and English.
 
 ## 🖼️ Screenshots
 
 The screenshots below were captured from the running app on 2026-10-22 using English demo questions, answers, explanations, knowledge points and exams. The Student account and practice records are sample data. Click an image to view it full size.
 
-**Notebook**: see each question's summary, difficulty stars and knowledge points on one page. Filter by grade, term, mastery and A/B paper, open a question by its ID, compare similarity or print in bulk.
-
-The list loads card data only. Original images, answers and explanations load in question details or print preview, reducing data transfer when paging.
+**Notebook**: see each question's summary, difficulty stars and knowledge points on one page. Filter by grade, term, mastery and A/B paper, open a question by its ID, compare similarity or print in bulk. The list loads card data only. Original images, answers and explanations load in question details or print preview, reducing data transfer when paging.
 
 ![English math questions with difficulty stars, English knowledge-point tags and filters](doc/screenshots/en/notebook.png)
 
@@ -161,7 +136,8 @@ Practice statistics show total practice, accuracy and active months, with distri
 
 ### Explanations and demos
 
-- **🎬 SVG animated explanations**: AI generates step-by-step SVG animations of the solution, with play/pause, seeking, replay and full screen. Click the speaker icon in the player for voice narration: each step is read aloud, the animation waits for the narration before moving on, and the speed is adjustable. There are two kinds of voice: the **browser voice** is free but sounds stiff and varies by device; **cloud TTS** (MiniMax, Qwen, Zhipu GLM-TTS, StepFun, Volcengine Doubao Speech, Volcengine Agent Plan, OpenAI) sounds natural, just like a real person, but is paid, and a Token Plan, Step Plan or similar subscription is recommended over pay-as-you-go. Admins switch under **Settings → AI → Voice narration**; the server synthesizes a young male voice normalized to about -15 LUFS. Voice generation is registered as a background task, animations with generated voice open with narration on, existing animations can **Regenerate voice**, and synthesized voice is included in data export and import. Older animations without a narration script read the on-screen subtitles, or click **Add narration** to have AI write only the script while keeping the picture unchanged. Animation text follows the interface language: the English interface generates an English version and the Chinese interface a Chinese one. Both are kept, and switching the language shows the matching version automatically. On by default; turn it off in **Settings → General**.
+- **🎬 SVG animated explanations**: AI generates step-by-step SVG animations of the solution, with play/pause, seeking, replay and full screen. Animation text follows the interface language; Chinese and English versions are kept separately, and switching the language shows the matching version automatically. On by default; turn it off in **Settings → General**.
+- **🔊 Voice narration**: click the speaker icon in the player; the animation waits for each step to be read before moving on, and the speed is adjustable. Choose the browser voice or cloud TTS (see [Cloud voice narration](#-cloud-voice-narration)). Older animations without a narration script read the on-screen subtitles, or click **Add narration** to have AI write only the script while keeping the picture unchanged.
 - **📐 GeoGebra demos**: for math and physics questions, AI can generate interactive GeoGebra figures. Off by default; turn it on in **Settings → General**.
 - Generated animations and GeoGebra demos can be deleted (with confirmation).
 
@@ -177,75 +153,42 @@ Practice statistics show total practice, accuracy and active months, with distri
 
 - **🔍 Filters**: filter by mastery, date range, knowledge point, grade and term, paper level and more; supports bulk actions and comparing the similarity of two questions.
 - **📊 Statistics**: mastery rate, monthly trend and subject distribution for both mistakes and practice.
-- **⏳ Background tasks**: the button at the bottom right shows the progress of long-running jobs such as recognition, AI generation, bulk tagging and exam generation. Jobs keep running on the server after you leave the page.
-- **💾 Import and export**: export or import data backups in **Settings**, including notebooks, questions, practice and answer records, exams and personal preferences; account credentials and AI settings are not included.
+- **⏳ Background tasks**: the button at the bottom right shows the progress of long-running jobs such as recognition, AI generation, animation voice, bulk tagging and exam generation. Jobs keep running on the server after you leave the page.
+- **💾 Import and export**: export or import data backups in **Settings**, including notebooks, questions, practice and answer records, exams, personal preferences and synthesized cloud voice; account credentials and AI settings are not included.
 - **🕒 Application time zone**: Beijing time by default and changeable by administrators; dates and statistics follow the application time zone. See [TIME_ZONE.md](doc/TIME_ZONE.md) (Chinese).
 - **🧭 Setup wizard**: on first sign-in the admin goes through a wizard: change the default password (required) → set up an AI provider (free MiniMax Code recommended) → create the first notebook. The last two steps can be skipped, and the wizard can be run again from **Settings → User Management**. Instances already in use are not interrupted after upgrading.
 - **🔐 Multiple users and admin console**: sign-up and sign-in, with data isolated per user. New sign-ups are off by default and can be turned on under **Settings → User Management**, where admins can also cap daily AI use per user and see today's usage. Administrators open the admin console from **Settings → User Management** to view usage statistics and enable, disable or delete users.
-- **🔌 Openclaw integration**: an external Openclaw agent can upload question images in bulk via `POST /api/openclaw/batch-upload`; see the environment variables below.
-
-## 📸 Screenshot capture (HTTPS)
-
-Screen capture requires a secure browser context (HTTPS). When running in Docker or on a LAN, follow the **[HTTPS setup guide](doc/HTTPS_SETUP.md)** (Chinese) to enable the built-in HTTPS support.
-
-## 📱 PWA (add to home screen)
-
-The app is a PWA: add it to your phone's or tablet's home screen to run it full screen and open it with one tap. Tablets can use it in landscape.
-
-- **iPhone / iPad (Safari)**: tap **Share** at the bottom → **Add to Home Screen**.
-- **Android (Chrome)**: tap the **menu** at the top right → **Add to Home screen** or **Install app**. You can also install the Android app from [Releases](https://github.com/margrop/wrong-notebook/releases) (see Installers below).
-
-When served over HTTPS (or `localhost`), a service worker caches scripts, styles and icons so the app opens faster, and shows an offline page when the network is down. Questions, statistics and other data always come from the server and are not cached offline.
-
-## 🛠️ Tech stack
-
-- **Framework**: [Next.js 16](https://nextjs.org/) (App Router) + [React 19](https://react.dev/) + TypeScript
-- **Database**: [SQLite](https://www.sqlite.org/) (via [Prisma 5](https://www.prisma.io/))
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) + [Radix UI](https://www.radix-ui.com/) (shadcn/ui-style components)
-- **Formulas**: [KaTeX](https://katex.org/) (react-markdown + remark-math)
-- **AI**: MiniMax / MiniMax Code (browser sign-in) / Zhipu GLM / DeepSeek / Kimi / Qwen / StepFun / Volcengine Doubao (including Agent Plan, Coding Plan and a free trial) / Anthropic (and compatible APIs) / Azure OpenAI / OpenAI (and compatible APIs) / Google Gemini
-- **Auth**: [NextAuth.js v4](https://next-auth.js.org/)
-- **Testing**: Vitest (unit, integration), Playwright (E2E)
+- **🔌 Openclaw integration**: an external Openclaw agent can upload question images in bulk via `POST /api/openclaw/batch-upload`; see [Environment variables](#-environment-variables).
 
 ## 🚀 Quick Start
 
-### Option 1: Run from source
+Ordered from easiest to most hands-on. Every option signs in for the first time with the default admin account: email `admin@localhost`, password `123456`. The first sign-in opens the setup wizard: change the default password (required), then set up an AI provider and create your first notebook.
 
-1. **Requirements**: Node.js 22 or later (24 recommended) and npm.
+### Option 1: Installers (Windows / macOS / Linux / fnOS / Android / npm)
 
-2. **Clone and install dependencies**:
+Download the package for your platform from the [download page](https://blog.margrop.net/wrong-notebook-github-pages/en/download/) (detects your OS and architecture) or from [Releases](https://github.com/margrop/wrong-notebook/releases), install it and open it:
 
-   ```bash
-   git clone https://github.com/margrop/wrong-notebook.git
-   cd wrong-notebook
-   npm ci
-   ```
+| Platform | Package |
+| :--- | :--- |
+| Windows | `WrongNotebook-Win-Setup-<version>-x64.exe` (installer), `WrongNotebook-Win-Portable-<version>-x64.exe` (portable) |
+| macOS | `WrongNotebook-Mac-<version>-arm64.dmg` (Apple silicon), `WrongNotebook-Mac-<version>-x64.dmg` (Intel) |
+| Linux | `WrongNotebook-Linux-<version>-<arch>.AppImage`, `.deb` |
+| fnOS | `WrongNotebook-FnOS-<version>-x86.fpk`, `WrongNotebook-FnOS-<version>-arm.fpk` |
+| Android phone / tablet (standalone) | `WrongNotebook-Android-Phone-<version>.apk` (portrait), `WrongNotebook-Android-Tablet-<version>.apk` (rotates between portrait and landscape) |
+| Android phone / tablet (client) | `WrongNotebook-Android-Client-Phone-<version>.apk`, `WrongNotebook-Android-Client-Tablet-<version>.apk` |
 
-3. **Configure environment variables**: copy `.env.example` to `.env` and fill it in as described in [Environment variables](#-environment-variables).
+Or install with npm:
 
-   ```bash
-   cp .env.example .env
-   ```
+```bash
+npm install -g wrong-notebook
+wrong-notebook --port 3000
+```
 
-4. **Initialize the database**: create the schema and the admin account, then import the system knowledge points (same as the Docker build):
+The npm package needs Node.js 22.15 or later and stores data in `~/.wrong-notebook` by default. The desktop app listens on `127.0.0.1` only; the fnOS package needs Node.js v24 from the fnOS app center and is served on port 39300. The standalone Android app includes the server and works right after installation. Data stays on the device (uninstalling the app deletes it, and it is excluded from Android system backup because it contains API keys, so export a backup in Settings before uninstalling or switching phones); sign in with the default administrator `admin@localhost` / `123456` the first time and change the password when prompted. It needs a 64-bit ARM device with Android 8.0 or later. The Android client does not include the server: on first launch, enter the address of a deployed server (for example `http://192.168.1.10:3000`); you can change the server under Settings → About. It needs Android 7.0 or later. Both apps support taking photos for upload, saving exported files and system printing, and can be installed side by side.
 
-   ```bash
-   npx prisma migrate dev
-   npx prisma db seed
-   npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/rebuild-system-tags.ts
-   ```
+Data directories, default accounts and local builds are described in [INSTALL_PACKAGES.md](doc/INSTALL_PACKAGES.md) (Chinese).
 
-5. **Start the dev server**:
-
-   ```bash
-   npm run dev
-   ```
-
-   Open `http://localhost:3000` and sign in with the default admin account: email `admin@localhost`, password `123456`. The first sign-in opens the setup wizard: change the default password (required), then set up an AI provider and create your first notebook.
-
-AI API keys can also be set in the web settings after signing in; see the AI model configuration section below.
-
-### Option 2: Docker image (recommended)
+### Option 2: Docker image (recommended for servers and NAS)
 
 Every release publishes an image to GitHub Container Registry, `ghcr.io/margrop/wrong-notebook`, for `linux/amd64` and `linux/arm64`. Pull it directly; no source code needed.
 
@@ -254,8 +197,6 @@ Every release publishes an image to GitHub Container Registry, `ghcr.io/margrop/
 | Exact versions such as `2026.10.20` | Recommended; upgrade when you choose |
 | `2026.10` | Latest release of the month |
 | `latest` | Latest stable release |
-
-See [Releases](https://github.com/margrop/wrong-notebook/releases) for available versions.
 
 1. **Prepare directories and a secret**:
 
@@ -266,8 +207,6 @@ See [Releases](https://github.com/margrop/wrong-notebook/releases) for available
    ```
 
 2. **Start the container** (either way):
-
-   With `docker run`:
 
    ```bash
    docker run -d --name wrong-notebook \
@@ -280,28 +219,44 @@ See [Releases](https://github.com/margrop/wrong-notebook/releases) for available
      ghcr.io/margrop/wrong-notebook:latest
    ```
 
-   With Docker Compose: download [`docker-compose.yml`](docker-compose.yml) into the current directory, set `NEXTAUTH_SECRET` (and `NEXTAUTH_URL`), then run:
+   Or download [`docker-compose.yml`](docker-compose.yml) into the current directory, set `NEXTAUTH_SECRET` (and `NEXTAUTH_URL`), then run `docker compose up -d`.
 
-   ```bash
-   docker compose up -d
-   ```
+3. **Sign in**: open `http://your-ip-or-domain:3000`.
 
-3. **Sign in**: open `http://your-ip-or-domain:3000` and sign in with the default admin account: email `admin@localhost`, password `123456`. The first sign-in opens the setup wizard: change the default password (required), then set up an AI provider and create your first notebook.
-
-4. **Upgrade**: pull the new image and recreate the container. Data stays in the mounted directories; on startup only database migrations run.
+4. **Upgrade**: pull the new image and recreate the container. Data stays in the mounted directories; on startup only database migrations run. Back up the `data/` directory before upgrading.
 
    ```bash
    docker compose pull && docker compose up -d
    # With docker run: docker pull the new image, docker rm -f wrong-notebook, then run the docker run command above again
    ```
 
-   Back up the `data/` directory before upgrading.
-
-Data lives in the mounted `data/` (SQLite database) and `config/` (AI settings saved from the web UI, etc.) directories. **Settings → About** and `/api/health` show the running version. For HTTPS, see the [HTTPS setup guide](doc/HTTPS_SETUP.md) and `docker-compose.https.yml`.
+Data lives in the mounted `data/` (SQLite database) and `config/` (AI settings saved from the web UI, cloud voice cache, etc.) directories. **Settings → About** and `/api/health` show the running version. For HTTPS, see the [HTTPS setup guide](doc/HTTPS_SETUP.md) (Chinese) and `docker-compose.https.yml`.
 
 > The upstream image `ghcr.io/wttwins/wrong-notebook` **does not include** the features added in this repository. Use `ghcr.io/margrop/wrong-notebook`.
 
-### Option 3: Build the image from source
+### Option 3: Run from source
+
+1. **Requirements**: Node.js 22 or later (24 recommended) and npm.
+2. **Clone and install dependencies**:
+
+   ```bash
+   git clone https://github.com/margrop/wrong-notebook.git
+   cd wrong-notebook
+   npm ci
+   cp .env.example .env   # fill it in as described in Environment variables
+   ```
+
+3. **Initialize the database**: create the schema and the admin account, then import the system knowledge points (same as the Docker build):
+
+   ```bash
+   npx prisma migrate dev
+   npx prisma db seed
+   npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/rebuild-system-tags.ts
+   ```
+
+4. **Start the dev server**: `npm run dev`, then open `http://localhost:3000`.
+
+### Option 4: Build the image from source
 
 Build it yourself if you change the code or need unreleased changes. The build runs all tests inside the image and produces a production build:
 
@@ -318,29 +273,107 @@ docker run -d --name wrong-notebook \
 
 With `docker-compose.yml`, change `image` to `wrong-notebook:local`.
 
-### Option 4: Installers (npm / Windows / macOS / Linux / fnOS / Android)
+## ⚙️ AI and voice configuration
 
-If you prefer not to use Docker, download the desktop app or the fnOS package from [Releases](https://github.com/margrop/wrong-notebook/releases), or install with npm:
+AI settings are changed in the web UI and take effect when saved, without restarting:
 
-```bash
-npm install -g wrong-notebook
-wrong-notebook --port 3000
-```
+1. As an administrator, click the settings icon at the top right of the home page and open **AI Provider**.
+2. Choose a provider and fill in the API key, base URL (or endpoint) and model (or deployment name). The provider links to its official API docs, and the API key and model fields link to how to get a key and the model list.
+3. Click **Test connection** to check text and image recognition; on failure the provider's original error is shown. Settings are stored in `config/app-config.json` and take precedence over `.env`.
+4. **Voice narration** further down the same page switches between the browser voice and a cloud voice. The **Prompts** tab lets you customize the prompt templates for recognition and similar-question generation.
 
-| Platform | Package |
-| :--- | :--- |
-| Windows | `WrongNotebook-Win-Setup-<version>-x64.exe` (installer), `WrongNotebook-Win-Portable-<version>-x64.exe` (portable) |
-| macOS | `WrongNotebook-Mac-<version>-arm64.dmg` (Apple silicon), `WrongNotebook-Mac-<version>-x64.dmg` (Intel) |
-| Linux | `WrongNotebook-Linux-<version>-<arch>.AppImage`, `.deb` |
-| fnOS | `WrongNotebook-FnOS-<version>-x86.fpk`, `WrongNotebook-FnOS-<version>-arm.fpk` |
-| Android phone / tablet (standalone) | `WrongNotebook-Android-Phone-<version>.apk` (portrait), `WrongNotebook-Android-Tablet-<version>.apk` (rotates between portrait and landscape) |
-| Android phone / tablet (client) | `WrongNotebook-Android-Client-Phone-<version>.apk`, `WrongNotebook-Android-Client-Tablet-<version>.apk` |
+AI settings, prompts, connection tests and model lists are admin-only. Regular users can only change their own preferences in **Settings → General**.
 
-The npm package needs Node.js 22.15 or later and stores data in `~/.wrong-notebook` by default. The desktop app listens on `127.0.0.1` only; the fnOS package needs Node.js v24 from the fnOS app center and is served on port 39300. The standalone Android app includes the server and works right after installation. Data stays on the device (uninstalling the app deletes it, and it is excluded from Android system backup because it contains API keys, so export a backup in Settings before uninstalling or switching phones); sign in with the default administrator `admin@localhost` / `123456` the first time and change the password when prompted. It needs a 64-bit ARM device with Android 8.0 or later. The Android client does not include the server: on first launch, enter the address of a deployed server (for example `http://192.168.1.10:3000`); you can change the server under Settings → About. It needs Android 7.0 or later. Both apps support taking photos for upload, saving exported files and system printing, and can be installed side by side.
+### Supported AI providers
 
-Data directories, default accounts and local builds are described in [INSTALL_PACKAGES.md](doc/INSTALL_PACKAGES.md) (Chinese).
+The official Chinese model channels call each vendor's OpenAI-compatible API, so only an API key is required; when the base URL and model are left empty, the defaults below are used. For the international site, change the base URL to its address.
+
+| Provider | Recommended setup | Default base URL | Default model |
+| :--- | :--- | :--- | :--- |
+| MiniMax | [MiniMax platform](https://platform.minimax.io) | `https://api.minimax.cn/v1` (international `https://api.minimax.io/v1`) | `MiniMax-M3.1-Flash` |
+| MiniMax Code OAuth | **Free account**, browser sign-in; see [below](#minimax-code-oauth) | Fixed endpoint | `MiniMax-M3.1-Flash` |
+| Zhipu GLM | [Z.ai platform](https://z.ai) | `https://open.bigmodel.cn/api/paas/v4` (international `https://api.z.ai/api/paas/v4`) | `glm-5.3-flash` |
+| DeepSeek | [DeepSeek platform](https://platform.deepseek.com) | `https://api.deepseek.com` | `deepseek-v4-flash` |
+| Kimi | [Kimi platform](https://platform.kimi.com) | `https://api.moonshot.cn/v1` (international `https://api.moonshot.ai/v1`) | `kimi-k3.1-pro` |
+| Qwen | [Alibaba Cloud Model Studio](https://bailian.console.aliyun.com), Token Plan recommended | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` (pay-as-you-go `https://dashscope.aliyuncs.com/compatible-mode/v1`) | `qwen3.8-max` |
+| StepFun | [StepFun platform](https://platform.stepfun.com), Step Plan recommended | `https://api.stepfun.com/step_plan/v1` (pay-as-you-go `https://api.stepfun.com/v1`, international `https://api.stepfun.ai/v1`) | `step-5-preview` |
+| Volcengine Doubao | [Volcengine Ark](https://console.volcengine.com/ark), pay-as-you-go | `https://ark.cn-beijing.volces.com/api/v3` (international `https://ark.ap-southeast.bytepluses.com/api/v3`) | `doubao-seed-2-1-lite-260915` |
+| Volcengine Agent Plan | Dedicated [Agent Plan](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh) key; the plan includes Doubao speech synthesis | `https://ark.cn-beijing.volces.com/api/plan/v3` | `ark-code-latest` |
+| Volcengine Coding Plan | [Coding Plan](https://www.volcengine.com/docs/82379/1928261), Ark API key | `https://ark.cn-beijing.volces.com/api/coding/v3` (do not change it to `/api/v3`, which is not counted toward the plan) | `ark-code-latest` |
+| Volcengine (free trial) | **Free inference quota** for new users; see [below](#volcengine-free-trial) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-1-lite-260915` |
+| Anthropic and compatible APIs | [Claude Console](https://platform.claude.com/) | `https://api.anthropic.com` (without `/v1`) | `claude-sonnet-5-5` |
+| Azure OpenAI | Azure portal → OpenAI resource → Keys and Endpoint | Your resource endpoint and deployment name | Deployment name |
+| OpenAI and compatible APIs | [OpenAI Platform](https://platform.openai.com/api-keys); several configurations can be added and switched | `https://api.openai.com/v1` | `gpt-6.1-sol` |
+| Google Gemini | [Google AI Studio](https://aistudio.google.com/apikey) | Official URL | `gemini-2.5-flash` (`gemini-3.8-flash` recommended) |
+
+> **Compatible APIs**: the OpenAI provider works with any third-party service that implements the OpenAI API format (such as SiliconFlow), and the Anthropic provider with services that implement the Messages API. Set the base URL to the service's address and enter the platform's full model ID. Thinking output from reasoning models is ignored.
+
+#### MiniMax Code OAuth
+
+**Free MiniMax accounts are supported**: sign in with a MiniMax Code account in the browser. No API key or paid plan is needed.
+
+- **Automatic daily check-in**: once signed in, the app checks in every day and collects the MiniMax Code check-in credits (streaks earn more), so you don't need to open the client.
+- **Uses free credits**: AI calls such as recognition, explanations, similar-question practice and grading use the account's free credits. The remaining credits are shown on the settings page.
+- **Default model `MiniMax-M3.1-Flash`**: tested and working, with image input; `MiniMax-M3`, `MiniMax-M2.7` and others are also available.
+
+To set it up, choose MiniMax Code OAuth in "Settings → AI Provider", click "Sign in with browser" and finish authorizing on the MiniMax page that opens. The settings page shows the login status, the remaining credits and whether today's check-in was done automatically.
+
+The credentials are stored in `minimax-code.json` in the server's config directory (next to `app-config.json`, not included in data backups), and the access token is renewed automatically before it expires. Once signed in, the server checks every hour and collects the MiniMax Code daily check-in credits if today's check-in (Beijing time) has not been done yet. You can turn auto check-in off or check in right away on the settings page. This channel uses the sign-in of the MiniMax Code desktop client (OAuth device authorization) rather than an official open API, so MiniMax may change or restrict it at any time. Follow MiniMax's terms of service.
+
+#### Volcengine (free trial)
+
+Every Volcengine account gets a [free inference quota](https://www.volcengine.com/docs/82379/1399514) for each model (500,000 tokens per model, per the official docs). Turn on worry-free trial mode under Activation Management in the Ark console: calls only use the free quota and pause when it is nearly used up, so you are never charged. Choose the **Volcengine (free trial)** channel and enter your Ark API key. To keep going after the quota runs out, verify your identity and switch to the **Volcengine Doubao** channel or the matching plan channel.
+
+### 🔊 Cloud voice narration
+
+Animation narration uses the browser's voice by default (free, but stiff). Admins can switch to cloud TTS (natural, just like a real person) under **Settings → AI → Voice narration**:
+
+| Cloud voice | API key | Default model / voice |
+| :--- | :--- | :--- |
+| MiniMax (M Plan recommended) | Shared with the MiniMax channel | `speech-2.8-hd` / `male-qn-jingying` |
+| Qwen (Token Plan recommended) | Shared with the Qwen channel | `qwen-audio-3.0-tts-plus` / `longanlufeng` |
+| Zhipu GLM-TTS (GLM Coding Plan recommended) | Shared with the Zhipu GLM channel | `glm-tts` / `xiaochen` |
+| StepFun (Step Plan recommended) | Shared with the StepFun channel | `stepaudio-2.5-tts` / `qingniandaxuesheng` |
+| Volcengine Doubao Speech (free trial available; resource pack recommended) | Its own Doubao Speech API key | `seed-tts-2.0` / `zh_male_yangguangqingnian_uranus_bigtts` |
+| Volcengine Agent Plan (counts toward the plan) | Shared with the Agent Plan channel | `seed-tts-2.0` / `zh_male_yangguangqingnian_uranus_bigtts` |
+| OpenAI | Optional; leave empty to use the active OpenAI configuration | `gpt-4o-mini-tts` / `cedar` |
+
+- The default voice is a young male voice that sounds natural, clear and slightly techy, without a broadcast tone. Model, voice and endpoint can be changed; each field links to the provider's docs or voice list, and **Save and preview** saves first and then reads a sample.
+- The server normalizes speech to about -15 LUFS and caches it as MP3, so each segment is synthesized once. Turning on narration synthesizes the whole animation at once as a background task, animations with generated voice open with narration on, and existing animations can **Regenerate voice**.
+- Synthesized voice is included in data export and import, and the player falls back to the browser's voice if cloud voice fails. Synthesis uses the speech provider's quota and does not count toward the per-user daily AI limit.
+
+See [AI configuration · Cloud voice narration](doc/wiki/en/AI-Configuration-en.md#cloud-voice-narration) in the wiki for each provider's API details.
+
+### Model requirements
+
+The selected model must meet these requirements, or some features will fail or work poorly:
+
+| Requirement | Used by | Notes |
+| :--- | :--- | :--- |
+| **Image input (multimodal)** | Recognizing photos and screenshots, AI redrawing figures, regenerating solutions when an original image exists | Text-only models can only be used with text input; image recognition will fail |
+| **Accurate SVG code** | Question figures, figures in similar questions and exams, SVG animated explanations | These "images" are SVG code written by the model. **No image-generation model is called** and the model does not need to output images; its geometry and SVG animation (SMIL) skills determine the quality of figures and animations |
+| **Long single outputs** | SVG animated explanations (16384-token limit), question recognition with figures (8192-token limit) | A truncated output is retried once with 32768 tokens. With a maximum output below 16K, animated explanations often fail |
+| **Strict output format** | All AI features | Results are parsed from tags such as `<answer_text>` and `<svg_animation>` or from JSON; a mismatch shows an error saying the AI response format is invalid and the model may be incompatible |
+| **Valid LaTeX** | Questions, answers, analyses | Formulas must render in KaTeX; use **Fix LaTeX** on the details page if there are syntax errors |
+| **Strong math reasoning** | Solutions, mistake analysis, difficulty stars, mastery estimates | Reasoning (thinking) models work; their thinking output is ignored. If thinking takes long, administrators can raise **AI Analysis Timeout** in **Settings → General** |
 
 ## 🔧 Environment variables
+
+The most common variables are below; see the collapsed table and [`.env.example`](.env.example) for the full list. AI settings can also be entered in the web UI after signing in, and those take precedence.
+
+| Variable | Description |
+| :--- | :--- |
+| `NEXTAUTH_SECRET` | Session encryption secret; required in production. Generate with `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | The URL users visit, e.g. `http://your-domain:3000` |
+| `DATABASE_URL` | SQLite database path; `file:./dev.db` from source, `file:/app/data/dev.db` in Docker |
+| `AI_PROVIDER` | AI provider, `minimax` by default; see the full list for values |
+| `<PROVIDER>_API_KEY` | The provider's API key, e.g. `MINIMAX_API_KEY`, `QWEN_API_KEY`, `OPENAI_API_KEY` |
+| `TTS_MODE` | How animation narration is voiced, `browser` (browser voice) by default |
+| `ALLOW_REGISTRATION` | Whether sign-ups are open, `false` by default |
+| `AI_DAILY_LIMIT` | Daily AI actions per regular user, `0` (unlimited) by default |
+
+<details>
+<summary><strong>Full list of environment variables</strong></summary>
 
 **Basics**
 
@@ -374,6 +407,7 @@ Data directories, default accounts and local builds are described in [INSTALL_PA
 | `VOLCENGINE_AGENT_API_KEY` / `VOLCENGINE_AGENT_BASE_URL` / `VOLCENGINE_AGENT_MODEL` | Volcengine Agent Plan | URL `https://ark.cn-beijing.volces.com/api/plan/v3`, model `ark-code-latest` | The plan's dedicated API key from the Agent Plan page; the plan includes Doubao speech synthesis |
 | `VOLCENGINE_CODING_API_KEY` / `VOLCENGINE_CODING_BASE_URL` / `VOLCENGINE_CODING_MODEL` | Volcengine Coding Plan | URL `https://ark.cn-beijing.volces.com/api/coding/v3`, model `ark-code-latest` | Ark API key; do not change it to `/api/v3` (not counted toward the plan); the plan does not include speech synthesis |
 | `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | Volcengine (free trial) | URL `https://ark.cn-beijing.volces.com/api/v3`, model `doubao-seed-2-1-lite-260915` | Free inference quota for new users; with worry-free trial mode on, calls pause when it runs out |
+| `VOLCENGINE_TTS_API_KEY` | Doubao Speech API key | None | Used when cloud voice is Volcengine Doubao Speech; different from the Volcengine Ark key |
 | `ANTHROPIC_API_KEY` | Anthropic API key | None | From the [Claude Console](https://platform.claude.com/) |
 | `ANTHROPIC_BASE_URL` | API URL | `https://api.anthropic.com` | For compatible services, use the URL without `/v1` |
 | `ANTHROPIC_MODEL` | Model | `claude-sonnet-5-5` | e.g. `claude-opus-5-5`, `claude-haiku-5-5` |
@@ -401,107 +435,34 @@ Data directories, default accounts and local builds are described in [INSTALL_PA
 
 When adding environment variables, update `.env.example` as well.
 
-## ⚙️ AI model configuration
+</details>
 
-AI settings can be changed in the web UI without restarting the server.
+## 📚 More
 
-1. **Open settings**: as an administrator, click the settings icon at the top right of the home page and open **AI Provider**.
-2. **Choose a provider**: MiniMax is the default. Choose from the official MiniMax channel, MiniMax Code OAuth (sign in with a MiniMax Code account in the browser), the official Zhipu GLM, DeepSeek, Kimi, Qwen, StepFun, Volcengine Doubao, Volcengine Agent Plan, Volcengine Coding Plan and Volcengine (free trial) channels, Anthropic, Azure OpenAI, OpenAI (including compatible APIs) or Google Gemini; OpenAI supports several configurations you can switch between.
-3. **Fill in the parameters**: API key, base URL (or endpoint) and model (or deployment name). Test the connection and fetch the model list from the API.
-4. **Save**: settings are stored in `config/app-config.json` and take precedence over `.env`.
+### PWA (add to home screen)
 
-The **Prompts** tab lets you customize the prompt templates for recognition and similar-question generation.
+Add the app to your phone's or tablet's home screen to run it full screen and open it with one tap. Tablets can use it in landscape.
 
-### Model requirements
+- **iPhone / iPad (Safari)**: tap **Share** at the bottom → **Add to Home Screen**.
+- **Android (Chrome)**: tap the **menu** at the top right → **Add to Home screen** or **Install app**. You can also install the [Android app](#option-1-installers-windows--macos--linux--fnos--android--npm).
 
-The selected model must meet these requirements, or some features will fail or work poorly:
+When served over HTTPS (or `localhost`), a service worker caches scripts, styles and icons so the app opens faster, and shows an offline page when the network is down. Questions, statistics and other data always come from the server and are not cached offline.
 
-| Requirement | Used by | Notes |
-| :--- | :--- | :--- |
-| **Image input (multimodal)** | Recognizing photos and screenshots, AI redrawing figures, regenerating solutions when an original image exists | Text-only models can only be used with text input; image recognition will fail |
-| **Accurate SVG code** | Question figures, figures in similar questions and exams, SVG animated explanations | These "images" are SVG code written by the model. **No image-generation model is called** and the model does not need to output images; its geometry and SVG animation (SMIL) skills determine the quality of figures and animations |
-| **Long single outputs** | SVG animated explanations (16384-token limit), question recognition with figures (8192-token limit) | A truncated output is retried once with 32768 tokens. With a maximum output below 16K, animated explanations often fail |
-| **Strict output format** | All AI features | Results are parsed from tags such as `<answer_text>` and `<svg_animation>` or from JSON; a mismatch shows an error saying the AI response format is invalid and the model may be incompatible |
-| **Valid LaTeX** | Questions, answers, analyses | Formulas must render in KaTeX; use **Fix LaTeX** on the details page if there are syntax errors |
-| **Strong math reasoning** | Solutions, mistake analysis, difficulty stars, mastery estimates | Reasoning (thinking) models work; their thinking output is ignored. If thinking takes long, administrators can raise **AI Analysis Timeout** in **Settings → General** |
+### Screen capture (HTTPS required)
 
-Use each provider's current multimodal flagship or fast model, such as `MiniMax-M3.1-Flash`, `glm-5.3-flash`, `deepseek-v4-flash`, `kimi-k3.1-pro`, `qwen3.8-max`, `step-5-preview`, `doubao-seed-2-1-lite-260915`, `claude-sonnet-5-5`, `gpt-6.1-sol` or `gemini-3.8-flash`. For third-party models behind compatible APIs, make sure they support image input first.
+Screen capture requires a secure browser context (HTTPS). When running in Docker or on a LAN, follow the **[HTTPS setup guide](doc/HTTPS_SETUP.md)** (Chinese) to enable the built-in HTTPS support.
 
-### Configuration examples
+### Tech stack
 
-#### Official Chinese model channels
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router) + [React 19](https://react.dev/) + TypeScript
+- **Database**: [SQLite](https://www.sqlite.org/) (via [Prisma 5](https://www.prisma.io/))
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) + [Radix UI](https://www.radix-ui.com/) (shadcn/ui-style components)
+- **Formulas**: [KaTeX](https://katex.org/) (react-markdown + remark-math)
+- **AI**: MiniMax / MiniMax Code (browser sign-in) / Zhipu GLM / DeepSeek / Kimi / Qwen / StepFun / Volcengine Doubao (including Agent Plan, Coding Plan and a free trial) / Anthropic (and compatible APIs) / Azure OpenAI / OpenAI (and compatible APIs) / Google Gemini
+- **Auth**: [NextAuth.js v4](https://next-auth.js.org/)
+- **Testing**: Vitest (unit, integration), Playwright (E2E)
 
-These channels call each vendor's official OpenAI-compatible API, so only an API key is required. When the base URL and model are left empty, the defaults below are used (the mainland China endpoint and the vendor's latest multimodal model). For the international site, change the base URL to its address.
-
-| Channel | API key | Default base URL | Default model |
-| :--- | :--- | :--- | :--- |
-| MiniMax | [MiniMax platform](https://platform.minimax.io) | `https://api.minimax.cn/v1` (international `https://api.minimax.io/v1`) | `MiniMax-M3.1-Flash` |
-| Zhipu GLM | [Z.ai platform](https://z.ai) | `https://open.bigmodel.cn/api/paas/v4` (international `https://api.z.ai/api/paas/v4`) | `glm-5.3-flash` |
-| DeepSeek | [DeepSeek platform](https://platform.deepseek.com) | `https://api.deepseek.com` | `deepseek-v4-flash` |
-| Kimi | [Kimi platform](https://platform.kimi.com) | `https://api.moonshot.cn/v1` (international `https://api.moonshot.ai/v1`) | `kimi-k3.1-pro` |
-| Qwen | [Alibaba Cloud Model Studio](https://bailian.console.aliyun.com) (Token Plan recommended) | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` (pay-as-you-go `https://dashscope.aliyuncs.com/compatible-mode/v1`) | `qwen3.8-max` |
-| StepFun | [StepFun platform](https://platform.stepfun.com) (Step Plan recommended) | `https://api.stepfun.com/step_plan/v1` (pay-as-you-go `https://api.stepfun.com/v1`, international `https://api.stepfun.ai/v1`) | `step-5-preview` |
-| Volcengine Doubao | [Volcengine Ark](https://console.volcengine.com/ark) (pay-as-you-go) | `https://ark.cn-beijing.volces.com/api/v3` (international `https://ark.ap-southeast.bytepluses.com/api/v3`) | `doubao-seed-2-1-lite-260915` |
-| Volcengine Agent Plan | [Volcengine Ark](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh) (dedicated Agent Plan key) | `https://ark.cn-beijing.volces.com/api/plan/v3` | `ark-code-latest` |
-| Volcengine Coding Plan | [Volcengine Ark](https://www.volcengine.com/docs/82379/1928261) | `https://ark.cn-beijing.volces.com/api/coding/v3` | `ark-code-latest` |
-| Volcengine (free trial) | [Volcengine Ark](https://console.volcengine.com/ark) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-1-lite-260915` |
-
-#### Volcengine (free trial)
-
-Every Volcengine account gets a [free inference quota](https://www.volcengine.com/docs/82379/1399514) for each model (500,000 tokens per model, per the official docs). Turn on worry-free trial mode under Activation Management in the Ark console: calls only use the free quota and pause when it is nearly used up, so you are never charged. Choose the **Volcengine (free trial)** channel and enter your Ark API key. To keep going after the quota runs out, verify your identity and switch to the **Volcengine Doubao** channel.
-
-#### MiniMax Code OAuth
-
-**Free MiniMax accounts are supported**: sign in with a MiniMax Code account in the browser. No API key or paid plan is needed.
-
-- **Automatic daily check-in**: once signed in, the app checks in every day and collects the MiniMax Code check-in credits (streaks earn more), so you don't need to open the client.
-- **Uses free credits**: AI calls such as recognition, explanations, similar-question practice and grading use the account's free credits. The remaining credits are shown on the settings page.
-- **Default model `MiniMax-M3.1-Flash`**: tested and working, with image input; `MiniMax-M3`, `MiniMax-M2.7` and others are also available.
-
-To set it up, choose MiniMax Code OAuth in "Settings → AI Provider", click "Sign in with browser" and finish authorizing on the MiniMax page that opens. The settings page shows the login status, the remaining credits and whether today's check-in was done automatically.
-
-The credentials are stored in `minimax-code.json` in the server's config directory (next to `app-config.json`, not included in data backups), and the access token is renewed automatically before it expires. Once signed in, the server checks every hour and collects the MiniMax Code daily check-in credits if today's check-in (Beijing time) has not been done yet. You can turn auto check-in off or check in right away on the settings page. This channel uses the sign-in of the MiniMax Code desktop client (OAuth device authorization) rather than an official open API, so MiniMax may change or restrict it at any time. Follow MiniMax's terms of service.
-
-#### Anthropic
-
-| Parameter | Where to get it |
-| :--- | :--- |
-| API key | [Claude Console](https://platform.claude.com/) → API Keys |
-| Base URL | Default `https://api.anthropic.com`; usually unchanged |
-| Model | `claude-sonnet-5-5` (recommended), `claude-opus-5-5`, `claude-haiku-5-5`, etc. |
-
-> **Compatible services**: the Anthropic provider also works with third-party services that implement the Anthropic Messages API. Enter the base URL from the provider without `/v1` (the app appends `/v1/messages`) and the platform's model ID. Thinking output from reasoning models is ignored.
-
-#### Azure OpenAI
-
-| Parameter | Where to get it |
-| :--- | :--- |
-| API key | Azure portal → your OpenAI resource → Keys and Endpoint |
-| Endpoint | Azure portal → your OpenAI resource → Endpoint, e.g. `https://xxx.openai.azure.com` |
-| Deployment name | The model deployment name configured in Azure, e.g. `gpt-4o` |
-| API version | Default `2024-02-15-preview` |
-
-#### OpenAI
-
-| Parameter | Where to get it |
-| :--- | :--- |
-| API key | [OpenAI Platform](https://platform.openai.com/api-keys) → Create new secret key |
-| Base URL | Default `https://api.openai.com/v1` |
-| Model | `gpt-6.1-sol` (recommended), etc. |
-
-> **Compatible services**: the OpenAI provider works with any third-party service that implements the OpenAI API format. Set the base URL to the service's address to use models from platforms such as SiliconFlow or Alibaba DashScope, and enter the platform's full model ID.
-
-#### Google Gemini
-
-| Parameter | Where to get it |
-| :--- | :--- |
-| API key | [Google AI Studio](https://aistudio.google.com/apikey) → Create API key |
-| Base URL | Default `https://generativelanguage.googleapis.com`; usually unchanged |
-| Model | `gemini-3.8-flash` (recommended), etc. |
-
-> **Permissions**: AI settings, prompts, connection tests and model lists are admin-only. Regular users can only change their own preferences in **Settings → General** (review before importing, SVG animated explanations, GeoGebra demos, duplicate threshold, mastered threshold). The application time zone is set by administrators.
-
-## 🧪 Development and testing
+### Development and testing
 
 ```bash
 npm run lint                # ESLint (fails on any warning)
@@ -515,7 +476,16 @@ bash scripts/ci.sh          # Full CI (Node.js 22+, Python 3, includes productio
 
 After changing `prisma/schema.prisma`, create a migration with `npx prisma migrate dev --name <name>` and commit it; migrations must be compatible with existing data. See [AGENTS.md](AGENTS.md) for more development conventions.
 
-## 📚 Documentation
+### Utility scripts
+
+The `scripts/` directory contains maintenance and debugging scripts, for example:
+
+- **Reset a password**: `node scripts/reset-password.js <email> <new-password>`
+- **Recreate the admin**: `node scripts/seed-admin.js` (default `admin@localhost` / `123456`)
+- **Rebuild system knowledge points**: `npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/rebuild-system-tags.ts` (keeps custom tags and question links; back up before running in production)
+- **Inspect the database**: `node scripts/check-db-users.js`, `node scripts/check-db-data.js`
+
+### Documentation
 
 For usage, deployment and FAQ, see the [Wiki in English](https://github.com/margrop/wrong-notebook/wiki/Home-en) (also available in [Chinese](https://github.com/margrop/wrong-notebook/wiki)). The topic documents below are mostly written in Simplified Chinese.
 
@@ -532,18 +502,21 @@ For usage, deployment and FAQ, see the [Wiki in English](https://github.com/marg
 | [BRANCH_WORKFLOW.md](doc/BRANCH_WORKFLOW.md) | Public mainline and pre-push checks |
 | [setup-wsl-network.md](doc/setup-wsl-network.md) | WSL networking |
 
-## 🛠️ Utility scripts
+## 💬 Community and contributing
 
-The `scripts/` directory contains maintenance and debugging scripts, for example:
+To ask questions, share how you use the app or suggest ideas, join the QQ group **964325781** (conversations are mainly in Chinese), or scan the QR code below with QQ. Please still report bugs and feature requests in [Issues](https://github.com/margrop/wrong-notebook/issues) so they can be tracked. Before posting screenshots, hide your child's name, school, account details and server addresses.
 
-- **Reset a password**: `node scripts/reset-password.js <email> <new-password>`
-- **Recreate the admin**: `node scripts/seed-admin.js` (default `admin@localhost` / `123456`)
-- **Rebuild system knowledge points**: `npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/rebuild-system-tags.ts` (keeps custom tags and question links; back up before running in production)
-- **Inspect the database**: `node scripts/check-db-users.js`, `node scripts/check-db-data.js`
-
-## 🤝 Contributing
+<img src="doc/images/qq-group.webp" alt="QR code for the wrong-notebook QQ user group, group number 964325781" width="240">
 
 Issues and pull requests are welcome. Please read the [contributing guide](CONTRIBUTING.md) (Chinese) and the [code of conduct](CODE_OF_CONDUCT.md). For questions and bug reports, see [getting help](SUPPORT.md). Report security vulnerabilities privately as described in the [security policy](SECURITY.md). See the [changelog](CHANGELOG.md) (Chinese) for changes in each stable release.
+
+<a href="https://www.star-history.com/#margrop/wrong-notebook&amp;Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date&amp;theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date">
+    <img src="https://api.star-history.com/svg?repos=margrop/wrong-notebook&amp;type=Date" alt="GitHub star history chart for margrop/wrong-notebook">
+  </picture>
+</a>
 
 ## 📄 License
 
