@@ -32,7 +32,7 @@ This Wiki covers [margrop/wrong-notebook](https://github.com/margrop/wrong-noteb
 
 ## Recommended workflow
 
-1. [Deploy the app](Deployment-en) and change the default admin password after the first sign-in.
+1. [Deploy the app](Deployment-en) and create the admin account with the one-time setup link from the startup log.
 2. [Configure and test the AI](AI-Configuration-en); image recognition needs a model that accepts image input.
 3. Create a notebook with its school stage and subject, then [add and review questions](User-Guide-en).
 4. Review with [similar questions and exam papers](Practice-and-Exams-en), and record the results.

@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
     mockPrismaUser: {
         findUnique: vi.fn(),
         create: vi.fn(),
+        // 注册状态接口同时返回是否已有管理员
+        count: vi.fn(() => Promise.resolve(1)),
     },
     mockGetAppConfig: vi.fn(() => ({
         aiProvider: 'gemini',

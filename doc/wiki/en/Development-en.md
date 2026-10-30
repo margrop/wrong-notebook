@@ -39,7 +39,7 @@ npm run test:integration
 npm run test:e2e
 ```
 
-E2E tests sign in as admin with a non-default password (the default admin must change it). Run `node scripts/prepare-e2e.js` first: it sets the `admin@localhost` password to `E2E_ADMIN_PASSWORD` (default `e2e-admin-pass`) and creates `setup-admin@localhost`, which still uses the default password. If port 3000 is busy, start a dev server elsewhere and point `E2E_BASE_URL` at it.
+E2E tests sign in as admin with a non-default password. Run `node scripts/prepare-e2e.js` first: it creates (or resets) `admin@localhost` with the password `E2E_ADMIN_PASSWORD` (default `e2e-admin-pass`) and creates `setup-admin@localhost`, which still uses the default password. If port 3000 is busy, start a dev server elsewhere and point `E2E_BASE_URL` at it.
 
 CI runs `npm run lint` and fails on any ESLint error or warning.
 

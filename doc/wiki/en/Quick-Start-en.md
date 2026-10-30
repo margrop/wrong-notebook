@@ -50,14 +50,15 @@ The migration creates the tables, the seed script creates the admin account, and
 npm run dev
 ```
 
-Open <http://localhost:3000>. The default admin account is:
+A fresh database has no admin. When the server starts, the terminal prints a one-time setup link (the log message is in Chinese):
 
-| Item | Initial value |
-| --- | --- |
-| Email | `admin@localhost` |
-| Password | `123456` |
+```text
+尚未创建管理员。请打开以下初始化链接设置管理员账号（仅可使用一次）：http://localhost:3000/initialize?token=…
+```
 
-The first sign-in opens the setup wizard: change the default password (required; the new one cannot be `123456`), then set up an AI provider and create your first notebook. The last two steps can be skipped. Run the wizard again from Settings → User Management; instances that already have notebooks do not open it automatically after upgrading. The default password only applies to fresh installs; upgrading an existing instance keeps its accounts and passwords.
+Open the link and choose the admin name, email and password (at least 6 characters, and not the old default password `123456`). After submitting you are signed in and taken to the setup wizard to set up an AI provider and create your first notebook; both steps can be skipped. The token is also stored in `config/setup-token` and is deleted once the admin exists; while there is no admin, restarting the server prints the link again. Run the wizard again from Settings → User Management; instances that already have notebooks do not open it automatically after upgrading.
+
+Instances upgraded from earlier versions keep their accounts; signing in as the old default admin `admin@localhost` with the default password still requires changing it first.
 
 ## Add your first question
 

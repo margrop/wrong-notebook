@@ -33,7 +33,7 @@ ENV DATABASE_URL="file:/app/prisma/dev.db"
 # Pre-compile runtime scripts FIRST (needed for tag seeding)
 RUN npx tsc scripts/rebuild-system-tags.ts --outDir dist-scripts --esModuleInterop --resolveJsonModule --skipLibCheck --module commonjs --target ES2020
 
-# Initialize database: generate client, run migrations, seed admin user, seed system tags
+# Initialize database: generate client, run migrations, seed system tags (no admin; created via the one-time setup link)
 RUN npx prisma generate \
     && npx prisma migrate deploy \
     && npx prisma db seed \

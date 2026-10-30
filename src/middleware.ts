@@ -17,7 +17,8 @@ export async function middleware(req: NextRequest) {
         });
 
         const isAuth = !!token;
-        const isAuthPage = req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/register");
+        // /initialize：全新安装时用一次性初始化链接创建管理员，未登录也要能打开
+        const isAuthPage = ["/login", "/register", "/initialize"].some((prefix) => req.nextUrl.pathname.startsWith(prefix));
         const isAdminPage = req.nextUrl.pathname.startsWith("/admin");
 
         logger.debug({

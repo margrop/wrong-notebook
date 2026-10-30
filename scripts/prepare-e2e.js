@@ -1,6 +1,6 @@
 /**
  * E2E 测试前的数据准备（在 prisma db seed 之后运行）：
- * - 默认管理员登录后会被强制改密，把 admin@localhost 的密码改成 E2E_ADMIN_PASSWORD，供各用例登录；
+ * - 全新数据库不再预置管理员，创建（或重置）admin@localhost，密码为 E2E_ADMIN_PASSWORD，供各用例登录；
  * - 另建一个仍使用默认密码的管理员 setup-admin@localhost，专门测试强制改密流程；
  * - 在 app-config.json 中标记安装向导已完成，避免全新数据库让各用例被重定向到向导。
  * 每次运行都会重置这两个账号的密码，可重复执行。
@@ -36,9 +36,11 @@ function markSetupCompleted() {
 async function main() {
     const prisma = new PrismaClient();
     try {
-        await prisma.user.update({
+        const adminHash = await hash(E2E_ADMIN_PASSWORD, 10);
+        await prisma.user.upsert({
             where: { email: 'admin@localhost' },
-            data: { password: await hash(E2E_ADMIN_PASSWORD, 10) },
+            update: { password: adminHash, role: 'admin', isActive: true },
+            create: { email: 'admin@localhost', name: 'Admin', password: adminHash, role: 'admin', isActive: true, educationStage: 'junior_high', enrollmentYear: 2025 },
         });
 
         const defaultHash = await hash(DEFAULT_ADMIN_PASSWORD, 10);

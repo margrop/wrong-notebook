@@ -1,8 +1,17 @@
 # FAQ
 
-## What is the default admin? Does upgrading reset the password?
+## How do I sign in after a fresh install? Does upgrading reset the password?
 
-A fresh install's default admin is `admin@localhost` with password `123456`; the first sign-in requires changing it before any other page can be used. The "First time here?" section under the sign-in form shows the default admin email and links to this page, without showing the password. When an existing database is upgraded with `PRESERVE_EXISTING_DATA=true`, the startup script skips admin seeding and keeps account state. If you forget the password, see [`scripts/reset-password.js`](https://github.com/margrop/wrong-notebook/blob/main/scripts/reset-password.js) in the repository, and back up first.
+Fresh installs have no default account. On first start the server generates a one-time setup link (`/initialize?token=…`); open it to choose the admin email and password:
+
+- Desktop and standalone Android apps: opened automatically on first launch.
+- Docker: `docker logs wrong-notebook 2>&1 | grep initialize`.
+- npm, source runs and fnOS: printed in the startup log (on fnOS, `wrong-notebook.log` in the app data directory).
+- You can also read the token from `config/setup-token` in the data directory and open `http://server-address:port/initialize?token=<token>` yourself.
+
+If the link host is `localhost`, replace it with the server IP or domain when opening it from another device. The link works only once and stops working after the admin is created; until then, the sign-in page shows these instructions.
+
+Instances installed with earlier versions have the default admin `admin@localhost` with password `123456`; signing in with the default password requires changing it before any other page can be used. When an existing database is upgraded with `PRESERVE_EXISTING_DATA=true`, the startup script skips admin seeding and keeps account state. If you forget the password, see [`scripts/reset-password.js`](https://github.com/margrop/wrong-notebook/blob/main/scripts/reset-password.js) in the repository, and back up first.
 
 ## Sign-in bounces back to the login page, or fails behind a reverse proxy?
 

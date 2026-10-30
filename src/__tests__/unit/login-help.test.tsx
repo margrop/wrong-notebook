@@ -34,3 +34,15 @@ describe('登录页帮助', () => {
         expect(html).not.toContain('123456');
     });
 });
+
+describe('初始化链接指引', () => {
+    it('说明各安装方式到哪里找初始化链接，不包含任何密码', async () => {
+        const { SetupGuide } = await import('@/components/initialize/setup-guide');
+        const html = renderToStaticMarkup(<LanguageProvider><SetupGuide /></LanguageProvider>);
+        expect(html).toContain('尚未创建管理员');
+        expect(html).toContain('/initialize?token=');
+        expect(html).toContain('docker logs wrong-notebook');
+        expect(html).toContain('config/setup-token');
+        expect(html).not.toContain('123456');
+    });
+});

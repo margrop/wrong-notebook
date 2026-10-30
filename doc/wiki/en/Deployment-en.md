@@ -58,6 +58,14 @@ docker compose ps
 curl --fail http://localhost:3000/api/health
 ```
 
+A fresh deployment has no default account; the startup log prints a one-time setup link:
+
+```bash
+docker compose logs wrong-notebook | grep initialize
+```
+
+Open the link in a browser (its host matches `NEXTAUTH_URL`), choose the admin email and password, and continue in the setup wizard. The link works only once; the token is also stored in `config/setup-token`.
+
 A healthy endpoint returns `status: "ok"` together with `version` and `revision`. It queries the database but does not test the AI; sign in, test the connection in the AI settings, and recognize a real question as well.
 
 For the default account of a fresh install, see [Quick Start](Quick-Start-en).

@@ -4,7 +4,7 @@
  *
  * 与 docker-entrypoint.sh 的行为保持一致：
  *   1. 准备数据目录：数据库、配置文件、NextAuth 密钥都放在数据目录，安装目录可以只读
- *   2. 首次运行时复制打包时预置的数据库（含管理员账号和系统标签）
+ *   2. 首次运行时复制打包时预置的数据库（含系统标签，不含管理员；服务启动后在日志中打印一次性初始化链接）
  *   3. 每次启动执行 prisma migrate deploy，只做增量迁移，保留已有数据
  *   4. 在当前进程内启动 Next.js standalone 服务
  *
@@ -172,7 +172,7 @@ function prepare(options = {}) {
     if (!fs.existsSync(dbFile) || fs.statSync(dbFile).size === 0) {
         const seed = path.join(APP_DIR, 'prisma', 'seed.db');
         if (fs.existsSync(seed)) {
-            console.log('[wrong-notebook] 初始化数据库（默认管理员 admin@localhost / 123456，首次登录须修改密码）');
+            console.log('[wrong-notebook] 初始化数据库（首次访问需用启动日志中的初始化链接创建管理员）');
             fs.copyFileSync(seed, dbFile);
         }
     }

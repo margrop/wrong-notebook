@@ -86,7 +86,7 @@ function rm(target) {
     fs.rmSync(target, { recursive: true, force: true });
 }
 
-/** 预置数据库：执行全部迁移并写入默认管理员和系统标签，与 Docker 镜像内的 prisma/dev.db 一致 */
+/** 预置数据库：执行全部迁移并写入系统标签（不含管理员，首次启动用初始化链接创建），与 Docker 镜像内的 prisma/dev.db 一致 */
 function buildSeedDatabase() {
     log('构建预置数据库');
     const seedDb = path.join(WORK, 'seed.db');

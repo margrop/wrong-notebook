@@ -58,7 +58,7 @@ echo "[Entrypoint] Migrations completed successfully."
 if [ "$DB_ALREADY_EXISTS" = "true" ] && [ "${PRESERVE_EXISTING_DATA:-false}" = "true" ]; then
     echo "[Entrypoint] Preserving existing accounts; skipping admin seed."
 else
-    echo "[Entrypoint] Ensuring admin user exists with correct role..."
+    echo "[Entrypoint] Restoring admin role for the existing default admin, if any..."
     node "$SEED_ADMIN_SCRIPT"
 fi
 touch "$SEED_MARKER" 2>/dev/null

@@ -58,6 +58,14 @@ docker compose ps
 curl --fail http://localhost:3000/api/health
 ```
 
+全新部署没有默认账号，启动日志中会打印一次性初始化链接：
+
+```bash
+docker compose logs wrong-notebook | grep initialize
+```
+
+在浏览器中打开该链接（链接主机与 `NEXTAUTH_URL` 一致），设置管理员邮箱和密码后进入安装向导。链接只能使用一次；令牌也保存在 `config/setup-token`。
+
 健康接口正常时返回 `status: "ok"`，并包含 `version`、`revision`。接口会执行数据库查询，但不会测试 AI；还需登录后在 AI 设置中测试连接，再识别一道实际题目。
 
 新安装的默认账户见[快速开始](Quick-Start)。

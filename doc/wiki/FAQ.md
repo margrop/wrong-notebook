@@ -1,8 +1,17 @@
 # 常见问题
 
-## 默认管理员是什么？升级会重置密码吗？
+## 首次安装后如何登录？升级会重置密码吗？
 
-全新安装的默认管理员为 `admin@localhost`，密码 `123456`，首次登录时必须先修改密码才能使用其他页面。登录页下方的“首次使用？”会给出默认管理员邮箱和本页链接，不显示密码。已有数据库在 `PRESERVE_EXISTING_DATA=true` 下升级时，启动脚本跳过管理员播种，保留账户状态。忘记密码可参考仓库的 [`scripts/reset-password.js`](https://github.com/margrop/wrong-notebook/blob/main/scripts/reset-password.js)，操作前先备份。
+全新安装没有默认账号。服务首次启动时生成一次性初始化链接（`/initialize?token=…`），打开后设置管理员邮箱和密码：
+
+- 桌面版、安卓单机版：首次启动自动打开。
+- Docker：`docker logs wrong-notebook 2>&1 | grep initialize`。
+- npm、源码运行、飞牛OS：链接打印在启动日志中（飞牛OS 为应用数据目录下的 `wrong-notebook.log`）。
+- 也可以读取数据目录中 `config/setup-token` 的令牌，自行打开 `http://服务器地址:端口/initialize?token=令牌`。
+
+链接中的主机为 `localhost` 时，从其他设备打开需换成服务器的 IP 或域名。链接只能使用一次，创建管理员后失效；尚未创建管理员时，登录页会显示上述说明。
+
+旧版本安装的实例默认管理员为 `admin@localhost`，密码 `123456`，用默认密码登录时必须先修改密码才能使用其他页面。已有数据库在 `PRESERVE_EXISTING_DATA=true` 下升级时，启动脚本跳过管理员播种，保留账户状态。忘记密码可参考仓库的 [`scripts/reset-password.js`](https://github.com/margrop/wrong-notebook/blob/main/scripts/reset-password.js)，操作前先备份。
 
 ## 登录后跳回登录页，或反向代理下登录失败？
 

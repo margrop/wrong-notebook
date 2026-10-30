@@ -50,7 +50,7 @@ To keep children from using up your API quota by regenerating explanations and q
 - 0 means unlimited (the default); admins are not limited. The environment variable `AI_DAILY_LIMIT` sets the default; a value saved on the web page takes precedence.
 - Counts reset at midnight in the application time zone. Once the limit is reached, AI features show "You have used up today's AI allowance".
 
-The default admin is only for initializing a fresh install. Upgrades of existing instances should keep the original accounts and must not re-run admin seeding.
+Fresh installs create the first admin with a one-time setup link (see the [FAQ](FAQ-en)) instead of shipping a default admin with a fixed password. Upgrades keep existing accounts; `scripts/seed-admin.js` only restores the admin role of an existing `admin@localhost` and never creates an account.
 
 ## Background tasks and progress
 
