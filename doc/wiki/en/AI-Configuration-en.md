@@ -18,13 +18,13 @@ AI settings, connection tests, model lists and prompt settings are admin-only. T
 | MiniMax | API key | Defaults to `https://api.minimax.cn/v1`; code default `MiniMax-M3.1-Flash` |
 | MiniMax Code OAuth | Sign in to a MiniMax Code account on the settings page | Fixed endpoint `https://agent.minimax.cn/mavis/api/v1/llm`; code default `MiniMax-M3.1-Flash` |
 | Zhipu GLM | API key | Defaults to `https://open.bigmodel.cn/api/paas/v4`; code default `glm-5.3-flash` |
-| DeepSeek | API key | Defaults to `https://api.deepseek.com`; code default `deepseek-flash` |
-| Kimi | API key | Defaults to `https://api.moonshot.cn/v1`; code default `kimi-k3` |
+| DeepSeek | API key | Defaults to `https://api.deepseek.com`; code default `deepseek-v4-flash` |
+| Kimi | API key | Defaults to `https://api.moonshot.cn/v1`; code default `kimi-k3.1-pro` |
 | Qwen | API key (Model Studio Token Plan recommended, starts with `sk-sp-`) | Defaults to the Token Plan URL `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`; pay-as-you-go keys use `https://dashscope.aliyuncs.com/compatible-mode/v1`; code default `qwen3.8-max` |
 | StepFun | API key (Step Plan recommended) | Defaults to the Step Plan URL `https://api.stepfun.com/step_plan/v1`; pay-as-you-go keys use `https://api.stepfun.com/v1`, international `https://api.stepfun.ai/v1`; code default `step-5-preview` |
 | Volcengine Doubao | API key (pay-as-you-go; with a plan subscription, choose the matching plan channel) | Defaults to `https://ark.cn-beijing.volces.com/api/v3`; international `https://ark.ap-southeast.bytepluses.com/api/v3`; code default `doubao-seed-2-1-lite-260915` |
-| Volcengine Agent Plan | Dedicated Agent Plan API key | Defaults to `https://ark.cn-beijing.volces.com/api/plan/v3`; code default `doubao-seed-2-1-pro-260628`; the plan includes Doubao speech synthesis |
-| Volcengine Coding Plan | Volcengine Ark API key | Defaults to `https://ark.cn-beijing.volces.com/api/coding/v3` (changing it to `/api/v3` is billed pay-as-you-go instead of the plan); code default `doubao-seed-2.1-lite`; the plan does not include speech synthesis |
+| Volcengine Agent Plan | Dedicated Agent Plan API key | Defaults to `https://ark.cn-beijing.volces.com/api/plan/v3`; code default `ark-code-latest` (the actual model is chosen under Activation Management in the Ark console); the plan includes Doubao speech synthesis |
+| Volcengine Coding Plan | Volcengine Ark API key | Defaults to `https://ark.cn-beijing.volces.com/api/coding/v3` (changing it to `/api/v3` is billed pay-as-you-go instead of the plan); code default `ark-code-latest` (the actual model is chosen under Activation Management in the Ark console); the plan does not include speech synthesis |
 | Volcengine (free trial) | Volcengine Ark API key | Defaults to `https://ark.cn-beijing.volces.com/api/v3`; uses the new-user [free inference quota](https://www.volcengine.com/docs/82379/1399514); with worry-free trial mode on, calls pause when it runs out, so you are never charged |
 | Anthropic or compatible | API key, model | Defaults to `https://api.anthropic.com`; code default `claude-sonnet-5-5` |
 | Azure OpenAI | API key, endpoint, deployment name | API version defaults to `2024-02-15-preview`; the model field is for display |

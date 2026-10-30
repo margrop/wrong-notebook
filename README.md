@@ -364,13 +364,13 @@ wrong-notebook --port 3000
 | `MINIMAX_CODE_MODEL` | MiniMax Code 模型 | `MiniMax-M3.1-Flash` | 账号在网页设置中登录，无需 API Key |
 | `MINIMAX_CODE_AUTO_CHECKIN` | MiniMax Code 每日自动签到 | `true` | 设为 `false` 关闭 |
 | `GLM_API_KEY` / `GLM_BASE_URL` / `GLM_MODEL` | 智谱 GLM | 地址 `https://open.bigmodel.cn/api/paas/v4`，模型 `glm-5.3-flash` | 地址和模型可留空 |
-| `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` | DeepSeek | 地址 `https://api.deepseek.com`，模型 `deepseek-flash` | 地址和模型可留空 |
-| `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Kimi | 地址 `https://api.moonshot.cn/v1`，模型 `kimi-k3` | 地址和模型可留空 |
+| `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` | DeepSeek | 地址 `https://api.deepseek.com`，模型 `deepseek-v4-flash` | 地址和模型可留空 |
+| `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Kimi | 地址 `https://api.moonshot.cn/v1`，模型 `kimi-k3.1-pro` | 地址和模型可留空 |
 | `QWEN_API_KEY` / `QWEN_BASE_URL` / `QWEN_MODEL` | 千问 Qwen | 地址 `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`（百炼 Token Plan），模型 `qwen3.8-max` | 按量付费的 Key 改填 `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 | `STEPFUN_API_KEY` / `STEPFUN_BASE_URL` / `STEPFUN_MODEL` | 阶跃星辰 StepFun | 地址 `https://api.stepfun.com/step_plan/v1`（Step Plan 套餐），模型 `step-5-preview` | 按量付费改填 `https://api.stepfun.com/v1`，国际站 `https://api.stepfun.ai/v1` |
 | `VOLCENGINE_API_KEY` / `VOLCENGINE_BASE_URL` / `VOLCENGINE_MODEL` | 火山引擎 豆包 | 地址 `https://ark.cn-beijing.volces.com/api/v3`，模型 `doubao-seed-2-1-lite-260915` | 按量付费；订阅 Agent Plan 等套餐时选择对应的套餐渠道；国际站 `https://ark.ap-southeast.bytepluses.com/api/v3` |
-| `VOLCENGINE_AGENT_API_KEY` / `VOLCENGINE_AGENT_BASE_URL` / `VOLCENGINE_AGENT_MODEL` | 火山引擎 Agent Plan | 地址 `https://ark.cn-beijing.volces.com/api/plan/v3`，模型 `doubao-seed-2-1-pro-260628` | Agent Plan 管理页的专属 API Key；套餐含豆包语音合成 |
-| `VOLCENGINE_CODING_API_KEY` / `VOLCENGINE_CODING_BASE_URL` / `VOLCENGINE_CODING_MODEL` | 火山引擎 Coding Plan | 地址 `https://ark.cn-beijing.volces.com/api/coding/v3`，模型 `doubao-seed-2.1-lite` | 方舟 API Key；不要改成 `/api/v3`（不计入套餐）；套餐不含语音合成 |
+| `VOLCENGINE_AGENT_API_KEY` / `VOLCENGINE_AGENT_BASE_URL` / `VOLCENGINE_AGENT_MODEL` | 火山引擎 Agent Plan | 地址 `https://ark.cn-beijing.volces.com/api/plan/v3`，模型 `ark-code-latest` | Agent Plan 管理页的专属 API Key；套餐含豆包语音合成 |
+| `VOLCENGINE_CODING_API_KEY` / `VOLCENGINE_CODING_BASE_URL` / `VOLCENGINE_CODING_MODEL` | 火山引擎 Coding Plan | 地址 `https://ark.cn-beijing.volces.com/api/coding/v3`，模型 `ark-code-latest` | 方舟 API Key；不要改成 `/api/v3`（不计入套餐）；套餐不含语音合成 |
 | `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | 火山引擎（免费试用） | 地址 `https://ark.cn-beijing.volces.com/api/v3`，模型 `doubao-seed-2-1-lite-260915` | 新用户免费推理额度，开启「安心体验模式」后用完自动暂停 |
 | `ANTHROPIC_API_KEY` | Anthropic API Key | 无 | 从 [Claude Console](https://platform.claude.com/) 获取 |
 | `ANTHROPIC_BASE_URL` | API 地址 | `https://api.anthropic.com` | 兼容服务填写不含 `/v1` 的地址 |
@@ -423,7 +423,7 @@ AI 配置可在网页中动态修改，无需重启服务器。
 | **规范的 LaTeX** | 题目、答案、解析 | 公式须能被 KaTeX 显示；出现语法错误时可用详情页的「修复 LaTeX」修正 |
 | **较强的数学推理** | 解答、错因分析、难度星级、掌握概率评估 | 推理（思考）模型可以使用，思考内容会被自动忽略；思考耗时较长时，管理员可在「设置 → 通用」中调大「AI 分析超时时间」 |
 
-推荐使用各提供商当前的多模态旗舰或快速模型，例如 `MiniMax-M3.1-Flash`、`glm-5.3-flash`、`deepseek-flash`、`kimi-k3`、`qwen3.8-max`、`step-5-preview`、`doubao-seed-2-1-lite-260915`、`claude-sonnet-5-5`、`gpt-6.1-sol`、`gemini-3.8-flash`。使用兼容接口的第三方模型时，请先确认它支持图片输入。
+推荐使用各提供商当前的多模态旗舰或快速模型，例如 `MiniMax-M3.1-Flash`、`glm-5.3-flash`、`deepseek-v4-flash`、`kimi-k3.1-pro`、`qwen3.8-max`、`step-5-preview`、`doubao-seed-2-1-lite-260915`、`claude-sonnet-5-5`、`gpt-6.1-sol`、`gemini-3.8-flash`。使用兼容接口的第三方模型时，请先确认它支持图片输入。
 
 ### 配置样例
 
@@ -435,13 +435,13 @@ AI 配置可在网页中动态修改，无需重启服务器。
 | :--- | :--- | :--- | :--- |
 | MiniMax | [MiniMax 开放平台](https://platform.minimax.cn) | `https://api.minimax.cn/v1`（国际站 `https://api.minimax.io/v1`） | `MiniMax-M3.1-Flash` |
 | 智谱 GLM | [智谱开放平台](https://open.bigmodel.cn) | `https://open.bigmodel.cn/api/paas/v4`（国际站 `https://api.z.ai/api/paas/v4`） | `glm-5.3-flash` |
-| DeepSeek | [DeepSeek 开放平台](https://platform.deepseek.com) | `https://api.deepseek.com` | `deepseek-flash` |
-| Kimi | [Kimi 开放平台](https://platform.kimi.com) | `https://api.moonshot.cn/v1`（国际站 `https://api.moonshot.ai/v1`） | `kimi-k3` |
+| DeepSeek | [DeepSeek 开放平台](https://platform.deepseek.com) | `https://api.deepseek.com` | `deepseek-v4-flash` |
+| Kimi | [Kimi 开放平台](https://platform.kimi.com) | `https://api.moonshot.cn/v1`（国际站 `https://api.moonshot.ai/v1`） | `kimi-k3.1-pro` |
 | 千问 Qwen | [阿里云百炼](https://bailian.console.aliyun.com)（推荐 Token Plan） | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`（按量付费 `https://dashscope.aliyuncs.com/compatible-mode/v1`） | `qwen3.8-max` |
 | 阶跃星辰 StepFun | [阶跃星辰开放平台](https://platform.stepfun.com)（推荐 Step Plan） | `https://api.stepfun.com/step_plan/v1`（按量付费 `https://api.stepfun.com/v1`，国际站 `https://api.stepfun.ai/v1`） | `step-5-preview` |
 | 火山引擎 豆包 | [火山方舟](https://console.volcengine.com/ark)（按量付费） | `https://ark.cn-beijing.volces.com/api/v3`（国际站 `https://ark.ap-southeast.bytepluses.com/api/v3`） | `doubao-seed-2-1-lite-260915` |
-| 火山引擎 Agent Plan | [火山方舟](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh)（Agent Plan 专属 Key） | `https://ark.cn-beijing.volces.com/api/plan/v3` | `doubao-seed-2-1-pro-260628` |
-| 火山引擎 Coding Plan | [火山方舟](https://www.volcengine.com/docs/82379/1928261) | `https://ark.cn-beijing.volces.com/api/coding/v3` | `doubao-seed-2.1-lite` |
+| 火山引擎 Agent Plan | [火山方舟](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh)（Agent Plan 专属 Key） | `https://ark.cn-beijing.volces.com/api/plan/v3` | `ark-code-latest` |
+| 火山引擎 Coding Plan | [火山方舟](https://www.volcengine.com/docs/82379/1928261) | `https://ark.cn-beijing.volces.com/api/coding/v3` | `ark-code-latest` |
 | 火山引擎（免费试用） | [火山方舟](https://console.volcengine.com/ark) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-1-lite-260915` |
 
 #### 火山引擎（免费试用）

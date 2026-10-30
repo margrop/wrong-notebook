@@ -366,13 +366,13 @@ Data directories, default accounts and local builds are described in [INSTALL_PA
 | `MINIMAX_CODE_MODEL` | MiniMax Code model | `MiniMax-M3.1-Flash` | The account signs in from the web settings; no API key needed |
 | `MINIMAX_CODE_AUTO_CHECKIN` | MiniMax Code daily auto check-in | `true` | Set to `false` to turn it off |
 | `GLM_API_KEY` / `GLM_BASE_URL` / `GLM_MODEL` | Zhipu GLM | URL `https://open.bigmodel.cn/api/paas/v4`, model `glm-5.3-flash` | URL and model are optional |
-| `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` | DeepSeek | URL `https://api.deepseek.com`, model `deepseek-flash` | URL and model are optional |
-| `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Kimi | URL `https://api.moonshot.cn/v1`, model `kimi-k3` | URL and model are optional |
+| `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` | DeepSeek | URL `https://api.deepseek.com`, model `deepseek-v4-flash` | URL and model are optional |
+| `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Kimi | URL `https://api.moonshot.cn/v1`, model `kimi-k3.1-pro` | URL and model are optional |
 | `QWEN_API_KEY` / `QWEN_BASE_URL` / `QWEN_MODEL` | Qwen | URL `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` (Model Studio Token Plan), model `qwen3.8-max` | Pay-as-you-go keys use `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 | `STEPFUN_API_KEY` / `STEPFUN_BASE_URL` / `STEPFUN_MODEL` | StepFun | URL `https://api.stepfun.com/step_plan/v1` (Step Plan), model `step-5-preview` | Pay-as-you-go keys use `https://api.stepfun.com/v1`; international `https://api.stepfun.ai/v1` |
 | `VOLCENGINE_API_KEY` / `VOLCENGINE_BASE_URL` / `VOLCENGINE_MODEL` | Volcengine Doubao | URL `https://ark.cn-beijing.volces.com/api/v3`, model `doubao-seed-2-1-lite-260915` | Pay-as-you-go; with an Agent Plan or similar subscription, choose the matching plan channel; international `https://ark.ap-southeast.bytepluses.com/api/v3` |
-| `VOLCENGINE_AGENT_API_KEY` / `VOLCENGINE_AGENT_BASE_URL` / `VOLCENGINE_AGENT_MODEL` | Volcengine Agent Plan | URL `https://ark.cn-beijing.volces.com/api/plan/v3`, model `doubao-seed-2-1-pro-260628` | The plan's dedicated API key from the Agent Plan page; the plan includes Doubao speech synthesis |
-| `VOLCENGINE_CODING_API_KEY` / `VOLCENGINE_CODING_BASE_URL` / `VOLCENGINE_CODING_MODEL` | Volcengine Coding Plan | URL `https://ark.cn-beijing.volces.com/api/coding/v3`, model `doubao-seed-2.1-lite` | Ark API key; do not change it to `/api/v3` (not counted toward the plan); the plan does not include speech synthesis |
+| `VOLCENGINE_AGENT_API_KEY` / `VOLCENGINE_AGENT_BASE_URL` / `VOLCENGINE_AGENT_MODEL` | Volcengine Agent Plan | URL `https://ark.cn-beijing.volces.com/api/plan/v3`, model `ark-code-latest` | The plan's dedicated API key from the Agent Plan page; the plan includes Doubao speech synthesis |
+| `VOLCENGINE_CODING_API_KEY` / `VOLCENGINE_CODING_BASE_URL` / `VOLCENGINE_CODING_MODEL` | Volcengine Coding Plan | URL `https://ark.cn-beijing.volces.com/api/coding/v3`, model `ark-code-latest` | Ark API key; do not change it to `/api/v3` (not counted toward the plan); the plan does not include speech synthesis |
 | `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | Volcengine (free trial) | URL `https://ark.cn-beijing.volces.com/api/v3`, model `doubao-seed-2-1-lite-260915` | Free inference quota for new users; with worry-free trial mode on, calls pause when it runs out |
 | `ANTHROPIC_API_KEY` | Anthropic API key | None | From the [Claude Console](https://platform.claude.com/) |
 | `ANTHROPIC_BASE_URL` | API URL | `https://api.anthropic.com` | For compatible services, use the URL without `/v1` |
@@ -425,7 +425,7 @@ The selected model must meet these requirements, or some features will fail or w
 | **Valid LaTeX** | Questions, answers, analyses | Formulas must render in KaTeX; use **Fix LaTeX** on the details page if there are syntax errors |
 | **Strong math reasoning** | Solutions, mistake analysis, difficulty stars, mastery estimates | Reasoning (thinking) models work; their thinking output is ignored. If thinking takes long, administrators can raise **AI Analysis Timeout** in **Settings → General** |
 
-Use each provider's current multimodal flagship or fast model, such as `MiniMax-M3.1-Flash`, `glm-5.3-flash`, `deepseek-flash`, `kimi-k3`, `qwen3.8-max`, `step-5-preview`, `doubao-seed-2-1-lite-260915`, `claude-sonnet-5-5`, `gpt-6.1-sol` or `gemini-3.8-flash`. For third-party models behind compatible APIs, make sure they support image input first.
+Use each provider's current multimodal flagship or fast model, such as `MiniMax-M3.1-Flash`, `glm-5.3-flash`, `deepseek-v4-flash`, `kimi-k3.1-pro`, `qwen3.8-max`, `step-5-preview`, `doubao-seed-2-1-lite-260915`, `claude-sonnet-5-5`, `gpt-6.1-sol` or `gemini-3.8-flash`. For third-party models behind compatible APIs, make sure they support image input first.
 
 ### Configuration examples
 
@@ -437,13 +437,13 @@ These channels call each vendor's official OpenAI-compatible API, so only an API
 | :--- | :--- | :--- | :--- |
 | MiniMax | [MiniMax platform](https://platform.minimax.io) | `https://api.minimax.cn/v1` (international `https://api.minimax.io/v1`) | `MiniMax-M3.1-Flash` |
 | Zhipu GLM | [Z.ai platform](https://z.ai) | `https://open.bigmodel.cn/api/paas/v4` (international `https://api.z.ai/api/paas/v4`) | `glm-5.3-flash` |
-| DeepSeek | [DeepSeek platform](https://platform.deepseek.com) | `https://api.deepseek.com` | `deepseek-flash` |
-| Kimi | [Kimi platform](https://platform.kimi.com) | `https://api.moonshot.cn/v1` (international `https://api.moonshot.ai/v1`) | `kimi-k3` |
+| DeepSeek | [DeepSeek platform](https://platform.deepseek.com) | `https://api.deepseek.com` | `deepseek-v4-flash` |
+| Kimi | [Kimi platform](https://platform.kimi.com) | `https://api.moonshot.cn/v1` (international `https://api.moonshot.ai/v1`) | `kimi-k3.1-pro` |
 | Qwen | [Alibaba Cloud Model Studio](https://bailian.console.aliyun.com) (Token Plan recommended) | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` (pay-as-you-go `https://dashscope.aliyuncs.com/compatible-mode/v1`) | `qwen3.8-max` |
 | StepFun | [StepFun platform](https://platform.stepfun.com) (Step Plan recommended) | `https://api.stepfun.com/step_plan/v1` (pay-as-you-go `https://api.stepfun.com/v1`, international `https://api.stepfun.ai/v1`) | `step-5-preview` |
 | Volcengine Doubao | [Volcengine Ark](https://console.volcengine.com/ark) (pay-as-you-go) | `https://ark.cn-beijing.volces.com/api/v3` (international `https://ark.ap-southeast.bytepluses.com/api/v3`) | `doubao-seed-2-1-lite-260915` |
-| Volcengine Agent Plan | [Volcengine Ark](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh) (dedicated Agent Plan key) | `https://ark.cn-beijing.volces.com/api/plan/v3` | `doubao-seed-2-1-pro-260628` |
-| Volcengine Coding Plan | [Volcengine Ark](https://www.volcengine.com/docs/82379/1928261) | `https://ark.cn-beijing.volces.com/api/coding/v3` | `doubao-seed-2.1-lite` |
+| Volcengine Agent Plan | [Volcengine Ark](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh) (dedicated Agent Plan key) | `https://ark.cn-beijing.volces.com/api/plan/v3` | `ark-code-latest` |
+| Volcengine Coding Plan | [Volcengine Ark](https://www.volcengine.com/docs/82379/1928261) | `https://ark.cn-beijing.volces.com/api/coding/v3` | `ark-code-latest` |
 | Volcengine (free trial) | [Volcengine Ark](https://console.volcengine.com/ark) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-1-lite-260915` |
 
 #### Volcengine (free trial)
