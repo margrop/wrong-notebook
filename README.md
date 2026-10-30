@@ -506,6 +506,8 @@ bash scripts/ci.sh          # 完整 CI（Node.js 22+、Python 3，含生产构�
 
 <img src="doc/images/qq-group.webp" alt="智能错题本用户交流 QQ 群二维码，群号 964325781" width="240">
 
+也可以在 X 上关注作者 [@MargropMe](https://x.com/MargropMe)，获取更新动态或私信交流。
+
 欢迎提交 Issue 和 Pull Request，请先阅读[贡献指南](CONTRIBUTING.md)和[行为准则](CODE_OF_CONDUCT.md)。提问和反馈方式见[获取帮助](SUPPORT.md)，安全漏洞请按[安全策略](SECURITY.md)私下报告。各正式版的改动见[更新日志](CHANGELOG.md)。
 
 <a href="https://www.star-history.com/#margrop/wrong-notebook&amp;Date">

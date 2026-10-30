@@ -508,6 +508,8 @@ To ask questions, share how you use the app or suggest ideas, join the QQ group 
 
 <img src="doc/images/qq-group.webp" alt="QR code for the wrong-notebook QQ user group, group number 964325781" width="240">
 
+You can also follow the author on X at [@MargropMe](https://x.com/MargropMe) for updates or to send a message.
+
 Issues and pull requests are welcome. Please read the [contributing guide](CONTRIBUTING.md) (Chinese) and the [code of conduct](CODE_OF_CONDUCT.md). For questions and bug reports, see [getting help](SUPPORT.md). Report security vulnerabilities privately as described in the [security policy](SECURITY.md). See the [changelog](CHANGELOG.md) (Chinese) for changes in each stable release.
 
 <a href="https://www.star-history.com/#margrop/wrong-notebook&amp;Date">
