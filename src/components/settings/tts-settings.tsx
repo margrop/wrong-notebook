@@ -101,7 +101,7 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
             {provider && (
                 <div key={provider} className="space-y-3 animate-in fade-in slide-in-from-top-2">
                     <div className="space-y-2">
-                        <Label>{ownApiKey ? texts.speechApiKey : `${getVendorName(provider, language)} API Key`}</Label>
+                        <FieldLabel label={ownApiKey ? texts.speechApiKey : `${getVendorName(provider, language)} API Key`} href={CLOUD_TTS_DOCS[provider].apiKey} linkText={t.settings.ai.docLinks.apiKey} />
                         <PasswordInput
                             value={apiKey || ""}
                             onChange={(e) => updateApiKey(e.target.value)}

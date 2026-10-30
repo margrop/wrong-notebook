@@ -48,35 +48,41 @@ export const VOLCENGINE_TTS_ENDPOINT = 'https://openspeech.bytedance.com/api/v3/
 /** Agent Plan 套餐的豆包语音接口，使用 Agent Plan 的专属 API Key，计入套餐额度 */
 export const VOLCENGINE_AGENT_TTS_ENDPOINT = 'https://openspeech.bytedance.com/api/v3/plan/tts/unidirectional';
 
-/** 各云端语音的官方说明文档：模型、音色（可选值列表）和接口地址，设置页附上链接 */
-export const CLOUD_TTS_DOCS: Record<CloudTtsProvider, { model: string; voice: string; endpoint: string }> = {
+/** 各云端语音的官方说明文档：获取 API Key、模型、音色（可选值列表）和接口地址，设置页附上链接 */
+export const CLOUD_TTS_DOCS: Record<CloudTtsProvider, { apiKey: string; model: string; voice: string; endpoint: string }> = {
     minimax: {
+        apiKey: 'https://platform.minimax.cn/docs/guides/quickstart-preparation',
         model: 'https://platform.minimax.cn/docs/api-reference/speech-t2a-http',
         voice: 'https://platform.minimax.cn/docs/faq/system-voice-id',
         endpoint: 'https://platform.minimax.cn/docs/api-reference/speech-t2a-http',
     },
     qwen: {
+        apiKey: 'https://help.aliyun.com/zh/model-studio/token-plan-personal-quick-start',
         model: 'https://help.aliyun.com/zh/model-studio/non-realtime-tts-user-guide',
         voice: 'https://help.aliyun.com/zh/model-studio/qwen-audio-tts-voice-list',
         endpoint: 'https://help.aliyun.com/zh/model-studio/non-realtime-tts-user-guide',
     },
     // 模型、音色和接口说明都在同一页
     glm: {
+        apiKey: 'https://docs.bigmodel.cn/cn/guide/start/quick-start',
         model: 'https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E6%96%87%E6%9C%AC%E8%BD%AC%E8%AF%AD%E9%9F%B3',
         voice: 'https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E6%96%87%E6%9C%AC%E8%BD%AC%E8%AF%AD%E9%9F%B3',
         endpoint: 'https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E6%96%87%E6%9C%AC%E8%BD%AC%E8%AF%AD%E9%9F%B3',
     },
     stepfun: {
+        apiKey: 'https://platform.stepfun.com/docs/zh/step-plan/integrations/audio-api',
         model: 'https://platform.stepfun.com/docs/zh/api-reference/audio/create-audio',
         voice: 'https://platform.stepfun.com/docs/zh/guides/developer/tts',
         endpoint: 'https://platform.stepfun.com/docs/zh/api-reference/audio/create-audio',
     },
     volcengine: {
+        apiKey: 'https://www.volcengine.com/docs/6561/196768',
         model: 'https://www.volcengine.com/docs/6561/1598757',
         voice: 'https://www.volcengine.com/docs/6561/1257544',
         endpoint: 'https://www.volcengine.com/docs/6561/1598757',
     },
     'volcengine-agent': {
+        apiKey: 'https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh',
         model: 'https://docs.volcengine.com/docs/ark/agent-plan-personal-voice-model?lang=zh',
         voice: 'https://www.volcengine.com/docs/6561/1257544',
         endpoint: 'https://docs.volcengine.com/docs/ark/agent-plan-personal-voice-model?lang=zh',

@@ -15,7 +15,7 @@ const requestBody = (call = 0) => JSON.parse(fetchMock.mock.calls[call][1].body 
 beforeEach(() => fetchMock.mockReset());
 
 describe('语音设置', () => {
-    it('每个云端语音的模型、音色、接口地址都附有官方文档链接', () => {
+    it('每个云端语音的 API Key、模型、音色、接口地址都附有官方文档链接', () => {
         for (const mode of TTS_MODES.filter((value) => value !== 'browser')) {
             const docs = CLOUD_TTS_DOCS[mode as keyof typeof CLOUD_TTS_DOCS];
             expect(docs, mode).toBeDefined();

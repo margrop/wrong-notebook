@@ -62,7 +62,7 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 | 火山引擎 Agent Plan（计入套餐额度） | 与火山引擎 Agent Plan 渠道共用 | 资源 ID `seed-tts-2.0`，音色 `zh_male_yangguangqingnian_uranus_bigtts` | `https://openspeech.bytedance.com/api/v3/plan/tts/unidirectional` |
 | 智谱 GLM-TTS（建议使用 GLM Coding Plan） | 与智谱 GLM 渠道共用 | `glm-tts`，音色 `xiaochen`（小陈） | GLM Base URL 加 `/audio/speech`，即 `https://open.bigmodel.cn/api/paas/v4/audio/speech` |
 
-- 默认音色为年轻男声，自然、清晰、略带科技感；千问另用指令要求不用播音腔、不模仿角色。模型、音色和接口地址都可修改（各字段旁附有服务商的说明文档或音色列表链接），「保存并试听」会先保存设置再朗读一段示例，失败时在按钮下方显示服务商的原始报错（如 MiniMax 的 `2056` 表示 Token Plan 当前用量窗口的额度已用完）。
+- 默认音色为年轻男声，自然、清晰、略带科技感；千问另用指令要求不用播音腔、不模仿角色。模型、音色和接口地址都可修改（API Key 旁附获取说明，其余字段旁附服务商的说明文档或音色列表链接），「保存并试听」会先保存设置再朗读一段示例，失败时在按钮下方显示服务商的原始报错（如 MiniMax 的 `2056` 表示 Token Plan 当前用量窗口的额度已用完）。
 - 合成结果统一到约 -15 LUFS 的响度（峰值不超过 -1.5 dBFS），编码为 48kbps 的 MP3，按服务商、模型、音色和文字缓存在配置目录的 `tts-cache/`，同一段讲解只合成一次，超过 500MB 时删除最早的缓存。
 - 开启语音时一次合成整个动画的讲解语音，已有动画可点「重新生成语音」重新合成，两者都登记为后台任务；已生成语音的动画打开时默认开启语音讲解。合成会消耗服务商额度，不计入每人每日的 AI 次数。
 - 云端语音失败（未配置 Key、服务商报错等）时，播放器自动改用浏览器语音。
