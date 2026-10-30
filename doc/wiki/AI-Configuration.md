@@ -52,6 +52,7 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 | --- | --- | --- | --- |
 | MiniMax（建议使用 M Plan） | 与 MiniMax 渠道共用 | `speech-2.8-hd`，音色 `male-qn-jingying`（精英青年） | MiniMax Base URL 加 `/t2a_v2`，即 `https://api.minimax.cn/v1/t2a_v2` |
 | 千问（建议使用百炼 Token Plan） | 与千问渠道共用 | `qwen-audio-3.0-tts-plus`，音色 `longanlufeng`（龙安鲁风） | 千问 Base URL 的域名加 `/api/v1/services/audio/tts/SpeechSynthesizer` |
+| 智谱 GLM-TTS | 与智谱 GLM 渠道共用 | `glm-tts`，音色 `xiaochen`（小陈） | GLM Base URL 加 `/audio/speech`，即 `https://open.bigmodel.cn/api/paas/v4/audio/speech` |
 
 - 默认音色为年轻男声，自然、清晰、略带科技感；千问另用指令要求不用播音腔、不模仿角色。模型、音色和接口地址都可修改（各字段旁附有服务商的说明文档或音色列表链接），「保存并试听」会先保存设置再朗读一段示例，失败时在按钮下方显示服务商的原始报错（如 MiniMax 的 `2056` 表示 Token Plan 当前用量窗口的额度已用完）。
 - 合成结果统一到约 -15 LUFS 的响度（峰值不超过 -1.5 dBFS），编码为 48kbps 的 MP3，按服务商、模型、音色和文字缓存在配置目录的 `tts-cache/`，同一段讲解只合成一次，超过 500MB 时删除最早的缓存。

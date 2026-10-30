@@ -9,7 +9,7 @@ import path from "path";
 import { getAppConfig } from "@/lib/config";
 import { createLogger } from "@/lib/logger";
 import { MAX_NARRATION_TEXT_LENGTH, decodeXmlText, getEmbeddedNarration } from "@/lib/svg-animation";
-import { QWEN_TTS_INSTRUCTION, TARGET_LOUDNESS_LUFS, isCloudTtsProvider } from "./constants";
+import { TARGET_LOUDNESS_LUFS, VOICE_STYLE_INSTRUCTION, isCloudTtsProvider } from "./constants";
 import type { CloudTtsProvider, TtsMode } from "./constants";
 import { normalizeLoudness } from "./loudness";
 import { encodeMp3, looksLikeMp3 } from "./mp3";
@@ -66,7 +66,7 @@ function currentSettings(): ResolvedTtsSettings | null {
 }
 
 export function speechId({ provider, model, voice, language, text }: SpeechSource): string {
-    const key = [CACHE_VERSION, TARGET_LOUDNESS_LUFS, provider, model, voice, provider === 'qwen' ? QWEN_TTS_INSTRUCTION : '', language, text];
+    const key = [CACHE_VERSION, TARGET_LOUDNESS_LUFS, provider, model, voice, provider === 'qwen' ? VOICE_STYLE_INSTRUCTION : '', language, text];
     return crypto.createHash('sha256').update(JSON.stringify(key)).digest('hex');
 }
 

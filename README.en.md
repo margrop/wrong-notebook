@@ -346,7 +346,7 @@ Data directories, default accounts and local builds are described in [INSTALL_PA
 | `HTTP_PROXY` / `HTTPS_PROXY` | Proxy | None | Proxy for requests to AI services |
 | `ALLOW_REGISTRATION` | Allow sign-ups | `false` | When `true`, registration is open by default; the switch saved by an admin under **Settings → User Management** takes precedence |
 | `AI_DAILY_LIMIT` | Daily AI limit per user | `0` (unlimited) | AI actions each regular user can start per day; admins are not limited. The value saved under **Settings → User Management** takes precedence |
-| `TTS_MODE` | How animation narration is voiced | `browser` | `browser` uses the browser's voice; `minimax` or `qwen` uses a cloud voice with that channel's API key. The value saved under **Settings → AI → Voice narration** takes precedence |
+| `TTS_MODE` | How animation narration is voiced | `browser` | `browser` uses the browser's voice; `minimax`, `qwen` or `glm` uses a cloud voice with that channel's API key. The value saved under **Settings → AI → Voice narration** takes precedence |
 
 **AI** (settings saved in the web UI take precedence over environment variables)
 

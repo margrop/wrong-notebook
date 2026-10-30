@@ -344,7 +344,7 @@ wrong-notebook --port 3000
 | `HTTP_PROXY` / `HTTPS_PROXY` | 代理 | 无 | 访问 AI 服务时使用的代理 |
 | `ALLOW_REGISTRATION` | 允许注册 | `false` | 为 `true` 时默认开放注册；管理员在「设置 → 用户管理」中保存的开关优先 |
 | `AI_DAILY_LIMIT` | 每人每日 AI 次数 | `0`（不限制） | 普通用户每天可发起的 AI 操作次数，管理员不受限制；「设置 → 用户管理」中保存的值优先 |
-| `TTS_MODE` | 动画语音讲解的朗读方式 | `browser` | `browser` 为浏览器本地语音；`minimax`、`qwen` 为云端语音，复用对应渠道的 API Key。「设置 → AI 设置 → 语音讲解」中保存的值优先 |
+| `TTS_MODE` | 动画语音讲解的朗读方式 | `browser` | `browser` 为浏览器本地语音；`minimax`、`qwen`、`glm` 为云端语音，复用对应渠道的 API Key。「设置 → AI 设置 → 语音讲解」中保存的值优先 |
 
 **AI 配置**（网页中保存的配置优先于环境变量）
 

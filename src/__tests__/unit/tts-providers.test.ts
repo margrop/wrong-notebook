@@ -128,3 +128,28 @@ describe('千问语音合成', () => {
         await expect(synthesizeWithProvider('你好', 'zh', settings)).rejects.toMatchObject({ message: expect.stringContaining('403') });
     });
 });
+
+describe('智谱 GLM-TTS 语音合成', () => {
+    const settings = resolveTtsSettings('glm', undefined, { apiKey: 'glm-key' });
+    const wav = encodeWav({ sampleRate: 24000, samples: new Float32Array([0.5, -0.5, 0]) });
+
+    it('接口与对话接口同在 Base URL 下，默认音色小陈，直接返回 WAV', async () => {
+        expect(settings).toMatchObject({ endpoint: 'https://open.bigmodel.cn/api/paas/v4/audio/speech', model: 'glm-tts', voice: 'xiaochen' });
+        fetchMock.mockResolvedValue(new Response(new Uint8Array(wav), { headers: { 'Content-Type': 'audio/wav' } }));
+
+        const audio = await synthesizeWithProvider('第一步', 'zh', settings);
+        expect(audio.sampleRate).toBe(24000);
+        expect(audio.samples[0]).toBeCloseTo(0.5, 3);
+        expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer glm-key');
+        expect(requestBody()).toEqual({
+            model: 'glm-tts', input: '第一步', voice: 'xiaochen', response_format: 'wav', speed: 1, volume: 1, watermark_enabled: false,
+        });
+    });
+
+    it('错误响应带上服务商的错误码和说明；返回 JSON 而不是音频时报错', async () => {
+        fetchMock.mockResolvedValueOnce(json({ error: { code: '1113', message: '余额不足' } }, 429));
+        await expect(synthesizeWithProvider('你好', 'zh', settings)).rejects.toMatchObject({ code: 'TTS_PROVIDER_ERROR', message: 'HTTP 429: 1113: 余额不足' });
+        fetchMock.mockResolvedValueOnce(json({ error: { message: 'unexpected' } }));
+        await expect(synthesizeWithProvider('你好', 'zh', settings)).rejects.toMatchObject({ message: expect.stringContaining('unexpected') });
+    });
+});

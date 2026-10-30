@@ -5,7 +5,7 @@ import { DEFAULT_TIME_ZONE, isValidTimeZone } from './date-time';
 import { VENDOR_PROVIDER_IDS, VENDOR_PRESETS } from './ai/vendor-presets';
 import type { VendorConfig, VendorProviderId } from './ai/vendor-presets';
 import type { MiniMaxCodeConfig } from './minimax-code/constants';
-import { isTtsMode } from './tts/constants';
+import { CLOUD_TTS_PROVIDERS, isTtsMode } from './tts/constants';
 import type { TtsConfig } from './tts/constants';
 
 const logger = createLogger('config');
@@ -183,8 +183,7 @@ function mergeVendorConfigs(base: Partial<AppConfig>, override: Partial<AppConfi
 function mergeTtsConfig(base: TtsConfig | undefined, override: TtsConfig | undefined): TtsConfig {
     return {
         mode: override?.mode ?? base?.mode ?? 'browser',
-        minimax: { ...base?.minimax, ...override?.minimax },
-        qwen: { ...base?.qwen, ...override?.qwen },
+        ...Object.fromEntries(CLOUD_TTS_PROVIDERS.map((id) => [id, { ...base?.[id], ...override?.[id] }])),
     };
 }
 

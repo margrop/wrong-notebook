@@ -9,7 +9,7 @@ import { createLogger } from "@/lib/logger";
 import type { OpenAIInstance } from "@/types/api";
 import { isValidTimeZone } from "@/lib/date-time";
 import { VENDOR_PROVIDER_IDS } from "@/lib/ai/vendor-presets";
-import { TTS_MODES } from "@/lib/tts/constants";
+import { CLOUD_TTS_PROVIDERS, TTS_MODES } from "@/lib/tts/constants";
 
 const logger = createLogger('api:settings');
 
@@ -26,8 +26,7 @@ const cloudTtsSchema = z.object({
 
 const ttsSchema = z.object({
     mode: z.enum(TTS_MODES).optional(),
-    minimax: cloudTtsSchema.optional(),
-    qwen: cloudTtsSchema.optional(),
+    ...Object.fromEntries(CLOUD_TTS_PROVIDERS.map((id) => [id, cloudTtsSchema.optional()])),
 });
 
 export const dynamic = 'force-dynamic';
