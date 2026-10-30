@@ -157,7 +157,7 @@ async function createErrorItem(
 
         let finalGradeSemester: string | null = null;
         if (user?.educationStage && user?.enrollmentYear) {
-            finalGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), 'en', getAppTimeZone());
+            finalGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), 'zh', getAppTimeZone());
         }
 
         for (const tagName of tagNames) {

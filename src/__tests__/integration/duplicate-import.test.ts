@@ -245,6 +245,20 @@ describe('其他导入入口也使用同一判重规则', () => {
         expect(await database.errorItem.findUnique({ where: { id: data.results[0].errorItemId } })).toMatchObject({ difficultyStars: 5, paperLevel: 'b' });
     });
 
+    it('Openclaw 上传按用户学段自动计算中文年级学期', async () => {
+        vi.stubEnv('OPENCLAW_AUTH_MODE', 'apikey');
+        vi.stubEnv('OPENCLAW_INTEGRATION_API_KEY', 'test-only-key');
+        await database.user.update({ where: { id: 'user-1' }, data: { educationStage: 'primary', enrollmentYear: new Date().getFullYear() - 1 } });
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+            success: true, data: { questionText, answerText: 'x = 3', analysis: '移项', knowledgePoints: [] },
+        }), { status: 200 })));
+        const response = await IMPORT_OPENCLAW(request({ userEmail: mocks.session.user.email, images: [{ base64: 'dGVzdA==', mimeType: 'image/png', filename: 'grade.png' }] }, '/api/openclaw/batch-upload', { 'x-api-key': 'test-only-key' }));
+        expect(response.status).toBe(201);
+        const data = await response.json();
+        const item = await database.errorItem.findUniqueOrThrow({ where: { id: data.results[0].errorItemId } });
+        expect(item.gradeSemester).toMatch(/^[一二]年级[上下]$/);
+    });
+
     it('Openclaw 上传拒绝扩展名合法但类型不是 JPG、PNG 的图片，不调用 AI', async () => {
         vi.stubEnv('OPENCLAW_AUTH_MODE', 'apikey');
         vi.stubEnv('OPENCLAW_INTEGRATION_API_KEY', 'test-only-key');

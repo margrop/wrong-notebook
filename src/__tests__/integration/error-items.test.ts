@@ -74,6 +74,7 @@ import { GET as GET_LIST } from '@/app/api/error-items/list/route';
 import { PATCH as PATCH_NOTES } from '@/app/api/error-items/[id]/notes/route';
 import { DELETE as DELETE_ITEM } from '@/app/api/error-items/[id]/delete/route';
 import { getServerSession } from 'next-auth';
+import { calculateGrade } from '@/lib/grade-calculator';
 
 describe('/api/error-items', () => {
     const mockUser = {
@@ -418,6 +419,8 @@ describe('/api/error-items', () => {
             expect(response.status).toBe(201);
             // 验证 create 被调用时包含了计算后的 gradeSemester
             expect(mocks.mockPrismaErrorItem.create).toHaveBeenCalled();
+            // 年级学期按中文保存，与识别、重新标注时一致
+            expect(calculateGrade).toHaveBeenCalledWith('junior_high', 2024, expect.any(Date), 'zh', expect.any(String));
         });
 
         it('应该正确处理字符串格式的知识点', async () => {

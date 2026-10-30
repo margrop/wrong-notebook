@@ -118,7 +118,7 @@ export async function POST(req: Request) {
             // 计算年级
             let finalGradeSemester = gradeSemester;
             if (!finalGradeSemester && user.educationStage && user.enrollmentYear) {
-                finalGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), 'en', getAppTimeZone());
+                finalGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), 'zh', getAppTimeZone());
                 logger.debug({ finalGradeSemester, educationStage: user.educationStage, enrollmentYear: user.enrollmentYear }, 'Grade calculated');
             }
 
