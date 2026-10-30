@@ -379,30 +379,30 @@ export class AnthropicProvider implements AIService {
         }
 
         // SDK 的 APIError 带 HTTP 状态码，优先按状态码判断
-        if (error instanceof Anthropic.APIConnectionTimeoutError) throw new Error("AI_TIMEOUT_ERROR");
-        if (error instanceof Anthropic.APIConnectionError) throw new Error("AI_CONNECTION_FAILED");
+        if (error instanceof Anthropic.APIConnectionTimeoutError) throw new Error("AI_TIMEOUT_ERROR", { cause: error });
+        if (error instanceof Anthropic.APIConnectionError) throw new Error("AI_CONNECTION_FAILED", { cause: error });
         if (error instanceof Anthropic.APIError && error.status) {
             const status = error.status;
-            if (status === 401) throw new Error("AI_AUTH_ERROR");
-            if (status === 403) throw new Error("AI_PERMISSION_DENIED");
-            if (status === 404) throw new Error("AI_NOT_FOUND");
-            if (status === 408) throw new Error("AI_TIMEOUT_ERROR");
-            if (status === 429) throw new Error("AI_QUOTA_EXCEEDED");
-            if (status >= 500) throw new Error("AI_SERVICE_UNAVAILABLE"); // 含 529 overloaded
+            if (status === 401) throw new Error("AI_AUTH_ERROR", { cause: error });
+            if (status === 403) throw new Error("AI_PERMISSION_DENIED", { cause: error });
+            if (status === 404) throw new Error("AI_NOT_FOUND", { cause: error });
+            if (status === 408) throw new Error("AI_TIMEOUT_ERROR", { cause: error });
+            if (status === 429) throw new Error("AI_QUOTA_EXCEEDED", { cause: error });
+            if (status >= 500) throw new Error("AI_SERVICE_UNAVAILABLE", { cause: error }); // 含 529 overloaded
         }
 
         if (error instanceof Error) {
             const msg = error.message.toLowerCase();
             if (msg.includes('fetch failed') || msg.includes('network') || msg.includes('connect')) {
-                throw new Error("AI_CONNECTION_FAILED");
+                throw new Error("AI_CONNECTION_FAILED", { cause: error });
             }
             if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('aborted')) {
-                throw new Error("AI_TIMEOUT_ERROR");
+                throw new Error("AI_TIMEOUT_ERROR", { cause: error });
             }
             if (msg.includes('invalid json') || msg.includes('parse') || msg.includes('json') || msg.includes('missing critical xml')) {
-                throw new Error("AI_RESPONSE_ERROR");
+                throw new Error("AI_RESPONSE_ERROR", { cause: error });
             }
         }
-        throw new Error("AI_UNKNOWN_ERROR");
+        throw new Error("AI_UNKNOWN_ERROR", { cause: error });
     }
 }

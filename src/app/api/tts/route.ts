@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/current-user";
+import { isAdmin } from "@/lib/auth-utils";
 import { badRequest, createErrorResponse, ErrorCode, unauthorized } from "@/lib/api-errors";
+import { getErrorDetail } from "@/lib/error-message";
 import { createLogger } from "@/lib/logger";
 import { MAX_NARRATION_TEXT_LENGTH } from "@/lib/svg-animation";
 import { getTtsMode, synthesizeSpeech } from "@/lib/tts/speech-cache";
@@ -54,8 +56,10 @@ async function handlePost(req: Request) {
         if (error instanceof TtsError && error.code === 'TTS_NOT_CONFIGURED') {
             return badRequest("TTS_NOT_CONFIGURED");
         }
-        logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Speech synthesis failed');
-        return createErrorResponse("TTS_PROVIDER_ERROR", 502, ErrorCode.AI_ERROR);
+        const detail = getErrorDetail(error);
+        logger.error({ error: detail }, 'Speech synthesis failed');
+        // 服务商的原始报错只给管理员（试听、排查配置），普通用户只收到错误码
+        return createErrorResponse("TTS_PROVIDER_ERROR", 502, ErrorCode.AI_ERROR, isAdmin(user) ? detail : undefined);
     }
 }
 

@@ -144,11 +144,19 @@ describe('云端语音接口', () => {
         expect(mocks.fetch).not.toHaveBeenCalled();
     });
 
-    it('服务商出错返回 502', async () => {
-        mocks.fetch.mockResolvedValue(new Response(JSON.stringify({ base_resp: { status_code: 1004, status_msg: 'auth' } })));
+    it('服务商出错返回 502，原始报错只返回给管理员', async () => {
+        mocks.fetch.mockImplementation(async () => new Response(JSON.stringify({ base_resp: { status_code: 2056, status_msg: '已达到 Token Plan 用量上限' } })));
         const res = await post({ text: '服务商出错' });
         expect(res.status).toBe(502);
-        expect(await res.json()).toMatchObject({ message: 'TTS_PROVIDER_ERROR' });
+        const body = await res.json();
+        expect(body).toMatchObject({ message: 'TTS_PROVIDER_ERROR' });
+        expect(body.details).toBeUndefined();
+
+        mocks.user.findUnique.mockResolvedValue({ id: 'admin-1', role: 'admin' });
+        expect(await (await post({ text: '服务商出错' })).json()).toMatchObject({
+            message: 'TTS_PROVIDER_ERROR',
+            details: 'MiniMax 2056: 已达到 Token Plan 用量上限',
+        });
     });
 
     it('未登录不能使用；无效编号返回 404', async () => {

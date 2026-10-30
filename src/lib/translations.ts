@@ -503,6 +503,7 @@ export const translations = {
                 anthropicBaseUrlHint: "Leave empty for the official API. For compatible services enter the base URL without /v1 (e.g. https://api.example.com/anthropic).",
                 vendorApiKeyHint: "Get an API key from the official console:",
                 vendorBaseUrlHint: "Leave empty for the official mainland China endpoint shown above. For the international site, enter its OpenAI-compatible URL instead.",
+                providerErrorDetail: "Provider error: ",
                 qwenBaseUrlHint: "The default is the Alibaba Cloud Model Studio Token Plan endpoint (recommended; keys start with sk-sp-). For a pay-as-you-go key, enter https://dashscope.aliyuncs.com/compatible-mode/v1.",
                 minimaxCode: {
                     title: "MiniMax Code account",
@@ -1719,6 +1720,7 @@ export const translations = {
                 anthropicBaseUrlHint: "留空使用官方接口；兼容服务请填写不含 /v1 的地址（如 https://api.example.com/anthropic）。",
                 vendorApiKeyHint: "在官方控制台获取 API Key：",
                 vendorBaseUrlHint: "留空使用上方的中国大陆官方地址；使用国际站时填写其 OpenAI 兼容地址。",
+                providerErrorDetail: "服务商报错：",
                 qwenBaseUrlHint: "默认为阿里云百炼 Token Plan 专属地址（推荐，Key 以 sk-sp- 开头）；使用按量付费的 Key 时填写 https://dashscope.aliyuncs.com/compatible-mode/v1。",
                 minimaxCode: {
                     title: "MiniMax Code 账号",

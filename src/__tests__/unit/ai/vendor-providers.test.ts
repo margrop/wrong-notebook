@@ -113,4 +113,18 @@ describe.each(VENDOR_PROVIDER_IDS)('%s 渠道', (id) => {
         expect(data).toMatchObject({ success: true, visionSupport: true, modelInfo: EXPECTED[id].model });
         expect(mocks.openaiOptions[0]).toMatchObject({ baseURL: EXPECTED[id].baseUrl });
     });
+
+    it('连接测试失败时返回服务商的原始报错', async () => {
+        mocks.create.mockRejectedValue(new Error('429 已达到 Token Plan 用量上限：请升级套餐'));
+
+        const response = await testConnection(post('http://localhost/api/ai/test', { provider: id, apiKey: 'k' }));
+        const data = await response.json();
+
+        expect(data).toMatchObject({
+            success: false,
+            textError: 'AI_QUOTA_EXCEEDED',
+            textErrorDetail: '429 已达到 Token Plan 用量上限：请升级套餐',
+            visionErrorDetail: '429 已达到 Token Plan 用量上限：请升级套餐',
+        });
+    });
 });

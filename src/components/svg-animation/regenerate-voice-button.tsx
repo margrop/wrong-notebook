@@ -5,7 +5,7 @@ import { Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getSpeechMode, regenerateSpeech } from "@/lib/cloud-speech";
-import { getApiErrorMessage, getErrorMessage } from "@/lib/error-message";
+import { getApiErrorDetails, getApiErrorMessage, getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { extractSubtitleNarration, getEmbeddedNarration } from "@/lib/svg-animation";
@@ -59,7 +59,10 @@ export function RegenerateVoiceButton({ svg, disabled, onBusyChange }: Regenerat
         } catch (err) {
             const code = getApiErrorMessage(err) || "";
             frontendLogger.error("[SvgAnimation]", "Failed to regenerate cloud voice", { code, error: getErrorMessage(err) });
-            toast.error(code === "TTS_DISABLED" ? t.svgAnimation.voiceRegenerateDisabled : t.svgAnimation.voiceRegenerateFailed);
+            // 管理员会收到服务商的原始报错，附在提示后面
+            const detail = getApiErrorDetails(err);
+            const message = code === "TTS_DISABLED" ? t.svgAnimation.voiceRegenerateDisabled : t.svgAnimation.voiceRegenerateFailed;
+            toast.error(detail ? `${message} (${detail})` : message);
         } finally {
             setProgress(null);
             onBusyChange(false);

@@ -712,37 +712,37 @@ export class OpenAIProvider implements AIService {
             }
             const msg = error.message.toLowerCase();
             if (msg.includes('fetch failed') || msg.includes('network') || msg.includes('connect')) {
-                throw new Error("AI_CONNECTION_FAILED");
+                throw new Error("AI_CONNECTION_FAILED", { cause: error });
             }
             // 超时错误 (包括 408 Request Timeout)
             if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('aborted') || msg.includes('408')) {
-                throw new Error("AI_TIMEOUT_ERROR");
+                throw new Error("AI_TIMEOUT_ERROR", { cause: error });
             }
             // 配额/频率限制错误
             if (msg.includes('quota') || msg.includes('额度') || msg.includes('rate limit') || msg.includes('429') || msg.includes('too many')) {
-                throw new Error("AI_QUOTA_EXCEEDED");
+                throw new Error("AI_QUOTA_EXCEEDED", { cause: error });
             }
             // 权限/403 错误
             if (msg.includes('403') || msg.includes('forbidden') || msg.includes('permission')) {
-                throw new Error("AI_PERMISSION_DENIED");
+                throw new Error("AI_PERMISSION_DENIED", { cause: error });
             }
             // 资源不存在/404 错误
             if (msg.includes('404') || msg.includes('not found') || msg.includes('does not exist')) {
-                throw new Error("AI_NOT_FOUND");
+                throw new Error("AI_NOT_FOUND", { cause: error });
             }
             // 服务器错误 (500/502/503/504)
             if (msg.includes('500') || msg.includes('502') || msg.includes('503') || msg.includes('504') ||
                 msg.includes('无可用') || msg.includes('overloaded') || msg.includes('unavailable')) {
-                throw new Error("AI_SERVICE_UNAVAILABLE");
+                throw new Error("AI_SERVICE_UNAVAILABLE", { cause: error });
             }
             if (msg.includes('invalid json') || msg.includes('parse')) {
-                throw new Error("AI_RESPONSE_ERROR");
+                throw new Error("AI_RESPONSE_ERROR", { cause: error });
             }
             if (msg.includes('api key') || msg.includes('unauthorized') || msg.includes('401')) {
-                throw new Error("AI_AUTH_ERROR");
+                throw new Error("AI_AUTH_ERROR", { cause: error });
             }
         }
-        throw new Error("AI_UNKNOWN_ERROR");
+        throw new Error("AI_UNKNOWN_ERROR", { cause: error });
     }
 }
 

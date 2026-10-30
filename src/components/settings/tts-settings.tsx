@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ProviderErrorDetail } from "@/components/settings/provider-error-detail";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { VENDOR_PRESETS } from "@/lib/ai/vendor-presets";
 import { apiClient } from "@/lib/api-client";
 import { getSpeechAudio, unlockSpeechAudio } from "@/lib/cloud-speech";
-import { getApiErrorMessage } from "@/lib/error-message";
+import { getApiErrorDetails, getApiErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { CLOUD_TTS_DEFAULTS, TTS_MODES, defaultTtsEndpoint, isCloudTtsProvider } from "@/lib/tts/constants";
@@ -34,6 +35,8 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
     const { t, language } = useLanguage();
     const texts = t.settings.tts;
     const [previewing, setPreviewing] = useState(false);
+    // 试听失败时服务商的原始报错，显示在按钮下方便于排查
+    const [previewError, setPreviewError] = useState<string | null>(null);
     const mode: TtsMode = config.tts?.mode ?? "browser";
     const provider = isCloudTtsProvider(mode) ? mode : null;
     const settings = provider ? config.tts?.[provider] : undefined;
@@ -51,18 +54,20 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
     const preview = async () => {
         unlockSpeechAudio();
         setPreviewing(true);
+        setPreviewError(null);
         try {
             await onSave();
-            const { id } = await apiClient.post<{ id: string }>("/api/tts", { text: texts.previewText, language }, { timeout: 120000, recoverable: true });
+            const { id, version } = await apiClient.post<{ id: string; version: number }>("/api/tts", { text: texts.previewText, language }, { timeout: 120000, recoverable: true });
             const audio = getSpeechAudio();
             if (!audio) return;
-            audio.src = `/api/tts/${id}`;
+            audio.src = `/api/tts/${id}?v=${version}`;
             audio.playbackRate = 1;
             await audio.play();
         } catch (error) {
             frontendLogger.error("[TtsSettings]", "Preview failed", { error });
             const code = getApiErrorMessage(error);
             toast.error(code === "TTS_NOT_CONFIGURED" ? texts.notConfigured : code === "TTS_PROVIDER_ERROR" ? texts.providerError : texts.previewFailed);
+            setPreviewError(getApiErrorDetails(error) ?? null);
         } finally {
             setPreviewing(false);
         }
@@ -142,6 +147,11 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
                     {texts.save}
                 </Button>
             </div>
+            {provider && previewError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-2 dark:border-red-900 dark:bg-red-950/40">
+                    <ProviderErrorDetail detail={previewError} />
+                </div>
+            )}
         </div>
     );
 }

@@ -6,7 +6,7 @@ Admins can change the AI configuration in the web settings. Once saved, later re
 
 1. Sign in as an admin and open "Settings → AI Provider".
 2. Choose a provider and fill in the API key, endpoint, and model or deployment name.
-3. Test the connection; fetch the model list from the API if needed.
+3. Test the connection; fetch the model list from the API if needed. When the test fails, the provider's original error (such as an exhausted quota or a missing model) is shown along with the error type.
 4. Save, then check image input, output format and answer quality with a real question.
 
 AI settings, connection tests, model lists and prompt settings are admin-only. The OpenAI configuration supports up to 10 instances; the currently active instance decides which configuration is used.
@@ -53,7 +53,7 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 | MiniMax (M Plan recommended) | Shared with the MiniMax channel | `speech-2.8-hd`, voice `male-qn-jingying` | MiniMax base URL plus `/t2a_v2`, i.e. `https://api.minimax.cn/v1/t2a_v2` |
 | Qwen (Model Studio Token Plan recommended) | Shared with the Qwen channel | `qwen-audio-3.0-tts-plus`, voice `longanlufeng` | Domain of the Qwen base URL plus `/api/v1/services/audio/tts/SpeechSynthesizer` |
 
-- The default voice is a young male voice that sounds natural, clear and slightly techy; for Qwen, an instruction also asks for no broadcast tone and no character imitation. Model, voice and endpoint can be changed, and **Save and preview** saves the settings before reading a sample.
+- The default voice is a young male voice that sounds natural, clear and slightly techy; for Qwen, an instruction also asks for no broadcast tone and no character imitation. Model, voice and endpoint can be changed, and **Save and preview** saves the settings before reading a sample; if it fails, the provider's original error appears below the buttons (for example, MiniMax `2056` means the current Token Plan usage window is used up).
 - Speech is normalized to about -15 LUFS (peaks at most -1.5 dBFS), encoded as 48 kbps MP3 and cached in `tts-cache/` under the config directory by provider, model, voice and text. Each segment is synthesized once; the oldest files are removed beyond 500 MB.
 - **Regenerate voice** on an existing animation synthesizes it again segment by segment. Synthesis uses the provider's quota and does not count toward the per-user daily AI limit.
 - If cloud voice fails (no key, provider error and so on), the player falls back to the browser's voice.

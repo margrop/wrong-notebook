@@ -11,6 +11,7 @@ import { isVendorProvider, resolveVendorConfig } from '@/lib/ai/vendor-presets';
 import type { VendorProviderId } from '@/lib/ai/vendor-presets';
 import { requireAdmin } from '@/lib/auth-utils';
 import { createLogger } from '@/lib/logger';
+import { getErrorDetail } from '@/lib/error-message';
 
 const logger = createLogger('api:ai:test');
 
@@ -95,6 +96,9 @@ export interface AITestResponse {
     visionSupport: boolean;
     textError?: string;
     visionError?: string;
+    /** 服务商的原始报错，便于管理员排查 */
+    textErrorDetail?: string;
+    visionErrorDetail?: string;
     modelInfo?: string;
 }
 
@@ -122,6 +126,8 @@ export async function POST(request: NextRequest) {
         let visionSupport = false;
         let textError: string | undefined;
         let visionError: string | undefined;
+        let textErrorDetail: string | undefined;
+        let visionErrorDetail: string | undefined;
         let modelInfo: string | undefined;
 
         // 辅助函数：判断错误是否为配置/连接问题（不应继续文本测试）
@@ -194,6 +200,7 @@ export async function POST(request: NextRequest) {
         } catch (error) {
             const errCode = parseErrorCode(error);
             const errMsg = error instanceof Error ? error.message : String(error);
+            visionErrorDetail = getErrorDetail(error);
 
             logger.info({ error: errMsg, errorCode: errCode, provider }, '视觉测试失败');
 
@@ -201,6 +208,7 @@ export async function POST(request: NextRequest) {
             if (isConfigError(errCode)) {
                 textError = errCode;
                 visionError = errCode;
+                textErrorDetail = visionErrorDetail;
                 logger.warn({ errorCode: errCode, provider }, '配置错误，跳过文本测试');
             } else {
                 // 非配置错误（如模型不支持多模态），标记为视觉不支持
@@ -276,6 +284,7 @@ export async function POST(request: NextRequest) {
                 }
             } catch (error) {
                 textError = parseErrorCode(error);
+                textErrorDetail = getErrorDetail(error);
                 logger.warn({ error, provider }, '文本生成测试失败');
             }
         }
@@ -286,6 +295,8 @@ export async function POST(request: NextRequest) {
             visionSupport,
             textError,
             visionError,
+            textErrorDetail,
+            visionErrorDetail,
             modelInfo
         };
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { CheckCircle2, Loader2, XCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProviderErrorDetail } from "@/components/settings/provider-error-detail";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { buildConnectionTestRequest } from "@/lib/ai/connection-test";
 import { apiClient } from "@/lib/api-client";
@@ -17,6 +18,9 @@ interface TestResult {
     visionSupport: boolean;
     textError?: string;
     visionError?: string;
+    /** 服务商的原始报错 */
+    textErrorDetail?: string;
+    visionErrorDetail?: string;
     modelInfo?: string;
 }
 
@@ -98,12 +102,14 @@ export function AiConnectionTest({ config, saving, saveButton }: AiConnectionTes
                                     <span className="text-amber-600">✗ {result.visionError ? errorText(result.visionError) : (t.settings?.ai?.notSupported || "Not Supported")}</span>
                                 )}
                             </div>
+                            {!result.visionSupport && <ProviderErrorDetail detail={result.visionErrorDetail} />}
                             <p className="text-muted-foreground/60 text-[10px] pl-1">{t.settings?.ai?.testNetworkNote}</p>
                         </div>
                     )}
                     {!result.success && result.textError && (
                         <p className="text-red-600 text-xs mt-1">{errorText(result.textError)}</p>
                     )}
+                    {!result.success && <ProviderErrorDetail detail={result.textErrorDetail} />}
                 </div>
             )}
         </div>
