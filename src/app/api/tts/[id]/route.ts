@@ -37,6 +37,8 @@ export async function GET(req: Request, { params }: RouteContext) {
     const headers: Record<string, string> = {
         'Content-Type': 'audio/mpeg',
         'Accept-Ranges': 'bytes',
+        // 缓存文件只按音频处理，禁止浏览器按内容猜测类型（如被篡改成网页）
+        'X-Content-Type-Options': 'nosniff',
         // 地址带版本号（?v=），重新合成后地址随之变化
         'Cache-Control': 'private, max-age=604800, immutable',
     };

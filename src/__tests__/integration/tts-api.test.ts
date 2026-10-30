@@ -103,6 +103,7 @@ describe('云端语音接口', () => {
         expect(file.status).toBe(200);
         expect(file.headers.get('Content-Type')).toBe('audio/mpeg');
         expect(file.headers.get('Accept-Ranges')).toBe('bytes');
+        expect(file.headers.get('X-Content-Type-Options')).toBe('nosniff');
         expect(looksLikeMp3(Buffer.from(await file.arrayBuffer()))).toBe(true);
 
         expect(await (await post({ text: '第一步，先看条件。', language: 'zh' })).json()).toEqual({ id, version });
@@ -145,6 +146,7 @@ describe('云端语音接口', () => {
 
         const part = await audio(id, { Range: 'bytes=0-1' });
         expect(part.status).toBe(206);
+        expect(part.headers.get('X-Content-Type-Options')).toBe('nosniff');
         expect(part.headers.get('Content-Range')).toBe(`bytes 0-1/${full.length}`);
         expect(Buffer.from(await part.arrayBuffer())).toEqual(full.subarray(0, 2));
 
