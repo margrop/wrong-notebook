@@ -22,9 +22,9 @@ AI 设置、连接测试、模型列表与提示词设置只向管理员开放�
 | Kimi | API Key | 默认 `https://api.moonshot.cn/v1`；代码默认 `kimi-k3.1-pro` |
 | 千问 Qwen | API Key（推荐百炼 Token Plan，以 `sk-sp-` 开头） | 默认 Token Plan 地址 `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`，按量付费的 Key 改填 `https://dashscope.aliyuncs.com/compatible-mode/v1`；代码默认 `qwen3.8-max` |
 | 阶跃星辰 StepFun | API Key（推荐 Step Plan 套餐） | 默认 Step Plan 地址 `https://api.stepfun.com/step_plan/v1`，按量付费改填 `https://api.stepfun.com/v1`，国际站 `https://api.stepfun.ai/v1`；代码默认 `step-5-preview` |
-| 火山引擎 豆包 | API Key（按量付费；订阅套餐时选择对应的套餐渠道） | 默认 `https://ark.cn-beijing.volces.com/api/v3`，国际站 `https://ark.ap-southeast.bytepluses.com/api/v3`；代码默认 `doubao-seed-2-1-lite-260915` |
-| 火山引擎 Agent Plan | Agent Plan 专属 API Key | 默认 `https://ark.cn-beijing.volces.com/api/plan/v3`；代码默认 `ark-code-latest`（实际模型在方舟控制台「开通管理」中选择）；套餐含豆包语音合成 |
-| 火山引擎 Coding Plan | 火山方舟 API Key | 默认 `https://ark.cn-beijing.volces.com/api/coding/v3`（改成 `/api/v3` 不计入套餐、按量计费）；代码默认 `ark-code-latest`（实际模型在方舟控制台「开通管理」中选择）；套餐不含语音合成 |
+| 火山引擎 豆包 | API Key（按量付费；订阅套餐时选择对应的套餐渠道） | 默认 `https://ark.cn-beijing.volces.com/api/v3`，国际站 `https://ark.ap-southeast.bytepluses.com/api/v3`；代码默认 `doubao-seed-evolving` |
+| 火山引擎 Agent Plan | Agent Plan 专属 API Key | 默认 `https://ark.cn-beijing.volces.com/api/plan/v3`；代码默认 `doubao-seed-evolving`（也可填 `ark-code-latest`，使用方舟控制台「开通管理」中选择的模型）；套餐含豆包语音合成 |
+| 火山引擎 Coding Plan | 火山方舟 API Key | 默认 `https://ark.cn-beijing.volces.com/api/coding/v3`（改成 `/api/v3` 不计入套餐、按量计费）；代码默认 `doubao-seed-evolving`（也可填 `ark-code-latest`，使用方舟控制台「开通管理」中选择的模型）；套餐不含语音合成 |
 | 火山引擎（免费试用） | 火山方舟 API Key | 默认 `https://ark.cn-beijing.volces.com/api/v3`；使用新用户的[免费推理额度](https://www.volcengine.com/docs/82379/1399514)，开启「安心体验模式」后用完自动暂停，不产生费用 |
 | Anthropic 或兼容接口 | API Key、模型 | 默认 `https://api.anthropic.com`；代码默认 `claude-sonnet-5-5` |
 | Azure OpenAI | API Key、Endpoint、部署名称 | API 版本默认 `2024-02-15-preview`；模型字段用于显示 |

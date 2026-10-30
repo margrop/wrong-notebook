@@ -305,10 +305,10 @@ AI 设置、提示词、连接测试和模型列表只对管理员开放；普�
 | Kimi | [Kimi 开放平台](https://platform.kimi.com) | `https://api.moonshot.cn/v1`（国际站 `https://api.moonshot.ai/v1`） | `kimi-k3.1-pro` |
 | 千问 Qwen | [阿里云百炼](https://bailian.console.aliyun.com)，推荐 Token Plan | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`（按量付费 `https://dashscope.aliyuncs.com/compatible-mode/v1`） | `qwen3.8-max` |
 | 阶跃星辰 StepFun | [阶跃星辰开放平台](https://platform.stepfun.com)，推荐 Step Plan | `https://api.stepfun.com/step_plan/v1`（按量付费 `https://api.stepfun.com/v1`，国际站 `https://api.stepfun.ai/v1`） | `step-5-preview` |
-| 火山引擎 豆包 | [火山方舟](https://console.volcengine.com/ark)，按量付费 | `https://ark.cn-beijing.volces.com/api/v3`（国际站 `https://ark.ap-southeast.bytepluses.com/api/v3`） | `doubao-seed-2-1-lite-260915` |
-| 火山引擎 Agent Plan | [Agent Plan](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh) 专属 Key，套餐含豆包语音合成 | `https://ark.cn-beijing.volces.com/api/plan/v3` | `ark-code-latest` |
-| 火山引擎 Coding Plan | [Coding Plan](https://www.volcengine.com/docs/82379/1928261)，方舟 API Key | `https://ark.cn-beijing.volces.com/api/coding/v3`（不要改成 `/api/v3`，否则不计入套餐） | `ark-code-latest` |
-| 火山引擎（免费试用） | 新用户**免费推理额度**，见[下文](#火山引擎免费试用) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-1-lite-260915` |
+| 火山引擎 豆包 | [火山方舟](https://console.volcengine.com/ark)，按量付费 | `https://ark.cn-beijing.volces.com/api/v3`（国际站 `https://ark.ap-southeast.bytepluses.com/api/v3`） | `doubao-seed-evolving` |
+| 火山引擎 Agent Plan | [Agent Plan](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh) 专属 Key，套餐含豆包语音合成 | `https://ark.cn-beijing.volces.com/api/plan/v3` | `doubao-seed-evolving` |
+| 火山引擎 Coding Plan | [Coding Plan](https://www.volcengine.com/docs/82379/1928261)，方舟 API Key | `https://ark.cn-beijing.volces.com/api/coding/v3`（不要改成 `/api/v3`，否则不计入套餐） | `doubao-seed-evolving` |
+| 火山引擎（免费试用） | 新用户**免费推理额度**，见[下文](#火山引擎免费试用) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-evolving` |
 | Anthropic 及兼容接口 | [Claude Console](https://platform.claude.com/) | `https://api.anthropic.com`（不含 `/v1`） | `claude-sonnet-5-5` |
 | Azure OpenAI | Azure 门户 → OpenAI 资源 → 密钥和终结点 | 填写资源 Endpoint 和部署名称 | 部署名称 |
 | OpenAI 及兼容接口 | [OpenAI Platform](https://platform.openai.com/api-keys)，可添加多个配置并切换 | `https://api.openai.com/v1` | `gpt-6.1-sol` |
@@ -411,10 +411,10 @@ AI 设置、提示词、连接测试和模型列表只对管理员开放；普�
 | `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Kimi | 地址 `https://api.moonshot.cn/v1`，模型 `kimi-k3.1-pro` | 地址和模型可留空 |
 | `QWEN_API_KEY` / `QWEN_BASE_URL` / `QWEN_MODEL` | 千问 Qwen | 地址 `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`（百炼 Token Plan），模型 `qwen3.8-max` | 按量付费的 Key 改填 `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 | `STEPFUN_API_KEY` / `STEPFUN_BASE_URL` / `STEPFUN_MODEL` | 阶跃星辰 StepFun | 地址 `https://api.stepfun.com/step_plan/v1`（Step Plan 套餐），模型 `step-5-preview` | 按量付费改填 `https://api.stepfun.com/v1`，国际站 `https://api.stepfun.ai/v1` |
-| `VOLCENGINE_API_KEY` / `VOLCENGINE_BASE_URL` / `VOLCENGINE_MODEL` | 火山引擎 豆包 | 地址 `https://ark.cn-beijing.volces.com/api/v3`，模型 `doubao-seed-2-1-lite-260915` | 按量付费；订阅 Agent Plan 等套餐时选择对应的套餐渠道；国际站 `https://ark.ap-southeast.bytepluses.com/api/v3` |
-| `VOLCENGINE_AGENT_API_KEY` / `VOLCENGINE_AGENT_BASE_URL` / `VOLCENGINE_AGENT_MODEL` | 火山引擎 Agent Plan | 地址 `https://ark.cn-beijing.volces.com/api/plan/v3`，模型 `ark-code-latest` | Agent Plan 管理页的专属 API Key；套餐含豆包语音合成 |
-| `VOLCENGINE_CODING_API_KEY` / `VOLCENGINE_CODING_BASE_URL` / `VOLCENGINE_CODING_MODEL` | 火山引擎 Coding Plan | 地址 `https://ark.cn-beijing.volces.com/api/coding/v3`，模型 `ark-code-latest` | 方舟 API Key；不要改成 `/api/v3`（不计入套餐）；套餐不含语音合成 |
-| `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | 火山引擎（免费试用） | 地址 `https://ark.cn-beijing.volces.com/api/v3`，模型 `doubao-seed-2-1-lite-260915` | 新用户免费推理额度，开启「安心体验模式」后用完自动暂停 |
+| `VOLCENGINE_API_KEY` / `VOLCENGINE_BASE_URL` / `VOLCENGINE_MODEL` | 火山引擎 豆包 | 地址 `https://ark.cn-beijing.volces.com/api/v3`，模型 `doubao-seed-evolving` | 按量付费；订阅 Agent Plan 等套餐时选择对应的套餐渠道；国际站 `https://ark.ap-southeast.bytepluses.com/api/v3` |
+| `VOLCENGINE_AGENT_API_KEY` / `VOLCENGINE_AGENT_BASE_URL` / `VOLCENGINE_AGENT_MODEL` | 火山引擎 Agent Plan | 地址 `https://ark.cn-beijing.volces.com/api/plan/v3`，模型 `doubao-seed-evolving` | Agent Plan 管理页的专属 API Key；套餐含豆包语音合成 |
+| `VOLCENGINE_CODING_API_KEY` / `VOLCENGINE_CODING_BASE_URL` / `VOLCENGINE_CODING_MODEL` | 火山引擎 Coding Plan | 地址 `https://ark.cn-beijing.volces.com/api/coding/v3`，模型 `doubao-seed-evolving` | 方舟 API Key；不要改成 `/api/v3`（不计入套餐）；套餐不含语音合成 |
+| `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | 火山引擎（免费试用） | 地址 `https://ark.cn-beijing.volces.com/api/v3`，模型 `doubao-seed-evolving` | 新用户免费推理额度，开启「安心体验模式」后用完自动暂停 |
 | `VOLCENGINE_TTS_API_KEY` | 豆包语音 API Key | 无 | 云端语音选择火山引擎豆包语音时使用，与火山方舟的 Key 不同 |
 | `ANTHROPIC_API_KEY` | Anthropic API Key | 无 | 从 [Claude Console](https://platform.claude.com/) 获取 |
 | `ANTHROPIC_BASE_URL` | API 地址 | `https://api.anthropic.com` | 兼容服务填写不含 `/v1` 的地址 |
