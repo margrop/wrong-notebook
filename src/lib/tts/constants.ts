@@ -118,6 +118,11 @@ export const CLOUD_TTS_DOCS: Record<CloudTtsProvider, { apiKey: string; model: s
     },
 };
 
+/** 提供免费试用的云端语音：火山引擎新用户有免费推理额度，可参考文档自行开通（覆盖的模型以控制台「开通管理」为准） */
+export const CLOUD_TTS_FREE_TRIAL: Partial<Record<CloudTtsProvider, string>> = {
+    volcengine: 'https://docs.volcengine.com/docs/ark/free-inference-quota?lang=zh',
+};
+
 /** 支持自然语言指令的语音（千问、阶跃星辰 StepAudio）使用的语气指令（中英文讲解通用） */
 export const VOICE_STYLE_INSTRUCTION = '用年轻男性的声音讲题，自然、清晰，略带科技感，像面对面给同学讲解；语速适中，不要播音腔，不要模仿角色或夸张表演。';
 

@@ -33,7 +33,7 @@ An AI-powered notebook for the questions you got wrong. Snap a photo or type a q
 | Voice | Sound | Cost |
 | :--- | :--- | :--- |
 | Browser voice (Web Speech) | Read by the device's built-in voice; sounds stiff, and the voice varies by device | Free |
-| Cloud TTS (MiniMax, Qwen, Zhipu GLM-TTS, StepFun, Volcengine Doubao Speech, Volcengine Agent Plan, OpenAI) | Natural, just like a real person explaining the problem, and the same on every device | Paid; **a Token Plan or similar subscription is recommended** over pay-as-you-go |
+| Cloud TTS (MiniMax, Qwen, Zhipu GLM-TTS, StepFun, Volcengine Doubao Speech, Volcengine Agent Plan, OpenAI) | Natural, just like a real person explaining the problem, and the same on every device | Paid; **a Token Plan or similar subscription is recommended** over pay-as-you-go. Volcengine offers a [free trial quota](https://docs.volcengine.com/docs/ark/free-inference-quota?lang=zh) you can turn on by following its docs |
 
 Admins switch between them under **Settings → AI → Voice narration**. See [Cloud voice narration](doc/wiki/en/AI-Configuration-en.md#cloud-voice-narration).
 

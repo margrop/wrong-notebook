@@ -33,7 +33,7 @@
 | 语音 | 效果 | 费用 |
 | :--- | :--- | :--- |
 | 浏览器本地语音（Web Speech） | 由设备自带的语音朗读，听起来比较生硬，音色因设备而异 | 免费 |
-| 云端 TTS 语音（MiniMax、千问、智谱 GLM-TTS、阶跃星辰、火山引擎豆包语音、火山引擎 Agent Plan、OpenAI） | 声音自然，与真人讲题无异，所有设备音色一致 | 需要付费，**建议购买 Token Plan 等套餐**，比按量付费划算 |
+| 云端 TTS 语音（MiniMax、千问、智谱 GLM-TTS、阶跃星辰、火山引擎豆包语音、火山引擎 Agent Plan、OpenAI） | 声音自然，与真人讲题无异，所有设备音色一致 | 需要付费，**建议购买 Token Plan 等套餐**，比按量付费划算；火山引擎有[免费试用额度](https://docs.volcengine.com/docs/ark/free-inference-quota?lang=zh)，可参考文档自行开通 |
 
 管理员在「设置 → AI 设置 → 语音讲解」中切换，详见 [云端语音讲解](doc/wiki/AI-Configuration.md#云端语音讲解)。
 

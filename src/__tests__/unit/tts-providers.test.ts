@@ -2,7 +2,7 @@
  * 云端语音合成：MiniMax 与千问的请求格式、默认设置、接口地址推算和错误处理
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, TTS_MODES, defaultTtsEndpoint, getTtsChannelConfig } from '@/lib/tts/constants';
+import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, CLOUD_TTS_FREE_TRIAL, TTS_MODES, defaultTtsEndpoint, getTtsChannelConfig } from '@/lib/tts/constants';
 import { TtsError, resolveTtsSettings, splitJsonObjects, synthesizeWithProvider } from '@/lib/tts/providers';
 import { encodeWav } from '@/lib/tts/wav';
 
@@ -15,6 +15,11 @@ const requestBody = (call = 0) => JSON.parse(fetchMock.mock.calls[call][1].body 
 beforeEach(() => fetchMock.mockReset());
 
 describe('语音设置', () => {
+    it('火山引擎豆包语音附免费试用说明链接', () => {
+        expect(CLOUD_TTS_FREE_TRIAL.volcengine).toBe('https://docs.volcengine.com/docs/ark/free-inference-quota?lang=zh');
+        expect(CLOUD_TTS_FREE_TRIAL.minimax).toBeUndefined();
+    });
+
     it('每个云端语音的 API Key、模型、音色、接口地址都附有官方文档链接', () => {
         for (const mode of TTS_MODES.filter((value) => value !== 'browser')) {
             const docs = CLOUD_TTS_DOCS[mode as keyof typeof CLOUD_TTS_DOCS];

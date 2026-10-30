@@ -17,7 +17,7 @@ import { getSpeechAudio, unlockSpeechAudio } from "@/lib/cloud-speech";
 import { getApiErrorDetails, getApiErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, TTS_MODES, defaultTtsEndpoint, getTtsChannelConfig, hasOwnTtsApiKey, isCloudTtsProvider } from "@/lib/tts/constants";
+import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, CLOUD_TTS_FREE_TRIAL, TTS_MODES, defaultTtsEndpoint, getTtsChannelConfig, hasOwnTtsApiKey, isCloudTtsProvider } from "@/lib/tts/constants";
 import type { CloudTtsSettings, TtsMode } from "@/lib/tts/constants";
 import type { AppConfig } from "@/types/api";
 
@@ -101,6 +101,12 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
 
             {provider && (
                 <div key={provider} className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                    {CLOUD_TTS_FREE_TRIAL[provider] && (
+                        <div className="rounded-md border border-green-200 bg-green-50 p-3 text-xs text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300">
+                            {texts.freeTrial}{" "}
+                            <a href={CLOUD_TTS_FREE_TRIAL[provider]} target="_blank" rel="noopener noreferrer" className="underline">{texts.freeTrialLink}</a>
+                        </div>
+                    )}
                     <div className="space-y-2">
                         <FieldLabel label={provider === "openai" ? "OpenAI API Key" : ownApiKey ? texts.speechApiKey : `${getVendorName(provider, language)} API Key`} href={CLOUD_TTS_DOCS[provider].apiKey} linkText={t.settings.ai.docLinks.apiKey} />
                         <PasswordInput
