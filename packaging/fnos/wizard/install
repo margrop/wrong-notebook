@@ -4,7 +4,50 @@
         "items": [
             {
                 "type": "tips",
-                "helpText": "错题本监听 39300 端口。安装完成后从飞牛桌面图标打开。\n\n首次使用需要创建管理员：打开应用数据目录（如 /vol1/@appdata/wrongnotebook）中的 wrong-notebook.log，找到包含 /initialize?token= 的初始化链接，把其中的 localhost 换成 NAS 的地址后在浏览器中打开，设置管理员邮箱和密码；之后进入安装向导配置 AI 渠道并创建第一个错题本。\n\n数据库和配置保存在应用数据目录，升级或卸载重装不会丢失。"
+                "helpText": "错题本监听 39300 端口。安装完成后从飞牛桌面图标打开。\n\n下一步设置管理员的邮箱和密码，安装完成后用它登录，再按安装向导配置 AI 渠道并创建第一个错题本。\n\n数据库和配置保存在应用数据目录，升级或卸载重装不会丢失；保留旧数据重装时沿用原有账号，下一步填写的内容会被忽略。"
+            }
+        ]
+    },
+    {
+        "stepTitle": "管理员账号",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "设置错题本的管理员账号，请牢记邮箱和密码。邮箱可以是 admin@localhost 这样的本地地址。"
+            },
+            {
+                "type": "text",
+                "field": "wizard_admin_email",
+                "label": "管理员邮箱",
+                "rules": [
+                    {
+                        "required": true,
+                        "message": "请填写管理员邮箱"
+                    },
+                    {
+                        "pattern": "^[^\\s@]+@[^\\s@]+$",
+                        "message": "邮箱格式不正确，例如 admin@localhost"
+                    }
+                ]
+            },
+            {
+                "type": "password",
+                "field": "wizard_admin_password",
+                "label": "管理员密码",
+                "rules": [
+                    {
+                        "required": true,
+                        "message": "请设置管理员密码"
+                    },
+                    {
+                        "min": 6,
+                        "message": "至少 6 位"
+                    },
+                    {
+                        "pattern": "^(?!123456$)\\S*$",
+                        "message": "不能包含空格，也不能是 123456"
+                    }
+                ]
             }
         ]
     }

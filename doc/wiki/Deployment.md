@@ -129,7 +129,7 @@ Dockerfile 在镜像内执行 Vitest、脚本语法检查和生产构建，并�
 | Windows | `WrongNotebook-Win-Setup-<版本>-x64.exe` 或免安装的 `Portable` 版 | `%APPDATA%\WrongNotebook\data` |
 | macOS | `WrongNotebook-Mac-<版本>-arm64.dmg`（Apple 芯片）或 `-x64.dmg`（Intel） | `~/Library/Application Support/WrongNotebook/data` |
 | Linux | `WrongNotebook-Linux-<版本>-<架构>.AppImage` 或 `.deb` | `~/.config/WrongNotebook/data` |
-| 飞牛OS | 先在应用中心安装 Node.js v24，再手动安装 `WrongNotebook-FnOS-<版本>-x86.fpk` 或 `-arm.fpk` | 应用数据目录 `@appdata/wrongnotebook` |
+| 飞牛OS | 先在应用中心安装 Node.js v24，再手动安装 `WrongNotebook-FnOS-<版本>-x86.fpk` 或 `-arm.fpk`，在安装向导中设置管理员邮箱和密码 | 应用数据目录 `@appdata/wrongnotebook` |
 | 安卓手机 / 平板（单机版） | 安装 `WrongNotebook-Android-Phone-<版本>.apk` 或 `WrongNotebook-Android-Tablet-<版本>.apk` | App 私有目录，卸载时删除 |
 | 安卓手机 / 平板（客户端） | 安装 `WrongNotebook-Android-Client-Phone-<版本>.apk` 或 `-Client-Tablet-<版本>.apk`，首次打开填写服务器地址 | 不保存数据，连接已部署的服务器 |
 

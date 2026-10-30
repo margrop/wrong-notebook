@@ -826,7 +826,7 @@ export const translations = {
             setupGuide: {
                 title: "No admin account yet",
                 intro: "To start, open the one-time setup link generated at install time and create the admin account:",
-                desktop: "Desktop app and standalone Android app: the link opens automatically on first launch.",
+                desktop: "Desktop app and standalone Android app: the link opens automatically on first launch. fnOS: sign in with the admin set in the install wizard.",
                 docker: "Docker: look for the link containing /initialize?token= in the container log (docker logs wrong-notebook).",
                 npm: "npm or running from source: the link is printed in the terminal that started the server.",
                 tokenFile: "You can also open /initialize?token=<token> yourself; the token is in config/setup-token in the data directory.",
@@ -2116,7 +2116,7 @@ export const translations = {
             setupGuide: {
                 title: "尚未创建管理员",
                 intro: "首次使用需要打开安装时生成的一次性初始化链接，创建管理员账号：",
-                desktop: "桌面版、安卓单机版：首次启动时自动打开。",
+                desktop: "桌面版、安卓单机版：首次启动时自动打开；飞牛OS：用安装向导中设置的管理员登录。",
                 docker: "Docker：在容器日志中查找包含 /initialize?token= 的链接（docker logs wrong-notebook）。",
                 npm: "npm、源码运行：链接打印在启动服务的终端里。",
                 tokenFile: "也可以自行打开 /initialize?token=令牌，令牌保存在数据目录的 config/setup-token 文件中。",

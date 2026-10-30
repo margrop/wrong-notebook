@@ -3,11 +3,11 @@
  * 一次性初始化链接：全新安装没有管理员时，用配置目录中的令牌创建第一个管理员（真实 SQLite）
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
-import { compare } from 'bcryptjs';
+import { compare, hashSync } from 'bcryptjs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -87,6 +87,45 @@ describe('启动时的初始化链接', () => {
 
         expect(existsSync(tokenFile())).toBe(false);
         expect(mocks.logger.warn).not.toHaveBeenCalled();
+    });
+});
+
+describe('安装程序预设的管理员（initial-admin.json）', () => {
+    const presetFile = () => join(configDir, 'initial-admin.json');
+    const writePreset = (content: object | string) =>
+        writeFileSync(presetFile(), typeof content === 'string' ? content : JSON.stringify(content));
+
+    it('启动时用预设的邮箱和密码哈希创建管理员，删除预设文件，不再生成初始化链接', async () => {
+        writePreset({ email: 'nas@localhost', name: 'Admin', passwordHash: hashSync('nas-secret', 4) });
+
+        await announceSetupLink();
+
+        const admin = await database.user.findUniqueOrThrow({ where: { email: 'nas@localhost' } });
+        expect(admin).toMatchObject({ role: 'admin', isActive: true, name: 'Admin' });
+        expect(await compare('nas-secret', admin.password)).toBe(true);
+        expect(readdirSync(configDir)).toEqual([]);
+        expect(mocks.logger.warn).not.toHaveBeenCalled();
+    });
+
+    it('预设内容无效时删除文件，改为打印初始化链接', async () => {
+        writePreset({ email: 'nas@localhost', passwordHash: 'plain-text-password' });
+
+        await announceSetupLink();
+
+        expect(await database.user.count()).toBe(0);
+        expect(existsSync(presetFile())).toBe(false);
+        expect(existsSync(tokenFile())).toBe(true);
+        expect(mocks.logger.warn).toHaveBeenCalled();
+    });
+
+    it('已有管理员（保留数据重装）时忽略并删除预设，不改动原账号', async () => {
+        await database.user.create({ data: { email: 'admin@localhost', password: 'keep', role: 'admin' } });
+        writePreset({ email: 'admin@localhost', passwordHash: hashSync('new-secret', 4) });
+
+        await announceSetupLink();
+
+        expect(await database.user.findUniqueOrThrow({ where: { email: 'admin@localhost' } })).toMatchObject({ password: 'keep' });
+        expect(existsSync(presetFile())).toBe(false);
     });
 });
 

@@ -48,10 +48,10 @@ wrong-notebook --port 3000 --host 0.0.0.0 --data-dir ~/.wrong-notebook
 ### 飞牛OS
 
 1. 在应用中心安装 Node.js v24。
-2. 应用中心 →「手动安装」，选择与设备架构对应的 `.fpk`。
-3. 安装后从桌面图标打开，服务端口 39300，局域网内其他设备也可通过 `http://<NAS 地址>:39300` 访问。
+2. 应用中心 →「手动安装」，选择与设备架构对应的 `.fpk`。安装向导中设置管理员邮箱和密码（至少 6 位，不能是 `123456`）；安装脚本只保存密码的 bcrypt 哈希（`config/initial-admin.json`），服务首次启动时据此创建管理员后删除该文件。
+3. 安装后从桌面图标打开，用向导中设置的账号登录，服务端口 39300，局域网内其他设备也可通过 `http://<NAS 地址>:39300` 访问。
 
-数据保存在应用数据目录（`@appdata/wrongnotebook`），日志为其中的 `wrong-notebook.log`。
+数据保存在应用数据目录（`@appdata/wrongnotebook`），日志为其中的 `wrong-notebook.log`。保留旧数据重装时沿用原有账号，向导中填写的管理员会被忽略；向导设置失败时（见 `install.log`），改用 `wrong-notebook.log` 中的初始化链接。
 
 ### 安卓手机 / 平板
 

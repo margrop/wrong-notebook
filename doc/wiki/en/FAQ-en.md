@@ -6,7 +6,8 @@ Fresh installs have no default account. On first start the server generates a on
 
 - Desktop and standalone Android apps: opened automatically on first launch.
 - Docker: `docker logs wrong-notebook 2>&1 | grep initialize`.
-- npm, source runs and fnOS: printed in the startup log (on fnOS, `wrong-notebook.log` in the app data directory).
+- fnOS: set the admin email and password in the install wizard and sign in with them; no setup link is needed.
+- npm and source runs: printed in the terminal that started the server.
 - You can also read the token from `config/setup-token` in the data directory and open `http://server-address:port/initialize?token=<token>` yourself.
 
 If the link host is `localhost`, replace it with the server IP or domain when opening it from another device. The link works only once and stops working after the admin is created; until then, the sign-in page shows these instructions.

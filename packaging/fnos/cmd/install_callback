@@ -1,3 +1,42 @@
 #!/bin/bash
-# 安装后置：数据库在首次启动时由 launcher.js 初始化
+# 安装后置：数据库在首次启动时由 launcher.js 初始化。
+# 安装向导中填写的管理员邮箱和密码（字段 wizard_admin_email、wizard_admin_password，以同名环境变量传入）
+# 生成密码哈希写入 <数据目录>/config/initial-admin.json，服务首次启动时据此创建管理员。密码本身不写日志
+set -uo pipefail
+
+APP_NAME="${TRIM_APPNAME:-wrongnotebook}"
+APP_DIR="${TRIM_APPDEST:-/var/apps/${APP_NAME}}"
+if [ -n "${TRIM_PKGVAR:-}" ]; then
+    DATA_DIR="${TRIM_PKGVAR}"
+else
+    APP_VOL="$(printf '%s' "$(readlink -f "${APP_DIR}")" | awk -F/ 'NF>2 && $2 ~ /^vol/ {print "/"$2; exit}')"
+    DATA_DIR="${APP_VOL:+${APP_VOL}/@appdata/${APP_NAME}}"
+    DATA_DIR="${DATA_DIR:-${APP_DIR}/var}"
+fi
+
+if [ -d "${APP_DIR}/server" ]; then
+    TARGET_DIR="${APP_DIR}"
+else
+    TARGET_DIR="${APP_DIR}/target"
+fi
+
+NODE_BIN=""
+APP_VOL="$(printf '%s' "${DATA_DIR}" | awk -F/ 'NF>2 && $2 ~ /^vol/ {print "/"$2; exit}')"
+for cand in "/var/apps/nodejs_v24/target/bin/node" "${APP_VOL}/@appcenter/nodejs_v24/bin/node"; do
+    [ -x "${cand}" ] && NODE_BIN="${cand}" && break
+done
+[ -n "${NODE_BIN}" ] || NODE_BIN="$(command -v node || echo /usr/bin/node)"
+
+mkdir -p "${DATA_DIR}"
+LOG="${DATA_DIR}/install.log"
+
+if [ -n "${wizard_admin_password:-}" ]; then
+    if WN_ADMIN_EMAIL="${wizard_admin_email:-}" WN_ADMIN_PASSWORD="${wizard_admin_password}" \
+        "${NODE_BIN}" "${TARGET_DIR}/initial-admin.mjs" "${TARGET_DIR}/server" "${DATA_DIR}/config/initial-admin.json" >> "${LOG}" 2>&1; then
+        echo "[$(date '+%F %T')] install_callback: admin account prepared from wizard (${wizard_admin_email:-})" >> "${LOG}"
+    else
+        # 不中断安装：首次启动时改用日志中的初始化链接创建管理员
+        echo "[$(date '+%F %T')] install_callback: failed to prepare admin from wizard; use the setup link in wrong-notebook.log" >> "${LOG}"
+    fi
+fi
 exit 0

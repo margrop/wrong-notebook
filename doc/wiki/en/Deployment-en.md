@@ -129,7 +129,7 @@ Every release on [Releases](https://github.com/margrop/wrong-notebook/releases) 
 | Windows | `WrongNotebook-Win-Setup-<version>-x64.exe` or the install-free `Portable` build | `%APPDATA%\WrongNotebook\data` |
 | macOS | `WrongNotebook-Mac-<version>-arm64.dmg` (Apple silicon) or `-x64.dmg` (Intel) | `~/Library/Application Support/WrongNotebook/data` |
 | Linux | `WrongNotebook-Linux-<version>-<arch>.AppImage` or `.deb` | `~/.config/WrongNotebook/data` |
-| fnOS | Install Node.js v24 from the app center first, then install `WrongNotebook-FnOS-<version>-x86.fpk` or `-arm.fpk` manually | App data directory `@appdata/wrongnotebook` |
+| fnOS | Install Node.js v24 from the app center first, then install `WrongNotebook-FnOS-<version>-x86.fpk` or `-arm.fpk` manually and set the admin email and password in the install wizard | App data directory `@appdata/wrongnotebook` |
 | Android phone / tablet (standalone) | Install `WrongNotebook-Android-Phone-<version>.apk` or `WrongNotebook-Android-Tablet-<version>.apk` | App-private directory, removed on uninstall |
 | Android phone / tablet (client) | Install `WrongNotebook-Android-Client-Phone-<version>.apk` or `-Client-Tablet-<version>.apk` and enter the server address on first launch | Stores no data; connects to a deployed server |
 
