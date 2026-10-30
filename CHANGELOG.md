@@ -3,6 +3,20 @@
 本文件记录各正式版的改动，由 `scripts/changelog.sh` 根据提交信息生成，请勿手动编辑。
 预览版（`v年.月.日-n`）的改动见 [GitHub Releases](https://github.com/margrop/wrong-notebook/releases)，并归入其后的正式版。
 
+## [2026.10.31](https://github.com/margrop/wrong-notebook/releases/tag/v2026.10.31) - 2026-10-31
+
+### ✨ 新功能
+- 飞牛OS 安装向导直接设置管理员邮箱和密码
+- 桌面版与安卓单机版首次启动时自动打开初始化页
+- 全新安装改用一次性初始化链接创建管理员，不再预置固定密码的默认管理员
+- 登录页增加首次使用指引，关闭注册时不再显示注册入口
+- 火山引擎各渠道默认模型改为 doubao-seed-evolving
+
+### 🛠 修复
+- 录入错题和 Openclaw 批量上传时年级学期按中文计算，避免显示为英文
+
+**完整变更**：https://github.com/margrop/wrong-notebook/compare/v2026.10.30...v2026.10.31
+
 ## [2026.10.30](https://github.com/margrop/wrong-notebook/releases/tag/v2026.10.30) - 2026-10-30
 
 ### ✨ 新功能
