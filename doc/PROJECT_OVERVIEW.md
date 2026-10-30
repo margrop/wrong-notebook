@@ -14,7 +14,7 @@
 | 数据库 | SQLite (Prisma ORM 5.22) |
 | 样式 | Tailwind CSS v4 + Shadcn UI (Radix primitives) |
 | 认证 | NextAuth.js v4 (credentials provider, bcryptjs) |
-| AI | MiniMax（默认）/ 智谱 GLM / DeepSeek / Kimi / 千问 Qwen / 阶跃星辰 StepFun / Anthropic / Azure OpenAI / OpenAI / Google Gemini (动态切换) |
+| AI | MiniMax（默认）/ 智谱 GLM / DeepSeek / Kimi / 千问 Qwen / 阶跃星辰 StepFun / 火山引擎豆包 / Anthropic / Azure OpenAI / OpenAI / Google Gemini (动态切换) |
 | 测试 | Vitest (单元/集成) + Playwright (E2E) |
 | 部署 | Docker (standalone output) + Docker Compose |
 | 包管理 | npm |

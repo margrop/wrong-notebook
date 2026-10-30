@@ -286,6 +286,33 @@ describe('/api/settings', () => {
             }
         });
 
+        it('云端语音设置按格式校验，豆包语音的掩码 Key 保留原有值', async () => {
+            const current = mocks.mockGetAppConfig();
+            mocks.mockGetAppConfig.mockReturnValueOnce({
+                ...current,
+                tts: { mode: 'volcengine', volcengine: { apiKey: 'speech-saved-key' } },
+            } as ReturnType<typeof mocks.mockGetAppConfig>);
+            const response = await POST(new Request('http://localhost/api/settings', {
+                method: 'POST',
+                body: JSON.stringify({ tts: { mode: 'volcengine', volcengine: { apiKey: '********', voice: 'zh_male_x' }, glm: { voice: 'tongtong' } } }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect(response.status).toBe(200);
+            expect(mocks.mockUpdateAppConfig.mock.calls[0][0].tts).toEqual({
+                mode: 'volcengine',
+                volcengine: { apiKey: 'speech-saved-key', voice: 'zh_male_x' },
+                glm: { voice: 'tongtong' },
+            });
+
+            const invalid = await POST(new Request('http://localhost/api/settings', {
+                method: 'POST',
+                body: JSON.stringify({ tts: { mode: 'unknown' } }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+            expect(invalid.status).toBe(400);
+        });
+
         it('应该成功更新自定义提示词', async () => {
             const newConfig = {
                 prompts: {

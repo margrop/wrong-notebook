@@ -1,10 +1,11 @@
 /**
- * 云端语音合成：MiniMax（T2A v2）、千问（百炼 Qwen-Audio-TTS）、智谱 GLM-TTS 与阶跃星辰，均返回单声道 PCM 采样。
- * API Key 复用「AI 设置」中对应国产大模型渠道的配置。
+ * 云端语音合成：MiniMax（T2A v2）、千问（百炼 Qwen-Audio-TTS）、智谱 GLM-TTS、阶跃星辰与火山引擎豆包语音，均返回单声道 PCM 采样。
+ * API Key 复用「AI 设置」中对应国产大模型渠道的配置；火山引擎豆包语音使用语音设置中单独填写的 Key。
  */
+import crypto from "crypto";
 import { resolveVendorConfig } from "@/lib/ai/vendor-presets";
 import type { VendorConfig } from "@/lib/ai/vendor-presets";
-import { CLOUD_TTS_DEFAULTS, VOICE_STYLE_INSTRUCTION, defaultTtsEndpoint, usesStyleInstruction } from "./constants";
+import { CLOUD_TTS_DEFAULTS, VOICE_STYLE_INSTRUCTION, defaultTtsEndpoint, hasOwnTtsApiKey, usesStyleInstruction } from "./constants";
 import type { CloudTtsProvider, CloudTtsSettings } from "./constants";
 import { parseWav, pcm16ToFloat } from "./wav";
 import type { PcmAudio } from "./wav";
@@ -29,7 +30,7 @@ export interface ResolvedTtsSettings {
 
 /** 合并语音设置与渠道配置：模型、音色留空用默认值，接口地址留空按渠道 Base URL 推算 */
 export function resolveTtsSettings(provider: CloudTtsProvider, settings: CloudTtsSettings | undefined, vendor: VendorConfig | undefined): ResolvedTtsSettings {
-    const { apiKey } = resolveVendorConfig(provider, vendor);
+    const apiKey = hasOwnTtsApiKey(provider) ? settings?.apiKey?.trim() || '' : resolveVendorConfig(provider, vendor).apiKey;
     const defaults = CLOUD_TTS_DEFAULTS[provider];
     return {
         provider,
@@ -152,6 +153,73 @@ async function synthesizeStepFun(text: string, settings: ResolvedTtsSettings): P
     return parseWav(audio);
 }
 
+/** 火山引擎流式响应中的一个数据包：code 0 为音频分片，20000000 为结束，其余为错误 */
+interface VolcengineChunk {
+    code?: number;
+    message?: string;
+    data?: string | null;
+}
+
+/** 拆分首尾相连的多个 JSON 对象（Chunked 响应可能不带换行），忽略字符串中的括号 */
+export function splitJsonObjects(text: string): unknown[] {
+    const objects: unknown[] = [];
+    let depth = 0;
+    let start = -1;
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (inString) {
+            if (escaped) escaped = false;
+            else if (char === '\\') escaped = true;
+            else if (char === '"') inString = false;
+            continue;
+        }
+        if (char === '"') inString = true;
+        else if (char === '{') {
+            if (depth++ === 0) start = i;
+        } else if (char === '}' && depth > 0 && --depth === 0) {
+            objects.push(JSON.parse(text.slice(start, i + 1)));
+        }
+    }
+    return objects;
+}
+
+const VOLCENGINE_DONE = 20000000;
+
+/** 火山引擎豆包语音：HTTP 单向流式接口，新版控制台的 API Key 鉴权，资源 ID 决定模型版本（填在「语音模型」中） */
+async function synthesizeVolcengine(text: string, settings: ResolvedTtsSettings): Promise<PcmAudio> {
+    const res = await fetch(settings.endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Api-Key': settings.apiKey,
+            'X-Api-Resource-Id': settings.model,
+            'X-Api-Request-Id': crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+            user: { uid: 'wrong-notebook' },
+            req_params: { text, speaker: settings.voice, audio_params: { format: 'pcm', sample_rate: SAMPLE_RATE } },
+        }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const body = await res.text();
+    let chunks: VolcengineChunk[];
+    try {
+        chunks = splitJsonObjects(body) as VolcengineChunk[];
+    } catch {
+        chunks = [];
+    }
+    const failed = chunks.find((chunk) => chunk.code !== undefined && chunk.code !== 0 && chunk.code !== VOLCENGINE_DONE);
+    if (!res.ok || failed) {
+        const detail = failed ? `${failed.code}: ${failed.message ?? ''}` : errorMessageOf(chunks[0] ?? null, body);
+        throw new TtsError('TTS_PROVIDER_ERROR', `${res.ok ? 'Volcengine' : `HTTP ${res.status}`}: ${detail}`);
+    }
+    const audio = Buffer.concat(chunks.filter((chunk) => typeof chunk.data === 'string' && chunk.data).map((chunk) => Buffer.from(chunk.data as string, 'base64')));
+    if (!audio.length) throw new TtsError('TTS_PROVIDER_ERROR', 'Volcengine: no audio');
+    return { sampleRate: SAMPLE_RATE, samples: pcm16ToFloat(audio) };
+}
+
 export async function synthesizeWithProvider(text: string, language: 'zh' | 'en', settings: ResolvedTtsSettings): Promise<PcmAudio> {
     if (!settings.apiKey) {
         throw new TtsError('TTS_NOT_CONFIGURED', `${settings.provider} API key is not configured`);
@@ -165,5 +233,7 @@ export async function synthesizeWithProvider(text: string, language: 'zh' | 'en'
             return synthesizeGlm(text, settings);
         case 'stepfun':
             return synthesizeStepFun(text, settings);
+        case 'volcengine':
+            return synthesizeVolcengine(text, settings);
     }
 }

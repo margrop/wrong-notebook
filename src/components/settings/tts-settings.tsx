@@ -16,7 +16,7 @@ import { getSpeechAudio, unlockSpeechAudio } from "@/lib/cloud-speech";
 import { getApiErrorDetails, getApiErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, TTS_MODES, defaultTtsEndpoint, isCloudTtsProvider } from "@/lib/tts/constants";
+import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, TTS_MODES, defaultTtsEndpoint, hasOwnTtsApiKey, isCloudTtsProvider } from "@/lib/tts/constants";
 import type { CloudTtsSettings, TtsMode } from "@/lib/tts/constants";
 import type { AppConfig } from "@/types/api";
 
@@ -65,9 +65,13 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
         if (!provider) return;
         setConfig((prev) => ({ ...prev, tts: { ...prev.tts, [provider]: { ...prev.tts?.[provider], [key]: value } } }));
     };
-    const updateApiKey = (apiKey: string) => {
+    // 豆包语音的 Key 保存在语音设置中；其他语音与对应 AI 渠道共用 Key
+    const ownApiKey = provider ? hasOwnTtsApiKey(provider) : false;
+    const apiKey = provider ? (ownApiKey ? settings?.apiKey : config[provider]?.apiKey) : undefined;
+    const updateApiKey = (value: string) => {
         if (!provider) return;
-        setConfig((prev) => ({ ...prev, [provider]: { ...prev[provider], apiKey } }));
+        if (ownApiKey) updateSettings("apiKey", value);
+        else setConfig((prev) => ({ ...prev, [provider]: { ...prev[provider], apiKey: value } }));
     };
 
     // 试听前先保存，服务端按保存后的设置合成；在点击中先解锁播放（iOS Safari）
@@ -116,11 +120,11 @@ export function TtsSettings({ config, setConfig, saving, onSave }: TtsSettingsPr
             {provider && (
                 <div key={provider} className="space-y-3 animate-in fade-in slide-in-from-top-2">
                     <div className="space-y-2">
-                        <Label>{VENDOR_PRESETS[provider].name} API Key</Label>
+                        <Label>{ownApiKey ? texts.speechApiKey : `${VENDOR_PRESETS[provider].name} API Key`}</Label>
                         <PasswordInput
-                            value={config[provider]?.apiKey || ""}
+                            value={apiKey || ""}
                             onChange={(e) => updateApiKey(e.target.value)}
-                            placeholder={provider === "qwen" ? "sk-sp-..." : "sk-..."}
+                            placeholder={provider === "qwen" ? "sk-sp-..." : ownApiKey ? "" : "sk-..."}
                         />
                         <p className="text-xs text-muted-foreground">{texts.apiKeyHint[provider]}</p>
                     </div>

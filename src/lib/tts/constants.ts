@@ -6,7 +6,7 @@ import { resolveVendorConfig } from "@/lib/ai/vendor-presets";
 import type { VendorConfig } from "@/lib/ai/vendor-presets";
 
 /** browser：浏览器本地语音（Web Speech API）；其余为服务端调用对应渠道的云端语音合成 */
-export const TTS_MODES = ['browser', 'minimax', 'qwen', 'glm', 'stepfun'] as const;
+export const TTS_MODES = ['browser', 'minimax', 'qwen', 'glm', 'stepfun', 'volcengine'] as const;
 export type TtsMode = typeof TTS_MODES[number];
 export type CloudTtsProvider = Exclude<TtsMode, 'browser'>;
 
@@ -15,6 +15,8 @@ export interface CloudTtsSettings {
     voice?: string;
     /** 完整的语音合成接口地址；留空时按对应渠道的 Base URL 推算 */
     endpoint?: string;
+    /** 语音单独的 API Key（火山引擎豆包语音与火山方舟的 Key 不同）；其他语音复用对应渠道的 Key */
+    apiKey?: string;
 }
 
 export type TtsConfig = { mode?: TtsMode } & { [K in CloudTtsProvider]?: CloudTtsSettings };
@@ -24,14 +26,24 @@ export const CLOUD_TTS_PROVIDERS = TTS_MODES.filter((mode): mode is CloudTtsProv
 /**
  * 默认音色：年轻男性，自然、清晰、略带科技感，不用播音腔、不模仿角色。
  * MiniMax 用系统音色「精英青年」；千问用 Qwen-Audio-TTS 的男声「龙安鲁风」（25 岁，明亮开朗），再用指令约束语气；
- * 智谱 GLM-TTS 用「小陈」（年轻、专业）；阶跃星辰用「青年大学生」，同样用指令约束语气
+ * 智谱 GLM-TTS 用「小陈」（年轻、专业）；阶跃星辰用「青年大学生」，同样用指令约束语气；
+ * 火山引擎用豆包语音合成模型 2.0（资源 ID seed-tts-2.0）的「阳光青年」
  */
-export const CLOUD_TTS_DEFAULTS: Record<CloudTtsProvider, Required<Omit<CloudTtsSettings, 'endpoint'>>> = {
+export const CLOUD_TTS_DEFAULTS: Record<CloudTtsProvider, Required<Pick<CloudTtsSettings, 'model' | 'voice'>>> = {
     minimax: { model: 'speech-2.8-hd', voice: 'male-qn-jingying' },
     qwen: { model: 'qwen-audio-3.0-tts-plus', voice: 'longanlufeng' },
     glm: { model: 'glm-tts', voice: 'xiaochen' },
     stepfun: { model: 'stepaudio-2.5-tts', voice: 'qingniandaxuesheng' },
+    volcengine: { model: 'seed-tts-2.0', voice: 'zh_male_yangguangqingnian_uranus_bigtts' },
 };
+
+/** 使用单独 API Key 的语音（不复用 AI 渠道的 Key） */
+export function hasOwnTtsApiKey(provider: CloudTtsProvider): boolean {
+    return provider === 'volcengine';
+}
+
+/** 火山引擎豆包语音的 HTTP 单向流式接口（与火山方舟的对话接口不同域名） */
+export const VOLCENGINE_TTS_ENDPOINT = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
 
 /** 各云端语音的官方说明文档：模型、音色（可选值列表）和接口地址，设置页附上链接 */
 export const CLOUD_TTS_DOCS: Record<CloudTtsProvider, { model: string; voice: string; endpoint: string }> = {
@@ -55,6 +67,11 @@ export const CLOUD_TTS_DOCS: Record<CloudTtsProvider, { model: string; voice: st
         model: 'https://platform.stepfun.com/docs/zh/api-reference/audio/create-audio',
         voice: 'https://platform.stepfun.com/docs/zh/guides/developer/tts',
         endpoint: 'https://platform.stepfun.com/docs/zh/api-reference/audio/create-audio',
+    },
+    volcengine: {
+        model: 'https://www.volcengine.com/docs/6561/1598757',
+        voice: 'https://www.volcengine.com/docs/6561/1257544',
+        endpoint: 'https://www.volcengine.com/docs/6561/1598757',
     },
 };
 
@@ -86,6 +103,7 @@ export function isCloudTtsProvider(value: unknown): value is CloudTtsProvider {
  * 智谱、阶跃星辰的语音接口与对话接口同在 Base URL 下（/audio/speech）
  */
 export function defaultTtsEndpoint(provider: CloudTtsProvider, vendor: VendorConfig | undefined): string {
+    if (provider === 'volcengine') return VOLCENGINE_TTS_ENDPOINT;
     const { baseUrl } = resolveVendorConfig(provider, vendor);
     if (provider === 'minimax') return `${baseUrl.replace(/\/+$/, '')}/t2a_v2`;
     if (provider === 'glm' || provider === 'stepfun') return `${baseUrl.replace(/\/+$/, '')}/audio/speech`;

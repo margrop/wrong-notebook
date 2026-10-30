@@ -194,7 +194,7 @@ When served over HTTPS (or `localhost`), a service worker caches scripts, styles
 - **Database**: [SQLite](https://www.sqlite.org/) (via [Prisma 5](https://www.prisma.io/))
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) + [Radix UI](https://www.radix-ui.com/) (shadcn/ui-style components)
 - **Formulas**: [KaTeX](https://katex.org/) (react-markdown + remark-math)
-- **AI**: MiniMax / MiniMax Code (browser sign-in) / Zhipu GLM / DeepSeek / Kimi / Qwen / StepFun / Anthropic (and compatible APIs) / Azure OpenAI / OpenAI (and compatible APIs) / Google Gemini
+- **AI**: MiniMax / MiniMax Code (browser sign-in) / Zhipu GLM / DeepSeek / Kimi / Qwen / StepFun / Volcengine Doubao (including a free trial) / Anthropic (and compatible APIs) / Azure OpenAI / OpenAI (and compatible APIs) / Google Gemini
 - **Auth**: [NextAuth.js v4](https://next-auth.js.org/)
 - **Testing**: Vitest (unit, integration), Playwright (E2E)
 
@@ -346,13 +346,13 @@ Data directories, default accounts and local builds are described in [INSTALL_PA
 | `HTTP_PROXY` / `HTTPS_PROXY` | Proxy | None | Proxy for requests to AI services |
 | `ALLOW_REGISTRATION` | Allow sign-ups | `false` | When `true`, registration is open by default; the switch saved by an admin under **Settings → User Management** takes precedence |
 | `AI_DAILY_LIMIT` | Daily AI limit per user | `0` (unlimited) | AI actions each regular user can start per day; admins are not limited. The value saved under **Settings → User Management** takes precedence |
-| `TTS_MODE` | How animation narration is voiced | `browser` | `browser` uses the browser's voice; `minimax`, `qwen`, `glm` or `stepfun` uses a cloud voice with that channel's API key. The value saved under **Settings → AI → Voice narration** takes precedence |
+| `TTS_MODE` | How animation narration is voiced | `browser` | `browser` uses the browser's voice; `minimax`, `qwen`, `glm`, `stepfun` or `volcengine` uses a cloud voice with that channel's API key (Doubao Speech uses `VOLCENGINE_TTS_API_KEY`). The value saved under **Settings → AI → Voice narration** takes precedence |
 
 **AI** (settings saved in the web UI take precedence over environment variables)
 
 | Variable | Description | Default | Notes |
 | :--- | :--- | :--- | :--- |
-| `AI_PROVIDER` | AI provider | `minimax` | `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `anthropic`, `azure`, `openai` or `gemini` |
+| `AI_PROVIDER` | AI provider | `minimax` | `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-free`, `anthropic`, `azure`, `openai` or `gemini` |
 | `MINIMAX_API_KEY` / `MINIMAX_BASE_URL` / `MINIMAX_MODEL` | MiniMax | URL `https://api.minimax.cn/v1`, model `MiniMax-M3.1-Flash` | URL and model are optional |
 | `MINIMAX_CODE_MODEL` | MiniMax Code model | `MiniMax-M3.1-Flash` | The account signs in from the web settings; no API key needed |
 | `MINIMAX_CODE_AUTO_CHECKIN` | MiniMax Code daily auto check-in | `true` | Set to `false` to turn it off |
@@ -361,6 +361,8 @@ Data directories, default accounts and local builds are described in [INSTALL_PA
 | `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Kimi | URL `https://api.moonshot.cn/v1`, model `kimi-k3` | URL and model are optional |
 | `QWEN_API_KEY` / `QWEN_BASE_URL` / `QWEN_MODEL` | Qwen | URL `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` (Model Studio Token Plan), model `qwen3.8-max` | Pay-as-you-go keys use `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 | `STEPFUN_API_KEY` / `STEPFUN_BASE_URL` / `STEPFUN_MODEL` | StepFun | URL `https://api.stepfun.com/step_plan/v1` (Step Plan), model `step-5-preview` | Pay-as-you-go keys use `https://api.stepfun.com/v1`; international `https://api.stepfun.ai/v1` |
+| `VOLCENGINE_API_KEY` / `VOLCENGINE_BASE_URL` / `VOLCENGINE_MODEL` | Volcengine Doubao | URL `https://ark.cn-beijing.volces.com/api/v3`, model `doubao-seed-2-1-lite-260915` | Agent Plan, Coding Plan or similar plans recommended (use the endpoint shown in the console); international `https://ark.ap-southeast.bytepluses.com/api/v3` |
+| `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | Volcengine (free trial) | Same as above | Free inference quota for new users; with worry-free trial mode on, calls pause when it runs out |
 | `ANTHROPIC_API_KEY` | Anthropic API key | None | From the [Claude Console](https://platform.claude.com/) |
 | `ANTHROPIC_BASE_URL` | API URL | `https://api.anthropic.com` | For compatible services, use the URL without `/v1` |
 | `ANTHROPIC_MODEL` | Model | `claude-sonnet-5-5` | e.g. `claude-opus-5-5`, `claude-haiku-5-5` |
@@ -393,7 +395,7 @@ When adding environment variables, update `.env.example` as well.
 AI settings can be changed in the web UI without restarting the server.
 
 1. **Open settings**: as an administrator, click the settings icon at the top right of the home page and open **AI Provider**.
-2. **Choose a provider**: MiniMax is the default. Choose from the official MiniMax channel, MiniMax Code OAuth (sign in with a MiniMax Code account in the browser), the official Zhipu GLM, DeepSeek, Kimi, Qwen and StepFun channels, Anthropic, Azure OpenAI, OpenAI (including compatible APIs) or Google Gemini; OpenAI supports several configurations you can switch between.
+2. **Choose a provider**: MiniMax is the default. Choose from the official MiniMax channel, MiniMax Code OAuth (sign in with a MiniMax Code account in the browser), the official Zhipu GLM, DeepSeek, Kimi, Qwen, StepFun, Volcengine Doubao and Volcengine (free trial) channels, Anthropic, Azure OpenAI, OpenAI (including compatible APIs) or Google Gemini; OpenAI supports several configurations you can switch between.
 3. **Fill in the parameters**: API key, base URL (or endpoint) and model (or deployment name). Test the connection and fetch the model list from the API.
 4. **Save**: settings are stored in `config/app-config.json` and take precedence over `.env`.
 
@@ -412,7 +414,7 @@ The selected model must meet these requirements, or some features will fail or w
 | **Valid LaTeX** | Questions, answers, analyses | Formulas must render in KaTeX; use **Fix LaTeX** on the details page if there are syntax errors |
 | **Strong math reasoning** | Solutions, mistake analysis, difficulty stars, mastery estimates | Reasoning (thinking) models work; their thinking output is ignored. If thinking takes long, administrators can raise **AI Analysis Timeout** in **Settings → General** |
 
-Use each provider's current multimodal flagship or fast model, such as `MiniMax-M3.1-Flash`, `glm-5.3-flash`, `deepseek-flash`, `kimi-k3`, `qwen3.8-max`, `step-5-preview`, `claude-sonnet-5-5`, `gpt-6.1-sol` or `gemini-3.8-flash`. For third-party models behind compatible APIs, make sure they support image input first.
+Use each provider's current multimodal flagship or fast model, such as `MiniMax-M3.1-Flash`, `glm-5.3-flash`, `deepseek-flash`, `kimi-k3`, `qwen3.8-max`, `step-5-preview`, `doubao-seed-2-1-lite-260915`, `claude-sonnet-5-5`, `gpt-6.1-sol` or `gemini-3.8-flash`. For third-party models behind compatible APIs, make sure they support image input first.
 
 ### Configuration examples
 
@@ -428,6 +430,12 @@ These channels call each vendor's official OpenAI-compatible API, so only an API
 | Kimi | [Kimi platform](https://platform.kimi.com) | `https://api.moonshot.cn/v1` (international `https://api.moonshot.ai/v1`) | `kimi-k3` |
 | Qwen | [Alibaba Cloud Model Studio](https://bailian.console.aliyun.com) (Token Plan recommended) | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` (pay-as-you-go `https://dashscope.aliyuncs.com/compatible-mode/v1`) | `qwen3.8-max` |
 | StepFun | [StepFun platform](https://platform.stepfun.com) (Step Plan recommended) | `https://api.stepfun.com/step_plan/v1` (pay-as-you-go `https://api.stepfun.com/v1`, international `https://api.stepfun.ai/v1`) | `step-5-preview` |
+| Volcengine Doubao | [Volcengine Ark](https://console.volcengine.com/ark) (Agent Plan or Coding Plan recommended) | `https://ark.cn-beijing.volces.com/api/v3` (international `https://ark.ap-southeast.bytepluses.com/api/v3`) | `doubao-seed-2-1-lite-260915` |
+| Volcengine (free trial) | [Volcengine Ark](https://console.volcengine.com/ark) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-1-lite-260915` |
+
+#### Volcengine (free trial)
+
+Every Volcengine account gets a [free inference quota](https://www.volcengine.com/docs/82379/1399514) for each model (500,000 tokens per model, per the official docs). Turn on worry-free trial mode (安心体验模式) under Activation Management in the Ark console: calls only use the free quota and pause when it is nearly used up, so you are never charged. Choose the **Volcengine (free trial)** channel and enter your Ark API key. To keep going after the quota runs out, verify your identity and switch to the **Volcengine Doubao** channel.
 
 #### MiniMax Code OAuth
 

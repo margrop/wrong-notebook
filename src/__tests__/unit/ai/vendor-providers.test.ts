@@ -42,6 +42,8 @@ const EXPECTED: Record<VendorProviderId, { baseUrl: string; model: string }> = {
     kimi: { baseUrl: 'https://api.moonshot.cn/v1', model: 'kimi-k3' },
     qwen: { baseUrl: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1', model: 'qwen3.8-max' },
     stepfun: { baseUrl: 'https://api.stepfun.com/step_plan/v1', model: 'step-5-preview' },
+    volcengine: { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-2-1-lite-260915' },
+    'volcengine-free': { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-2-1-lite-260915' },
 };
 
 const adminSession = { user: { id: 'admin-1', role: 'admin' }, expires: '2099-01-01' };

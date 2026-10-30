@@ -64,6 +64,24 @@ export const VENDOR_PRESETS = {
         consoleUrl: 'https://platform.stepfun.com',
         docs: { cn: 'https://platform.stepfun.com/docs/zh/guides/developer/openai', intl: 'https://platform.stepfun.ai/docs/en/guides/developer/openai' },
     },
+    // 火山方舟（豆包大模型）；推荐 Agent Plan、Coding Plan 等套餐，套餐的接口地址以火山引擎控制台为准。国际站为 BytePlus ModelArk
+    volcengine: {
+        name: '火山引擎 豆包',
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+        model: 'doubao-seed-2-1-lite-260915',
+        envPrefix: 'VOLCENGINE',
+        consoleUrl: 'https://console.volcengine.com/ark',
+        docs: { cn: 'https://www.volcengine.com/docs/82379/1330626', intl: 'https://docs.byteplus.com/en/docs/ModelArk/1330626' },
+    },
+    // 同为火山方舟，面向新用户的免费推理额度：每个模型有免费 token，开启「安心体验模式」后额度用完自动暂停，不产生费用
+    'volcengine-free': {
+        name: '火山引擎（免费试用）',
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+        model: 'doubao-seed-2-1-lite-260915',
+        envPrefix: 'VOLCENGINE_FREE',
+        consoleUrl: 'https://console.volcengine.com/ark',
+        docs: { cn: 'https://www.volcengine.com/docs/82379/1399514' },
+    },
 } as const satisfies Record<string, VendorPreset>;
 
 export type VendorProviderId = keyof typeof VENDOR_PRESETS;

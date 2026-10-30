@@ -3,7 +3,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLOUD_TTS_DEFAULTS, CLOUD_TTS_DOCS, TTS_MODES, defaultTtsEndpoint } from '@/lib/tts/constants';
-import { TtsError, resolveTtsSettings, synthesizeWithProvider } from '@/lib/tts/providers';
+import { TtsError, resolveTtsSettings, splitJsonObjects, synthesizeWithProvider } from '@/lib/tts/providers';
 import { encodeWav } from '@/lib/tts/wav';
 
 const fetchMock = vi.fn();
@@ -183,5 +183,61 @@ describe('阶跃星辰语音合成', () => {
         fetchMock.mockResolvedValueOnce(json({ error: { message: 'voice not supported', type: 'invalid_request_error' } }, 400));
         const settings = resolveTtsSettings('stepfun', undefined, { apiKey: 'k' });
         await expect(synthesizeWithProvider('你好', 'zh', settings)).rejects.toMatchObject({ message: expect.stringContaining('voice not supported') });
+    });
+});
+
+describe('火山引擎豆包语音合成', () => {
+    const pcm = (values: number[]) => {
+        const buffer = Buffer.alloc(values.length * 2);
+        values.forEach((value, i) => buffer.writeInt16LE(value, i * 2));
+        return buffer.toString('base64');
+    };
+    const stream = (...chunks: object[]) => new Response(chunks.map((chunk) => JSON.stringify(chunk)).join(''), { headers: { 'Content-Type': 'application/json' } });
+
+    it('使用语音设置中单独的 Key，不复用火山方舟渠道的 Key；默认资源 ID 与音色', () => {
+        const settings = resolveTtsSettings('volcengine', { apiKey: ' speech-key ' }, { apiKey: 'ark-key' });
+        expect(settings).toMatchObject({
+            apiKey: 'speech-key',
+            endpoint: 'https://openspeech.bytedance.com/api/v3/tts/unidirectional',
+            model: 'seed-tts-2.0',
+            voice: 'zh_male_yangguangqingnian_uranus_bigtts',
+        });
+        expect(resolveTtsSettings('volcengine', undefined, { apiKey: 'ark-key' }).apiKey).toBe('');
+    });
+
+    it('按 API Key 与资源 ID 鉴权，拼接流式返回的 PCM 分片', async () => {
+        fetchMock.mockResolvedValue(stream(
+            { code: 0, message: '', data: pcm([16384]) },
+            { code: 0, message: '', data: pcm([-16384]), sentence: { text: '第一步{测试}' } },
+            { code: 20000000, message: 'ok', data: null },
+        ));
+        const settings = resolveTtsSettings('volcengine', { apiKey: 'speech-key' }, undefined);
+        const audio = await synthesizeWithProvider('第一步', 'zh', settings);
+        expect(Array.from(audio.samples)).toEqual([0.5, -0.5]);
+
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(url).toBe('https://openspeech.bytedance.com/api/v3/tts/unidirectional');
+        expect(init.headers).toMatchObject({ 'X-Api-Key': 'speech-key', 'X-Api-Resource-Id': 'seed-tts-2.0', 'X-Api-Request-Id': expect.any(String) });
+        expect(init.headers).not.toHaveProperty('Authorization');
+        expect(requestBody()).toEqual({
+            user: { uid: 'wrong-notebook' },
+            req_params: { text: '第一步', speaker: 'zh_male_yangguangqingnian_uranus_bigtts', audio_params: { format: 'pcm', sample_rate: 24000 } },
+        });
+    });
+
+    it('流中的错误码、HTTP 错误和没有音频时报服务商错误', async () => {
+        const settings = resolveTtsSettings('volcengine', { apiKey: 'k' }, undefined);
+        fetchMock.mockResolvedValueOnce(stream({ code: 45000000, message: 'speaker permission denied', data: null }));
+        await expect(synthesizeWithProvider('你好', 'zh', settings)).rejects.toMatchObject({ message: 'Volcengine: 45000000: speaker permission denied' });
+        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ message: 'invalid api key' }), { status: 401 }));
+        await expect(synthesizeWithProvider('你好', 'zh', settings)).rejects.toMatchObject({ message: expect.stringContaining('HTTP 401') });
+        fetchMock.mockResolvedValueOnce(stream({ code: 20000000, message: 'ok', data: null }));
+        await expect(synthesizeWithProvider('你好', 'zh', settings)).rejects.toMatchObject({ message: 'Volcengine: no audio' });
+        await expect(synthesizeWithProvider('你好', 'zh', resolveTtsSettings('volcengine', undefined, { apiKey: 'ark' }))).rejects.toMatchObject({ code: 'TTS_NOT_CONFIGURED' });
+    });
+
+    it('拆分首尾相连或换行分隔的 JSON，忽略字符串中的括号和转义引号', () => {
+        expect(splitJsonObjects('{"a":1}{"b":"x}{\\"y"}\n{"c":{"d":2}}')).toEqual([{ a: 1 }, { b: 'x}{"y' }, { c: { d: 2 } }]);
+        expect(splitJsonObjects('')).toEqual([]);
     });
 });

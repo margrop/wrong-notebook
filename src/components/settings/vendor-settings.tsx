@@ -23,10 +23,17 @@ export function VendorSettings({ provider, value, onChange }: VendorSettingsProp
     const baseUrlHints: Partial<Record<VendorProviderId, string>> = {
         qwen: t.settings?.ai?.qwenBaseUrlHint,
         stepfun: t.settings?.ai?.stepfunBaseUrlHint,
+        volcengine: t.settings?.ai?.volcengineBaseUrlHint,
     };
 
     return (
         <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+            {provider === "volcengine-free" && (
+                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-xs text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300">
+                    <p className="font-medium">{t.settings.ai.volcengineFree.title}</p>
+                    <p className="mt-1">{t.settings.ai.volcengineFree.body}</p>
+                </div>
+            )}
             <div className="space-y-2">
                 <Label>API Key</Label>
                 <PasswordInput

@@ -22,6 +22,7 @@ const cloudTtsSchema = z.object({
     model: z.string().trim().max(100).optional(),
     voice: z.string().trim().max(200).optional(),
     endpoint: z.union([z.literal(''), z.string().trim().url().max(500)]).optional(),
+    apiKey: z.string().trim().max(500).optional(),
 });
 
 const ttsSchema = z.object({
@@ -110,6 +111,11 @@ export async function POST(req: Request) {
         for (const id of VENDOR_PROVIDER_IDS) {
             if (body[id]?.apiKey === '********') {
                 body[id].apiKey = currentConfig[id]?.apiKey;
+            }
+        }
+        for (const id of CLOUD_TTS_PROVIDERS) {
+            if (body.tts?.[id]?.apiKey === '********') {
+                body.tts[id].apiKey = currentConfig.tts?.[id]?.apiKey;
             }
         }
 

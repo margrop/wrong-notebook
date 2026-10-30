@@ -12,7 +12,7 @@ This Wiki covers [margrop/wrong-notebook](https://github.com/margrop/wrong-noteb
 | --- | --- |
 | Run it locally and sign in for the first time | [Quick Start](Quick-Start-en) |
 | Deploy with Docker, enable HTTPS or upgrade | [Deployment and Upgrades](Deployment-en) |
-| Configure MiniMax, GLM, DeepSeek, Kimi, Qwen, StepFun, Anthropic, Azure, OpenAI or Gemini | [AI Configuration](AI-Configuration-en) |
+| Configure MiniMax, GLM, DeepSeek, Kimi, Qwen, StepFun, Volcengine, Anthropic, Azure, OpenAI or Gemini | [AI Configuration](AI-Configuration-en) |
 | Add, organize, review and search questions | [User Guide](User-Guide-en) |
 | Similar-question practice, exam papers, printing and recording results | [Practice and Exams](Practice-and-Exams-en) |
 | Preferences, the app time zone and user permissions | [Settings and Users](Settings-and-Users-en) |

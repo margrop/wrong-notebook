@@ -155,8 +155,12 @@ const DEFAULT_CONFIG: AppConfig = {
         model: process.env.MINIMAX_CODE_MODEL,
         autoCheckin: process.env.MINIMAX_CODE_AUTO_CHECKIN !== 'false',
     },
-    // 动画语音讲解默认用浏览器本地语音；TTS_MODE=minimax 或 qwen 时改用云端语音合成
-    tts: { mode: isTtsMode(process.env.TTS_MODE) ? process.env.TTS_MODE : 'browser' },
+    // 动画语音讲解默认用浏览器本地语音；TTS_MODE 为 minimax、qwen 等时改用云端语音合成
+    tts: {
+        mode: isTtsMode(process.env.TTS_MODE) ? process.env.TTS_MODE : 'browser',
+        // 火山引擎豆包语音的 Key 与火山方舟不同，单独配置
+        volcengine: { apiKey: process.env.VOLCENGINE_TTS_API_KEY },
+    },
     ...Object.fromEntries(VENDOR_PROVIDER_IDS.map((id) => {
         const prefix = VENDOR_PRESETS[id].envPrefix;
         return [id, {
