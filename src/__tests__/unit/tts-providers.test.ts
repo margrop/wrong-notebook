@@ -153,3 +153,35 @@ describe('智谱 GLM-TTS 语音合成', () => {
         await expect(synthesizeWithProvider('你好', 'zh', settings)).rejects.toMatchObject({ message: expect.stringContaining('unexpected') });
     });
 });
+
+describe('阶跃星辰语音合成', () => {
+    const wav = encodeWav({ sampleRate: 24000, samples: new Float32Array([0.25, 0]) });
+
+    it('接口与对话接口同在 Base URL 下，StepAudio 模型带语气指令，返回 WAV', async () => {
+        const settings = resolveTtsSettings('stepfun', undefined, { apiKey: 'step-key' });
+        expect(settings).toMatchObject({ endpoint: 'https://api.stepfun.com/step_plan/v1/audio/speech', model: 'stepaudio-2.5-tts', voice: 'qingniandaxuesheng' });
+        fetchMock.mockResolvedValue(new Response(new Uint8Array(wav), { headers: { 'Content-Type': 'audio/wav' } }));
+
+        const audio = await synthesizeWithProvider('第一步', 'zh', settings);
+        expect(audio.samples[0]).toBeCloseTo(0.25, 3);
+        expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer step-key');
+        expect(requestBody()).toMatchObject({
+            model: 'stepaudio-2.5-tts', input: '第一步', voice: 'qingniandaxuesheng', response_format: 'wav', sample_rate: 24000,
+            instruction: expect.stringContaining('不要播音腔'),
+        });
+    });
+
+    it('按量付费地址同样推算；其他模型不传指令（传入会报错）', async () => {
+        const settings = resolveTtsSettings('stepfun', { model: 'step-tts-2' }, { apiKey: 'k', baseUrl: 'https://api.stepfun.com/v1' });
+        expect(settings.endpoint).toBe('https://api.stepfun.com/v1/audio/speech');
+        fetchMock.mockResolvedValue(new Response(new Uint8Array(wav), { headers: { 'Content-Type': 'audio/wav' } }));
+        await synthesizeWithProvider('第一步', 'zh', settings);
+        expect(requestBody()).not.toHaveProperty('instruction');
+    });
+
+    it('错误响应带上服务商说明', async () => {
+        fetchMock.mockResolvedValueOnce(json({ error: { message: 'voice not supported', type: 'invalid_request_error' } }, 400));
+        const settings = resolveTtsSettings('stepfun', undefined, { apiKey: 'k' });
+        await expect(synthesizeWithProvider('你好', 'zh', settings)).rejects.toMatchObject({ message: expect.stringContaining('voice not supported') });
+    });
+});

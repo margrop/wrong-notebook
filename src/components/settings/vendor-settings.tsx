@@ -19,6 +19,11 @@ export function VendorSettings({ provider, value, onChange }: VendorSettingsProp
     const { t } = useLanguage();
     const preset = VENDOR_PRESETS[provider];
     const update = (key: keyof VendorConfig, next: string) => onChange({ ...value, [key]: next });
+    // 默认地址为套餐地址的渠道单独说明按量付费和国际站的地址
+    const baseUrlHints: Partial<Record<VendorProviderId, string>> = {
+        qwen: t.settings?.ai?.qwenBaseUrlHint,
+        stepfun: t.settings?.ai?.stepfunBaseUrlHint,
+    };
 
     return (
         <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
@@ -41,7 +46,7 @@ export function VendorSettings({ provider, value, onChange }: VendorSettingsProp
                     onChange={(e) => update("baseUrl", e.target.value)}
                     placeholder={preset.baseUrl}
                 />
-                <p className="text-xs text-muted-foreground">{provider === "qwen" ? t.settings?.ai?.qwenBaseUrlHint : t.settings?.ai?.vendorBaseUrlHint}</p>
+                <p className="text-xs text-muted-foreground">{baseUrlHints[provider] ?? t.settings?.ai?.vendorBaseUrlHint}</p>
             </div>
             <ModelSelector
                 provider={provider}

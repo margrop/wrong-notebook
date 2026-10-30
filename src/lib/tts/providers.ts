@@ -1,10 +1,10 @@
 /**
- * 云端语音合成：MiniMax（T2A v2）、千问（百炼 Qwen-Audio-TTS）与智谱 GLM-TTS，均返回单声道 PCM 采样。
+ * 云端语音合成：MiniMax（T2A v2）、千问（百炼 Qwen-Audio-TTS）、智谱 GLM-TTS 与阶跃星辰，均返回单声道 PCM 采样。
  * API Key 复用「AI 设置」中对应国产大模型渠道的配置。
  */
 import { resolveVendorConfig } from "@/lib/ai/vendor-presets";
 import type { VendorConfig } from "@/lib/ai/vendor-presets";
-import { CLOUD_TTS_DEFAULTS, VOICE_STYLE_INSTRUCTION, defaultTtsEndpoint } from "./constants";
+import { CLOUD_TTS_DEFAULTS, VOICE_STYLE_INSTRUCTION, defaultTtsEndpoint, usesStyleInstruction } from "./constants";
 import type { CloudTtsProvider, CloudTtsSettings } from "./constants";
 import { parseWav, pcm16ToFloat } from "./wav";
 import type { PcmAudio } from "./wav";
@@ -138,6 +138,20 @@ async function synthesizeGlm(text: string, settings: ResolvedTtsSettings): Promi
     return parseWav(audio);
 }
 
+/** 阶跃星辰：/audio/speech 直接返回 WAV；StepAudio 模型支持用指令控制语气 */
+async function synthesizeStepFun(text: string, settings: ResolvedTtsSettings): Promise<PcmAudio> {
+    const { data, audio } = await postSpeech(settings.endpoint, settings.apiKey, {
+        model: settings.model,
+        input: text,
+        voice: settings.voice,
+        response_format: 'wav',
+        sample_rate: SAMPLE_RATE,
+        ...(usesStyleInstruction('stepfun', settings.model) ? { instruction: VOICE_STYLE_INSTRUCTION } : {}),
+    });
+    if (!audio) throw new TtsError('TTS_PROVIDER_ERROR', `StepFun: ${errorMessageOf(data, 'no audio')}`);
+    return parseWav(audio);
+}
+
 export async function synthesizeWithProvider(text: string, language: 'zh' | 'en', settings: ResolvedTtsSettings): Promise<PcmAudio> {
     if (!settings.apiKey) {
         throw new TtsError('TTS_NOT_CONFIGURED', `${settings.provider} API key is not configured`);
@@ -149,5 +163,7 @@ export async function synthesizeWithProvider(text: string, language: 'zh' | 'en'
             return synthesizeQwen(text, settings);
         case 'glm':
             return synthesizeGlm(text, settings);
+        case 'stepfun':
+            return synthesizeStepFun(text, settings);
     }
 }

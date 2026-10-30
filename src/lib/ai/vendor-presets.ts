@@ -55,6 +55,15 @@ export const VENDOR_PRESETS = {
         consoleUrl: 'https://bailian.console.aliyun.com',
         docs: { cn: 'https://help.aliyun.com/zh/model-studio/token-plan-personal-quick-start', intl: 'https://www.alibabacloud.com/help/en/model-studio/token-plan-personal-quick-start' },
     },
+    // 默认为 Step Plan 套餐地址（含语音合成）；按量付费改用 https://api.stepfun.com/v1，国际站为 https://api.stepfun.ai/v1
+    stepfun: {
+        name: '阶跃星辰 StepFun',
+        baseUrl: 'https://api.stepfun.com/step_plan/v1',
+        model: 'step-5-preview',
+        envPrefix: 'STEPFUN',
+        consoleUrl: 'https://platform.stepfun.com',
+        docs: { cn: 'https://platform.stepfun.com/docs/zh/guides/developer/openai', intl: 'https://platform.stepfun.ai/docs/en/guides/developer/openai' },
+    },
 } as const satisfies Record<string, VendorPreset>;
 
 export type VendorProviderId = keyof typeof VENDOR_PRESETS;

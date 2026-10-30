@@ -21,6 +21,7 @@ AI 设置、连接测试、模型列表与提示词设置只向管理员开放�
 | DeepSeek | API Key | 默认 `https://api.deepseek.com`；代码默认 `deepseek-flash` |
 | Kimi | API Key | 默认 `https://api.moonshot.cn/v1`；代码默认 `kimi-k3` |
 | 千问 Qwen | API Key（推荐百炼 Token Plan，以 `sk-sp-` 开头） | 默认 Token Plan 地址 `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`，按量付费的 Key 改填 `https://dashscope.aliyuncs.com/compatible-mode/v1`；代码默认 `qwen3.8-max` |
+| 阶跃星辰 StepFun | API Key（推荐 Step Plan 套餐） | 默认 Step Plan 地址 `https://api.stepfun.com/step_plan/v1`，按量付费改填 `https://api.stepfun.com/v1`，国际站 `https://api.stepfun.ai/v1`；代码默认 `step-5-preview` |
 | Anthropic 或兼容接口 | API Key、模型 | 默认 `https://api.anthropic.com`；代码默认 `claude-sonnet-5-5` |
 | Azure OpenAI | API Key、Endpoint、部署名称 | API 版本默认 `2024-02-15-preview`；模型字段用于显示 |
 | OpenAI 或兼容接口 | API Key、模型 | 默认 `https://api.openai.com/v1`；代码默认 `gpt-6.1-sol` |
@@ -52,7 +53,8 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 | --- | --- | --- | --- |
 | MiniMax（建议使用 M Plan） | 与 MiniMax 渠道共用 | `speech-2.8-hd`，音色 `male-qn-jingying`（精英青年） | MiniMax Base URL 加 `/t2a_v2`，即 `https://api.minimax.cn/v1/t2a_v2` |
 | 千问（建议使用百炼 Token Plan） | 与千问渠道共用 | `qwen-audio-3.0-tts-plus`，音色 `longanlufeng`（龙安鲁风） | 千问 Base URL 的域名加 `/api/v1/services/audio/tts/SpeechSynthesizer` |
-| 智谱 GLM-TTS | 与智谱 GLM 渠道共用 | `glm-tts`，音色 `xiaochen`（小陈） | GLM Base URL 加 `/audio/speech`，即 `https://open.bigmodel.cn/api/paas/v4/audio/speech` |
+| 阶跃星辰（建议使用 Step Plan） | 与阶跃星辰渠道共用 | `stepaudio-2.5-tts`，音色 `qingniandaxuesheng`（青年大学生），并以指令约束语气 | 阶跃星辰 Base URL 加 `/audio/speech`，即 `https://api.stepfun.com/step_plan/v1/audio/speech` |
+| 智谱 GLM-TTS（建议使用 GLM Coding Plan） | 与智谱 GLM 渠道共用 | `glm-tts`，音色 `xiaochen`（小陈） | GLM Base URL 加 `/audio/speech`，即 `https://open.bigmodel.cn/api/paas/v4/audio/speech` |
 
 - 默认音色为年轻男声，自然、清晰、略带科技感；千问另用指令要求不用播音腔、不模仿角色。模型、音色和接口地址都可修改（各字段旁附有服务商的说明文档或音色列表链接），「保存并试听」会先保存设置再朗读一段示例，失败时在按钮下方显示服务商的原始报错（如 MiniMax 的 `2056` 表示 Token Plan 当前用量窗口的额度已用完）。
 - 合成结果统一到约 -15 LUFS 的响度（峰值不超过 -1.5 dBFS），编码为 48kbps 的 MP3，按服务商、模型、音色和文字缓存在配置目录的 `tts-cache/`，同一段讲解只合成一次，超过 500MB 时删除最早的缓存。
@@ -62,7 +64,7 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 
 ## 环境变量
 
-基础选择使用 `AI_PROVIDER`，默认 `minimax`，可选 `minimax`、`minimax-code`、`glm`、`deepseek`、`kimi`、`qwen`、`anthropic`、`azure`、`openai`、`gemini`。
+基础选择使用 `AI_PROVIDER`，默认 `minimax`，可选 `minimax`、`minimax-code`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`anthropic`、`azure`、`openai`、`gemini`。
 
 | 提供商 | 配置项 |
 | --- | --- |
@@ -72,6 +74,7 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 | DeepSeek | `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL` |
 | Kimi | `KIMI_API_KEY`、`KIMI_BASE_URL`、`KIMI_MODEL` |
 | 千问 Qwen | `QWEN_API_KEY`、`QWEN_BASE_URL`、`QWEN_MODEL` |
+| 阶跃星辰 StepFun | `STEPFUN_API_KEY`、`STEPFUN_BASE_URL`、`STEPFUN_MODEL` |
 | Anthropic | `ANTHROPIC_API_KEY`、`ANTHROPIC_BASE_URL`、`ANTHROPIC_MODEL` |
 | Azure | `AZURE_OPENAI_API_KEY`、`AZURE_OPENAI_ENDPOINT`、`AZURE_OPENAI_DEPLOYMENT`、`AZURE_OPENAI_API_VERSION`、`AZURE_OPENAI_MODEL` |
 | OpenAI | `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL` |

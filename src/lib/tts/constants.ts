@@ -6,7 +6,7 @@ import { resolveVendorConfig } from "@/lib/ai/vendor-presets";
 import type { VendorConfig } from "@/lib/ai/vendor-presets";
 
 /** browser：浏览器本地语音（Web Speech API）；其余为服务端调用对应渠道的云端语音合成 */
-export const TTS_MODES = ['browser', 'minimax', 'qwen', 'glm'] as const;
+export const TTS_MODES = ['browser', 'minimax', 'qwen', 'glm', 'stepfun'] as const;
 export type TtsMode = typeof TTS_MODES[number];
 export type CloudTtsProvider = Exclude<TtsMode, 'browser'>;
 
@@ -24,12 +24,13 @@ export const CLOUD_TTS_PROVIDERS = TTS_MODES.filter((mode): mode is CloudTtsProv
 /**
  * 默认音色：年轻男性，自然、清晰、略带科技感，不用播音腔、不模仿角色。
  * MiniMax 用系统音色「精英青年」；千问用 Qwen-Audio-TTS 的男声「龙安鲁风」（25 岁，明亮开朗），再用指令约束语气；
- * 智谱 GLM-TTS 用「小陈」（年轻、专业）
+ * 智谱 GLM-TTS 用「小陈」（年轻、专业）；阶跃星辰用「青年大学生」，同样用指令约束语气
  */
 export const CLOUD_TTS_DEFAULTS: Record<CloudTtsProvider, Required<Omit<CloudTtsSettings, 'endpoint'>>> = {
     minimax: { model: 'speech-2.8-hd', voice: 'male-qn-jingying' },
     qwen: { model: 'qwen-audio-3.0-tts-plus', voice: 'longanlufeng' },
     glm: { model: 'glm-tts', voice: 'xiaochen' },
+    stepfun: { model: 'stepaudio-2.5-tts', voice: 'qingniandaxuesheng' },
 };
 
 /** 各云端语音的官方说明文档：模型、音色（可选值列表）和接口地址，设置页附上链接 */
@@ -50,15 +51,25 @@ export const CLOUD_TTS_DOCS: Record<CloudTtsProvider, { model: string; voice: st
         voice: 'https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E6%96%87%E6%9C%AC%E8%BD%AC%E8%AF%AD%E9%9F%B3',
         endpoint: 'https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E6%96%87%E6%9C%AC%E8%BD%AC%E8%AF%AD%E9%9F%B3',
     },
+    stepfun: {
+        model: 'https://platform.stepfun.com/docs/zh/api-reference/audio/create-audio',
+        voice: 'https://platform.stepfun.com/docs/zh/guides/developer/tts',
+        endpoint: 'https://platform.stepfun.com/docs/zh/api-reference/audio/create-audio',
+    },
 };
 
-/** 支持自然语言指令的语音（千问）使用的语气指令（中英文讲解通用） */
+/** 支持自然语言指令的语音（千问、阶跃星辰 StepAudio）使用的语气指令（中英文讲解通用） */
 export const VOICE_STYLE_INSTRUCTION = '用年轻男性的声音讲题，自然、清晰，略带科技感，像面对面给同学讲解；语速适中，不要播音腔，不要模仿角色或夸张表演。';
 
 /** 归一化的目标响度（LUFS），落在人声常用的 -16 ~ -14 LUFS 区间中间 */
 export const TARGET_LOUDNESS_LUFS = -15;
 /** 归一化后的峰值上限（dBFS），留出余量避免削波 */
 export const PEAK_CEILING_DBFS = -1.5;
+
+/** 该语音是否按语气指令合成：千问，以及阶跃星辰的 StepAudio 模型（其他阶跃模型传入指令会报错） */
+export function usesStyleInstruction(provider: CloudTtsProvider, model: string): boolean {
+    return provider === 'qwen' || (provider === 'stepfun' && model.startsWith('stepaudio-'));
+}
 
 export function isTtsMode(value: unknown): value is TtsMode {
     return typeof value === 'string' && (TTS_MODES as readonly string[]).includes(value);
@@ -72,12 +83,12 @@ export function isCloudTtsProvider(value: unknown): value is CloudTtsProvider {
  * 默认的语音合成接口地址，按对应渠道的 Base URL 推算：
  * MiniMax 的语音接口与对话接口同在 /v1 下（https://api.minimax.cn/v1/t2a_v2）；
  * 百炼的语音接口在同一域名的 /api/v1 下（Token Plan 为 token-plan.cn-beijing.maas.aliyuncs.com）；
- * 智谱的语音接口与对话接口同在 /api/paas/v4 下（/audio/speech）
+ * 智谱、阶跃星辰的语音接口与对话接口同在 Base URL 下（/audio/speech）
  */
 export function defaultTtsEndpoint(provider: CloudTtsProvider, vendor: VendorConfig | undefined): string {
     const { baseUrl } = resolveVendorConfig(provider, vendor);
     if (provider === 'minimax') return `${baseUrl.replace(/\/+$/, '')}/t2a_v2`;
-    if (provider === 'glm') return `${baseUrl.replace(/\/+$/, '')}/audio/speech`;
+    if (provider === 'glm' || provider === 'stepfun') return `${baseUrl.replace(/\/+$/, '')}/audio/speech`;
     try {
         return `${new URL(baseUrl).origin}/api/v1/services/audio/tts/SpeechSynthesizer`;
     } catch {

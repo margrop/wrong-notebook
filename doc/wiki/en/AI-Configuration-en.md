@@ -21,6 +21,7 @@ AI settings, connection tests, model lists and prompt settings are admin-only. T
 | DeepSeek | API key | Defaults to `https://api.deepseek.com`; code default `deepseek-flash` |
 | Kimi | API key | Defaults to `https://api.moonshot.cn/v1`; code default `kimi-k3` |
 | Qwen | API key (Model Studio Token Plan recommended, starts with `sk-sp-`) | Defaults to the Token Plan URL `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`; pay-as-you-go keys use `https://dashscope.aliyuncs.com/compatible-mode/v1`; code default `qwen3.8-max` |
+| StepFun | API key (Step Plan recommended) | Defaults to the Step Plan URL `https://api.stepfun.com/step_plan/v1`; pay-as-you-go keys use `https://api.stepfun.com/v1`, international `https://api.stepfun.ai/v1`; code default `step-5-preview` |
 | Anthropic or compatible | API key, model | Defaults to `https://api.anthropic.com`; code default `claude-sonnet-5-5` |
 | Azure OpenAI | API key, endpoint, deployment name | API version defaults to `2024-02-15-preview`; the model field is for display |
 | OpenAI or compatible | API key, model | Defaults to `https://api.openai.com/v1`; code default `gpt-6.1-sol` |
@@ -28,7 +29,7 @@ AI settings, connection tests, model lists and prompt settings are admin-only. T
 
 The default names come from the current code and do not mean these models are enabled for your account. Model availability, billing and capabilities are determined by the provider.
 
-For OpenAI-compatible services, the base URL should include the API path they require. For Anthropic-compatible services, the base URL excludes `/v1`; the app appends `/v1/messages`. The official MiniMax, GLM, DeepSeek, Kimi and Qwen channels are called through the OpenAI-compatible API; leaving the endpoint and model empty uses the official defaults. Fill in the international endpoint if you use an international site.
+For OpenAI-compatible services, the base URL should include the API path they require. For Anthropic-compatible services, the base URL excludes `/v1`; the app appends `/v1/messages`. The official MiniMax, GLM, DeepSeek, Kimi, Qwen and StepFun channels are called through the OpenAI-compatible API; leaving the endpoint and model empty uses the official defaults. Fill in the international endpoint if you use an international site.
 
 ## MiniMax Code OAuth
 
@@ -52,7 +53,8 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 | --- | --- | --- | --- |
 | MiniMax (M Plan recommended) | Shared with the MiniMax channel | `speech-2.8-hd`, voice `male-qn-jingying` | MiniMax base URL plus `/t2a_v2`, i.e. `https://api.minimax.cn/v1/t2a_v2` |
 | Qwen (Model Studio Token Plan recommended) | Shared with the Qwen channel | `qwen-audio-3.0-tts-plus`, voice `longanlufeng` | Domain of the Qwen base URL plus `/api/v1/services/audio/tts/SpeechSynthesizer` |
-| Zhipu GLM-TTS | Shared with the GLM channel | `glm-tts`, voice `xiaochen` | GLM base URL plus `/audio/speech`, i.e. `https://open.bigmodel.cn/api/paas/v4/audio/speech` |
+| StepFun (Step Plan recommended) | Shared with the StepFun channel | `stepaudio-2.5-tts`, voice `qingniandaxuesheng`, with a style instruction | StepFun base URL plus `/audio/speech`, i.e. `https://api.stepfun.com/step_plan/v1/audio/speech` |
+| Zhipu GLM-TTS (GLM Coding Plan recommended) | Shared with the GLM channel | `glm-tts`, voice `xiaochen` | GLM base URL plus `/audio/speech`, i.e. `https://open.bigmodel.cn/api/paas/v4/audio/speech` |
 
 - The default voice is a young male voice that sounds natural, clear and slightly techy; for Qwen, an instruction also asks for no broadcast tone and no character imitation. Model, voice and endpoint can be changed (each field links to the provider's docs or voice list), and **Save and preview** saves the settings before reading a sample; if it fails, the provider's original error appears below the buttons (for example, MiniMax `2056` means the current Token Plan usage window is used up).
 - Speech is normalized to about -15 LUFS (peaks at most -1.5 dBFS), encoded as 48 kbps MP3 and cached in `tts-cache/` under the config directory by provider, model, voice and text. Each segment is synthesized once; the oldest files are removed beyond 500 MB.
@@ -62,7 +64,7 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 
 ## Environment variables
 
-`AI_PROVIDER` selects the provider. It defaults to `minimax` and accepts `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `anthropic`, `azure`, `openai` and `gemini`.
+`AI_PROVIDER` selects the provider. It defaults to `minimax` and accepts `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `anthropic`, `azure`, `openai` and `gemini`.
 
 | Provider | Variables |
 | --- | --- |
@@ -72,6 +74,7 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 | DeepSeek | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` |
 | Kimi | `KIMI_API_KEY`, `KIMI_BASE_URL`, `KIMI_MODEL` |
 | Qwen | `QWEN_API_KEY`, `QWEN_BASE_URL`, `QWEN_MODEL` |
+| StepFun | `STEPFUN_API_KEY`, `STEPFUN_BASE_URL`, `STEPFUN_MODEL` |
 | Anthropic | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL` |
 | Azure | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION`, `AZURE_OPENAI_MODEL` |
 | OpenAI | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` |
