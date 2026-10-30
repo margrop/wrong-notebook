@@ -22,8 +22,9 @@ AI settings, connection tests, model lists and prompt settings are admin-only. T
 | Kimi | API key | Defaults to `https://api.moonshot.cn/v1`; code default `kimi-k3` |
 | Qwen | API key (Model Studio Token Plan recommended, starts with `sk-sp-`) | Defaults to the Token Plan URL `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`; pay-as-you-go keys use `https://dashscope.aliyuncs.com/compatible-mode/v1`; code default `qwen3.8-max` |
 | StepFun | API key (Step Plan recommended) | Defaults to the Step Plan URL `https://api.stepfun.com/step_plan/v1`; pay-as-you-go keys use `https://api.stepfun.com/v1`, international `https://api.stepfun.ai/v1`; code default `step-5-preview` |
-| Volcengine Doubao | API key (Agent Plan, Coding Plan or similar plans recommended) | Defaults to `https://ark.cn-beijing.volces.com/api/v3`; use the plan endpoint shown in the console; international `https://ark.ap-southeast.bytepluses.com/api/v3`; code default `doubao-seed-2-1-lite-260915` |
-| Volcengine (free trial) | Volcengine Ark API key | Same as above; uses the new-user [free inference quota](https://www.volcengine.com/docs/82379/1399514); with worry-free trial mode on, calls pause when it runs out, so you are never charged |
+| Volcengine Doubao | API key (pay-as-you-go; with a plan subscription, choose the matching plan channel) | Defaults to `https://ark.cn-beijing.volces.com/api/v3`; international `https://ark.ap-southeast.bytepluses.com/api/v3`; code default `doubao-seed-2-1-lite-260915` |
+| Volcengine Agent Plan | Dedicated Agent Plan API key | Defaults to `https://ark.cn-beijing.volces.com/api/plan/v3`; code default `doubao-seed-2-1-pro-260628`; the plan includes Doubao speech synthesis |
+| Volcengine (free trial) | Volcengine Ark API key | Defaults to `https://ark.cn-beijing.volces.com/api/v3`; uses the new-user [free inference quota](https://www.volcengine.com/docs/82379/1399514); with worry-free trial mode on, calls pause when it runs out, so you are never charged |
 | Anthropic or compatible | API key, model | Defaults to `https://api.anthropic.com`; code default `claude-sonnet-5-5` |
 | Azure OpenAI | API key, endpoint, deployment name | API version defaults to `2024-02-15-preview`; the model field is for display |
 | OpenAI or compatible | API key, model | Defaults to `https://api.openai.com/v1`; code default `gpt-6.1-sol` |
@@ -57,6 +58,7 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 | Qwen (Model Studio Token Plan recommended) | Shared with the Qwen channel | `qwen-audio-3.0-tts-plus`, voice `longanlufeng` | Domain of the Qwen base URL plus `/api/v1/services/audio/tts/SpeechSynthesizer` |
 | StepFun (Step Plan recommended) | Shared with the StepFun channel | `stepaudio-2.5-tts`, voice `qingniandaxuesheng`, with a style instruction | StepFun base URL plus `/audio/speech`, i.e. `https://api.stepfun.com/step_plan/v1/audio/speech` |
 | Volcengine Doubao Speech (resource pack recommended) | Its own Doubao Speech API key (create it in the [Doubao Speech console](https://console.volcengine.com/speech); different from Volcengine Ark) | Resource ID `seed-tts-2.0` (in the speech model field), voice `zh_male_yangguangqingnian_uranus_bigtts` | `https://openspeech.bytedance.com/api/v3/tts/unidirectional` |
+| Volcengine Agent Plan (counts toward the plan) | Shared with the Volcengine Agent Plan channel | Resource ID `seed-tts-2.0`, voice `zh_male_yangguangqingnian_uranus_bigtts` | `https://openspeech.bytedance.com/api/v3/plan/tts/unidirectional` |
 | Zhipu GLM-TTS (GLM Coding Plan recommended) | Shared with the GLM channel | `glm-tts`, voice `xiaochen` | GLM base URL plus `/audio/speech`, i.e. `https://open.bigmodel.cn/api/paas/v4/audio/speech` |
 
 - The default voice is a young male voice that sounds natural, clear and slightly techy; for Qwen, an instruction also asks for no broadcast tone and no character imitation. Model, voice and endpoint can be changed (each field links to the provider's docs or voice list), and **Save and preview** saves the settings before reading a sample; if it fails, the provider's original error appears below the buttons (for example, MiniMax `2056` means the current Token Plan usage window is used up).
@@ -67,7 +69,7 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 
 ## Environment variables
 
-`AI_PROVIDER` selects the provider. It defaults to `minimax` and accepts `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-free`, `anthropic`, `azure`, `openai` and `gemini`.
+`AI_PROVIDER` selects the provider. It defaults to `minimax` and accepts `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-agent`, `volcengine-free`, `anthropic`, `azure`, `openai` and `gemini`.
 
 | Provider | Variables |
 | --- | --- |
@@ -79,6 +81,7 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 | Qwen | `QWEN_API_KEY`, `QWEN_BASE_URL`, `QWEN_MODEL` |
 | StepFun | `STEPFUN_API_KEY`, `STEPFUN_BASE_URL`, `STEPFUN_MODEL` |
 | Volcengine Doubao | `VOLCENGINE_API_KEY`, `VOLCENGINE_BASE_URL`, `VOLCENGINE_MODEL` |
+| Volcengine Agent Plan | `VOLCENGINE_AGENT_API_KEY`, `VOLCENGINE_AGENT_BASE_URL`, `VOLCENGINE_AGENT_MODEL` |
 | Volcengine (free trial) | `VOLCENGINE_FREE_API_KEY`, `VOLCENGINE_FREE_BASE_URL`, `VOLCENGINE_FREE_MODEL` |
 | Doubao Speech (cloud voice) | `VOLCENGINE_TTS_API_KEY` |
 | Anthropic | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL` |

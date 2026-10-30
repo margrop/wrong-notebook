@@ -33,7 +33,7 @@ An AI-powered notebook for the questions you got wrong. Snap a photo or type a q
 | Voice | Sound | Cost |
 | :--- | :--- | :--- |
 | Browser voice (Web Speech) | Read by the device's built-in voice; sounds stiff, and the voice varies by device | Free |
-| Cloud TTS (MiniMax, Qwen, Zhipu GLM-TTS, StepFun, Volcengine Doubao Speech) | Natural, just like a real person explaining the problem, and the same on every device | Paid; **a Token Plan or similar subscription is recommended** over pay-as-you-go |
+| Cloud TTS (MiniMax, Qwen, Zhipu GLM-TTS, StepFun, Volcengine Doubao Speech, Volcengine Agent Plan) | Natural, just like a real person explaining the problem, and the same on every device | Paid; **a Token Plan or similar subscription is recommended** over pay-as-you-go |
 
 Admins switch between them under **Settings → AI → Voice narration**. See [Cloud voice narration](doc/wiki/en/AI-Configuration-en.md#cloud-voice-narration).
 
@@ -161,7 +161,7 @@ Practice statistics show total practice, accuracy and active months, with distri
 
 ### Explanations and demos
 
-- **🎬 SVG animated explanations**: AI generates step-by-step SVG animations of the solution, with play/pause, seeking, replay and full screen. Click the speaker icon in the player for voice narration: each step is read aloud, the animation waits for the narration before moving on, and the speed is adjustable. There are two kinds of voice: the **browser voice** is free but sounds stiff and varies by device; **cloud TTS** (MiniMax, Qwen, Zhipu GLM-TTS, StepFun, Volcengine Doubao Speech) sounds natural, just like a real person, but is paid, and a Token Plan, Step Plan or similar subscription is recommended over pay-as-you-go. Admins switch under **Settings → AI → Voice narration**; the server synthesizes a young male voice normalized to about -15 LUFS. Voice generation is registered as a background task, animations with generated voice open with narration on, existing animations can **Regenerate voice**, and synthesized voice is included in data export and import. Older animations without a narration script read the on-screen subtitles, or click **Add narration** to have AI write only the script while keeping the picture unchanged. Animation text follows the interface language: the English interface generates an English version and the Chinese interface a Chinese one. Both are kept, and switching the language shows the matching version automatically. On by default; turn it off in **Settings → General**.
+- **🎬 SVG animated explanations**: AI generates step-by-step SVG animations of the solution, with play/pause, seeking, replay and full screen. Click the speaker icon in the player for voice narration: each step is read aloud, the animation waits for the narration before moving on, and the speed is adjustable. There are two kinds of voice: the **browser voice** is free but sounds stiff and varies by device; **cloud TTS** (MiniMax, Qwen, Zhipu GLM-TTS, StepFun, Volcengine Doubao Speech, Volcengine Agent Plan) sounds natural, just like a real person, but is paid, and a Token Plan, Step Plan or similar subscription is recommended over pay-as-you-go. Admins switch under **Settings → AI → Voice narration**; the server synthesizes a young male voice normalized to about -15 LUFS. Voice generation is registered as a background task, animations with generated voice open with narration on, existing animations can **Regenerate voice**, and synthesized voice is included in data export and import. Older animations without a narration script read the on-screen subtitles, or click **Add narration** to have AI write only the script while keeping the picture unchanged. Animation text follows the interface language: the English interface generates an English version and the Chinese interface a Chinese one. Both are kept, and switching the language shows the matching version automatically. On by default; turn it off in **Settings → General**.
 - **📐 GeoGebra demos**: for math and physics questions, AI can generate interactive GeoGebra figures. Off by default; turn it on in **Settings → General**.
 - Generated animations and GeoGebra demos can be deleted (with confirmation).
 
@@ -203,7 +203,7 @@ When served over HTTPS (or `localhost`), a service worker caches scripts, styles
 - **Database**: [SQLite](https://www.sqlite.org/) (via [Prisma 5](https://www.prisma.io/))
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) + [Radix UI](https://www.radix-ui.com/) (shadcn/ui-style components)
 - **Formulas**: [KaTeX](https://katex.org/) (react-markdown + remark-math)
-- **AI**: MiniMax / MiniMax Code (browser sign-in) / Zhipu GLM / DeepSeek / Kimi / Qwen / StepFun / Volcengine Doubao (including a free trial) / Anthropic (and compatible APIs) / Azure OpenAI / OpenAI (and compatible APIs) / Google Gemini
+- **AI**: MiniMax / MiniMax Code (browser sign-in) / Zhipu GLM / DeepSeek / Kimi / Qwen / StepFun / Volcengine Doubao (including Agent Plan and a free trial) / Anthropic (and compatible APIs) / Azure OpenAI / OpenAI (and compatible APIs) / Google Gemini
 - **Auth**: [NextAuth.js v4](https://next-auth.js.org/)
 - **Testing**: Vitest (unit, integration), Playwright (E2E)
 
@@ -355,13 +355,13 @@ Data directories, default accounts and local builds are described in [INSTALL_PA
 | `HTTP_PROXY` / `HTTPS_PROXY` | Proxy | None | Proxy for requests to AI services |
 | `ALLOW_REGISTRATION` | Allow sign-ups | `false` | When `true`, registration is open by default; the switch saved by an admin under **Settings → User Management** takes precedence |
 | `AI_DAILY_LIMIT` | Daily AI limit per user | `0` (unlimited) | AI actions each regular user can start per day; admins are not limited. The value saved under **Settings → User Management** takes precedence |
-| `TTS_MODE` | How animation narration is voiced | `browser` | `browser` uses the browser's voice; `minimax`, `qwen`, `glm`, `stepfun` or `volcengine` uses a cloud voice with that channel's API key (Doubao Speech uses `VOLCENGINE_TTS_API_KEY`). The value saved under **Settings → AI → Voice narration** takes precedence |
+| `TTS_MODE` | How animation narration is voiced | `browser` | `browser` uses the browser's voice; `minimax`, `qwen`, `glm`, `stepfun`, `volcengine` or `volcengine-agent` uses a cloud voice with that channel's API key (Doubao Speech uses `VOLCENGINE_TTS_API_KEY`). The value saved under **Settings → AI → Voice narration** takes precedence |
 
 **AI** (settings saved in the web UI take precedence over environment variables)
 
 | Variable | Description | Default | Notes |
 | :--- | :--- | :--- | :--- |
-| `AI_PROVIDER` | AI provider | `minimax` | `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-free`, `anthropic`, `azure`, `openai` or `gemini` |
+| `AI_PROVIDER` | AI provider | `minimax` | `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-agent`, `volcengine-free`, `anthropic`, `azure`, `openai` or `gemini` |
 | `MINIMAX_API_KEY` / `MINIMAX_BASE_URL` / `MINIMAX_MODEL` | MiniMax | URL `https://api.minimax.cn/v1`, model `MiniMax-M3.1-Flash` | URL and model are optional |
 | `MINIMAX_CODE_MODEL` | MiniMax Code model | `MiniMax-M3.1-Flash` | The account signs in from the web settings; no API key needed |
 | `MINIMAX_CODE_AUTO_CHECKIN` | MiniMax Code daily auto check-in | `true` | Set to `false` to turn it off |
@@ -370,8 +370,9 @@ Data directories, default accounts and local builds are described in [INSTALL_PA
 | `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Kimi | URL `https://api.moonshot.cn/v1`, model `kimi-k3` | URL and model are optional |
 | `QWEN_API_KEY` / `QWEN_BASE_URL` / `QWEN_MODEL` | Qwen | URL `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` (Model Studio Token Plan), model `qwen3.8-max` | Pay-as-you-go keys use `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 | `STEPFUN_API_KEY` / `STEPFUN_BASE_URL` / `STEPFUN_MODEL` | StepFun | URL `https://api.stepfun.com/step_plan/v1` (Step Plan), model `step-5-preview` | Pay-as-you-go keys use `https://api.stepfun.com/v1`; international `https://api.stepfun.ai/v1` |
-| `VOLCENGINE_API_KEY` / `VOLCENGINE_BASE_URL` / `VOLCENGINE_MODEL` | Volcengine Doubao | URL `https://ark.cn-beijing.volces.com/api/v3`, model `doubao-seed-2-1-lite-260915` | Agent Plan, Coding Plan or similar plans recommended (use the endpoint shown in the console); international `https://ark.ap-southeast.bytepluses.com/api/v3` |
-| `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | Volcengine (free trial) | Same as above | Free inference quota for new users; with worry-free trial mode on, calls pause when it runs out |
+| `VOLCENGINE_API_KEY` / `VOLCENGINE_BASE_URL` / `VOLCENGINE_MODEL` | Volcengine Doubao | URL `https://ark.cn-beijing.volces.com/api/v3`, model `doubao-seed-2-1-lite-260915` | Pay-as-you-go; with an Agent Plan or similar subscription, choose the matching plan channel; international `https://ark.ap-southeast.bytepluses.com/api/v3` |
+| `VOLCENGINE_AGENT_API_KEY` / `VOLCENGINE_AGENT_BASE_URL` / `VOLCENGINE_AGENT_MODEL` | Volcengine Agent Plan | URL `https://ark.cn-beijing.volces.com/api/plan/v3`, model `doubao-seed-2-1-pro-260628` | The plan's dedicated API key from the Agent Plan page; the plan includes Doubao speech synthesis |
+| `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | Volcengine (free trial) | URL `https://ark.cn-beijing.volces.com/api/v3`, model `doubao-seed-2-1-lite-260915` | Free inference quota for new users; with worry-free trial mode on, calls pause when it runs out |
 | `ANTHROPIC_API_KEY` | Anthropic API key | None | From the [Claude Console](https://platform.claude.com/) |
 | `ANTHROPIC_BASE_URL` | API URL | `https://api.anthropic.com` | For compatible services, use the URL without `/v1` |
 | `ANTHROPIC_MODEL` | Model | `claude-sonnet-5-5` | e.g. `claude-opus-5-5`, `claude-haiku-5-5` |
@@ -404,7 +405,7 @@ When adding environment variables, update `.env.example` as well.
 AI settings can be changed in the web UI without restarting the server.
 
 1. **Open settings**: as an administrator, click the settings icon at the top right of the home page and open **AI Provider**.
-2. **Choose a provider**: MiniMax is the default. Choose from the official MiniMax channel, MiniMax Code OAuth (sign in with a MiniMax Code account in the browser), the official Zhipu GLM, DeepSeek, Kimi, Qwen, StepFun, Volcengine Doubao and Volcengine (free trial) channels, Anthropic, Azure OpenAI, OpenAI (including compatible APIs) or Google Gemini; OpenAI supports several configurations you can switch between.
+2. **Choose a provider**: MiniMax is the default. Choose from the official MiniMax channel, MiniMax Code OAuth (sign in with a MiniMax Code account in the browser), the official Zhipu GLM, DeepSeek, Kimi, Qwen, StepFun, Volcengine Doubao, Volcengine Agent Plan and Volcengine (free trial) channels, Anthropic, Azure OpenAI, OpenAI (including compatible APIs) or Google Gemini; OpenAI supports several configurations you can switch between.
 3. **Fill in the parameters**: API key, base URL (or endpoint) and model (or deployment name). Test the connection and fetch the model list from the API.
 4. **Save**: settings are stored in `config/app-config.json` and take precedence over `.env`.
 
@@ -439,7 +440,8 @@ These channels call each vendor's official OpenAI-compatible API, so only an API
 | Kimi | [Kimi platform](https://platform.kimi.com) | `https://api.moonshot.cn/v1` (international `https://api.moonshot.ai/v1`) | `kimi-k3` |
 | Qwen | [Alibaba Cloud Model Studio](https://bailian.console.aliyun.com) (Token Plan recommended) | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` (pay-as-you-go `https://dashscope.aliyuncs.com/compatible-mode/v1`) | `qwen3.8-max` |
 | StepFun | [StepFun platform](https://platform.stepfun.com) (Step Plan recommended) | `https://api.stepfun.com/step_plan/v1` (pay-as-you-go `https://api.stepfun.com/v1`, international `https://api.stepfun.ai/v1`) | `step-5-preview` |
-| Volcengine Doubao | [Volcengine Ark](https://console.volcengine.com/ark) (Agent Plan or Coding Plan recommended) | `https://ark.cn-beijing.volces.com/api/v3` (international `https://ark.ap-southeast.bytepluses.com/api/v3`) | `doubao-seed-2-1-lite-260915` |
+| Volcengine Doubao | [Volcengine Ark](https://console.volcengine.com/ark) (pay-as-you-go) | `https://ark.cn-beijing.volces.com/api/v3` (international `https://ark.ap-southeast.bytepluses.com/api/v3`) | `doubao-seed-2-1-lite-260915` |
+| Volcengine Agent Plan | [Volcengine Ark](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh) (dedicated Agent Plan key) | `https://ark.cn-beijing.volces.com/api/plan/v3` | `doubao-seed-2-1-pro-260628` |
 | Volcengine (free trial) | [Volcengine Ark](https://console.volcengine.com/ark) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-1-lite-260915` |
 
 #### Volcengine (free trial)

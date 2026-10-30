@@ -33,7 +33,7 @@
 | 语音 | 效果 | 费用 |
 | :--- | :--- | :--- |
 | 浏览器本地语音（Web Speech） | 由设备自带的语音朗读，听起来比较生硬，音色因设备而异 | 免费 |
-| 云端 TTS 语音（MiniMax、千问、智谱 GLM-TTS、阶跃星辰、火山引擎豆包语音） | 声音自然，与真人讲题无异，所有设备音色一致 | 需要付费，**建议购买 Token Plan 等套餐**，比按量付费划算 |
+| 云端 TTS 语音（MiniMax、千问、智谱 GLM-TTS、阶跃星辰、火山引擎豆包语音、火山引擎 Agent Plan） | 声音自然，与真人讲题无异，所有设备音色一致 | 需要付费，**建议购买 Token Plan 等套餐**，比按量付费划算 |
 
 管理员在「设置 → AI 设置 → 语音讲解」中切换，详见 [云端语音讲解](doc/wiki/AI-Configuration.md#云端语音讲解)。
 
@@ -159,7 +159,7 @@
 
 ### 讲解与演示
 
-- **🎬 SVG 动画讲解**：AI 按解题思路生成分步骤的 SVG 动画，支持播放/暂停、拖动进度、重播和全屏。点击播放器上的喇叭可开启语音讲解，朗读每一步的讲解，画面会等语音读完再进入下一步，语速可调。语音有两种：**浏览器本地语音**免费，但听起来较生硬、音色因设备而异；**云端 TTS 语音**（MiniMax、千问、智谱 GLM-TTS、阶跃星辰、火山引擎豆包语音）声音自然、与真人无异，需要付费，建议购买各家的 Token Plan、Step Plan 等套餐而不是按量付费。管理员在「设置 → AI 设置 → 语音讲解」中切换，服务端合成年轻男声并统一到约 -15 LUFS 的响度；生成语音登记为后台任务，已生成语音的动画打开时默认开启语音讲解，已有动画可「重新生成语音」，合成的语音随数据导出、导入备份；旧动画没有讲解稿时朗读画面字幕，也可点击「补充讲解稿」由 AI 只补写讲解稿，画面保持不变。动画文字与界面语言一致：中文界面生成中文版、英文界面生成英文版，两种版本分别保存，切换语言时自动显示对应版本。默认开启，可在「设置 → 通用」中关闭。
+- **🎬 SVG 动画讲解**：AI 按解题思路生成分步骤的 SVG 动画，支持播放/暂停、拖动进度、重播和全屏。点击播放器上的喇叭可开启语音讲解，朗读每一步的讲解，画面会等语音读完再进入下一步，语速可调。语音有两种：**浏览器本地语音**免费，但听起来较生硬、音色因设备而异；**云端 TTS 语音**（MiniMax、千问、智谱 GLM-TTS、阶跃星辰、火山引擎豆包语音、火山引擎 Agent Plan）声音自然、与真人无异，需要付费，建议购买各家的 Token Plan、Step Plan 等套餐而不是按量付费。管理员在「设置 → AI 设置 → 语音讲解」中切换，服务端合成年轻男声并统一到约 -15 LUFS 的响度；生成语音登记为后台任务，已生成语音的动画打开时默认开启语音讲解，已有动画可「重新生成语音」，合成的语音随数据导出、导入备份；旧动画没有讲解稿时朗读画面字幕，也可点击「补充讲解稿」由 AI 只补写讲解稿，画面保持不变。动画文字与界面语言一致：中文界面生成中文版、英文界面生成英文版，两种版本分别保存，切换语言时自动显示对应版本。默认开启，可在「设置 → 通用」中关闭。
 - **📐 GeoGebra 动态演示**：数学、物理题可由 AI 生成交互式 GeoGebra 图形。默认关闭，可在「设置 → 通用」中开启。
 - 已生成的动画讲解和 GeoGebra 演示都可删除（需二次确认）。
 
@@ -201,7 +201,7 @@
 - **数据库**: [SQLite](https://www.sqlite.org/) (via [Prisma 5](https://www.prisma.io/))
 - **样式**: [Tailwind CSS v4](https://tailwindcss.com/) + [Radix UI](https://www.radix-ui.com/)（shadcn/ui 风格组件）
 - **公式**: [KaTeX](https://katex.org/)（react-markdown + remark-math）
-- **AI**: MiniMax / MiniMax Code（网页登录）/ 智谱 GLM / DeepSeek / Kimi / 千问 Qwen / 阶跃星辰 StepFun / 火山引擎豆包（含免费试用） / Anthropic（及兼容接口）/ Azure OpenAI / OpenAI（及兼容接口）/ Google Gemini
+- **AI**: MiniMax / MiniMax Code（网页登录）/ 智谱 GLM / DeepSeek / Kimi / 千问 Qwen / 阶跃星辰 StepFun / 火山引擎豆包（含 Agent Plan、免费试用） / Anthropic（及兼容接口）/ Azure OpenAI / OpenAI（及兼容接口）/ Google Gemini
 - **认证**: [NextAuth.js v4](https://next-auth.js.org/)
 - **测试**: Vitest（单元、集成）、Playwright（E2E）
 
@@ -353,13 +353,13 @@ wrong-notebook --port 3000
 | `HTTP_PROXY` / `HTTPS_PROXY` | 代理 | 无 | 访问 AI 服务时使用的代理 |
 | `ALLOW_REGISTRATION` | 允许注册 | `false` | 为 `true` 时默认开放注册；管理员在「设置 → 用户管理」中保存的开关优先 |
 | `AI_DAILY_LIMIT` | 每人每日 AI 次数 | `0`（不限制） | 普通用户每天可发起的 AI 操作次数，管理员不受限制；「设置 → 用户管理」中保存的值优先 |
-| `TTS_MODE` | 动画语音讲解的朗读方式 | `browser` | `browser` 为浏览器本地语音；`minimax`、`qwen`、`glm`、`stepfun`、`volcengine` 为云端语音，复用对应渠道的 API Key（豆包语音使用 `VOLCENGINE_TTS_API_KEY`）。「设置 → AI 设置 → 语音讲解」中保存的值优先 |
+| `TTS_MODE` | 动画语音讲解的朗读方式 | `browser` | `browser` 为浏览器本地语音；`minimax`、`qwen`、`glm`、`stepfun`、`volcengine`、`volcengine-agent` 为云端语音，复用对应渠道的 API Key（豆包语音使用 `VOLCENGINE_TTS_API_KEY`）。「设置 → AI 设置 → 语音讲解」中保存的值优先 |
 
 **AI 配置**（网页中保存的配置优先于环境变量）
 
 | 环境变量 | 描述 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |
-| `AI_PROVIDER` | AI 提供商 | `minimax` | 可选 `minimax`、`minimax-code`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`volcengine`、`volcengine-free`、`anthropic`、`azure`、`openai`、`gemini` |
+| `AI_PROVIDER` | AI 提供商 | `minimax` | 可选 `minimax`、`minimax-code`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`volcengine`、`volcengine-agent`、`volcengine-free`、`anthropic`、`azure`、`openai`、`gemini` |
 | `MINIMAX_API_KEY` / `MINIMAX_BASE_URL` / `MINIMAX_MODEL` | MiniMax | 地址 `https://api.minimax.cn/v1`，模型 `MiniMax-M3.1-Flash` | 地址和模型可留空 |
 | `MINIMAX_CODE_MODEL` | MiniMax Code 模型 | `MiniMax-M3.1-Flash` | 账号在网页设置中登录，无需 API Key |
 | `MINIMAX_CODE_AUTO_CHECKIN` | MiniMax Code 每日自动签到 | `true` | 设为 `false` 关闭 |
@@ -368,8 +368,9 @@ wrong-notebook --port 3000
 | `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Kimi | 地址 `https://api.moonshot.cn/v1`，模型 `kimi-k3` | 地址和模型可留空 |
 | `QWEN_API_KEY` / `QWEN_BASE_URL` / `QWEN_MODEL` | 千问 Qwen | 地址 `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`（百炼 Token Plan），模型 `qwen3.8-max` | 按量付费的 Key 改填 `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 | `STEPFUN_API_KEY` / `STEPFUN_BASE_URL` / `STEPFUN_MODEL` | 阶跃星辰 StepFun | 地址 `https://api.stepfun.com/step_plan/v1`（Step Plan 套餐），模型 `step-5-preview` | 按量付费改填 `https://api.stepfun.com/v1`，国际站 `https://api.stepfun.ai/v1` |
-| `VOLCENGINE_API_KEY` / `VOLCENGINE_BASE_URL` / `VOLCENGINE_MODEL` | 火山引擎 豆包 | 地址 `https://ark.cn-beijing.volces.com/api/v3`，模型 `doubao-seed-2-1-lite-260915` | 推荐 Agent Plan、Coding Plan 等套餐，套餐地址以控制台为准；国际站 `https://ark.ap-southeast.bytepluses.com/api/v3` |
-| `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | 火山引擎（免费试用） | 同上 | 新用户免费推理额度，开启「安心体验模式」后用完自动暂停 |
+| `VOLCENGINE_API_KEY` / `VOLCENGINE_BASE_URL` / `VOLCENGINE_MODEL` | 火山引擎 豆包 | 地址 `https://ark.cn-beijing.volces.com/api/v3`，模型 `doubao-seed-2-1-lite-260915` | 按量付费；订阅 Agent Plan 等套餐时选择对应的套餐渠道；国际站 `https://ark.ap-southeast.bytepluses.com/api/v3` |
+| `VOLCENGINE_AGENT_API_KEY` / `VOLCENGINE_AGENT_BASE_URL` / `VOLCENGINE_AGENT_MODEL` | 火山引擎 Agent Plan | 地址 `https://ark.cn-beijing.volces.com/api/plan/v3`，模型 `doubao-seed-2-1-pro-260628` | Agent Plan 管理页的专属 API Key；套餐含豆包语音合成 |
+| `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | 火山引擎（免费试用） | 地址 `https://ark.cn-beijing.volces.com/api/v3`，模型 `doubao-seed-2-1-lite-260915` | 新用户免费推理额度，开启「安心体验模式」后用完自动暂停 |
 | `ANTHROPIC_API_KEY` | Anthropic API Key | 无 | 从 [Claude Console](https://platform.claude.com/) 获取 |
 | `ANTHROPIC_BASE_URL` | API 地址 | `https://api.anthropic.com` | 兼容服务填写不含 `/v1` 的地址 |
 | `ANTHROPIC_MODEL` | 模型 | `claude-sonnet-5-5` | 如 `claude-opus-5-5`、`claude-haiku-5-5` |
@@ -402,7 +403,7 @@ wrong-notebook --port 3000
 AI 配置可在网页中动态修改，无需重启服务器。
 
 1. **进入设置**：管理员点击首页右上角的设置图标，打开「AI 设置」。
-2. **选择提供商**：默认使用 MiniMax；可选 MiniMax、用 MiniMax Code 账号网页登录的 MiniMax Code OAuth、智谱 GLM、DeepSeek、Kimi、千问 Qwen、阶跃星辰 StepFun、火山引擎豆包、火山引擎（免费试用），以及 Anthropic、Azure OpenAI、OpenAI（含兼容接口）、Google Gemini，OpenAI 可添加多个配置并切换。
+2. **选择提供商**：默认使用 MiniMax；可选 MiniMax、用 MiniMax Code 账号网页登录的 MiniMax Code OAuth、智谱 GLM、DeepSeek、Kimi、千问 Qwen、阶跃星辰 StepFun、火山引擎豆包、火山引擎 Agent Plan、火山引擎（免费试用），以及 Anthropic、Azure OpenAI、OpenAI（含兼容接口）、Google Gemini，OpenAI 可添加多个配置并切换。
 3. **填写参数**：API Key、Base URL（或 Endpoint）、模型（或部署名称）；可测试连接并从接口获取模型列表。
 4. **保存生效**：配置保存到 `config/app-config.json`，优先级高于 `.env`。
 
@@ -437,7 +438,8 @@ AI 配置可在网页中动态修改，无需重启服务器。
 | Kimi | [Kimi 开放平台](https://platform.kimi.com) | `https://api.moonshot.cn/v1`（国际站 `https://api.moonshot.ai/v1`） | `kimi-k3` |
 | 千问 Qwen | [阿里云百炼](https://bailian.console.aliyun.com)（推荐 Token Plan） | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`（按量付费 `https://dashscope.aliyuncs.com/compatible-mode/v1`） | `qwen3.8-max` |
 | 阶跃星辰 StepFun | [阶跃星辰开放平台](https://platform.stepfun.com)（推荐 Step Plan） | `https://api.stepfun.com/step_plan/v1`（按量付费 `https://api.stepfun.com/v1`，国际站 `https://api.stepfun.ai/v1`） | `step-5-preview` |
-| 火山引擎 豆包 | [火山方舟](https://console.volcengine.com/ark)（推荐 Agent Plan、Coding Plan） | `https://ark.cn-beijing.volces.com/api/v3`（国际站 `https://ark.ap-southeast.bytepluses.com/api/v3`） | `doubao-seed-2-1-lite-260915` |
+| 火山引擎 豆包 | [火山方舟](https://console.volcengine.com/ark)（按量付费） | `https://ark.cn-beijing.volces.com/api/v3`（国际站 `https://ark.ap-southeast.bytepluses.com/api/v3`） | `doubao-seed-2-1-lite-260915` |
+| 火山引擎 Agent Plan | [火山方舟](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh)（Agent Plan 专属 Key） | `https://ark.cn-beijing.volces.com/api/plan/v3` | `doubao-seed-2-1-pro-260628` |
 | 火山引擎（免费试用） | [火山方舟](https://console.volcengine.com/ark) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-1-lite-260915` |
 
 #### 火山引擎（免费试用）

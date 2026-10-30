@@ -24,6 +24,7 @@ export function VendorSettings({ provider, value, onChange }: VendorSettingsProp
         qwen: t.settings?.ai?.qwenBaseUrlHint,
         stepfun: t.settings?.ai?.stepfunBaseUrlHint,
         volcengine: t.settings?.ai?.volcengineBaseUrlHint,
+        "volcengine-agent": t.settings?.ai?.volcengineAgentBaseUrlHint,
     };
 
     return (

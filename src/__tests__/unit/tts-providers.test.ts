@@ -241,3 +241,24 @@ describe('火山引擎豆包语音合成', () => {
         expect(splitJsonObjects('')).toEqual([]);
     });
 });
+
+describe('火山引擎 Agent Plan 语音合成', () => {
+    it('与 Agent Plan 渠道共用专属 Key，请求套餐的豆包语音地址', async () => {
+        const settings = resolveTtsSettings('volcengine-agent', { apiKey: 'ignored' }, { apiKey: 'agent-plan-key' });
+        expect(settings).toMatchObject({
+            apiKey: 'agent-plan-key',
+            endpoint: 'https://openspeech.bytedance.com/api/v3/plan/tts/unidirectional',
+            model: 'seed-tts-2.0',
+            voice: 'zh_male_yangguangqingnian_uranus_bigtts',
+        });
+        const chunk = Buffer.alloc(2);
+        chunk.writeInt16LE(8192, 0);
+        fetchMock.mockResolvedValue(new Response(`${JSON.stringify({ code: 0, data: chunk.toString('base64') })}\n${JSON.stringify({ code: 20000000, message: 'ok' })}`));
+
+        const audio = await synthesizeWithProvider('第一步', 'zh', settings);
+        expect(Array.from(audio.samples)).toEqual([0.25]);
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(url).toBe('https://openspeech.bytedance.com/api/v3/plan/tts/unidirectional');
+        expect(init.headers).toMatchObject({ 'X-Api-Key': 'agent-plan-key', 'X-Api-Resource-Id': 'seed-tts-2.0' });
+    });
+});

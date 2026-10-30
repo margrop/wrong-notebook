@@ -81,6 +81,16 @@ export const VENDOR_PRESETS = {
         consoleUrl: 'https://console.volcengine.com/ark',
         docs: { cn: 'https://www.volcengine.com/docs/82379/1330626', intl: 'https://docs.byteplus.com/en/docs/ModelArk/1330626' },
     },
+    // 火山方舟 Agent Plan 套餐：专属地址与专属 API Key（在方舟控制台的 Agent Plan 管理页获取），套餐含豆包语音合成
+    'volcengine-agent': {
+        name: '火山引擎 Agent Plan',
+        nameEn: 'Volcengine Agent Plan',
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/plan/v3',
+        model: 'doubao-seed-2-1-pro-260628',
+        envPrefix: 'VOLCENGINE_AGENT',
+        consoleUrl: 'https://console.volcengine.com/ark',
+        docs: { cn: 'https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh' },
+    },
     // 同为火山方舟，面向新用户的免费推理额度：每个模型有免费 token，开启「安心体验模式」后额度用完自动暂停，不产生费用
     'volcengine-free': {
         name: '火山引擎（免费试用）',

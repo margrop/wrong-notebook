@@ -187,7 +187,10 @@ export function splitJsonObjects(text: string): unknown[] {
 
 const VOLCENGINE_DONE = 20000000;
 
-/** 火山引擎豆包语音：HTTP 单向流式接口，新版控制台的 API Key 鉴权，资源 ID 决定模型版本（填在「语音模型」中） */
+/**
+ * 火山引擎豆包语音：HTTP 单向流式接口，新版控制台的 API Key 鉴权，资源 ID 决定模型版本（填在「语音模型」中）。
+ * Agent Plan 套餐使用同样的协议，地址不同，Key 为 Agent Plan 的专属 Key
+ */
 async function synthesizeVolcengine(text: string, settings: ResolvedTtsSettings): Promise<PcmAudio> {
     const res = await fetch(settings.endpoint, {
         method: 'POST',
@@ -234,6 +237,7 @@ export async function synthesizeWithProvider(text: string, language: 'zh' | 'en'
         case 'stepfun':
             return synthesizeStepFun(text, settings);
         case 'volcengine':
+        case 'volcengine-agent':
             return synthesizeVolcengine(text, settings);
     }
 }
