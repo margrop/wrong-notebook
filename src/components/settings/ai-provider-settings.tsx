@@ -11,6 +11,7 @@ import { AzureSettings } from "@/components/settings/azure-settings";
 import { GeminiSettings } from "@/components/settings/gemini-settings";
 import { MiniMaxCodeSettings } from "@/components/settings/minimax-code-settings";
 import { OpenAIInstanceSettings } from "@/components/settings/openai-instance-settings";
+import { ProviderDocLinks } from "@/components/settings/provider-doc-links";
 import { VendorSettings } from "@/components/settings/vendor-settings";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isVendorProvider, VENDOR_PRESETS, VENDOR_PROVIDER_IDS } from "@/lib/ai/vendor-presets";
@@ -60,6 +61,7 @@ export function AiProviderSettings({ config, setConfig, loading, saving, onSave 
                         <SelectItem value="gemini">Google Gemini</SelectItem>
                     </SelectContent>
                 </Select>
+                <ProviderDocLinks provider={config.aiProvider} />
             </div>
 
             {config.aiProvider === 'openai' && (

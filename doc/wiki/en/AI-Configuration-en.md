@@ -5,7 +5,7 @@ Admins can change the AI configuration in the web settings. Once saved, later re
 ## Steps
 
 1. Sign in as an admin and open "Settings → AI Provider".
-2. Choose a provider and fill in the API key, endpoint, and model or deployment name.
+2. Choose a provider and fill in the API key, endpoint, and model or deployment name. Links to the official API docs appear below the provider (both the China and international sites when a provider has both), so you can check the endpoint and model names.
 3. Test the connection; fetch the model list from the API if needed. When the test fails, the provider's original error (such as an exhausted quota or a missing model) is shown along with the error type.
 4. Save, then check image input, output format and answer quality with a real question.
 

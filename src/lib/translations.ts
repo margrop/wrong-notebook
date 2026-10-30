@@ -504,6 +504,12 @@ export const translations = {
                 vendorApiKeyHint: "Get an API key from the official console:",
                 vendorBaseUrlHint: "Leave empty for the official mainland China endpoint shown above. For the international site, enter its OpenAI-compatible URL instead.",
                 providerErrorDetail: "Provider error: ",
+                providerDocs: {
+                    title: "Official API docs:",
+                    official: "Docs",
+                    cn: "China site",
+                    intl: "International site",
+                },
                 qwenBaseUrlHint: "The default is the Alibaba Cloud Model Studio Token Plan endpoint (recommended; keys start with sk-sp-). For a pay-as-you-go key, enter https://dashscope.aliyuncs.com/compatible-mode/v1.",
                 minimaxCode: {
                     title: "MiniMax Code account",
@@ -1721,6 +1727,12 @@ export const translations = {
                 vendorApiKeyHint: "在官方控制台获取 API Key：",
                 vendorBaseUrlHint: "留空使用上方的中国大陆官方地址；使用国际站时填写其 OpenAI 兼容地址。",
                 providerErrorDetail: "服务商报错：",
+                providerDocs: {
+                    title: "官方接入文档：",
+                    official: "接入文档",
+                    cn: "国内站",
+                    intl: "国际站",
+                },
                 qwenBaseUrlHint: "默认为阿里云百炼 Token Plan 专属地址（推荐，Key 以 sk-sp- 开头）；使用按量付费的 Key 时填写 https://dashscope.aliyuncs.com/compatible-mode/v1。",
                 minimaxCode: {
                     title: "MiniMax Code 账号",
