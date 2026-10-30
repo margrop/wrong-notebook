@@ -125,4 +125,13 @@ Every release on [Releases](https://github.com/margrop/wrong-notebook/releases) 
 | Android phone / tablet (standalone) | Install `WrongNotebook-Android-Phone-<version>.apk` or `WrongNotebook-Android-Tablet-<version>.apk` | App-private directory, removed on uninstall |
 | Android phone / tablet (client) | Install `WrongNotebook-Android-Client-Phone-<version>.apk` or `-Client-Tablet-<version>.apk` and enter the server address on first launch | Stores no data; connects to a deployed server |
 
-Desktop builds listen only on the local machine, on port 39300 by default; the fnOS build listens on port 39300 and is reachable on the LAN. The database, AI configuration and session secret all live in the data directory, so back up the whole directory. Desktop installers are unsigned; on macOS, right-click and choose "Open" the first time. The Android standalone edition runs the server on the phone with no separate deployment and needs a 64-bit ARM device on Android 8.0 or later; the Android client edition is only a shell that connects to a server, which must first be deployed with one of the methods above. See [INSTALL_PACKAGES.md](https://github.com/margrop/wrong-notebook/blob/main/doc/INSTALL_PACKAGES.md) for details.
+Desktop builds listen only on the local machine, on port 39300 by default; the fnOS build listens on port 39300 and is reachable on the LAN. The database, AI configuration and session secret all live in the data directory, so back up the whole directory.
+
+Desktop installers are unsigned. If macOS says the app is damaged or cannot be opened, first move it to Applications, then run these commands in Terminal to remove the quarantine flag and re-sign it locally before opening it:
+
+```bash
+xattr -cr /Applications/WrongNotebook.app
+codesign --force --deep --sign - /Applications/WrongNotebook.app
+```
+
+The Android standalone edition runs the server on the phone with no separate deployment and needs a 64-bit ARM device on Android 8.0 or later; the Android client edition is only a shell that connects to a server, which must first be deployed with one of the methods above. See [INSTALL_PACKAGES.md](https://github.com/margrop/wrong-notebook/blob/main/doc/INSTALL_PACKAGES.md) for details.
