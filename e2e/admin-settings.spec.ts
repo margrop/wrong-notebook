@@ -41,7 +41,7 @@ test('Admin can configure OpenAI settings with multi-instance support', async ({
     const modelName = 'claude-haiku-4.5';
 
     // Instance Name Input - use the actual placeholder from the component
-    await page.locator('input[placeholder="e.g. 智谱 GLM-4V"]').fill(instanceName);
+    await page.locator('input[placeholder="e.g. GLM-4V"]').fill(instanceName);
 
     // API Key Input associated by placeholder
     await page.locator('input[placeholder="sk-..."]').fill(apiKey);
