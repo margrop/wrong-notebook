@@ -122,6 +122,12 @@ jobs:
             args: --linux --arm64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+    env:
+      # 审核通过并配置后才启用；分支试构建仍沿用原有的未签名流程。
+      SIGN_WINDOWS: ${{ matrix.name == 'windows-x64' && vars.SIGNPATH_ENABLED == 'true' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -156,6 +162,64 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: node scripts/package/build.mjs desktop ${{ matrix.args }}
+
+      - name: 检查 Windows 签名配置与安装包元数据
+        if: env.SIGN_WINDOWS == 'true'
+        id: windows-signing
+        shell: pwsh
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          SIGNPATH_ARTIFACT_CONFIGURATION_SLUG: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+        run: |
+          foreach ($name in @('SIGNPATH_API_TOKEN', 'SIGNPATH_ORGANIZATION_ID', 'SIGNPATH_PROJECT_SLUG', 'SIGNPATH_SIGNING_POLICY_SLUG', 'SIGNPATH_ARTIFACT_CONFIGURATION_SLUG')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "启用 Windows 签名后必须配置 $name"
+            }
+          }
+          $files = @(Get-ChildItem dist/desktop/release/WrongNotebook-Win-*.exe -File)
+          if ($files.Count -ne 2 -or @($files | Where-Object Name -Match '^WrongNotebook-Win-Setup-.+-x64\.exe$').Count -ne 1 -or @($files | Where-Object Name -Match '^WrongNotebook-Win-Portable-.+-x64\.exe$').Count -ne 1) {
+            throw '必须同时生成一个 Windows 安装版和一个免安装版'
+          }
+          $versions = @($files.VersionInfo.ProductVersion | Select-Object -Unique)
+          if ($versions.Count -ne 1 -or [string]::IsNullOrWhiteSpace($versions[0]) -or @($files | Where-Object { $_.VersionInfo.ProductName -ne 'WrongNotebook' }).Count -ne 0) {
+            throw 'Windows 安装包必须使用 WrongNotebook 产品名和一致的产品版本'
+          }
+          "product-version=$($versions[0])" >> $env:GITHUB_OUTPUT
+
+      # SignPath 验证 GitHub 构建来源；此中间产物不匹配 Release 的 package-* 下载规则。
+      - name: 上传 Windows 未签名产物供 SignPath 验证
+        if: env.SIGN_WINDOWS == 'true'
+        id: unsigned-windows
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: unsigned-windows-x64
+          path: dist/desktop/release/WrongNotebook-Win-*.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: 提交 SignPath 请求并等待维护者批准
+        if: env.SIGN_WINDOWS == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.unsigned-windows.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1800
+          output-artifact-directory: ${{ runner.temp }}/signed-windows
+          parameters: |
+            version: ${{ toJSON(steps.windows-signing.outputs.product-version) }}
+
+      - name: 验证 Windows 签名并替换发布文件
+        if: env.SIGN_WINDOWS == 'true'
+        shell: pwsh
+        run: ./scripts/package/verify-windows-signatures.ps1 -UnsignedDirectory dist/desktop/release -SignedDirectory '${{ runner.temp }}/signed-windows'
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

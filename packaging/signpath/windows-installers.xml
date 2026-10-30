@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <zip-file>
+    <!-- 只签项目发布的两个安装包，不重新签署 Electron、Prisma 等上游二进制。 -->
+    <pe-file path="WrongNotebook-Win-Setup-*-x64.exe" product-name="WrongNotebook" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="WrongNotebook-Win-Portable-*-x64.exe" product-name="WrongNotebook" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

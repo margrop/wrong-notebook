@@ -125,6 +125,8 @@ Every release on [Releases](https://github.com/margrop/wrong-notebook/releases) 
 | Android phone / tablet (standalone) | Install `WrongNotebook-Android-Phone-<version>.apk` or `WrongNotebook-Android-Tablet-<version>.apk` | App-private directory, removed on uninstall |
 | Android phone / tablet (client) | Install `WrongNotebook-Android-Client-Phone-<version>.apk` or `-Client-Tablet-<version>.apk` and enter the server address on first launch | Stores no data; connects to a deployed server |
 
+Windows installers are currently unsigned, and the project is applying to SignPath Foundation. See the [Code signing policy](https://github.com/margrop/wrong-notebook/blob/main/doc/CODE_SIGNING.en.md) for scope, responsibilities and status, and the [privacy policy](https://github.com/margrop/wrong-notebook/blob/main/doc/PRIVACY.en.md) for data processing. Maintainers can follow the [Windows signing setup guide](https://github.com/margrop/wrong-notebook/blob/main/doc/WINDOWS_SIGNING.md) after approval.
+
 Desktop builds listen only on the local machine, on port 39300 by default; the fnOS build listens on port 39300 and is reachable on the LAN. The database, AI configuration and session secret all live in the data directory, so back up the whole directory.
 
 Desktop installers are unsigned. If macOS says the app is damaged or cannot be opened, first move it to Applications, then run these commands in Terminal to remove the quarantine flag and re-sign it locally before opening it:
