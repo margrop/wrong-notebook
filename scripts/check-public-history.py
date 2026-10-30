@@ -21,6 +21,7 @@ EXAMPLE_ADDRESSES = {
     ".".join(("192", "168", "1", "100")): {"doc/HTTPS_SETUP.md", "doc/setup-wsl-network.md", "docker-compose.https.yml"},
     ".".join(("192", "168", "1", "10")): {
         "README.md", "README.en.md", "doc/INSTALL_PACKAGES.md", "src/__tests__/unit/android-app.test.tsx",
+        "src/__tests__/integration/initialize.test.ts",
         "packaging/android/app/src/main/res/values/strings.xml",
         "packaging/android/app/src/main/res/values-zh/strings.xml",
     },
