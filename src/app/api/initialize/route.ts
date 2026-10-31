@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { badRequest, conflict, createErrorResponse, ErrorCode, forbidden, internalError, validationError } from "@/lib/api-errors";
+import { badRequest, conflict, createErrorResponse, ErrorCode, forbidden, internalError, tooManyRequests, validationError } from "@/lib/api-errors";
 import { DEFAULT_ADMIN_PASSWORD } from "@/lib/default-admin";
 import { isInitialized } from "@/lib/initialization";
 import { createLogger } from "@/lib/logger";
+import { getClientIp, registerIpLimiter } from "@/lib/rate-limit";
 import { claimSetupToken } from "@/lib/setup-token";
 
 const logger = createLogger("api:initialize");
@@ -23,6 +24,11 @@ const initializeSchema = z.object({
  * 全新安装时用一次性初始化链接中的令牌创建第一个管理员；已有管理员后不再可用
  */
 export async function POST(req: Request) {
+    // 初始化令牌只能用一次，限制同一 IP 的尝试次数，防止猜测令牌
+    const ip = getClientIp(req.headers);
+    const retryAfter = registerIpLimiter.retryAfter(ip);
+    if (retryAfter > 0) return tooManyRequests(retryAfter);
+
     let body: unknown;
     try {
         body = await req.json();
@@ -42,6 +48,7 @@ export async function POST(req: Request) {
 
         const claim = claimSetupToken(token);
         if (!claim) {
+            registerIpLimiter.hit(ip);
             logger.warn("Rejected initialization with an invalid setup token");
             return forbidden("Invalid or expired setup link");
         }

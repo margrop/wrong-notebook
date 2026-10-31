@@ -38,10 +38,13 @@ vi.mock('bcryptjs', () => ({
 // Import after mocks
 import { POST } from '@/app/api/register/route';
 import { GET as GET_STATUS } from '@/app/api/register/status/route';
+import { registerIpLimiter } from '@/lib/rate-limit';
 
 describe('/api/register', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        registerIpLimiter.reset('unknown');
+        registerIpLimiter.reset('5.5.5.5');
         // Reset config mock to allow registration by default
         mocks.mockGetAppConfig.mockReturnValue({
             aiProvider: 'gemini',
@@ -57,6 +60,23 @@ describe('/api/register', () => {
             educationStage: 'junior_high',
             enrollmentYear: 2024,
         };
+
+        it('同一 IP 每小时注册超过 10 次时返回 429', async () => {
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ id: 'exists' });
+            const send = () => POST(new Request('http://localhost/api/register', {
+                method: 'POST',
+                headers: { 'x-real-ip': '5.5.5.5' },
+                body: JSON.stringify(validUserData),
+            }));
+            for (let i = 0; i < 10; i++) {
+                expect((await send()).status).toBe(409);
+            }
+
+            const response = await send();
+            expect(response.status).toBe(429);
+            expect(Number(response.headers.get('Retry-After'))).toBeGreaterThan(0);
+            await expect(response.json()).resolves.toMatchObject({ code: 'TOO_MANY_REQUESTS' });
+        });
 
         it('应该成功注册新用户', async () => {
             mocks.mockPrismaUser.findUnique.mockResolvedValue(null); // 用户不存在

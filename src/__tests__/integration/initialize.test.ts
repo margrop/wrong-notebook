@@ -22,6 +22,7 @@ import { POST } from '@/app/api/initialize/route';
 import { GET as GET_STATUS } from '@/app/api/register/status/route';
 import { announceSetupLink, setupLinkFor } from '@/lib/initialization';
 import { ensureSetupToken } from '@/lib/setup-token';
+import { registerIpLimiter } from '@/lib/rate-limit';
 
 let database: PrismaClient;
 let directory: string;
@@ -48,6 +49,7 @@ beforeAll(() => {
 
 beforeEach(async () => {
     vi.clearAllMocks();
+    registerIpLimiter.reset('unknown');
     await database.user.deleteMany();
     configDir = mkdtempSync(join(directory, 'config-'));
     vi.stubEnv('CONFIG_DIR', configDir);
@@ -153,6 +155,16 @@ describe('POST /api/initialize', () => {
         expect((await initialize({ ...valid(token), token: '' })).status).toBe(400);
         expect(await database.user.count()).toBe(0);
         expect(ensureSetupToken()).toBe(token);
+    });
+
+    it('同一 IP 猜错令牌 10 次后，即使令牌正确也先拒绝', async () => {
+        const token = ensureSetupToken();
+        for (let i = 0; i < 10; i++) {
+            expect((await initialize(valid(`guess-${i}`))).status).toBe(403);
+        }
+
+        expect((await initialize(valid(token))).status).toBe(429);
+        expect(await database.user.count()).toBe(0);
     });
 
     it('没有令牌文件时任何令牌都无效', async () => {

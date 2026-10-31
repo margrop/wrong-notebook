@@ -10,6 +10,7 @@ import { AuthShell } from "@/components/auth-shell";
 import { SetupGuide } from "@/components/initialize/setup-guide";
 import { LoginHelp } from "@/components/login-help";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { TOO_MANY_ATTEMPTS } from "@/lib/auth-errors";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { usePageTitle } from "@/lib/page-title";
 
@@ -54,7 +55,9 @@ export default function LoginPage() {
                 password,
             });
 
-            if (result?.error) {
+            if (result?.error === TOO_MANY_ATTEMPTS) {
+                setError(t.auth?.login?.tooManyAttempts || 'Too many failed attempts, please try again later');
+            } else if (result?.error) {
                 setError(t.auth?.login?.failed || 'Login failed');
             } else {
                 router.push("/");

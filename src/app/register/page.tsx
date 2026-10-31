@@ -78,6 +78,8 @@ export default function RegisterPage() {
             let errorMsg = getApiErrorMessage(error);
             if (errorMsg === 'User with this email already exists') {
                 errorMsg = t.auth?.register?.emailExists || errorMsg;
+            } else if (errorMsg === 'Too many requests') {
+                errorMsg = t.auth?.register?.tooManyAttempts || errorMsg;
             } else {
                 errorMsg = errorMsg || (t.auth?.register?.failed || 'Registration failed');
             }

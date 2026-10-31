@@ -40,6 +40,7 @@ export const ErrorCode = {
 
     // 请求过多 (429)
     AI_DAILY_LIMIT_EXCEEDED: 'AI_DAILY_LIMIT_EXCEEDED',
+    TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
 
     // 冲突 (409)
     CONFLICT: 'CONFLICT',
@@ -121,6 +122,15 @@ export function validationError(message: string, errors?: unknown): NextResponse
  */
 export function conflict(message: string): NextResponse<ApiErrorResponse> {
     return createErrorResponse(message, 409, ErrorCode.CONFLICT);
+}
+
+/**
+ * 429 Too Many Requests - 请求过多，Retry-After 告诉客户端多少秒后再试
+ */
+export function tooManyRequests(retryAfterMs: number, message: string = "Too many requests"): NextResponse<ApiErrorResponse> {
+    const response = createErrorResponse(message, 429, ErrorCode.TOO_MANY_REQUESTS);
+    response.headers.set("Retry-After", String(Math.max(1, Math.ceil(retryAfterMs / 1000))));
+    return response;
 }
 
 /**

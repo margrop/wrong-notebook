@@ -18,6 +18,11 @@ Instances installed with earlier versions have the default admin `admin@localhos
 
 Check that `NEXTAUTH_URL` equals the full address the browser actually uses, that `NEXTAUTH_SECRET` is set and stays the same after recreating the container, and that the proxy forwards the host and protocol correctly. Sign in again once the configuration takes effect.
 
+
+## "Too many failed attempts" when signing in?
+
+To stop brute-force attacks, sign-in is paused for 15 minutes after 5 wrong passwords for one account, or 20 failed sign-ins from one IP, within 15 minutes; during the pause even the correct password is rejected. Sign-up and the setup link allow at most 10 attempts per IP per hour. Try again after the wait, or restart the service to clear the counters. Behind a reverse proxy, forward `X-Real-IP` or `X-Forwarded-For`; otherwise every visitor counts as the same IP.
+
 ## I changed environment variables but the AI still uses the old configuration?
 
 Fields saved in the web UI take precedence over environment variables. Check the provider, model and active instance in "Settings → AI Provider" first. After changing container environment variables, recreate the container; once the web configuration is saved, later AI requests read it.

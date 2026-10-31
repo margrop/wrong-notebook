@@ -846,6 +846,7 @@ export const translations = {
             login: {
                 title: "Login to Wrong Notebook",
                 failed: "Login failed, please check your credentials",
+                tooManyAttempts: "Too many failed attempts. Please try again in 15 minutes.",
                 error: "An error occurred, please try again",
                 loggingIn: "Logging in...",
                 action: "Login",
@@ -858,6 +859,7 @@ export const translations = {
                 firstUseDocs: "Open the documentation",
             },
             register: {
+                tooManyAttempts: "Too many registration attempts. Please try again later.",
                 title: "Create an Account",
                 passwordMismatch: "Passwords do not match",
                 emailExists: "User with this email already exists",
@@ -2143,6 +2145,7 @@ export const translations = {
             login: {
                 title: "登录到错题本",
                 failed: "登录失败，请检查邮箱和密码",
+                tooManyAttempts: "密码错误次数过多，请 15 分钟后再试",
                 error: "发生错误，请重试",
                 loggingIn: "登录中...",
                 action: "登录",
@@ -2155,6 +2158,7 @@ export const translations = {
                 firstUseDocs: "查看使用文档",
             },
             register: {
+                tooManyAttempts: "注册尝试次数过多，请稍后再试",
                 title: "注册新账号",
                 passwordMismatch: "两次密码不一致",
                 emailExists: "该邮箱已被注册",

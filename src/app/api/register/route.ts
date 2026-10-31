@@ -2,7 +2,9 @@ import { NextResponse } from "next/server"
 import { hash } from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { tooManyRequests } from "@/lib/api-errors"
 import { getAppConfig } from "@/lib/config"
+import { getClientIp, registerIpLimiter } from "@/lib/rate-limit"
 
 const userSchema = z.object({
     // 支持标准邮箱和本地邮箱（如 user@localhost）
@@ -23,6 +25,14 @@ export async function POST(req: Request) {
                 { status: 403 }
             );
         }
+
+        // 同一 IP 每小时提交次数有限，防止批量注册或枚举邮箱
+        const ip = getClientIp(req.headers)
+        const retryAfter = registerIpLimiter.retryAfter(ip)
+        if (retryAfter > 0) {
+            return tooManyRequests(retryAfter)
+        }
+        registerIpLimiter.hit(ip)
 
         const body = await req.json()
         const { email, password, name, educationStage, enrollmentYear } = userSchema.parse(body)
