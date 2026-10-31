@@ -35,11 +35,12 @@ export async function GET() {
         const masteryRate = totalErrors > 0 ? ((masteredCount / totalErrors) * 100).toFixed(1) : 0;
 
         // 4. Subject Distribution - Get error items grouped by subject
+        // 只取科目名：错题行里有 base64 原图、解答和动画等大字段，不能整行读出
         const errorItemsWithSubject = await prisma.errorItem.findMany({
             where: { userId },
-            include: {
-                subject: true
-            }
+            select: {
+                subject: { select: { name: true } },
+            },
         });
 
         const subjectMap = new Map<string, number>();

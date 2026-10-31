@@ -119,6 +119,17 @@ describe('/api/analytics', () => {
             expect(physicsStat.value).toBe(1);
         });
 
+        it('统计学科分布时只读取科目名，不读取原图等大字段', async () => {
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+
+            await GET();
+
+            const args = mocks.mockPrismaErrorItem.findMany.mock.calls[0][0];
+            expect(args).not.toHaveProperty('include');
+            expect(args.select).toEqual({ subject: { select: { name: true } } });
+        });
+
         it('应该处理没有学科的错题', async () => {
             mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([
