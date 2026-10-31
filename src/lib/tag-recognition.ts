@@ -44,8 +44,10 @@ export async function findParentTagIdForGrade(gradeSemester: string | null | und
         "高三": "高三", "Grade 12": "高三", "Senior 3": "高三",
     };
 
+    // 先匹配较长的写法，否则 "Grade 12" 会先命中 "Grade 1" 被当成一年级
     let targetGradePrefix = "";
-    for (const [key, value] of Object.entries(gradeLevelMap)) {
+    const entries = Object.entries(gradeLevelMap).sort(([a], [b]) => b.length - a.length);
+    for (const [key, value] of entries) {
         if (normalizedInput.includes(key)) {
             targetGradePrefix = value;
             break; // Found the grade level
