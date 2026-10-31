@@ -33,6 +33,7 @@ export function SvgAnimationPlayer({ svg, errorItemId }: SvgAnimationPlayerProps
     const containerRef = useRef<HTMLDivElement>(null);
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const svgRef = useRef<SVGSVGElement | null>(null);
+    const [loadedSvg, setLoadedSvg] = useState<string | null>(null);
     const [playing, setPlaying] = useState(false);
     const [current, setCurrent] = useState(0);
     const [nativeFullscreen, setNativeFullscreen] = useState(false);
@@ -98,10 +99,14 @@ export function SvgAnimationPlayer({ svg, errorItemId }: SvgAnimationPlayerProps
 
     const handleLoad = () => {
         svgRef.current = iframeRef.current?.contentDocument?.querySelector("svg") ?? null;
-        setSubtitleNarration(svgRef.current ? extractSubtitleNarration(svgRef.current) : null);
         stopNarration(0);
+        // SMIL 和 CSS 时间轴都停在首帧，只有用户点击播放或重播才恢复。
+        pauseAnimation();
+        svgRef.current?.setCurrentTime(0);
+        cssAnimations().forEach((animation) => { animation.currentTime = 0; });
+        setSubtitleNarration(svgRef.current ? extractSubtitleNarration(svgRef.current) : null);
         setCurrent(0);
-        setPlaying(!!svgRef.current);
+        setLoadedSvg(svgRef.current ? svg : null);
     };
 
     const toggleFullscreen = async () => {
@@ -186,9 +191,9 @@ export function SvgAnimationPlayer({ svg, errorItemId }: SvgAnimationPlayerProps
                     waitingForVoice && "border-primary ring-2 ring-primary/40"
                 )}
                 // 全屏时按宽高比放到最大，留出控制栏的高度
-                style={fullscreen
+                style={{ visibility: loadedSvg === svg ? "visible" : "hidden", ...(fullscreen
                     ? { aspectRatio, width: `min(100%, calc((100dvh - 96px) * ${aspectRatio}))` }
-                    : { aspectRatio }}
+                    : { aspectRatio }) }}
             />
             <div className={cn("mx-auto flex w-full items-center gap-2", fullscreen ? "max-w-5xl text-white" : "max-w-3xl")}>
                 <Button
@@ -197,6 +202,7 @@ export function SvgAnimationPlayer({ svg, errorItemId }: SvgAnimationPlayerProps
                     // 全屏时控制栏文字为白色，播放按钮是白底，图标需保持深色
                     className="h-8 w-8 shrink-0 p-0 text-foreground"
                     onClick={playing ? pause : play}
+                    disabled={loadedSvg !== svg}
                     aria-label={playing ? t.svgAnimation.pause : t.svgAnimation.play}
                     title={playing ? t.svgAnimation.pause : t.svgAnimation.play}
                 >
@@ -207,6 +213,7 @@ export function SvgAnimationPlayer({ svg, errorItemId }: SvgAnimationPlayerProps
                     size="sm"
                     className={cn("h-8 w-8 shrink-0 p-0", fullscreen && "text-white hover:bg-white/20 hover:text-white")}
                     onClick={() => { seek(0); play(); }}
+                    disabled={loadedSvg !== svg}
                     aria-label={t.svgAnimation.replay}
                     title={t.svgAnimation.replay}
                 >
