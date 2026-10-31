@@ -183,7 +183,7 @@ describe('管理后台接口', () => {
 });
 
 describe('/api/tags 自定义标签', () => {
-    const request = (url: string, init?: RequestInit) => new NextRequest(`http://localhost${url}`, init);
+    const request = (url: string, init?: ConstructorParameters<typeof NextRequest>[1]) => new NextRequest(`http://localhost${url}`, init);
 
     it('未登录时拒绝读取和创建', async () => {
         expect((await GET_TAGS(request('/api/tags?subject=math'))).status).toBe(401);
