@@ -84,6 +84,8 @@ docker compose logs wrong-notebook | grep initialize
 
 域名访问建议使用受浏览器信任的 HTTPS 证书。可以通过反向代理将 HTTPS 请求转到应用的 HTTP 端口，并将 `NEXTAUTH_URL` 设置为外部 HTTPS 地址。
 
+反向代理请转发 `X-Real-IP` 或 `X-Forwarded-For`，登录失败次数按来源 IP 统计。应用默认返回 `X-Frame-Options: SAMEORIGIN` 等安全头，不能被其他域名的页面用 iframe 嵌入；需要启用 HSTS 时请在反向代理上配置。
+
 应用也提供内置 HTTPS，参考仓库中的 [`docker-compose.https.yml`](https://github.com/margrop/wrong-notebook/blob/main/docker-compose.https.yml)：
 
 - 设置 `HTTPS_ENABLED=true`、`CERT_DOMAIN` 和正确的 `NEXTAUTH_URL`。

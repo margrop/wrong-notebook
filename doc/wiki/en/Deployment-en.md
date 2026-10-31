@@ -84,6 +84,8 @@ The image sets `PRESERVE_EXISTING_DATA=true` by default. When an existing databa
 
 For access by domain name, use an HTTPS certificate trusted by browsers. A reverse proxy can forward HTTPS requests to the app's HTTP port; set `NEXTAUTH_URL` to the external HTTPS address.
 
+The reverse proxy should forward `X-Real-IP` or `X-Forwarded-For`, because failed sign-ins are counted per client IP. The app sends security headers such as `X-Frame-Options: SAMEORIGIN` by default, so pages on other domains cannot embed it in an iframe; configure HSTS on the reverse proxy if you need it.
+
 The app also provides built-in HTTPS; see [`docker-compose.https.yml`](https://github.com/margrop/wrong-notebook/blob/main/docker-compose.https.yml) in the repository:
 
 - Set `HTTPS_ENABLED=true`, `CERT_DOMAIN` and the correct `NEXTAUTH_URL`.
