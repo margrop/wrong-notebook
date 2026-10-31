@@ -20,33 +20,23 @@ export async function GET() {
             return unauthorized("Authentication required");
         }
 
-        // 只统计当前用户自己的错题
-        const errorItems = await prisma.errorItem.findMany({
-            where: { userId: user.id },
-            select: {
-                knowledgePoints: true,
-            },
-        });
+        // 按标签关系统计（knowledgePoints 已弃用，只保留双写）；只计当前用户自己的错题
+        const [total, tags] = await Promise.all([
+            prisma.errorItem.count({ where: { userId: user.id } }),
+            prisma.knowledgeTag.findMany({
+                where: { errorItems: { some: { userId: user.id } } },
+                select: {
+                    name: true,
+                    _count: { select: { errorItems: { where: { userId: user.id } } } },
+                },
+            }),
+        ]);
 
-        // 统计标签使用频率
+        // 不同学科或层级可能有同名标签，按名称合并
         const tagStats: Record<string, number> = {};
-
-        errorItems.forEach((item) => {
-            if (item.knowledgePoints) {
-                try {
-                    const tags = JSON.parse(item.knowledgePoints);
-                    if (Array.isArray(tags)) {
-                        tags.forEach((tag: string) => {
-                            if (tag && typeof tag === 'string') {
-                                tagStats[tag] = (tagStats[tag] || 0) + 1;
-                            }
-                        });
-                    }
-                } catch {
-                    logger.warn({ knowledgePoints: item.knowledgePoints }, 'Failed to parse knowledgePoints for item');
-                }
-            }
-        });
+        for (const tag of tags) {
+            tagStats[tag.name] = (tagStats[tag.name] || 0) + tag._count.errorItems;
+        }
 
         // 转换为数组并按使用次数排序
         const sortedStats = Object.entries(tagStats)
@@ -55,7 +45,7 @@ export async function GET() {
 
         return NextResponse.json({
             stats: sortedStats,
-            total: errorItems.length,
+            total,
             uniqueTags: sortedStats.length,
         });
     } catch (error) {
