@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, Github, Info, MessageSquareText, ScrollText } from "lucide-react";
+import { ExternalLink, Info, MessageSquareText, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GithubIcon } from "@/components/icons/github-icon";
 import { AndroidAppSetting } from "@/components/settings/android-app-setting";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { PROJECT_REPO_URL } from "@/lib/constants/project";
@@ -20,7 +21,7 @@ export function AboutSettings() {
     }, []);
 
     const links = [
-        { href: PROJECT_REPO_URL, icon: Github, label: t.settings?.about?.github || "GitHub Repository" },
+        { href: PROJECT_REPO_URL, icon: GithubIcon, label: t.settings?.about?.github || "GitHub Repository" },
         { href: `${PROJECT_REPO_URL}/releases`, icon: ScrollText, label: t.settings?.about?.releaseNotes || "Release Notes" },
         { href: `${PROJECT_REPO_URL}/issues`, icon: MessageSquareText, label: t.settings?.about?.feedback || "Feedback" },
     ];
