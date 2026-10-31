@@ -22,7 +22,11 @@ export function normalizeAnswer(value: string): string {
         .toLowerCase();
 }
 
-export function matchAnswer(userAnswer: string, correctAnswer: string): true | null {
+// 需要论证、解释或解题过程时，结论相同也不能证明学生完成了题目要求。
+const REASONING_QUESTION = /证明|求证|论证|推导|说明|解释|步骤|过程|列式|理由|原因|\b(?:prove|proof|justify|derive|explain|demonstrate|show|why|reason)\b/iu;
+
+export function matchAnswer(userAnswer: string, correctAnswer: string, questionText: string): true | null {
+    if (!questionText.trim() || REASONING_QUESTION.test(questionText)) return null;
     const user = normalizeAnswer(userAnswer);
     const correct = normalizeAnswer(correctAnswer);
     if (!user || !correct) return null;

@@ -116,6 +116,21 @@ describe('usePracticeSession', () => {
         expect(session.showAnswer).toBe(true);
     });
 
+    it.each(['证明两底角相等', '说明理由并写出过程', 'Prove the two angles are equal.', 'Show that the angles are equal.'])('需要论证的题目不会因结论相同而跳过 AI：%s', async questionText => {
+        mocks.post.mockResolvedValueOnce({ ...generated, questionText, answerText: '两角相等' })
+            .mockResolvedValueOnce({ correct: false, reason: '缺少论证过程' });
+        await render();
+        await act(async () => session.generateQuestion());
+        await act(async () => session.setUserAnswer('两角相等'));
+        await act(async () => session.submitAnswer());
+        expect(mocks.post).toHaveBeenLastCalledWith('/api/practice/grade',
+            { errorItemId: 'item-1', userAnswer: '两角相等', language: expect.any(String) },
+            { timeout: 60000, recoverable: true });
+        expect(session.isCorrect).toBe(false);
+        expect(session.gradeReason).toBe('缺少论证过程');
+        expect(session.suggestedResult).toBe('wrong');
+    });
+
     it('答案不一致时交给 AI 判题并显示判定依据', async () => {
         mocks.post.mockResolvedValueOnce(generated).mockResolvedValueOnce({ correct: false, reason: '计算错误' });
         await render();

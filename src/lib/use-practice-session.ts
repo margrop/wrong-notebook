@@ -125,12 +125,12 @@ export function usePracticeSession(errorItemId: string | null) {
         }
     };
 
-    // 本地能确定答案一致时直接判对；否则交给 AI 对照标准答案判定，失败时由用户自己选择结果
+    // 不要求过程且本地能确定答案一致时直接判对；需要论证或无法比对时交给 AI，失败时由用户选择结果
     const submitAnswer = async () => {
         if (!userAnswer.trim() || !question || !errorItemId) return;
 
         setIsSubmitted(true);
-        if (matchAnswer(userAnswer, question.answerText)) {
+        if (matchAnswer(userAnswer, question.answerText, question.questionText)) {
             setIsCorrect(true);
             setShowAnswer(true);
             return;

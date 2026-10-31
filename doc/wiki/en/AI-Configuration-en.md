@@ -111,6 +111,8 @@ SVG figures and animations are generated as code by the language model; no image
 
 Admins can customize the recognition and similar-question templates on the "Prompts" tab. The app also applies common rules to generated questions: similar questions and exam questions are fill-in-the-blank or free-response, and the question text contains no question number, score or multiple-choice options.
 
+Grading checks equivalent results for calculation questions and the required reasoning for proofs and justification questions. Local matching only marks answers correct when no reasoning is required; other cases go to AI grading.
+
 Knowledge points are chosen from the tag library matching the notebook's school stage and subject. When adding a new provider, verify text input, image recognition, similar questions and animated explanations separately.
 
 ## Network and credentials

@@ -8,6 +8,7 @@ import {
     generateSimilarQuestionPrompt,
     generateReanswerPrompt,
     generateMasteryPrompt,
+    generateGradingPrompt,
     generateTagSuggestPrompt,
     generateFigurePrompt,
     generateGradeInstruction,
@@ -508,5 +509,17 @@ describe('知识点重新标注提示词', () => {
         const prompt = generateTagSuggestPrompt({ questionText: '1+1=?', subject: '数学', allowedTags: ['加法'] });
         expect(prompt).toContain('【解答过程】\n（无）');
         expect(prompt).toContain('【学生作答】\n（无）');
+    });
+});
+
+
+describe('按题型判题', () => {
+    it('证明题检查论证，同时保留等价答案与其他正确解法', () => {
+        const prompt = generateGradingPrompt({ questionText: '证明两个底角相等', answerText: '两角相等', userAnswer: '两角相等' });
+        expect(prompt).toContain('只有结论而没有证明不能判对');
+        expect(prompt).toContain('接受正确的其他解法');
+        expect(prompt).toContain('核对答案是否等价');
+        expect(prompt).not.toContain('只看最终结论');
+        expect(prompt).toContain('【学生答案】\n两角相等');
     });
 });

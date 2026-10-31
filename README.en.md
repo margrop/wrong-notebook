@@ -154,7 +154,7 @@ Practice statistics show total practice, accuracy and active months, with distri
 
 ### Review and practice
 
-- **🔄 Practice similar questions**: generate variant questions (fill-in-the-blank or free response) on the same knowledge point, choose the difficulty and submit an answer: it is checked automatically (an identical answer is marked correct right away, otherwise the AI compares it with the reference answer and explains why), and you can change the result before saving. The most recently generated question and solution are kept for each mistake and shown directly next time; click Regenerate for a new one.
+- **🔄 Practice similar questions**: generate variant questions (fill-in-the-blank or free response) on the same knowledge point, choose the difficulty and submit an answer: it is checked automatically (local matching checks identical conclusions only when no reasoning is required; proofs and justification questions go to AI to check the reasoning, and other answers are compared by AI with the reference answer), and you can change the result before saving. The most recently generated question and solution are kept for each mistake and shown directly next time; click Regenerate for a new one.
 - **📈 Mastery probability**: AI estimates how likely you have mastered each question from the answer history of practice and exams. Questions fall into three states: **To Review** (no practice records yet), **Reviewing** (has records, probability below the mastered threshold) and **Mastered** (has records, probability at or above the threshold). The threshold is 50% by default and each user can adjust it in settings.
 - **📅 Daily review**: each question is scheduled at Ebbinghaus intervals of 1, 2, 4, 7, 15 and 30 days. A correct answer moves it to the next interval; a wrong answer starts over. The **Review** page lists questions due today (earliest first), and the home page shows how many are due.
 - **🧾 Mistake exams**: draw questions at random by notebook, knowledge point and mastery, and turn them into a printable exam of similar questions. After finishing, enter results per question; they are added to the original question's answer history.
@@ -306,6 +306,8 @@ AI settings are changed in the web UI and take effect when saved, without restar
 4. **Voice narration** further down the same page switches between the browser voice and a cloud voice. The **Prompts** tab lets you customize the prompt templates for recognition and similar-question generation.
 
 AI settings, prompts, connection tests and model lists are admin-only. Regular users can only change their own preferences in **Settings → General**.
+
+Grading checks equivalent results for calculation questions and the required reasoning for proofs and justification questions. Local matching only marks answers correct when no reasoning is required; other cases go to AI grading.
 
 ### Supported AI providers
 
