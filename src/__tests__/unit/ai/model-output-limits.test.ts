@@ -22,14 +22,26 @@ describe('getKnownModelMaxOutputTokens', () => {
         ['gpt-4-turbo', 4096],
         ['gemini-2.5-flash', 65536],
         ['gemini-2.0-flash', 8192],
-        ['deepseek-reasoner', 65536],
-        ['deepseek-chat', 8192],
+        ['gpt-6.1-sol', 128000],
+        ['gpt-5.5', 128000],
+        ['gemini-3.8-flash', 65536],
+        ['gemini-4-argon', 65536],
+        ['deepseek-v4-flash', 384000],
+        ['deepseek-flash', 384000],
+        ['glm-5.3-flash', 128000],
+        ['GLM-4.6V', 32000],
+        ['glm-4.5-air', 96000],
+        ['doubao-seed-evolving', 256000],
+        ['doubao-seed-2-0-lite-260428', 128000],
+        ['MiniMax-M3.1-Flash', 128000],
+        ['kimi-k3.1-pro', 131072],
+        ['qwen3.8-max', 128000],
     ])('%s → %i', (model, expected) => {
         expect(getKnownModelMaxOutputTokens(model)).toBe(expected);
     });
 
     it('未知模型返回 undefined', () => {
-        expect(getKnownModelMaxOutputTokens('MiniMax-M3.1-Flash')).toBeUndefined();
+        expect(getKnownModelMaxOutputTokens('step-5-preview')).toBeUndefined();
         expect(getKnownModelMaxOutputTokens('')).toBeUndefined();
         expect(getKnownModelMaxOutputTokens(undefined)).toBeUndefined();
     });
