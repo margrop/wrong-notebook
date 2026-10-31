@@ -11,6 +11,15 @@ import { formatDateTime, getDayRange } from "@/lib/date-time"
 
 const logger = createLogger('api:admin:dashboard')
 
+/** 不同用户的同名错题本（如都叫「英语」）合并计数，按错题数从多到少排列 */
+function mergeSubjectsByName(subjects: { name: string; _count: { errorItems: number } }[]) {
+    const counts = new Map<string, number>()
+    for (const subject of subjects) {
+        counts.set(subject.name, (counts.get(subject.name) || 0) + subject._count.errorItems)
+    }
+    return Array.from(counts, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count)
+}
+
 export async function GET() {
     const session = await getServerSession(authOptions)
 
@@ -125,10 +134,7 @@ export async function GET() {
                 practiceCount: u._count.practiceRecords,
                 notebookCount: u._count.subjects,
             })),
-            subjectDistribution: subjectDistribution.map(s => ({
-                name: s.name,
-                count: s._count.errorItems,
-            })),
+            subjectDistribution: mergeSubjectsByName(subjectDistribution),
             dailyTrend,
             masteryDistribution,
         })

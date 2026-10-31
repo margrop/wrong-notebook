@@ -157,6 +157,20 @@ describe('管理后台接口', () => {
         expect(data).toMatchObject({ overview: expect.objectContaining({ totalUsers: 3, totalErrorItems: 2 }) });
     });
 
+    it('学科分布把不同用户的同名错题本合并计数', async () => {
+        const aliceEnglish = await database.subject.create({ data: { name: '英语', userId: alice.id } });
+        const bobEnglish = await database.subject.create({ data: { name: '英语', userId: bob.id } });
+        const bobMath = await database.subject.create({ data: { name: '数学', userId: bob.id } });
+        await createItem(alice.id, aliceEnglish.id);
+        await createItem(bob.id, bobEnglish.id);
+        await createItem(bob.id, bobMath.id);
+        signInAs(admin, 'admin');
+
+        const data = await (await DASHBOARD()).json();
+
+        expect(data.subjectDistribution).toEqual([{ name: '英语', count: 2 }, { name: '数学', count: 1 }]);
+    });
+
     it('用户详情只统计该用户的数据，不返回密码', async () => {
         const subject = await database.subject.create({ data: { name: '数学', userId: alice.id } });
         await createItem(alice.id, subject.id);
