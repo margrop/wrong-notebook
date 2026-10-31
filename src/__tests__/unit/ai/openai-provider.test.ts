@@ -84,6 +84,15 @@ describe('OpenAI Provider 响应解析', () => {
             mockCompletionCreate.mockResolvedValue(response('求和。\nA. 2\nB. 4'));
             await expect(provider.generateSimilarQuestion('原题', [])).rejects.toThrow('AI_RESPONSE_ERROR');
         });
+
+        it.each([
+            ['choices 为 null', { choices: null }],
+            ['choices 为空数组', { choices: [] }],
+            ['response 为 null', null],
+        ])('API 返回 %s 时抛出 AI_RESPONSE_ERROR 而不是 TypeError', async (_label, badResponse) => {
+            mockCompletionCreate.mockResolvedValue(badResponse);
+            await expect(provider.generateSimilarQuestion('原题', [])).rejects.toThrow('AI_RESPONSE_ERROR');
+        });
         it('解析配图标签，SVG 经净化', () => {
             const base = '<question_text>Q</question_text><answer_text>A</answer_text><analysis>An</analysis><subject>数学</subject>';
             const parsed = asPrivateProvider(provider).parseResponse(base + '<has_figure>true</has_figure><figure_svg><svg onload="x()"><rect width="1" height="1"/></svg></figure_svg>');

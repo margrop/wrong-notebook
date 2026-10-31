@@ -277,6 +277,12 @@ export class AzureOpenAIProvider implements AIService {
                 max_tokens: maxTokens,
             }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
+            // 检查响应是否有效
+            if (!response || !response.choices || response.choices.length === 0) {
+                logger.error({ response: JSON.stringify(response) }, 'Invalid API response - no choices array');
+                throw new Error("AI_RESPONSE_ERROR: API returned empty or invalid response");
+            }
+
             const text = response.choices[0]?.message?.content || "";
 
             logger.box('🤖 AI Raw Response', text);
