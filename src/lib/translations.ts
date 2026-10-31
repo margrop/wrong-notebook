@@ -1198,6 +1198,7 @@ export const translations = {
                 NO_QUESTION_TEXT: "The question text is empty",
                 NO_TAGS_SELECTED: "AI selected no tags",
                 NO_AVAILABLE_TAGS: "No tags available",
+                SERVER_RESTARTED: "Interrupted by a server restart. Please try again.",
             },
         },
         replaceImage: {
@@ -2497,6 +2498,7 @@ export const translations = {
                 NO_QUESTION_TEXT: "题目文字为空",
                 NO_TAGS_SELECTED: "AI 没有选出知识点",
                 NO_AVAILABLE_TAGS: "没有可用的知识点",
+                SERVER_RESTARTED: "服务重启，任务已中断，请重新操作",
             },
         },
         replaceImage: {

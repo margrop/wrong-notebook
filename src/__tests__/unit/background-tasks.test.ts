@@ -1,10 +1,15 @@
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     clearFinishedBackgroundTasks,
     describeQuestion,
     FINISHED_TASK_TTL_MS,
+    flushBackgroundTasksForTest,
     listBackgroundTasks,
     resetBackgroundTasksForTest,
+    SERVER_RESTARTED,
     startBackgroundTask,
     trackBackgroundTask,
 } from '@/lib/background-tasks';
@@ -68,5 +73,75 @@ describe('后台事务登记', () => {
         expect(describeQuestion({ shortId: 'hA6PB9', questionText: '已知 $\\frac{1}{2}x = 3$，\n求 **x** 的值，并说明理由，写出完整的过程和步骤' }))
             .toBe('hA6PB9 已知 1 2 x = 3，求 x 的值，并说明理…');
         expect(describeQuestion({ questionText: '' })).toBe('—');
+    });
+});
+
+describe('后台事务持久化', () => {
+    let directory: string;
+    let file: string;
+
+    beforeEach(() => {
+        directory = mkdtempSync(join(tmpdir(), 'wrong-notebook-tasks-'));
+        file = join(directory, 'background-tasks.json');
+        resetBackgroundTasksForTest({ file });
+    });
+    afterEach(() => {
+        resetBackgroundTasksForTest();
+        rmSync(directory, { recursive: true, force: true });
+    });
+
+    it('重启后仍能看到已结束的事务，进行中的标记为因重启中断', async () => {
+        const done = startBackgroundTask({ userId: 'u1', kind: 'reanswer', subject: '已完成' });
+        done.succeed();
+        const batch = startBackgroundTask({ userId: 'u1', kind: 'retag_notebook', subject: '进行中', total: 5 });
+        batch.setProgress(2, 5, 0);
+        flushBackgroundTasksForTest();
+
+        // 模拟服务重启：内存清空后从文件重新读取
+        resetBackgroundTasksForTest({ file });
+        const tasks = listBackgroundTasks('u1');
+
+        expect(tasks.find((t) => t.subject === '已完成')).toMatchObject({ status: 'succeeded', error: null });
+        const interrupted = tasks.find((t) => t.subject === '进行中');
+        expect(interrupted).toMatchObject({ status: 'failed', error: SERVER_RESTARTED, progress: { done: 2, total: 5, failed: 0 } });
+        expect(interrupted?.finishedAt).not.toBeNull();
+        expect(listBackgroundTasks('u2')).toEqual([]);
+    });
+
+    it('清除已结束的事务后写盘，重启后不再出现', () => {
+        startBackgroundTask({ userId: 'u1', kind: 'reanswer' }).succeed();
+        clearFinishedBackgroundTasks('u1');
+        flushBackgroundTasksForTest();
+
+        resetBackgroundTasksForTest({ file });
+        expect(listBackgroundTasks('u1')).toEqual([]);
+    });
+
+    it('变化后延迟合并写盘', () => {
+        vi.useFakeTimers();
+        const task = startBackgroundTask({ userId: 'u1', kind: 'retag_notebook', total: 3 });
+        task.setProgress(1);
+        task.setProgress(2);
+        expect(existsSync(file)).toBe(false);
+
+        vi.advanceTimersByTime(1000);
+        expect(JSON.parse(readFileSync(file, 'utf8'))[0]).toMatchObject({ userId: 'u1', progress: { done: 2, total: 3 } });
+    });
+
+    it('文件损坏或格式不对时忽略，不影响登记新事务', () => {
+        writeFileSync(file, '{not json');
+        resetBackgroundTasksForTest({ file });
+        expect(listBackgroundTasks('u1')).toEqual([]);
+
+        writeFileSync(file, JSON.stringify([{ id: 'x' }, 'bad', { id: 'ok', userId: 'u1', kind: 'reanswer', status: 'succeeded', startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), subject: null, progress: null, error: null, link: null }]));
+        resetBackgroundTasksForTest({ file });
+        expect(listBackgroundTasks('u1').map((t) => t.id)).toEqual(['ok']);
+    });
+
+    it('超过保留时长的已结束事务在重启后被清理', () => {
+        const old = new Date(Date.now() - FINISHED_TASK_TTL_MS - 1000).toISOString();
+        writeFileSync(file, JSON.stringify([{ id: 'old', userId: 'u1', kind: 'reanswer', status: 'succeeded', startedAt: old, finishedAt: old, subject: null, progress: null, error: null, link: null }]));
+        resetBackgroundTasksForTest({ file });
+        expect(listBackgroundTasks('u1')).toEqual([]);
     });
 });

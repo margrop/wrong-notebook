@@ -59,9 +59,9 @@ Difficulty and paper level are separate fields. When the paper level is not set,
 
 The percentage is an estimate for the current stage; AI services usually do not report real progress. Use the stage description, elapsed time and background task status, read the error after a timeout, and avoid submitting the same task repeatedly.
 
-## Why is the background task list empty after a restart?
+## A background task says "Interrupted by a server restart"?
 
-The task list is kept in process memory, so a restart clears it and running tasks are not resumed. Check whether the question or exam paper was saved before retrying; the task status on the page is not the source of truth for saved data.
+The background task list is saved to `background-tasks.json` in the config directory, so tasks that finished in the last 30 minutes are still listed after a restart. AI calls run inside the app process; tasks still running at restart cannot continue and are marked as failed with "Interrupted by a server restart". Before retrying, check whether the question or exam paper was already saved; the task list only shows progress, and the notebooks and exam pages are the source of truth for saved data.
 
 ## Does HTTP 207 mean the Openclaw import succeeded?
 

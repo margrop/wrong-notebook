@@ -20,7 +20,7 @@ The project uses the Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4
 | `src/__tests__/`, `e2e/`, `tests/publication/` | Unit, integration, E2E and publication check tests |
 | `scripts/`, `doc/` | Maintenance scripts and topic documents |
 
-AI requests are dispatched to a provider on the server and call external services; business data is stored in SQLite through Prisma. The background task list lives in process memory and is not a substitute for a persistent job queue.
+AI requests are dispatched to a provider on the server and call external services; business data is stored in SQLite through Prisma. The background task list lives in process memory and is mirrored to `background-tasks.json` in the config directory; after a restart only the records remain and nothing resumes, so it is not a substitute for a persistent job queue.
 
 ## Common checks
 
