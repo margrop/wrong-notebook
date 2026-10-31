@@ -103,6 +103,39 @@ function parseQuestionResponse(text: string): ParsedQuestion {
     return validation.data;
 }
 
+/** 兼容接口沿用的 API 版本：SDK 1.x 默认发送 2026-10-21，第三方兼容接口未必支持 */
+export const COMPAT_ANTHROPIC_VERSION = '2023-06-01';
+
+function isOfficialAnthropicHost(baseURL: string): boolean {
+    try {
+        return new URL(baseURL).hostname === new URL(DEFAULT_ANTHROPIC_BASE_URL).hostname;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * 创建 SDK 客户端。apiKey 与 authToken 都显式传入（未用的传 null），避免 SDK 读取环境变量里的 ANTHROPIC_API_KEY。
+ * - 官方接口：使用 SDK 默认的 API 版本和鉴权方式。
+ * - 兼容接口（自定义地址、MiniMax Code 等）：保持与旧版 SDK 相同的请求头——API Key 以 x-api-key 发送、
+ *   anthropic-version 为 2023-06-01。SDK 1.x 改为以 Authorization: Bearer 发送 API Key，不少兼容网关只认 x-api-key。
+ * authToken（OAuth 登录的渠道）始终以 Authorization: Bearer 发送。
+ */
+export function createAnthropicClient(baseURL: string, apiKey?: string, authToken?: string): Anthropic {
+    const options = { baseURL, timeout: REQUEST_TIMEOUT_MS };
+    if (isOfficialAnthropicHost(baseURL)) {
+        return apiKey
+            ? new Anthropic({ ...options, apiKey, authToken: null })
+            : new Anthropic({ ...options, apiKey: null, authToken });
+    }
+    const defaultHeaders: Record<string, string> = { 'anthropic-version': COMPAT_ANTHROPIC_VERSION };
+    if (apiKey) {
+        defaultHeaders['x-api-key'] = apiKey;
+        return new Anthropic({ ...options, apiKey: null, authToken: null, defaultHeaders });
+    }
+    return new Anthropic({ ...options, apiKey: null, authToken, defaultHeaders });
+}
+
 /**
  * Anthropic Messages API 及其兼容接口（如各家模型的 /anthropic 端点）
  */
@@ -121,10 +154,7 @@ export class AnthropicProvider implements AIService {
         // SDK 会自动拼接 /v1/messages，这里去掉用户可能多填的 /v1 和末尾斜杠
         this.baseURL = trimTrailingSlashes(config?.baseUrl || DEFAULT_ANTHROPIC_BASE_URL).replace(/\/v1$/, '');
         this.model = config?.model || DEFAULT_ANTHROPIC_MODEL;
-        // authToken 以 Authorization: Bearer 发送（OAuth 登录的渠道）；显式传 null，避免 SDK 读取环境变量里的 ANTHROPIC_API_KEY
-        this.client = apiKey
-            ? new Anthropic({ apiKey, baseURL: this.baseURL, timeout: REQUEST_TIMEOUT_MS })
-            : new Anthropic({ apiKey: null, authToken, baseURL: this.baseURL, timeout: REQUEST_TIMEOUT_MS });
+        this.client = createAnthropicClient(this.baseURL, apiKey, authToken);
 
         logger.info({
             provider: 'Anthropic',

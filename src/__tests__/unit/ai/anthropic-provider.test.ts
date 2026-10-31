@@ -100,10 +100,12 @@ describe('AnthropicProvider', () => {
     it('规范化 baseUrl（去掉末尾斜杠和 /v1），并显式设置超时', () => {
         new AnthropicProvider({ apiKey: 'sk-ant', baseUrl: 'https://gw.example.com/anthropic/v1/' });
 
+        // 兼容网关：API Key 以 x-api-key 请求头发送（与旧版 SDK 一致），不交给 SDK 的 apiKey
         expect(mocks.clientOptions[0]).toMatchObject({
-            apiKey: 'sk-ant',
+            apiKey: null,
             baseURL: 'https://gw.example.com/anthropic',
             timeout: expect.any(Number),
+            defaultHeaders: { 'x-api-key': 'sk-ant', 'anthropic-version': '2023-06-01' },
         });
     });
 
