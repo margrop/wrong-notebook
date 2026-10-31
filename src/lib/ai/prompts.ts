@@ -5,6 +5,7 @@
 
 import { createLogger } from '../logger';
 import { GRADE_SEMESTERS } from '../grade-options';
+import { GEOGEBRA_DRAWING_COMMANDS, GEOGEBRA_API_METHODS } from '../geogebra-commands';
 import { embedNarration, getSvgAnimationDuration } from '../svg-animation';
 import type { CandidateTags, GradeLevel } from './types';
 
@@ -703,6 +704,10 @@ export const DEFAULT_GEOGEBRA_PROMPT = `【角色与核心任务 (ROLE AND CORE 
 6. 数列通项公式推导（无图形意义的）
 
 【GeoGebra 命令规范 (COMMAND SYNTAX)】
+绘图指令只能从以下清单选择（以及已定义函数的调用）：${GEOGEBRA_DRAWING_COMMANDS.join("、")}。
+Applet API 仅支持：${GEOGEBRA_API_METHODS.join("、")}。
+每个数组元素只放一条命令；API 参数只能是数字、布尔值、双引号字符串及数组，不得传入表达式或脚本。
+允许 Text 的字符串和数学比较符 <、>，不允许 HTML 标记、外部链接、JavaScript、Execute 或运行脚本的指令。
 如果适合演示，生成 GeoGebra 命令数组。每条命令一行，支持以下类型：
 
 **GeoGebra 绘图命令（通过 evalCommand 执行）：**
@@ -716,7 +721,7 @@ export const DEFAULT_GEOGEBRA_PROMPT = `【角色与核心任务 (ROLE AND CORE 
 - 交点：Intersect(f, g, 1)  或  Intersect(f, g, x1, x2)
 - 中点：Midpoint(A, B)
 - 垂线：PerpendicularLine(P, l)
-- 平行线：ParallelLine(P, l)
+- 平行线：Line(P, l)
 - 角度：Angle(A, B, C)
 - 文本：Text("说明文字", (x, y))
 - 滑动条：a = Slider(-5, 5, 0.1)
@@ -758,7 +763,7 @@ export const DEFAULT_GEOGEBRA_PROMPT = `【角色与核心任务 (ROLE AND CORE 
 8. 对于函数题，应画出函数图像并标注关键点（交点、顶点、渐近线等）
 9. 【!!! 命令语法检查 (COMMAND SYNTAX CHECK) !!!】在生成命令后，必须逐条检查以下内容：
    a. 每个变量在使用前必须已被定义（例如如果使用 F = Intersect(f, g)，则 f 和 g 必须在之前已定义）
-   b. 所有命令名称必须是 GeoGebra 官方支持的指令（如平行线用 Line(P, l) 而非 ParallelLine(P, l)）
+   b. 所有命令名称必须是 GeoGebra 官方支持的指令（平行线使用 Line(P, l)）
    c. 命令顺序必须合理：先定义基础对象（点、线、函数），再定义派生对象（交点、轨迹、变换）
    d. 每个命令的语法必须正确（参数数量、类型、顺序与 GeoGebra 官方文档一致）
    e. 如果使用了循环或条件语句，确保语法正确
@@ -773,23 +778,12 @@ export function generateGeogebraPrompt(
     analysis: string,
     previousErrors?: string
 ): string {
-    let prompt = DEFAULT_GEOGEBRA_PROMPT.replace(
-        "{{question_text}}",
-        questionText
-    )
-        .replace("{{answer_text}}", answerText)
-        .replace("{{analysis}}", analysis);
-
-    if (previousErrors?.trim()) {
-        prompt = prompt.replace(
-            "{{error_feedback}}",
-            `【上次执行错误 (PREVIOUS ERRORS)】\n上次生成的 GeoGebra 命令执行时出现了以下错误，请分析错误原因并在这次生成中修正：\n${previousErrors}\n\n【错误修正要求 (ERROR FIX RULES)】\n请严格按以下步骤修正：\n1. 检查每条失败命令，确认是语法错误、变量未定义还是命令名称错误\n2. 如果是"未定义变量X"，在命令之前添加定义该变量的命令，或调整命令顺序\n3. 如果是"未知的指令"，替换为 GeoGebra 官方支持的等效命令（如 Line(P, l) 替代 ParallelLine(P, l)）\n4. 重新排列所有命令的顺序，确保每个对象在使用前已定义\n5. 生成后再次逐条检查：每条命令的语法、变量引用、依赖关系是否正确`
-        );
-    } else {
-        prompt = prompt.replace("{{error_feedback}}", "");
-    }
-
-    return prompt;
+    return replaceVariables(DEFAULT_GEOGEBRA_PROMPT, {
+        question_text: questionText,
+        answer_text: answerText,
+        analysis,
+        error_feedback: previousErrors?.trim() ? `【上次执行错误 (PREVIOUS ERRORS)】\n上次生成的 GeoGebra 命令执行时出现了以下错误，请分析错误原因并在这次生成中修正：\n${previousErrors}\n\n【错误修正要求 (ERROR FIX RULES)】\n请严格按以下步骤修正：\n1. 检查每条失败命令，确认是语法错误、变量未定义还是命令名称错误\n2. 如果是"未定义变量X"，在命令之前添加定义该变量的命令，或调整命令顺序\n3. 如果是"未知的指令"，替换为 GeoGebra 官方支持的等效命令（平行线使用 Line(P, l)）\n4. 重新排列所有命令的顺序，确保每个对象在使用前已定义\n5. 生成后再次逐条检查：每条命令的语法、变量引用、依赖关系是否正确` : '',
+    });
 }
 
 /** 修复 LaTeX 时各字段对应的输出标签 */

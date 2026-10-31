@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast, confirmDialog } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { parseCommands, runCommands as executeCommands } from "@/lib/geogebra-commands";
 
 interface GeogebraDemoProps {
     commands: string;
@@ -26,7 +27,7 @@ interface GgbApi {
     setSize(width: number, height: number): void;
     resetConstruction(): void;
     remove?: () => void;
-    // 命令中以 API 形式调用的其他方法（见 API_PREFIXES）
+    // 命令中以 API 形式调用的其他方法（见 GEOGEBRA_API_METHODS）
     [method: string]: unknown;
 }
 
@@ -64,66 +65,6 @@ function loadGeoGebraScript(): Promise<void> {
 }
 
 // ── Command helpers ─────────────────────────────────────────────────────
-function parseCommands(raw: string): string[] {
-    if (!raw?.trim()) return [];
-    const t = raw.trim();
-    if (t.startsWith("[")) {
-        try {
-            const a = JSON.parse(t);
-            if (Array.isArray(a))
-                return a.filter((c): c is string => typeof c === "string" && c.trim() !== "");
-        } catch { /* fall through */ }
-    }
-    return t.split("\n").map((c) => c.trim()).filter((c) => c && !c.startsWith("//"));
-}
-
-const API_PREFIXES = [
-    "setcoordsystem", "setaxesvisible", "setgridvisible", "setcolor",
-    "setlinethickness", "setlinestyle", "setpointsize", "setpointstyle",
-    "setlabelvisible", "setcaption", "setvisible", "setfilling",
-    "setvalue", "setfixed", "setbackgroundcolor",
-];
-
-function isApiCall(cmd: string): boolean {
-    const l = cmd.toLowerCase().trim();
-    return API_PREFIXES.some((p) => l.startsWith(p + "("));
-}
-
-function parseApiArgs(cmd: string): { m: string; a: unknown[] } | null {
-    const m = cmd.match(/^(\w+)\(([\s\S]+)\)$/);
-    if (!m) return null;
-    try {
-        // Safe parsing: only allow numbers, booleans, strings, and arrays
-        const argsStr = m[2].trim();
-        // Simple JSON-like array: [1, 2, 3] or ["a", "b"]
-        if (argsStr.startsWith('[') && argsStr.endsWith(']')) {
-            return { m: m[1], a: JSON.parse(argsStr) };
-        }
-        // Single value: number, boolean, or quoted string
-        if (/^-?\d+(\.\d+)?$/.test(argsStr)) {
-            return { m: m[1], a: [Number(argsStr)] };
-        }
-        if (argsStr === 'true' || argsStr === 'false') {
-            return { m: m[1], a: [argsStr === 'true'] };
-        }
-        if ((argsStr.startsWith('"') && argsStr.endsWith('"')) ||
-            (argsStr.startsWith("'") && argsStr.endsWith("'"))) {
-            return { m: m[1], a: [argsStr.slice(1, -1)] };
-        }
-        // Multiple comma-separated values
-        const parts = argsStr.split(',').map(s => s.trim());
-        const parsed: unknown[] = parts.map(p => {
-            if (/^-?\d+(\.\d+)?$/.test(p)) return Number(p);
-            if (p === 'true' || p === 'false') return p === 'true';
-            if ((p.startsWith('"') && p.endsWith('"')) ||
-                (p.startsWith("'") && p.endsWith("'"))) return p.slice(1, -1);
-            return p; // Keep as string for object names etc.
-        });
-        return { m: m[1], a: parsed };
-    }
-    catch { return null; }
-}
-
 /** 让小程序宽度铺满容器，并设置高度 */
 function resizeApplet(host: HTMLDivElement | null, api: GgbApi | null, height: number) {
     const ggbDiv = host?.firstElementChild as HTMLElement | null;
@@ -133,26 +74,12 @@ function resizeApplet(host: HTMLDivElement | null, api: GgbApi | null, height: n
     api?.setSize(host?.offsetWidth || ggbDiv.offsetWidth || 800, height);
 }
 
-function runCommands(api: GgbApi, cmds: string[]) {
-    for (const cmd of cmds) {
-        try {
-            if (isApiCall(cmd)) {
-                const p = parseApiArgs(cmd);
-                const method = p ? api[p.m] : undefined;
-                if (p && typeof method === 'function') method.apply(api, p.a);
-            } else {
-                // Basic command validation: only allow safe characters
-                const sanitized = cmd.trim();
-                if (sanitized && !/[<>'"]/.test(sanitized)) {
-                    api.evalCommand(sanitized);
-                } else {
-                    frontendLogger.warn('[GGB]', 'Blocked potentially unsafe command', { command: cmd.substring(0, 50) });
-                }
-            }
-        } catch (e) {
-            frontendLogger.warn('[GGB]', 'Command failed', { command: cmd, error: e });
-        }
+function runCommands(api: GgbApi, commands: string[]) {
+    const failures = executeCommands(api, commands);
+    for (const failure of failures) {
+        frontendLogger.warn('[GGB]', '命令执行失败', { ...failure });
     }
+    return failures.map(failure => failure.command + '：' + failure.message).join('\n') || undefined;
 }
 
 // ── Component ───────────────────────────────────────────────────────────
@@ -172,6 +99,7 @@ export function GeogebraDemo({
     // React's reconciler never touches the inside of this node.
     const ggbHostRef = useRef<HTMLDivElement>(null);
     const apiRef = useRef<GgbApi | null>(null);
+    const commandErrorsRef = useRef<string | undefined>(undefined);
     // useId 可能含冒号等字符，去掉后作为注入目标的元素 ID
     const reactId = useId();
     const idRef = useRef(`ggb-${reactId.replace(/[^a-zA-Z0-9_-]/g, '')}`);
@@ -218,7 +146,7 @@ export function GeogebraDemo({
                         if (dead) return;
                         apiRef.current = api;
                         resizeApplet(host, api, height);
-                        runCommands(api, cmds);
+                        commandErrorsRef.current = runCommands(api, cmds);
                         setLoading(false);
                     },
                 }, true);
@@ -264,7 +192,7 @@ export function GeogebraDemo({
         if (!api) return;
         try {
             api.resetConstruction();
-            setTimeout(() => { if (apiRef.current) runCommands(apiRef.current, cmds); }, 300);
+            setTimeout(() => { if (apiRef.current) commandErrorsRef.current = runCommands(apiRef.current, cmds); }, 300);
         } catch (e) { frontendLogger.warn('[GGB]', 'Reset failed', { error: e }); }
     }, [cmds]);
 
@@ -273,7 +201,7 @@ export function GeogebraDemo({
         if (!onRegenerate || regenerating) return;
         setRegenerating(true);
         try {
-            await onRegenerate();
+            await onRegenerate(commandErrorsRef.current);
         } finally {
             setRegenerating(false);
         }
