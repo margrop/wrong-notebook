@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BackButton } from "@/components/ui/back-button";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { QuestionFigure } from "@/components/question-figure";
@@ -12,6 +13,13 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
 import { apiClient } from "@/lib/api-client";
 import { EXAM_PRINT_CSS, buildExamHtmlDocument, examFileName } from "@/lib/exam-print";
+import {
+    ANSWER_SPACE_STORAGE_KEY,
+    DEFAULT_ANSWER_SPACE_MODE,
+    getAnswerSpacePx,
+    isAnswerSpaceMode,
+} from "@/lib/exam-answer-space";
+import type { AnswerSpaceMode } from "@/lib/exam-answer-space";
 import type { ExamPaperDetail } from "@/types/api";
 
 export default function ExamPrintPage() {
@@ -20,7 +28,29 @@ export default function ExamPrintPage() {
     const [paper, setPaper] = useState<ExamPaperDetail | null>(null);
     usePageTitle(t.exam.title, paper?.title, t.pageTitle.examPrint);
     const [includeAnswers, setIncludeAnswers] = useState(true);
+    const [answerSpace, setAnswerSpace] = useState<AnswerSpaceMode>(DEFAULT_ANSWER_SPACE_MODE);
     const sheetRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        let saved: string | null = null;
+        try {
+            saved = localStorage.getItem(ANSWER_SPACE_STORAGE_KEY);
+        } catch {
+            // 无法读取本地存储时使用默认模式
+        }
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- 本地存储只能在客户端挂载后读取，避免与服务端渲染结果不一致
+        if (isAnswerSpaceMode(saved)) setAnswerSpace(saved);
+    }, []);
+
+    const changeAnswerSpace = (value: string) => {
+        if (!isAnswerSpaceMode(value)) return;
+        setAnswerSpace(value);
+        try {
+            localStorage.setItem(ANSWER_SPACE_STORAGE_KEY, value);
+        } catch {
+            // 无痕模式等无法写入时只在本次生效
+        }
+    };
 
     useEffect(() => {
         apiClient.get<ExamPaperDetail>(`/api/exams/${params.id}`)
@@ -54,6 +84,21 @@ export default function ExamPrintPage() {
                         <Checkbox checked={includeAnswers} onCheckedChange={(value) => setIncludeAnswers(value === true)} />
                         {t.exam.includeAnswers}
                     </label>
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="shrink-0">{t.exam.answerSpace}</span>
+                        <Select value={answerSpace} onValueChange={changeAnswerSpace}>
+                            <SelectTrigger className="h-8 w-40">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="auto">{t.exam.answerSpaceAuto}</SelectItem>
+                                <SelectItem value="none">{t.exam.answerSpaceNone}</SelectItem>
+                                <SelectItem value="small">{t.exam.answerSpaceSmall}</SelectItem>
+                                <SelectItem value="medium">{t.exam.answerSpaceMedium}</SelectItem>
+                                <SelectItem value="large">{t.exam.answerSpaceLarge}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                     <div className="flex gap-2 sm:ml-auto">
                         <Button variant="outline" size="sm" onClick={downloadHtml}>
                             <Download className="mr-2 h-4 w-4" />
@@ -64,6 +109,9 @@ export default function ExamPrintPage() {
                             {t.exam.printNow}
                         </Button>
                     </div>
+                    {answerSpace === "auto" && (
+                        <p className="w-full text-xs text-muted-foreground">{t.exam.answerSpaceAutoHint}</p>
+                    )}
                     {questions.length < paper.questions.length && (
                         <p className="w-full text-xs text-muted-foreground">{t.exam.notReadyHint}</p>
                     )}
@@ -85,7 +133,10 @@ export default function ExamPrintPage() {
                         </div>
                         <MarkdownRenderer content={question.questionText!} />
                         <QuestionFigure svg={question.figureSvg} />
-                        <div className="exam-answer-space" />
+                        <div
+                            className="exam-answer-space"
+                            style={{ minHeight: `${getAnswerSpacePx(answerSpace, question.questionText!)}px` }}
+                        />
                     </section>
                 ))}
                 {includeAnswers && (

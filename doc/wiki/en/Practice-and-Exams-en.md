@@ -55,7 +55,7 @@ Exam papers keep the source question IDs so you can go back to the originals. Re
 | Method | Contents and options |
 | --- | --- |
 | Print questions | Prints the filtered questions, with question text or original image, answers, analysis, knowledge points and image scale as options |
-| Print exam papers | Print preview with an optional answer page |
+| Print exam papers | Print preview with an optional answer page and a choice of answer space below each question: automatic by question type (about 0.8–1.7 cm for true/false, choice and fill-in questions, about 4.8 cm for worked problems plus about 2.6 cm per extra sub-question, up to about 12.7 cm) or a fixed none, small (about 1.6 cm), medium (about 3.2 cm) or large (about 6.3 cm); the choice is remembered in this browser |
 | Download HTML | Save the exam paper as HTML and open it in a browser |
 | Save as PDF | Choose "Save as PDF" in the browser's print dialog |
 

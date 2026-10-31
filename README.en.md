@@ -99,7 +99,7 @@ Generated exams keep each source question's ID and show every attempt, so you ca
 
 ![An English demo exam with source IDs and sample results from multiple attempts](doc/screenshots/en/exam.png)
 
-The print preview can include an answer page; download it as HTML, print it, or save it as PDF from the browser.
+The print preview can include an answer page and sets the answer space below each question: automatic by question type (less for fill-in, choice and true/false questions, more for worked problems with extra room per sub-question) or a fixed none, small, medium or large; download it as HTML, print it, or save it as PDF from the browser.
 
 ![An English exam print preview with source IDs, answer page toggle and export options](doc/screenshots/en/exam-print.png)
 
