@@ -86,6 +86,8 @@ model Subject {
   updatedAt DateTime @updatedAt
 
   @@unique([name, userId])
+  
+  @@index([userId])
 }
 
 model ErrorItem {
@@ -139,6 +141,10 @@ model ErrorItem {
   reviewSchedules ReviewSchedule[]
   practiceRecords PracticeRecord[]
   examQuestions   ExamQuestion[]
+  
+  // 列表、统计都按用户取错题并按时间排序；SQLite 不会自动给外键建索引
+  @@index([userId, createdAt])
+  @@index([subjectId])
 }
 
 model ReviewSchedule {
@@ -151,6 +157,8 @@ model ReviewSchedule {
   isCorrect    Boolean? // Result of the review
   
   createdAt    DateTime @default(now())
+  
+  @@index([errorItemId])
 }
 
 model PracticeRecord {
@@ -182,6 +190,7 @@ model PracticeRecord {
 
   @@index([errorItemId, createdAt])
   @@index([examQuestionId])
+  @@index([userId, createdAt])
 }
 
 // 随机错题试卷
