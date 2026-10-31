@@ -38,7 +38,7 @@ npm run lint                # 出现任何警告即失败
 npm run test:unit
 npm run test:integration
 npm test                    # 全部 Vitest 测试
-npm run test:coverage       # 覆盖率，低于 vitest.config.ts 中的阈值时失败
+npm run test:coverage       # 覆盖率，低于 vitest.config.mts 中的阈值时失败
 npm run test:e2e            # Playwright
 bash scripts/ci.sh          # 完整 CI（要求 Node.js 22 及以上，含生产构建）
 ```

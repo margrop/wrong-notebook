@@ -109,7 +109,7 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      # 低于 vitest.config.ts 中的覆盖率阈值时失败
+      # 低于 vitest.config.mts 中的覆盖率阈值时失败
       - name: Run tests with coverage
         run: npm run test:coverage
 

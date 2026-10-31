@@ -43,7 +43,7 @@ E2E 用例以非默认密码登录管理员：运行前先执行 `node scripts/p
 
 CI 会运行 `npm run lint`，出现任何 ESLint 错误或警告都会失败。
 
-`npm run test:coverage` 统计 `src/lib` 与 `src/app/api` 的测试覆盖率，低于 `vitest.config.ts` 中的阈值时失败；CI 会在任务摘要中显示覆盖率并上传报告。
+`npm run test:coverage` 统计 `src/lib` 与 `src/app/api` 的测试覆盖率，低于 `vitest.config.mts` 中的阈值时失败；CI 会在任务摘要中显示覆盖率并上传报告。
 
 `npm test` 运行全部 Vitest 测试。E2E 的环境要求与启动方式以仓库中的 [`playwright.config.ts`](https://github.com/margrop/wrong-notebook/blob/main/playwright.config.ts) 为准。
 

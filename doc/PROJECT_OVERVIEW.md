@@ -143,7 +143,7 @@ wrongNotebook/
 ├── docker-compose.yml / .https.yml
 ├── Dockerfile / docker-entrypoint.sh
 ├── next.config.ts                # standalone output, serverExternalPackages
-├── vitest.config.ts              # Vitest 配置
+├── vitest.config.mts             # Vitest 配置
 ├── playwright.config.ts          # Playwright 配置
 ├── eslint.config.mjs             # ESLint 配置
 ├── postcss.config.mjs            # PostCSS 配置

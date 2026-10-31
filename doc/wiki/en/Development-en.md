@@ -43,7 +43,7 @@ E2E tests sign in as admin with a non-default password. Run `node scripts/prepar
 
 CI runs `npm run lint` and fails on any ESLint error or warning.
 
-`npm run test:coverage` measures test coverage of `src/lib` and `src/app/api` and fails below the thresholds in `vitest.config.ts`; CI shows the coverage in the job summary and uploads the report.
+`npm run test:coverage` measures test coverage of `src/lib` and `src/app/api` and fails below the thresholds in `vitest.config.mts`; CI shows the coverage in the job summary and uploads the report.
 
 `npm test` runs all Vitest tests. The E2E environment and startup are defined in the repository's [`playwright.config.ts`](https://github.com/margrop/wrong-notebook/blob/main/playwright.config.ts).
 
