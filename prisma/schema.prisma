@@ -21,6 +21,8 @@ model User {
 
   educationStage String? // primary, junior_high, senior_high, university
   enrollmentYear Int?
+  gradeRecognitionMode String @default("fixed") // 录入年级规则：fixed 固定，ai 按题目识别
+  fixedGradeSemester String? // 固定年级学期，未指定时沿用账户当前年级
 
   role      String   @default("user") // "admin" or "user"
   isActive  Boolean  @default(true)   // 用户是否启用

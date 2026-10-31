@@ -4,6 +4,7 @@
  */
 
 import { createLogger } from '../logger';
+import { GRADE_SEMESTERS } from '../grade-options';
 import { embedNarration, getSvgAnimationDuration } from '../svg-animation';
 import type { CandidateTags, GradeLevel } from './types';
 
@@ -98,6 +99,22 @@ export function generateGradeInstruction(gradeSemester?: string | null): string 
   if (!displayName) return '';
 
   return `\n【学历约束】\n本题目标年级：${displayName}\n请严格使用该年级课程标准范围内的方法解答，禁止使用超纲知识。\n`;
+}
+
+/** 无固定年级时只根据题目判断，中文存储值不受界面语言影响。 */
+export function generateGradeRecognitionInstruction(gradeSemester?: string | null): string {
+  return `【题目年级识别规则】
+${gradeSemester ? `本次固定年级学期为 ${gradeSemester}，grade_semester 必须原样填写该值。` : '请根据题目内容、知识点和教材进度判断适用年级学期，不要套用学生当前年级。无法确定时留空，不得编造。'}
+除原有输出标签外，必须额外输出 <grade_semester>年级学期</grade_semester>。
+非空值必须用以下中文存储值之一，即使界面为英文也不得翻译：${GRADE_SEMESTERS.join('、')}。`;
+}
+
+/** 直接录入或外部识别结果没有年级时使用短请求，避免再次求解整道题。 */
+export function generateGradeRecognitionPrompt(questionText: string): string {
+  return `根据题目内容、知识点和教材进度判断其适用年级学期，不参考学生当前年级。
+只返回 JSON：{"gradeSemester":"四年级上"}。无法确定时返回 {"gradeSemester":null}，不得编造。
+非空值必须为以下中文存储值之一：${GRADE_SEMESTERS.join('、')}。
+以下是待判断的题目内容：\n${questionText}`;
 }
 
 /**
@@ -265,7 +282,7 @@ ${DIFFICULTY_STARS_RULES}
 - 每题最多 5 个标签。
 
 【!!! 关键格式与内容约束 (CRITICAL RULES) !!!】
-1. **格式严格**：必须严格包含上述 12 个 XML 标签，除此之外不要输出任何其他“开场白”或“结束语”。
+1. **格式严格**：必须包含上述 12 个 XML 标签以及补充规则要求的 grade_semester 年级标签，不要输出任何“开场白”或“结束语”。
 2. **纯文本**：内容作为纯文本处理，**不要转义反斜杠**。
 3. **内容完整**：如果包含子问题，请在 question_text 中完整列出。
 4. **禁止图片**：严禁包含任何图片链接或 markdown 图片语法。
@@ -527,7 +544,7 @@ ${englishTagsString}`;
     knowledge_points_list: tagsSection,
     grade_instruction: generateGradeInstruction(gradeSemester),
     provider_hints: options?.providerHints || ''
-  }).trim();
+  }).trim() + '\n\n' + generateGradeRecognitionInstruction(gradeSemester);
 }
 
 /**
@@ -989,7 +1006,7 @@ export function generateReanswerPrompt(
       : '',
     grade_instruction: generateGradeInstruction(gradeSemester),
     provider_hints: options?.providerHints || ''
-  }).trim();
+  }).trim() + '\n\n' + generateGradeRecognitionInstruction(gradeSemester);
 }
 
 /**

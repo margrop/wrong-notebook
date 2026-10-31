@@ -11,6 +11,8 @@ import { generateUniqueShortId, isShortId } from "@/lib/short-id";
 import { isPracticeResult, scheduleMasteryEvaluation, syncMasteryLevels } from "@/lib/mastery";
 import { MAX_MASTERY_THRESHOLD, MIN_MASTERY_THRESHOLD } from "@/lib/mastery-status";
 import { THEME_PREFERENCES } from "@/lib/theme";
+import { GRADE_RECOGNITION_MODES } from "@/lib/question-grade";
+import { GRADE_SEMESTERS } from "@/lib/grade-options";
 import { findDuplicateQuestion, recordDuplicateQuestion } from "@/lib/question-deduplication";
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { resolveNotebookScope } from "@/lib/notebook-scope";
@@ -37,6 +39,8 @@ interface ImportData {
         role: string;
         // version 2 起导出的偏好设置
         confirmBeforeImport?: boolean;
+        gradeRecognitionMode?: string;
+        fixedGradeSemester?: string | null;
         questionDuplicateThreshold?: number;
         masteryThreshold?: number;
         enableGeogebra?: boolean;
@@ -159,6 +163,8 @@ interface ImportData {
 
 // 与用户设置接口的取值范围一致，单项不合法时只跳过该项
 const PREFERENCE_SCHEMAS = {
+    gradeRecognitionMode: z.enum(GRADE_RECOGNITION_MODES),
+    fixedGradeSemester: z.enum(GRADE_SEMESTERS).nullable(),
     confirmBeforeImport: z.boolean(),
     questionDuplicateThreshold: z.number().min(1).max(100),
     masteryThreshold: z.number().int().min(MIN_MASTERY_THRESHOLD).max(MAX_MASTERY_THRESHOLD),

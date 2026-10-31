@@ -50,6 +50,8 @@
 
 ![题干、知识点、难度与试题信息](https://raw.githubusercontent.com/margrop/wrong-notebook/70b66950931f6f723083e3726fbc97f2f65d2ea8/doc/screenshots/question-detail.png)
 
+新题目的年级可以在「设置 → 通用」选择固定或 AI 识别规则，手工选择优先，详情见[设置与用户管理](Settings-and-Users)。
+
 ## 配图和动态讲解
 
 - **SVG 配图**：由 AI 根据题目生成静态 SVG，供详情、练习和打印使用；原图可单独查看。

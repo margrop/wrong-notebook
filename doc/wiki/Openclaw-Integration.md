@@ -96,12 +96,15 @@ curl --fail-with-body http://localhost:3000/api/openclaw/batch-upload \
     "answerText": "答案",
     "analysis": "解析",
     "knowledgePoints": ["知识点名称"],
-    "difficultyStars": 3
+    "difficultyStars": 3,
+    "gradeSemester": "四年级上"
   }
 }
 ```
 
 还可返回 `wrongAnswerText`、`mistakeAnalysis`、`subject`、`errorType` 和 `source`；失败时返回 `success: false` 与 `error`。
+
+录入年级遵循目标用户在「设置 → 通用」保存的规则。固定模式使用所选值，未指定时按账户当前年级计算；AI 模式使用识别结果中的 `gradeSemester`（如「四年级上」「初二下」），无法确定时可返回 `null`。省略该字段时，错题本会为非重复题补充一次 AI 年级识别，计入目标用户的每日 AI 用量；达到上限或识别失败时，该题返回失败，需读取逐项结果。
 
 ## 结果判断
 

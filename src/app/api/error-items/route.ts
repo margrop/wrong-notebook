@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import { calculateGrade } from "@/lib/grade-calculator";
+import { prepareImportGrade } from "@/lib/import-question-grade";
+import { needsQuestionGradeRecognition } from "@/lib/question-grade";
 import { unauthorized, internalError, validationError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
@@ -15,7 +16,6 @@ import { scheduleMasteryEvaluation } from "@/lib/mastery";
 import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from "@/lib/question-deduplication";
 import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
 import { getDefaultPaperLevel } from "@/lib/paper-level";
-import { getAppTimeZone } from "@/lib/config";
 
 const logger = createLogger('api:error-items');
 
@@ -34,6 +34,7 @@ const importSchema = z.object({
     subjectId: z.string().nullish(),
     subjectName: z.string().max(100).nullish(),
     gradeSemester: z.string().max(100).nullish(),
+    recognizedGradeSemester: z.string().max(100).nullish(),
     paperLevel: z.string().max(30).nullish(),
     difficultyStars: z.number().int().min(1).max(5).nullish(),
     hasFigure: z.boolean().optional(),
@@ -105,6 +106,11 @@ export async function POST(req: Request) {
             return unauthorized("No user found in DB");
         }
 
+        const duplicateBeforeRecognition = needsQuestionGradeRecognition(user, body)
+            ? await findDuplicateQuestion(prisma, user.id, body) : null;
+        const gradeResult = await prepareImportGrade(user, body, duplicateBeforeRecognition !== null);
+        if (gradeResult.response) return gradeResult.response;
+
         const result = await runQuestionImportTransaction(async (tx) => {
             const duplicate = await findDuplicateQuestion(tx, user.id, body);
             if (duplicate) return recordDuplicateQuestion(tx, user.id, duplicate, body);
@@ -115,12 +121,7 @@ export async function POST(req: Request) {
                 subjectId = (await resolveNotebookForSubject(user.id, subjectName, tx)).id;
             }
 
-            // 计算年级
-            let finalGradeSemester = gradeSemester;
-            if (!finalGradeSemester && user.educationStage && user.enrollmentYear) {
-                finalGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), 'zh', getAppTimeZone());
-                logger.debug({ finalGradeSemester, educationStage: user.educationStage, enrollmentYear: user.enrollmentYear }, 'Grade calculated');
-            }
+            const finalGradeSemester = gradeResult.gradeSemester;
 
             // 处理知识点标签
             const tagNames: string[] = Array.isArray(knowledgePoints) ? knowledgePoints : [];

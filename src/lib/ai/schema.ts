@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { sanitizeFigureSvg } from '../figure-svg';
+import { parseRecognizedGrade } from '../question-grade';
 
 /**
  * Zod schema for validating AI-parsed questions
@@ -20,6 +21,7 @@ export const ParsedQuestionSchema = z.object({
     knowledgePoints: z.array(z.string()).max(5, "知识点最多 5 个"),
     requiresImage: z.boolean().optional().default(false), // 题目是否依赖图片（如几何题）
     difficultyStars: z.number().int().min(1).max(5).nullable().optional(), // 难度星级 1~5，AI 未给出时为空
+    gradeSemester: z.string().max(100).nullable().optional(), // 题目年级学期，AI 无法判断时为空
     hasFigure: z.boolean().optional(), // 题目是否带配图
     figureSvg: z.string().nullable().optional(), // AI 重绘的 SVG 配图（已净化）
 });
@@ -71,6 +73,12 @@ export function extractJsonObject(text: string): unknown {
         jsonStr = jsonStr.substring(start, end + 1);
     }
     return JSON.parse(jsonStr);
+}
+
+/** 识别失败保留空年级，格式错误仍按 AI 返回异常处理。 */
+export function parseGradeRecognition(text: string): string | null {
+    const parsed = z.object({ gradeSemester: z.string().nullable() }).parse(extractJsonObject(text));
+    return parseRecognizedGrade(parsed.gradeSemester);
 }
 
 export const AnswerGradingSchema = z.object({

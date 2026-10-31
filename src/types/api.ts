@@ -111,7 +111,8 @@ export type PrintableErrorItem = ErrorItemSummary & Pick<ErrorItem,
 export interface CreateErrorItemRequest extends ParsedQuestion {
     originalImageUrl: string;
     subjectId?: string;
-    gradeSemester?: string;
+    gradeSemester?: string | null;
+    recognizedGradeSemester?: string | null;
     paperLevel?: string;
 }
 
@@ -133,6 +134,8 @@ export interface UserProfile {
     role: string;
     isActive: boolean;
     confirmBeforeImport?: boolean;
+    gradeRecognitionMode?: 'fixed' | 'ai';
+    fixedGradeSemester?: string | null;
     enableGeogebra?: boolean;
     enableSvgAnimation?: boolean;
     /** 界面主题偏好：system / light / dark */
@@ -142,6 +145,8 @@ export interface UserProfile {
 }
 
 export interface UpdateUserProfileRequest {
+    gradeRecognitionMode?: 'fixed' | 'ai';
+    fixedGradeSemester?: string | null;
     questionDuplicateThreshold?: number;
     masteryThreshold?: number;
     name?: string;

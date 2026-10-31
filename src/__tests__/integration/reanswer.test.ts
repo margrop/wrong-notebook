@@ -34,9 +34,10 @@ vi.mock('@/lib/auth', () => ({
 
 const scopeMocks = vi.hoisted(() => ({
     findFirst: vi.fn(),
+    findUser: vi.fn(),
     getNotebookCandidateTags: vi.fn(),
 }));
-vi.mock('@/lib/prisma', () => ({ prisma: { subject: { findFirst: scopeMocks.findFirst } } }));
+vi.mock('@/lib/prisma', () => ({ prisma: { subject: { findFirst: scopeMocks.findFirst }, user: { findUnique: scopeMocks.findUser } } }));
 vi.mock('@/lib/ai/tag-service', () => ({ getNotebookCandidateTags: scopeMocks.getNotebookCandidateTags }));
 
 // Import after mocks
@@ -48,6 +49,17 @@ describe('/api/reanswer', () => {
     });
 
     describe('POST /api/reanswer (重新回答问题)', () => {
+        it.each([['fixed', '四年级上', '四年级上'], ['ai', null, '高二下']] as const)('新文字录入遵循 %s 年级规则', async (gradeRecognitionMode, targetGrade, expectedGrade) => {
+            scopeMocks.findUser.mockResolvedValue({ gradeRecognitionMode, fixedGradeSemester: '四年级上', educationStage: 'junior_high', enrollmentYear: 2025 });
+            mocks.mockAIService.reanswerQuestion.mockResolvedValue({ answerText: '答', analysis: '析', gradeSemester: '高二下' });
+            const response = await POST(new Request('http://localhost/api/reanswer', {
+                method: 'POST', body: JSON.stringify({ questionText: '题目', forImport: true }),
+            }));
+            expect(response.status).toBe(200);
+            expect((await response.json()).gradeSemester).toBe(expectedGrade);
+            expect(mocks.mockAIService.reanswerQuestion.mock.calls[0][4]).toBe(targetGrade);
+        });
+
         it('应该成功重新回答问题', async () => {
             const aiResult = {
                 answerText: 'x = 3',

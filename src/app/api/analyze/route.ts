@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { getAIService } from "@/lib/ai";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { calculateGradeNumber } from "@/lib/knowledge-tags";
-import { calculateGrade } from "@/lib/grade-calculator";
+import { getQuestionGradeContext, resolveQuestionGrade } from "@/lib/question-grade";
+import type { QuestionGradeProfile } from "@/lib/question-grade";
 import { prisma } from "@/lib/prisma";
 import { badRequest, createErrorResponse, ErrorCode } from "@/lib/api-errors";
 import type { CandidateTags, GradeLevel } from "@/lib/ai/types";
@@ -62,20 +62,21 @@ async function handlePost(req: Request) {
         let subjectChinese: string | null = null;
         let candidateTags: CandidateTags | undefined;
         let notebookName: string | null = null;
+        let gradeProfile: QuestionGradeProfile | null = null;
 
         if (session?.user?.email) {
             try {
                 // 获取用户信息
                 const user = await prisma.user.findUnique({
                     where: { email: session.user.email },
-                    select: { id: true, educationStage: true, enrollmentYear: true }
+                    select: { id: true, educationStage: true, enrollmentYear: true, gradeRecognitionMode: true, fixedGradeSemester: true }
                 });
 
                 if (user) {
-                    userGrade = calculateGradeNumber(user.educationStage, user.enrollmentYear, getAppTimeZone());
-                    if (user.educationStage && user.enrollmentYear) {
-                        userGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), 'zh', getAppTimeZone());
-                    }
+                    gradeProfile = user;
+                    const context = getQuestionGradeContext(user, getAppTimeZone());
+                    userGrade = context.grade;
+                    userGradeSemester = context.gradeSemester;
                     logger.debug({ userGrade, userGradeSemester }, 'Calculated user grade');
                 }
 
@@ -124,7 +125,10 @@ async function handlePost(req: Request) {
 
         logger.info('AI analysis successful');
 
-        return NextResponse.json(analysisResult);
+        return NextResponse.json(gradeProfile ? {
+            ...analysisResult,
+            gradeSemester: resolveQuestionGrade(gradeProfile, { recognizedGradeSemester: analysisResult.gradeSemester }, getAppTimeZone()),
+        } : analysisResult);
     } catch (error) {
         const message = getErrorMessage(error);
         logger.error({

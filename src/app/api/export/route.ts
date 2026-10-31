@@ -87,6 +87,8 @@ export async function GET(req: Request) {
                 name: user.name,
                 educationStage: user.educationStage,
                 enrollmentYear: user.enrollmentYear,
+                gradeRecognitionMode: user.gradeRecognitionMode,
+                fixedGradeSemester: user.fixedGradeSemester,
                 role: user.role,
                 confirmBeforeImport: user.confirmBeforeImport,
                 questionDuplicateThreshold: user.questionDuplicateThreshold,

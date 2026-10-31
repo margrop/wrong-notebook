@@ -215,28 +215,41 @@ describe('数据导出后再导入（真实 SQLite）', () => {
     it('还原本人的偏好设置，不合法的单项跳过', async () => {
         await database.user.update({
             where: { id: 'user-1' },
-            data: { confirmBeforeImport: true, questionDuplicateThreshold: 75.5, masteryThreshold: 70, enableGeogebra: true, enableSvgAnimation: false, themePreference: 'dark' },
+            data: { confirmBeforeImport: true, questionDuplicateThreshold: 75.5, masteryThreshold: 70, enableGeogebra: true, enableSvgAnimation: false, themePreference: 'dark', gradeRecognitionMode: 'ai', fixedGradeSemester: '四年级上' },
         });
         const backup = await exportBackup();
-        expect(backup.user).toMatchObject({ confirmBeforeImport: true, questionDuplicateThreshold: 75.5, masteryThreshold: 70, enableGeogebra: true, enableSvgAnimation: false, themePreference: 'dark' });
+        expect(backup.user).toMatchObject({ confirmBeforeImport: true, questionDuplicateThreshold: 75.5, masteryThreshold: 70, enableGeogebra: true, enableSvgAnimation: false, themePreference: 'dark', gradeRecognitionMode: 'ai', fixedGradeSemester: '四年级上' });
 
         await database.user.update({
             where: { id: 'user-1' },
-            data: { confirmBeforeImport: false, questionDuplicateThreshold: 90, masteryThreshold: 50, enableGeogebra: false, enableSvgAnimation: true, themePreference: 'system' },
+            data: { confirmBeforeImport: false, questionDuplicateThreshold: 90, masteryThreshold: 50, enableGeogebra: false, enableSvgAnimation: true, themePreference: 'system', gradeRecognitionMode: 'fixed', fixedGradeSemester: null },
         });
         backup.user.questionDuplicateThreshold = 500;
         const { stats } = await importBackup(backup);
         expect(stats.preferencesRestored).toBe(true);
         expect(await database.user.findUniqueOrThrow({ where: { id: 'user-1' } })).toMatchObject({
             confirmBeforeImport: true, questionDuplicateThreshold: 90, masteryThreshold: 70, enableGeogebra: true, enableSvgAnimation: false, themePreference: 'dark',
+            gradeRecognitionMode: 'ai', fixedGradeSemester: '四年级上',
         });
     });
 
     it('旧版文件没有偏好设置时不改动当前设置', async () => {
-        await database.user.update({ where: { id: 'user-1' }, data: { enableGeogebra: true } });
+        await database.user.update({ where: { id: 'user-1' }, data: { enableGeogebra: true, gradeRecognitionMode: 'ai', fixedGradeSemester: '四年级下' } });
         const { stats } = await importBackup({ version: 1, user: { email: mocks.session.user.email }, errorItems: [] });
         expect(stats.preferencesRestored).toBe(false);
         expect((await database.user.findUniqueOrThrow({ where: { id: 'user-1' } })).enableGeogebra).toBe(true);
+        expect(await database.user.findUniqueOrThrow({ where: { id: 'user-1' } })).toMatchObject({ gradeRecognitionMode: 'ai', fixedGradeSemester: '四年级下' });
+    });
+
+    it('无效年级规则不覆盖当前偏好，恢复题目保留原有年级', async () => {
+        const backup = await exportBackup();
+        backup.user.gradeRecognitionMode = 'invalid';
+        backup.user.fixedGradeSemester = '十三年级上';
+        await database.user.update({ where: { id: 'user-1' }, data: { gradeRecognitionMode: 'fixed', fixedGradeSemester: '四年级下' } });
+        await clearUserData();
+        await importBackup(backup);
+        expect(await database.user.findUniqueOrThrow({ where: { id: 'user-1' } })).toMatchObject({ gradeRecognitionMode: 'fixed', fixedGradeSemester: '四年级下' });
+        expect((await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1' } })).gradeSemester).toBe('初二上');
     });
 
     it('导入时重新净化 SVG，丢弃不合法的暂存练习和掌握概率', async () => {

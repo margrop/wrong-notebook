@@ -8,6 +8,7 @@ import { DuplicateThresholdSetting } from "@/components/settings/duplicate-thres
 import { GeogebraPreferenceSetting } from "@/components/settings/geogebra-preference-setting";
 import { ImportPreferenceSetting } from "@/components/settings/import-preference-setting";
 import { MasteryThresholdSetting } from "@/components/settings/mastery-threshold-setting";
+import { QuestionGradeSetting } from "@/components/settings/question-grade-setting";
 import { SvgAnimationPreferenceSetting } from "@/components/settings/svg-animation-preference-setting";
 import { TimeZoneSetting } from "@/components/settings/time-zone-setting";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -76,6 +77,7 @@ export function GeneralSettings({ config, setConfig, isAdmin, disabled }: Genera
             )}
 
             <ImportPreferenceSetting />
+            <QuestionGradeSetting />
             <SvgAnimationPreferenceSetting />
             <GeogebraPreferenceSetting />
             <DuplicateThresholdSetting />

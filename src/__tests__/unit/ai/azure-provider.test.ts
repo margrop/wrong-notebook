@@ -578,3 +578,23 @@ describe('Azure OpenAI Provider 判题', () => {
         expect(mockAzureCompletionCreate.mock.calls.at(-1)?.[0].model).toBe('gpt-4o');
     });
 });
+
+
+describe('题目年级识别', () => {
+    beforeEach(() => vi.clearAllMocks());
+    it.each(['四年级上', null])('短请求正确返回 %s，不求解整道题', async (gradeSemester) => {
+        const provider = new AzureOpenAIProvider({ apiKey: 'test-key', endpoint: 'https://test.openai.azure.com', deploymentName: 'gpt-test', apiVersion: '2024-02-15-preview' });
+        const response = (text: string) => ({ choices: [{ message: { content: text }, finish_reason: 'stop' }] });
+        mockAzureCompletionCreate.mockResolvedValue(response(JSON.stringify({ gradeSemester })));
+        expect(await provider.recognizeGrade('计算长方形面积')).toBe(gradeSemester);
+        expect(mockAzureCompletionCreate).toHaveBeenCalledOnce();
+    });
+
+    it('图片识别与文字解题均保留 AI 给出的年级', async () => {
+        const provider = new AzureOpenAIProvider({ apiKey: 'test-key', endpoint: 'https://test.openai.azure.com', deploymentName: 'gpt-test', apiVersion: '2024-02-15-preview' });
+        const response = (text: string) => ({ choices: [{ message: { content: text }, finish_reason: 'stop' }] });
+        mockAzureCompletionCreate.mockResolvedValue(response('<subject>数学</subject><question_text>求和</question_text><answer_text>4</answer_text><analysis>相加</analysis><knowledge_points>加法</knowledge_points><grade_semester>四年级上</grade_semester>'));
+        expect((await provider.analyzeImage('dGVzdA==')).gradeSemester).toBe('四年级上');
+        expect((await provider.reanswerQuestion('求和')).gradeSemester).toBe('四年级上');
+    });
+});

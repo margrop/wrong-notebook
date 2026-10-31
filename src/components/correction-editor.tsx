@@ -16,7 +16,7 @@ import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { calculateGrade } from "@/lib/grade-calculator";
+import { getFixedQuestionGrade } from "@/lib/question-grade";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
 import { getDefaultPaperLevel } from "@/lib/paper-level";
@@ -70,10 +70,10 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
         apiClient.get<UserProfile>("/api/user")
             .then(user => {
                 setGeogebraEnabled(!!user?.enableGeogebra);
-                if (user && user.educationStage && user.enrollmentYear) {
-                    const grade = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), 'zh', timeZone);
-                    setData(prev => prev.gradeSemester || gradeEdited.current ? prev : { ...prev, gradeSemester: grade });
-                    setEducationStage(user.educationStage);
+                if (user) {
+                    const grade = getFixedQuestionGrade(user, timeZone);
+                    setData(prev => prev.gradeSemester || gradeEdited.current ? prev : { ...prev, gradeSemester: grade || '' });
+                    setEducationStage(user.educationStage || undefined);
                 }
             })
             .catch(err => frontendLogger.error('[CorrectionEditor]', 'Failed to fetch user info for grade calculation', { error: err }));
@@ -93,7 +93,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                 language,
                 subject: data.subject,
                 imagePreview,
-                gradeSemester: data.gradeSemester,
+                gradeSemester: data.gradeSemester ?? undefined,
                 subjectId: data.subjectId,
             });
             frontendLogger.info('[Reanswer]', requestBody.imageBase64 ? 'Sending image + text (image available for mistake analysis)' : 'Sending text only (no image available)', { timeout: aiTimeout });

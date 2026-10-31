@@ -19,9 +19,10 @@ import type { AnalyzeResponse, AppConfig } from "@/types/api";
 /** 未配置时 AI 识别的超时（毫秒） */
 const DEFAULT_AI_TIMEOUT = 180000;
 
-export type ReviewedQuestion = ParsedQuestion & { subjectId?: string; gradeSemester?: string; paperLevel?: string };
+export type ReviewedQuestion = ParsedQuestion & { subjectId?: string; paperLevel?: string };
 
 interface ReanswerResponse {
+    gradeSemester?: string | null;
     answerText: string;
     analysis: string;
     knowledgePoints: string[];
@@ -163,6 +164,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
             const result = await apiClient.post<ReanswerResponse>("/api/reanswer", {
                 questionText,
                 language,
+                forImport: true,
                 subject: textNotebook?.name,
                 subjectId: textNotebook?.id,
             }, { timeout: aiTimeout, recoverable: true });
@@ -179,6 +181,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
                 subject: (result.subject || "其他") as ParsedQuestion["subject"],
                 requiresImage: false,
                 difficultyStars: result.difficultyStars ?? null,
+                gradeSemester: result.gradeSemester ?? null,
             }, null);
             frontendLogger.info(logPrefix, 'Text analysis completed', { totalDuration: Date.now() - startTime });
         } catch (error) {

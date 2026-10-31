@@ -1,17 +1,18 @@
 import OpenAI from "openai";
 import type { ChatCompletion } from "openai/resources/chat/completions";
 import { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateMasteryPrompt, generateGradingPrompt, generateTagSuggestPrompt, generateFigurePrompt, generateSvgAnimationPrompt, generateSvgNarrationPrompt, generateLatexFixPrompt, SVG_ANIMATION_REQUEST, SVG_NARRATION_REQUEST } from './prompts';
+import { generateGradeRecognitionPrompt, generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateMasteryPrompt, generateGradingPrompt, generateTagSuggestPrompt, generateFigurePrompt, generateSvgAnimationPrompt, generateSvgNarrationPrompt, generateLatexFixPrompt, SVG_ANIMATION_REQUEST, SVG_NARRATION_REQUEST } from './prompts';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
 import { getAppConfig } from '../config';
-import { safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure } from './schema';
+import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure } from './schema';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
 import { AI_OUTPUT_TRUNCATED, withTruncationRetry } from './truncation';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
+import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
 
 const logger = createLogger('ai:openai');
@@ -166,6 +167,7 @@ export class OpenAIProvider implements AIService {
             subject,
             knowledgePoints,
             requiresImage,
+            gradeSemester: parseRecognizedGrade(this.extractTag(text, "grade_semester")),
             difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")),
             ...parseFigure(this.extractTag(text, "has_figure"), this.extractTag(text, "figure_svg")),
         };
@@ -453,7 +455,7 @@ export class OpenAIProvider implements AIService {
 
             logger.info('Reanswer parsed successfully');
 
-            return { answerText, analysis, knowledgePoints, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(this.extractTag(text, "subject")), difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")) };
+            return { answerText, analysis, knowledgePoints, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(this.extractTag(text, "subject")), gradeSemester: parseRecognizedGrade(this.extractTag(text, "grade_semester")), difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")) };
 
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
@@ -539,6 +541,21 @@ export class OpenAIProvider implements AIService {
             return parseMasteryEvaluation(text);
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during mastery evaluation');
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async recognizeGrade(questionText: string): Promise<string | null> {
+        try {
+            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+                model: this.model,
+                messages: [{ role: 'user', content: generateGradeRecognitionPrompt(questionText) }],
+                max_tokens: maxTokens,
+            }), 1024, () => logger.warn('年级识别输出截断，增加上限重试'));
+            return parseGradeRecognition(response.choices[0]?.message?.content || '');
+        } catch (error) {
+            logger.error({ error }, '识别题目年级失败');
             this.handleError(error);
             throw error;
         }

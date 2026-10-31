@@ -96,12 +96,15 @@ The basic successful response:
     "answerText": "Answer",
     "analysis": "Analysis",
     "knowledgePoints": ["Knowledge point name"],
-    "difficultyStars": 3
+    "difficultyStars": 3,
+    "gradeSemester": "四年级上"
   }
 }
 ```
 
 It may also return `wrongAnswerText`, `mistakeAnalysis`, `subject`, `errorType` and `source`. On failure, return `success: false` with `error`.
+
+The target user’s grade rule under **Settings → General** applies. Fixed mode uses the selected value, or the current account grade when unset. AI mode uses `gradeSemester` from the recognition result, stored in Chinese (for example, `四年级上` or `初二下`); return `null` when uncertain. If the field is omitted, the app makes one short AI grade request for a non-duplicate question, counted toward that user’s daily limit. A quota or recognition failure fails that item; inspect the per-item results.
 
 ## Interpreting results
 

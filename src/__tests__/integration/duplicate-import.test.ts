@@ -9,12 +9,14 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 const mocks = vi.hoisted(() => ({
     prisma: undefined as PrismaClient | undefined,
     scheduleMasteryEvaluation: vi.fn(),
+    recognizeGrade: vi.fn(),
     session: { user: { id: 'user-1', email: 'duplicate-test@example.com', role: 'admin' }, expires: '2099-01-01' },
 }));
 
 vi.mock('@/lib/prisma', () => ({ get prisma() { return mocks.prisma; } }));
 vi.mock('next-auth', () => ({ getServerSession: vi.fn(async () => mocks.session) }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
+vi.mock('@/lib/ai', () => ({ getAIService: () => ({ recognizeGrade: mocks.recognizeGrade }) }));
 vi.mock('@/lib/logger', () => ({ createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }) }));
 vi.mock('@/lib/mastery', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/lib/mastery')>()),
@@ -28,6 +30,7 @@ import { GET as GET_PROFILE, PATCH as UPDATE_PROFILE } from '@/app/api/user/rout
 import { POST as COMPARE_QUESTIONS } from '@/app/api/error-items/similarity/route';
 import { GET as GET_HISTORY } from '@/app/api/error-items/[id]/practice-records/route';
 import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from '@/lib/question-deduplication';
+import * as appConfig from '@/lib/config';
 
 let database: PrismaClient;
 let directory: string;
@@ -56,6 +59,7 @@ beforeAll(() => {
 }, 120000);
 
 beforeEach(async () => {
+    mocks.recognizeGrade.mockResolvedValue(null);
     await database.user.deleteMany();
     await database.user.createMany({ data: [
         { id: 'user-1', email: mocks.session.user.email, password: 'test-only' },
@@ -75,6 +79,73 @@ afterEach(() => {
 afterAll(async () => {
     await database?.$disconnect();
     if (directory) rmSync(directory, { recursive: true, force: true });
+});
+
+describe('账户级录入年级规则（真实 SQLite）', () => {
+    it('旧账户默认固定模式，保存的规则仅影响当前账户的新题', async () => {
+        expect(await (await GET_PROFILE()).json()).toMatchObject({ gradeRecognitionMode: 'fixed', fixedGradeSemester: null });
+        await existing({ gradeSemester: '初一上' });
+        const response = await UPDATE_PROFILE(request({ gradeRecognitionMode: 'fixed', fixedGradeSemester: '四年级下' }, '/api/user'));
+        expect(response.status).toBe(200);
+        expect(await (await GET_PROFILE()).json()).toMatchObject({ gradeRecognitionMode: 'fixed', fixedGradeSemester: '四年级下' });
+        expect(await database.user.findUniqueOrThrow({ where: { id: 'user-2' } })).toMatchObject({ gradeRecognitionMode: 'fixed', fixedGradeSemester: null });
+        const imported = await (await save({ questionText: '计算这个长方体的体积。', recognizedGradeSemester: '高二上' })).json();
+        expect(imported.gradeSemester).toBe('四年级下');
+        expect((await database.errorItem.findUniqueOrThrow({ where: { id: 'existing' } })).gradeSemester).toBe('初一上');
+        expect(mocks.recognizeGrade).not.toHaveBeenCalled();
+    });
+
+    it.each([{ gradeRecognitionMode: 'unknown' }, { fixedGradeSemester: '十三年级上' }, { fixedGradeSemester: 4 }])('拒绝非法规则 %j', async (body) => {
+        expect((await UPDATE_PROFILE(request(body, '/api/user'))).status).toBe(400);
+        expect((await database.user.findUniqueOrThrow({ where: { id: 'user-1' } })).gradeRecognitionMode).toBe('fixed');
+    });
+
+    it('固定模式仍允许单题手工覆盖，显式清空时不重新填充年级', async () => {
+        await UPDATE_PROFILE(request({ fixedGradeSemester: '四年级上' }, '/api/user'));
+        expect(await (await save({ gradeSemester: '初二下' })).json()).toMatchObject({ gradeSemester: '初二下' });
+        await database.errorItem.deleteMany();
+        expect(await (await save({ gradeSemester: '' })).json()).toMatchObject({ gradeSemester: null });
+    });
+
+    it.each(['高二下', null])('AI 模式保留识别结果 %s，免确认保存不再发起识别', async (recognizedGradeSemester) => {
+        await UPDATE_PROFILE(request({ gradeRecognitionMode: 'ai', fixedGradeSemester: '四年级上' }, '/api/user'));
+        const response = await save({ recognizedGradeSemester });
+        expect(response.status).toBe(201);
+        expect((await response.json()).gradeSemester).toBe(recognizedGradeSemester);
+        expect(mocks.recognizeGrade).not.toHaveBeenCalled();
+    });
+
+    it('AI 模式为直接录入补充识别并记录用量，重复导入不再调用 AI', async () => {
+        await UPDATE_PROFILE(request({ gradeRecognitionMode: 'ai' }, '/api/user'));
+        mocks.recognizeGrade.mockResolvedValue('五年级上');
+        expect(await (await save()).json()).toMatchObject({ gradeSemester: '五年级上' });
+        expect(mocks.recognizeGrade).toHaveBeenCalledWith(questionText);
+        expect(await database.aiUsage.count({ where: { userId: 'user-1', kind: 'analyze' } })).toBe(1);
+        expect(await (await save()).json()).toMatchObject({ duplicate: true });
+        expect(mocks.recognizeGrade).toHaveBeenCalledOnce();
+        expect(await database.aiUsage.count({ where: { userId: 'user-1' } })).toBe(1);
+    });
+
+    it('年级识别失败时不创建题目，也不覆盖已有题目', async () => {
+        await UPDATE_PROFILE(request({ gradeRecognitionMode: 'ai' }, '/api/user'));
+        mocks.recognizeGrade.mockRejectedValue(new Error('模拟识别服务失败'));
+        expect((await save()).status).toBe(500);
+        expect(await database.errorItem.count()).toBe(0);
+    });
+
+    it('直接录入需要补充识别时遵守每日额度，超限不写入题目', async () => {
+        await database.user.update({ where: { id: 'user-1' }, data: { gradeRecognitionMode: 'ai', role: 'user' } });
+        await database.aiUsage.create({ data: { userId: 'user-1', kind: 'analyze' } });
+        const config = vi.spyOn(appConfig, 'getAppConfig').mockReturnValue({ aiProvider: 'gemini', aiDailyLimit: 1 });
+        try {
+            expect((await save()).status).toBe(429);
+            expect(mocks.recognizeGrade).not.toHaveBeenCalled();
+            expect(await database.errorItem.count()).toBe(0);
+            expect(await database.aiUsage.count()).toBe(1);
+        } finally {
+            config.mockRestore();
+        }
+    });
 });
 
 describe('题目导入自动判重（真实 SQLite）', () => {
@@ -232,6 +303,37 @@ describe('题目导入自动判重（真实 SQLite）', () => {
 });
 
 describe('其他导入入口也使用同一判重规则', () => {
+    it('Openclaw 未返回年级时在事务外补充识别', async () => {
+        await UPDATE_PROFILE(request({ gradeRecognitionMode: 'ai' }, '/api/user'));
+        mocks.recognizeGrade.mockResolvedValue('初二下');
+        vi.stubEnv('OPENCLAW_AUTH_MODE', 'apikey');
+        vi.stubEnv('OPENCLAW_INTEGRATION_API_KEY', 'test-only-key');
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+            success: true, data: { questionText, answerText: 'x = 3', analysis: '移项', knowledgePoints: [] },
+        }), { status: 200 })));
+        const response = await IMPORT_OPENCLAW(request({ userEmail: mocks.session.user.email, images: [{ base64: 'dGVzdA==', mimeType: 'image/png', filename: 'grade.png' }] }, '/api/openclaw/batch-upload', { 'x-api-key': 'test-only-key' }));
+        expect(response.status).toBe(201);
+        const data = await response.json();
+        expect(data.successCount).toBe(1);
+        expect((await database.errorItem.findUniqueOrThrow({ where: { id: data.results[0].errorItemId } })).gradeSemester).toBe('初二下');
+        expect(mocks.recognizeGrade).toHaveBeenCalledOnce();
+    });
+
+    it.each([['fixed', '四年级上'], ['ai', '高二下']] as const)('Openclaw 导入遵循 %s 年级规则', async (gradeRecognitionMode, expectedGrade) => {
+        await UPDATE_PROFILE(request({ gradeRecognitionMode, fixedGradeSemester: '四年级上' }, '/api/user'));
+        vi.stubEnv('OPENCLAW_AUTH_MODE', 'apikey');
+        vi.stubEnv('OPENCLAW_INTEGRATION_API_KEY', 'test-only-key');
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+            success: true, data: { questionText, answerText: 'x = 3', analysis: '移项', knowledgePoints: [], gradeSemester: '高二下' },
+        }), { status: 200 })));
+        const response = await IMPORT_OPENCLAW(request({ userEmail: mocks.session.user.email, images: [{ base64: 'dGVzdA==', mimeType: 'image/png', filename: 'grade.png' }] }, '/api/openclaw/batch-upload', { 'x-api-key': 'test-only-key' }));
+        expect(response.status).toBe(201);
+        const data = await response.json();
+        expect(data.successCount).toBe(1);
+        expect((await database.errorItem.findUniqueOrThrow({ where: { id: data.results[0].errorItemId } })).gradeSemester).toBe(expectedGrade);
+        expect(mocks.recognizeGrade).not.toHaveBeenCalled();
+    });
+
     it('Openclaw 识别返回星级时，保存星级并默认归入对应卷别', async () => {
         vi.stubEnv('OPENCLAW_AUTH_MODE', 'apikey');
         vi.stubEnv('OPENCLAW_INTEGRATION_API_KEY', 'test-only-key');

@@ -1,16 +1,17 @@
 import { GoogleGenAI } from "@google/genai";
 import { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateMasteryPrompt, generateGradingPrompt, generateTagSuggestPrompt, generateFigurePrompt, generateSvgAnimationPrompt, generateSvgNarrationPrompt, generateLatexFixPrompt, SVG_ANIMATION_REQUEST, SVG_NARRATION_REQUEST } from './prompts';
+import { generateGradeRecognitionPrompt, generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateMasteryPrompt, generateGradingPrompt, generateTagSuggestPrompt, generateFigurePrompt, generateSvgAnimationPrompt, generateSvgNarrationPrompt, generateLatexFixPrompt, SVG_ANIMATION_REQUEST, SVG_NARRATION_REQUEST } from './prompts';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
-import { safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure } from './schema';
+import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure } from './schema';
 import { getAppConfig } from '../config';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
 import { AI_OUTPUT_TRUNCATED } from './truncation';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
+import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
 
 const logger = createLogger('ai:gemini');
@@ -151,6 +152,7 @@ export class GeminiProvider implements AIService {
             subject,
             knowledgePoints,
             requiresImage,
+            gradeSemester: parseRecognizedGrade(this.extractTag(text, "grade_semester")),
             difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")),
             ...parseFigure(this.extractTag(text, "has_figure"), this.extractTag(text, "figure_svg")),
         };
@@ -343,7 +345,7 @@ export class GeminiProvider implements AIService {
 
             logger.info('Reanswer parsed successfully');
 
-            return { answerText, analysis, knowledgePoints: knowledgePointsParsed, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(this.extractTag(text, "subject")), difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")) };
+            return { answerText, analysis, knowledgePoints: knowledgePointsParsed, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(this.extractTag(text, "subject")), gradeSemester: parseRecognizedGrade(this.extractTag(text, "grade_semester")), difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")) };
 
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
@@ -421,6 +423,22 @@ export class GeminiProvider implements AIService {
             return parseMasteryEvaluation(text);
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during mastery evaluation');
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async recognizeGrade(questionText: string): Promise<string | null> {
+        try {
+            const response = await this.retryOperation(() => this.ai.models.generateContent({
+                model: this.modelName,
+                contents: generateGradeRecognitionPrompt(questionText),
+            }));
+            const text = response.text || '';
+            if (!text && response.candidates?.[0]?.finishReason === 'MAX_TOKENS') throw new Error(AI_OUTPUT_TRUNCATED);
+            return parseGradeRecognition(text);
+        } catch (error) {
+            logger.error({ error }, '识别题目年级失败');
             this.handleError(error);
             throw error;
         }

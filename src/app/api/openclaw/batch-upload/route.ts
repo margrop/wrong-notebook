@@ -5,7 +5,8 @@ import { createLogger } from "@/lib/logger";
 import { startBackgroundTask } from "@/lib/background-tasks";
 import type { BackgroundTaskHandle } from "@/lib/background-tasks";
 import { createErrorResponse, ErrorCode } from "@/lib/api-errors";
-import { calculateGrade } from "@/lib/grade-calculator";
+import { prepareImportGrade } from "@/lib/import-question-grade";
+import { needsQuestionGradeRecognition } from "@/lib/question-grade";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 import { generateUniqueShortId } from "@/lib/short-id";
@@ -13,7 +14,6 @@ import { scheduleMasteryEvaluation } from "@/lib/mastery";
 import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from "@/lib/question-deduplication";
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { getDefaultPaperLevel } from "@/lib/paper-level";
-import { getAppTimeZone } from "@/lib/config";
 import { getErrorMessage } from "@/lib/error-message";
 
 const logger = createLogger('api:openclaw:batch-upload');
@@ -42,6 +42,7 @@ interface OpenclawResponse {
         errorType?: string;
         source?: string;
         difficultyStars?: number | null;
+        gradeSemester?: string | null;
     };
     error?: string;
 }
@@ -127,6 +128,7 @@ async function createErrorItem(
     imageBase64: string,
     mimeType: string,
     parsedData: OpenclawResponse['data'],
+    finalGradeSemester: string | null,
     subjectId?: string
 ) {
     const { questionText, answerText, analysis, knowledgePoints, errorType, source } = parsedData || {};
@@ -149,16 +151,6 @@ async function createErrorItem(
 
         const subject = subjectId ? await tx.subject.findUnique({ where: { id: subjectId } }) : null;
         const subjectKey = subject ? inferSubjectFromName(subject.name) : null;
-
-        const user = await tx.user.findUnique({
-            where: { id: userId },
-            select: { educationStage: true, enrollmentYear: true }
-        });
-
-        let finalGradeSemester: string | null = null;
-        if (user?.educationStage && user?.enrollmentYear) {
-            finalGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), 'zh', getAppTimeZone());
-        }
 
         for (const tagName of tagNames) {
             try {
@@ -409,11 +401,23 @@ export async function POST(req: Request) {
             }
 
             try {
+                const gradeInput = {
+                    questionText: openclawResponse.data.questionText,
+                    recognizedGradeSemester: openclawResponse.data.gradeSemester,
+                };
+                const duplicateBeforeRecognition = needsQuestionGradeRecognition(dbUser, gradeInput)
+                    ? await findDuplicateQuestion(prisma, dbUser.id, gradeInput) : null;
+                const gradeResult = await prepareImportGrade(dbUser, gradeInput, duplicateBeforeRecognition !== null);
+                if (gradeResult.response) {
+                    results.push({ success: false, index: i, error: 'AI_DAILY_LIMIT_EXCEEDED' });
+                    continue;
+                }
                 const errorItem = await createErrorItem(
                     dbUser.id,
                     base64,
                     mimeType,
                     openclawResponse.data,
+                    gradeResult.gradeSemester,
                     subjectId
                 );
 
@@ -436,7 +440,7 @@ export async function POST(req: Request) {
                 results.push({
                     success: false,
                     index: i,
-                    error: `数据库写入失败: ${getErrorMessage(dbError)}`,
+                    error: `导入失败: ${getErrorMessage(dbError)}`,
                 });
             }
         }

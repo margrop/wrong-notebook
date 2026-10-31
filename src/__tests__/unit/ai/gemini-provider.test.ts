@@ -336,3 +336,23 @@ describe('Gemini Provider 判题', () => {
         expect(result).toEqual({ correct: true, reason: '等价表达式' });
     });
 });
+
+
+describe('题目年级识别', () => {
+    beforeEach(() => vi.clearAllMocks());
+    it.each(['四年级上', null])('短请求正确返回 %s，不求解整道题', async (gradeSemester) => {
+        const provider = new GeminiProvider({ apiKey: 'test-key' });
+        const response = (text: string) => ({ text });
+        mockGenerateContent.mockResolvedValue(response(JSON.stringify({ gradeSemester })));
+        expect(await provider.recognizeGrade('计算长方形面积')).toBe(gradeSemester);
+        expect(mockGenerateContent).toHaveBeenCalledOnce();
+    });
+
+    it('图片识别与文字解题均保留 AI 给出的年级', async () => {
+        const provider = new GeminiProvider({ apiKey: 'test-key' });
+        const response = (text: string) => ({ text });
+        mockGenerateContent.mockResolvedValue(response('<subject>数学</subject><question_text>求和</question_text><answer_text>4</answer_text><analysis>相加</analysis><knowledge_points>加法</knowledge_points><grade_semester>四年级上</grade_semester>'));
+        expect((await provider.analyzeImage('dGVzdA==')).gradeSemester).toBe('四年级上');
+        expect((await provider.reanswerQuestion('求和')).gradeSemester).toBe('四年级上');
+    });
+});

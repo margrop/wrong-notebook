@@ -59,7 +59,7 @@ The home page offers photo upload, manual input and direct entry, with drag-and-
 
 ![Photo upload, manual input, direct entry, clipboard paste and screenshot on the home page](doc/screenshots/en/upload.png)
 
-General settings control review before import, SVG animated explanations, GeoGebra demos, the similarity threshold for duplicate detection and the mastered threshold.
+General settings control review before import, the per-user grade rule (fixed grade or AI recognition), SVG animated explanations, GeoGebra demos, the similarity threshold for duplicate detection and the mastered threshold.
 
 ![Review before import, animated explanations, GeoGebra and duplicate threshold in General settings](doc/screenshots/en/preferences.png)
 
@@ -133,6 +133,7 @@ Practice statistics show total practice, accuracy and active months, with distri
 
 - **📷 Many ways to add questions**: upload images, paste from the clipboard (Ctrl/⌘+V), take a screenshot, or type the question (Markdown and LaTeX supported). Crop images (zoom with the mouse wheel, a pinch or the zoom buttons for precise selection), or select several questions on one image to import them in a batch.
 - **🤖 AI recognition and solving**: AI extracts the question text, answer, analysis, the student's wrong answer and the cause of the mistake, identifies the subject and picks tags from the knowledge library. Turn on "Review before importing" in **Settings → General** to check and edit results before saving.
+- **🎓 Grade rule for new questions**: choose a fixed grade or AI recognition per account under **Settings → General**. Fixed mode uses the selected grade and semester, falling back to the account's current grade if unset. AI infers the grade from the question and leaves it unset when uncertain. Applies to images, text, batch selection and Openclaw; manual choices take priority. Direct entry without a grade uses one short AI request, counted toward your daily limit; duplicates do not trigger it. Existing questions and restored grades are preserved.
 - **🔁 Duplicate detection**: on import, question text is compared by similarity. Above the threshold (90% by default, adjustable in settings) the question is not imported again; a new wrong attempt is recorded on the original instead.
 - **🆔 Question ID**: every question has a 6-digit ID you can copy or type into the notebook to open it directly. Printed questions and exams show the source ID so you can find the original when entering results.
 

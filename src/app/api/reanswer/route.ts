@@ -11,6 +11,8 @@ import { resolveNotebookScope } from "@/lib/notebook-scope";
 import type { CandidateTags } from "@/lib/ai";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
+import { getFixedQuestionGrade, resolveQuestionGrade } from "@/lib/question-grade";
+import { getAppTimeZone } from "@/lib/config";
 
 const logger = createLogger('api:reanswer');
 
@@ -27,7 +29,7 @@ async function handlePost(req: Request) {
 
     try {
         const body = await req.json();
-        const { questionText, language = 'zh', subject, imageBase64, gradeSemester, subjectId } = body;
+        const { questionText, language = 'zh', subject, imageBase64, gradeSemester, subjectId, forImport } = body;
 
         logger.debug({
             questionLength: questionText?.length,
@@ -58,16 +60,23 @@ async function handlePost(req: Request) {
         if (limited) return limited;
 
         const aiService = getAIService();
+        // 新录入的文字题遵循账户规则，已有题目的重新解题沿用其手工年级。
+        const gradeProfile = forImport === true && session.user?.email
+            ? await prisma.user.findUnique({ where: { email: session.user.email } }) : null;
+        const targetGrade = gradeSemester ?? (gradeProfile ? getFixedQuestionGrade(gradeProfile, getAppTimeZone()) : undefined);
 
         // 根据是否有图片选择不同的重新解题方式
         const result = await trackBackgroundTask(
             { userId: session.user.id, kind: 'reanswer', subject: describeQuestion({ questionText }) },
-            () => aiService.reanswerQuestion(questionText, language, subject, imageBase64, gradeSemester, candidateTags)
+            () => aiService.reanswerQuestion(questionText, language, subject, imageBase64, targetGrade, candidateTags)
         );
 
         logger.info('Reanswer successful');
 
-        return NextResponse.json(result);
+        return NextResponse.json(gradeProfile ? {
+            ...result,
+            gradeSemester: resolveQuestionGrade(gradeProfile, { gradeSemester, recognizedGradeSemester: result.gradeSemester }, getAppTimeZone()),
+        } : result);
     } catch (error: unknown) {
         const errorMessageFromError = error instanceof Error ? error.message : String(error);
         const stack = error instanceof Error ? error.stack : undefined;

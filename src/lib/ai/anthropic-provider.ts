@@ -1,17 +1,18 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateMasteryPrompt, generateGradingPrompt, generateTagSuggestPrompt, generateReanswerPrompt, generateFigurePrompt, generateSvgAnimationPrompt, generateSvgNarrationPrompt, generateLatexFixPrompt, SVG_ANIMATION_REQUEST, SVG_NARRATION_REQUEST } from './prompts';
+import { generateGradeRecognitionPrompt, generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateMasteryPrompt, generateGradingPrompt, generateTagSuggestPrompt, generateReanswerPrompt, generateFigurePrompt, generateSvgAnimationPrompt, generateSvgNarrationPrompt, generateLatexFixPrompt, SVG_ANIMATION_REQUEST, SVG_NARRATION_REQUEST } from './prompts';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
 import { getAppConfig } from '../config';
-import { safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, extractJsonObject, parseDifficultyStars, parseFigure } from './schema';
+import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, extractJsonObject, parseDifficultyStars, parseFigure } from './schema';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
 import { trimTrailingSlashes } from '../utils';
 import { AI_OUTPUT_TRUNCATED, withTruncationRetry } from './truncation';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
+import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
 
 const logger = createLogger('ai:anthropic');
@@ -91,6 +92,7 @@ function parseQuestionResponse(text: string): ParsedQuestion {
         subject: normalizeSubject(extractTag(text, "subject")) || '其他',
         knowledgePoints: splitKnowledgePoints(extractTag(text, "knowledge_points")),
         requiresImage: extractTag(text, "requires_image")?.toLowerCase().trim() === 'true',
+        gradeSemester: parseRecognizedGrade(extractTag(text, "grade_semester")),
         difficultyStars: parseDifficultyStars(extractTag(text, "difficulty_stars")),
         ...parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg")),
     };
@@ -272,6 +274,7 @@ export class AnthropicProvider implements AIService {
                 mistakeAnalysis: extractTag(text, "mistake_analysis") || "",
                 mistakeStatus: normalizeMistakeStatusForSave(extractTag(text, "mistake_status"), wrongAnswerText),
                 subject: normalizeSubject(extractTag(text, "subject")),
+                gradeSemester: parseRecognizedGrade(extractTag(text, "grade_semester")),
                 difficultyStars: parseDifficultyStars(extractTag(text, "difficulty_stars")),
             };
         } catch (error) {
@@ -310,6 +313,18 @@ export class AnthropicProvider implements AIService {
             return parseMasteryEvaluation(text);
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during mastery evaluation');
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async recognizeGrade(questionText: string): Promise<string | null> {
+        try {
+            return parseGradeRecognition(await this.complete(
+                generateGradeRecognitionPrompt(questionText), '请只返回题目年级识别的 JSON 结果。', 1024,
+            ));
+        } catch (error) {
+            logger.error({ error }, '识别题目年级失败');
             this.handleError(error);
             throw error;
         }

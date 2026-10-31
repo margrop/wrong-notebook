@@ -7,6 +7,7 @@ After signing in, open "Settings → General" to adjust your own preferences:
 | Setting | Default |
 | --- | --- |
 | Review before import | When on, review before saving; useful when every question must be checked |
+| Grade recognition for new questions | Fixed mode by default: use the chosen grade and semester, or the current account grade if unset; AI recognition is also available |
 | SVG animated explanations | On |
 | GeoGebra interactive demos | Off |
 | Duplicate similarity threshold | 90%; a question is a duplicate when the similarity is strictly greater |
@@ -15,6 +16,16 @@ After signing in, open "Settings → General" to adjust your own preferences:
 The interface theme is not in Settings; switch it with the theme button in the top navigation bar: Auto (follow system, the default), Light or Dark. It is also saved per user and carries over when you sign in on another device.
 
 Personal preferences are saved per user. The AI service configuration and the app time zone are global settings that require admin rights.
+
+## Grade recognition for new questions
+
+Choose a rule under **Settings → General** and click **Save grade rule**. Regular users and admins each manage their own rule.
+
+- **Fixed grade**: use the selected grade and semester. If unset, calculate the current grade from the account's school stage, enrollment year and app time zone. An explicitly selected fixed value stays the same across school years.
+- **AI recognition**: infer the grade and semester from the question, knowledge points and curriculum progress, without injecting the student's current grade. Leave them unset when uncertain.
+- Applies to image recognition, text solving, batch selection, direct entry and Openclaw uploads. A grade entered manually or changed during review takes priority.
+- Image recognition and text solving return the grade in the same AI request. Direct entry and external results missing a grade use one short additional request, counted toward the daily AI limit. Duplicates do not trigger it; an attempted but uncertain result is not requested again.
+- Affects new questions only. Existing questions and grades restored from backups stay as they were. Your rule and fixed value are included in your JSON backup.
 
 ## App time zone
 

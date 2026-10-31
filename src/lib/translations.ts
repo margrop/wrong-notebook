@@ -2,6 +2,16 @@ export type Language = 'zh' | 'en';
 
 export const translations = {
     en: {
+        questionGrade: {
+            label: "Grade recognition for new questions",
+            fixed: "Fixed grade",
+            ai: "AI recognition",
+            fixedDescription: "Use the selected grade and semester for new questions. If unset, use the current grade calculated from your account profile.",
+            aiDescription: "AI determines the grade and semester from the question content. If it cannot determine them, they stay unset. Direct entry without a grade also uses AI and counts toward your daily AI limit.",
+            description: "Saved for your account and applied to all new question entry. Manual changes take priority; existing questions and restored backups keep their grades.",
+            save: "Save grade rule",
+            loadFailed: "Could not load the grade rule. Please retry.",
+        },
         gradeSelection: {
             edit: "Edit grade/semester",
             firstSemester: "1st Semester",
@@ -1332,6 +1342,16 @@ export const translations = {
         },
     },
     zh: {
+        questionGrade: {
+            label: "录入题目的年级识别规则",
+            fixed: "固定年级",
+            ai: "AI 识别",
+            fixedDescription: "新题使用所选年级学期；未指定时使用账户学段与入学年份推算的当前年级。",
+            aiDescription: "AI 根据题目内容判断年级学期，无法确定时保持未设置。直接录入未填年级时也会调用 AI，并计入每日 AI 用量。",
+            description: "按账户保存，适用于各录入入口。手工修改优先，已有题目与备份恢复的年级保持原值。",
+            save: "保存年级规则",
+            loadFailed: "加载年级规则失败，请重试。",
+        },
         gradeSelection: {
             edit: "编辑年级/学期",
             firstSemester: "上学期",

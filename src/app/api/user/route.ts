@@ -11,6 +11,8 @@ import { isDefaultAdminPassword } from "@/lib/default-admin";
 import { syncMasteryLevels } from "@/lib/mastery";
 import { MAX_MASTERY_THRESHOLD, MIN_MASTERY_THRESHOLD } from "@/lib/mastery-status";
 import { THEME_PREFERENCES } from "@/lib/theme";
+import { GRADE_RECOGNITION_MODES } from "@/lib/question-grade";
+import { GRADE_SEMESTERS } from "@/lib/grade-options";
 
 const logger = createLogger('api:user');
 
@@ -20,6 +22,8 @@ const userUpdateSchema = z.object({
     password: z.string().optional(),
     educationStage: z.string().optional(),
     enrollmentYear: z.number().optional().nullable(),
+    gradeRecognitionMode: z.enum(GRADE_RECOGNITION_MODES).optional(),
+    fixedGradeSemester: z.enum(GRADE_SEMESTERS).nullable().optional(),
     confirmBeforeImport: z.boolean().optional(),
     enableGeogebra: z.boolean().optional(),
     enableSvgAnimation: z.boolean().optional(),
@@ -43,6 +47,8 @@ export async function GET() {
                 email: true,
                 educationStage: true,
                 enrollmentYear: true,
+                gradeRecognitionMode: true,
+                fixedGradeSemester: true,
                 confirmBeforeImport: true,
                 enableGeogebra: true,
                 enableSvgAnimation: true,
@@ -75,9 +81,11 @@ export async function PATCH(req: Request) {
 
     try {
         const body = await req.json();
-        const { name, email, password, educationStage, enrollmentYear, confirmBeforeImport, enableGeogebra, enableSvgAnimation, themePreference, questionDuplicateThreshold, masteryThreshold } = userUpdateSchema.parse(body);
+        const { name, email, password, educationStage, enrollmentYear, gradeRecognitionMode, fixedGradeSemester, confirmBeforeImport, enableGeogebra, enableSvgAnimation, themePreference, questionDuplicateThreshold, masteryThreshold } = userUpdateSchema.parse(body);
 
         const updateData: Prisma.UserUpdateInput = {};
+        if (gradeRecognitionMode !== undefined) updateData.gradeRecognitionMode = gradeRecognitionMode;
+        if (fixedGradeSemester !== undefined) updateData.fixedGradeSemester = fixedGradeSemester;
 
         // 只有非空字符串才会触发更新
         if (name && name.trim()) updateData.name = name.trim();
@@ -136,6 +144,8 @@ export async function PATCH(req: Request) {
                     email: true,
                     educationStage: true,
                     enrollmentYear: true,
+                    gradeRecognitionMode: true,
+                    fixedGradeSemester: true,
                     confirmBeforeImport: true,
                     enableGeogebra: true,
                     enableSvgAnimation: true,
