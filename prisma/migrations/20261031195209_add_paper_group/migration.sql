@@ -40,7 +40,6 @@ CREATE TABLE "new_ErrorItem" (
     "difficultyStars" INTEGER,
     "hasFigure" BOOLEAN NOT NULL DEFAULT false,
     "figureSvg" TEXT,
-    "figureScale" INTEGER NOT NULL DEFAULT 100,
     "lastPractice" TEXT,
     "masteryProbability" REAL,
     "masteryReason" TEXT,
@@ -52,35 +51,10 @@ CREATE TABLE "new_ErrorItem" (
     CONSTRAINT "ErrorItem_subjectId_fkey" FOREIGN KEY ("subjectId") REFERENCES "Subject" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "ErrorItem_paperLevel_fkey" FOREIGN KEY ("paperLevel") REFERENCES "PaperGroup" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
-INSERT INTO "new_ErrorItem" ("analysis", "answerText", "createdAt", "difficultyStars", "errorType", "figureSvg", "figureScale", "geogebraCommands", "gradeSemester", "hasFigure", "id", "knowledgePoints", "lastPractice", "masteryEvaluatedAt", "masteryLevel", "masteryProbability", "masteryReason", "masterySource", "mistakeAnalysis", "mistakeStatus", "ocrText", "originalImageUrl", "paperLevel", "questionText", "shortId", "source", "subjectId", "svgAnimation", "svgAnimationEn", "updatedAt", "userId", "userNotes", "wrongAnswerText") SELECT "analysis", "answerText", "createdAt", "difficultyStars", "errorType", "figureSvg", COALESCE("figureScale", 100), "geogebraCommands", "gradeSemester", "hasFigure", "id", "knowledgePoints", "lastPractice", "masteryEvaluatedAt", "masteryLevel", "masteryProbability", "masteryReason", "masterySource", "mistakeAnalysis", "mistakeStatus", "ocrText", "originalImageUrl", "paperLevel", "questionText", "shortId", "source", "subjectId", "svgAnimation", "svgAnimationEn", "updatedAt", "userId", "userNotes", "wrongAnswerText" FROM "ErrorItem";
-DROP TABLE "ErrorItem";
-ALTER TABLE "new_ErrorItem" RENAME TO "ErrorItem";
-CREATE UNIQUE INDEX "ErrorItem_shortId_key" ON "ErrorItem"("shortId");
-CREATE INDEX "ErrorItem_userId_createdAt_idx" ON "ErrorItem"("userId", "createdAt");
+INSERT INTO "new_ErrorItem" ("analysis", "answerText", "createdAt", "difficultyStars", "errorType", "figureSvg", "geogebraCommands", "gradeSemester", "hasFigure", "id", "knowledgePoints", "lastPractice", "masteryEvaluatedAt", "masteryLevel", "masteryProbability", "masteryReason", "masterySource", "mistakeAnalysis", "mistakeStatus", "ocrText", "originalImageUrl", "paperLevel", "questionText", "shortId", "source", "subjectId", "svgAnimation", "svgAnimationEn", "updatedAt", "userId", "userNotes", "wrongAnswerText") SELECT "analysis", "answerText", "createdAt", "difficultyStars", "errorType", "figureSvg", "geogebraCommands", "gradeSemester", "hasFigure", "id", "knowledgePoints", "lastPractice", "masteryEvaluatedAt", "masteryLevel", "masteryProbability", "masteryReason", "masterySource", "mistakeAnalysis", "mistakeStatus", "ocrText", "originalImageUrl", "paperLevel", "questionText", "shortId", "source", "subjectId", "svgAnimation", "svgAnimationEn", "updatedAt", "userId", "userNotes", "wrongAnswerText" FROM "ErrorItem";
 CREATE INDEX "ErrorItem_subjectId_idx" ON "ErrorItem"("subjectId");
 PRAGMA foreign_keys=ON;
 PRAGMA defer_foreign_keys=OFF;
-
--- CreateIndex
-CREATE INDEX "PaperGroup_userId_order_idx" ON "PaperGroup"("userId", "order");
-
--- CreateIndex
-CREATE UNIQUE INDEX "PaperGroup_userId_key_key" ON "PaperGroup"("userId", "key");
-
--- CreateIndex
-CREATE UNIQUE INDEX "PaperGroup_userId_name_key" ON "PaperGroup"("userId", "name");
-
--- Data migration: create default paper groups for each user and translate old paperLevel values
--- 1. Create system groups (key='a','b','other') for every user who has error items
-INSERT INTO "PaperGroup" ("id", "userId", "key", "name", "order", "isActive", "createdAt", "updatedAt")
-SELECT
-    lower(hex(randomblob(16))),
-    "userId",
-    "key",
-    CASE "key" WHEN 'a' THEN 'A卷' WHEN 'b' THEN 'B卷' ELSE '其他' END,
-    CASE "key" WHEN 'a' THEN 0 WHEN 'b' THEN 1 ELSE 2 END,
-    true,
-    CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 FROM (
     SELECT DISTINCT "userId", 'a' AS "key" FROM "ErrorItem" WHERE "paperLevel" = 'a'

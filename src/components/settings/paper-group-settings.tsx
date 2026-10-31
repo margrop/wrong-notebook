@@ -26,7 +26,7 @@ export function PaperGroupSettings() {
         try {
             await apiClient.post("/api/paper-groups", { name });
             setNewName("");
-            toast.success(t.common?.messages?.saveSuccess || "Saved");
+            toast.success(t.common?.messages?.saved || "Saved");
             refetch();
         } catch (error) {
             frontendLogger.error("[PaperGroupSettings]", "Failed to add group", { error });
@@ -44,7 +44,7 @@ export function PaperGroupSettings() {
         if (!name || name.trim() === oldName) return;
         try {
             await apiClient.patch(`/api/paper-groups/${id}`, { name: name.trim() });
-            toast.success(t.common?.messages?.saveSuccess || "Saved");
+            toast.success(t.common?.messages?.saved || "Saved");
             refetch();
         } catch (error) {
             frontendLogger.error("[PaperGroupSettings]", "Failed to rename group", { error });
@@ -55,7 +55,7 @@ export function PaperGroupSettings() {
     const handleToggleActive = async (id: string, isActive: boolean) => {
         try {
             await apiClient.patch(`/api/paper-groups/${id}`, { isActive: !isActive });
-            toast.success(t.common?.messages?.saveSuccess || "Saved");
+            toast.success(t.common?.messages?.saved || "Saved");
             refetch();
         } catch (error) {
             frontendLogger.error("[PaperGroupSettings]", "Failed to toggle group", { error });
