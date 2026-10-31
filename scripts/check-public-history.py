@@ -16,7 +16,10 @@ PRIVATE_NETWORKS = tuple(ipaddress.IPv4Network(value) for value in (
     (0x0A000000, 8), (0xAC100000, 12), (0xC0A80000, 16),
 ))
 EXAMPLE_ADDRESSES = {
-    ".".join(("10", "0", "0", "1")): {"src/__tests__/unit/ai/ai-test-route.test.ts", "src/__tests__/unit/ai/models-route.test.ts"},
+    ".".join(("10", "0", "0", "1")): {
+        "src/__tests__/unit/ai/ai-test-route.test.ts", "src/__tests__/unit/ai/models-route.test.ts",
+        "src/__tests__/unit/rate-limit.test.ts",
+    },
     ".".join(("172", "30", "108", "211")): {"doc/setup-wsl-network.md"},
     ".".join(("192", "168", "1", "100")): {"doc/HTTPS_SETUP.md", "doc/setup-wsl-network.md", "docker-compose.https.yml"},
     ".".join(("192", "168", "1", "10")): {
