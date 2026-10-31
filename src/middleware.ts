@@ -62,8 +62,15 @@ export async function middleware(req: NextRequest) {
             return NextResponse.redirect(new URL("/", req.url));
         }
     } catch (e) {
+        // 无法确认登录状态时按未登录处理（失败即拒绝），否则会绕过强制改密和管理员页面的拦截
         logger.error({ error: e }, 'Error processing token');
-        return NextResponse.next();
+        const path = req.nextUrl.pathname;
+        if (["/login", "/register", "/initialize"].some((prefix) => path.startsWith(prefix))) {
+            return NextResponse.next();
+        }
+        return NextResponse.redirect(
+            new URL(`/login?callbackUrl=${encodeURIComponent(path + req.nextUrl.search)}`, req.url)
+        );
     }
 }
 

@@ -153,23 +153,21 @@ describe('middleware', () => {
     });
 
     describe('错误处理', () => {
-        it('Token 验证失败时应该继续请求而不是崩溃', async () => {
+        it('Token 验证失败时按未登录处理，跳到登录页而不是放行', async () => {
             vi.mocked(getToken).mockRejectedValue(new Error('Token validation failed'));
 
-            const req = new NextRequest('http://localhost:3000/notebooks');
+            const response = await middleware(new NextRequest('http://localhost:3000/admin?tab=users'));
 
-            // 不应该抛出错误
-            const response = await middleware(req);
-
-            // 应该调用 NextResponse.next()，允许请求继续
-            expect(response).toBeDefined();
+            expect(response?.status).toBe(307);
+            expect(response?.headers.get('location')).toContain('/login?callbackUrl=%2Fadmin%3Ftab%3Dusers');
         });
 
-        it('Token 验证失败时应该记录错误日志', async () => {
-            // 此测试验证错误处理路径不会崩溃
-            // 由于模块缓存，我们在上面的测试中已经验证了错误处理
-            // 这里只验证中间件导入成功
-            expect(middleware).toBeDefined();
+        it('Token 验证失败时仍可打开登录页，避免重定向循环', async () => {
+            vi.mocked(getToken).mockRejectedValue(new Error('Token validation failed'));
+
+            const response = await middleware(new NextRequest('http://localhost:3000/login'));
+
+            expect(response?.headers.get('location')).toBeNull();
         });
     });
 
