@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { DifficultyStars } from "@/components/difficulty-stars";
+import { QuestionSummary } from "@/components/error-list/question-summary";
 import { MASTERY_STATUS_BORDER, MasteryStatusBadge } from "@/components/mastery-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -11,7 +12,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { formatDateTime } from "@/lib/date-time";
 import { getItemTags } from "@/lib/item-tags";
-import { cleanMarkdown } from "@/lib/markdown-utils";
 import { getMistakeStatusLabel } from "@/lib/mistake-status";
 import type { ErrorItemSummary } from "@/types/api";
 
@@ -27,12 +27,6 @@ interface ErrorItemCardProps {
     onToggleSelect: () => void;
     selectedTag: string | null;
     onTagClick: (tag: string) => void;
-}
-
-/** 题干第一段去掉 Markdown/LaTeX 格式后的摘要 */
-function summarize(questionText: string | null | undefined): string {
-    const text = cleanMarkdown((questionText || "").split('\n\n')[0]);
-    return text.length > SUMMARY_LENGTH ? text.substring(0, SUMMARY_LENGTH) + "..." : text;
 }
 
 /** 错题列表中的一张卡片：复习状态、摘要、作答状态、星级和知识点 */
@@ -75,7 +69,7 @@ export function ErrorItemCard({ item, selectMode, selected, onToggleSelect, sele
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-sm line-clamp-3">{summarize(item.questionText)}</div>
+                        <QuestionSummary text={item.questionText} maxLength={SUMMARY_LENGTH} className="text-sm line-clamp-3" />
                         <div className="flex flex-wrap items-center gap-2 mt-3">
                             <Badge variant="secondary" className="text-xs">
                                 {getMistakeStatusLabel(item.mistakeStatus, language)}
