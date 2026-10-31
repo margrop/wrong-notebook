@@ -21,6 +21,7 @@ import { AccountSettings } from "@/components/settings/account-settings";
 import { AiProviderSettings } from "@/components/settings/ai-provider-settings";
 import { DangerZoneSettings } from "@/components/settings/danger-zone-settings";
 import { DataBackupSettings } from "@/components/settings/data-backup-settings";
+import { DebugLogSettings } from "@/components/settings/debug-log-settings";
 import { GeneralSettings } from "@/components/settings/general-settings";
 import { PromptSettings } from "@/components/settings/prompt-settings";
 import { TtsSettings } from "@/components/settings/tts-settings";
@@ -185,6 +186,7 @@ export function SettingsDialog() {
                                 <Wand2 className="h-4 w-4" />
                                 {t.setup.rerun}
                             </Button>
+                            <DebugLogSettings />
                             <div className="border-t pt-4">
                                 <UserManagement />
                             </div>

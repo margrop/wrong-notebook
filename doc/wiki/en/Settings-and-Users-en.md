@@ -63,3 +63,16 @@ The task list lives in the server process's memory. Navigating away usually does
 ## Check the running version
 
 "About" in the settings and `GET /api/health` both show the running version. When troubleshooting, note the version, the steps to reproduce and the redacted error message; do not send real API keys or full configuration files.
+
+## Debug logs
+
+When a problem is hard to describe, an admin can export a debug log and send it to the author:
+
+1. Open "Settings → User Management" and turn on "Debug mode" under "Debug Logs" (turning it on clears the previous recording).
+2. Reproduce the problem; the panel shows how many entries have been recorded.
+3. Click "Export Debug Log" to download `wrong-notebook-debug-<time>.json` and attach it to your issue. You can then turn debug mode off.
+
+Debug mode records every server log, including the `debug` and `trace` levels that `LOG_LEVEL` normally hides (such as AI requests and responses), plus uncaught browser errors from all users. The export also contains the running version, system environment and redacted configuration.
+
+- API keys, passwords, tokens, cookies and similar fields are replaced with `[REDACTED]` on export, and images keep only their type and size. The log may still contain question text and usernames, so review it before sending if you like.
+- The log lives only in the server process's memory and keeps at most 5000 entries (the oldest are discarded first). Debug mode turns off 24 hours after it is enabled, and a restart clears the log.

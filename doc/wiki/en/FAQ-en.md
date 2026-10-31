@@ -77,4 +77,4 @@ First check that the original `data/` and `config/` are still mounted at `/app/d
 
 ## How do I report a problem?
 
-Open a [GitHub issue](https://github.com/margrop/wrong-notebook/issues) with the running version, deployment method, browser, steps to reproduce and redacted logs. The version is shown in "About" in the settings or at `/api/health`; do not include API keys, passwords, session data or a full database.
+Open a [GitHub issue](https://github.com/margrop/wrong-notebook/issues) with the running version, deployment method, browser, steps to reproduce and redacted logs. Admins can turn on debug mode under "Settings → User Management", reproduce the problem and attach the exported debug log; see [Debug logs](Settings-and-Users-en#debug-logs). The version is shown in "About" in the settings or at `/api/health`; do not include API keys, passwords, session data or a full database.

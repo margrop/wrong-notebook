@@ -54,5 +54,5 @@ body:
     id: logs
     attributes:
       label: 日志或截图 / Logs or screenshots
-      description: 已脱敏的服务端日志、浏览器控制台错误或截图
+      description: 已脱敏的服务端日志、浏览器控制台错误或截图。管理员可在「设置 → 用户管理」开启调试模式、复现后导出调试日志并拖入此处 / Redacted server logs, browser console errors or screenshots. Admins can turn on debug mode under Settings → User Management, reproduce the problem and drop the exported debug log here
       render: text

@@ -77,4 +77,4 @@
 
 ## 如何反馈问题？
 
-在 [GitHub Issues](https://github.com/margrop/wrong-notebook/issues) 中提供运行版本、部署方式、浏览器、复现步骤和脱敏后的日志。版本可从设置“关于”或 `/api/health` 获取；不要提交 API Key、密码、会话信息或完整数据库。
+在 [GitHub Issues](https://github.com/margrop/wrong-notebook/issues) 中提供运行版本、部署方式、浏览器、复现步骤和脱敏后的日志。管理员可在“设置 → 用户管理”中打开调试模式、复现问题后导出调试日志一并附上，详见[调试日志](Settings-and-Users#调试日志)。版本可从设置“关于”或 `/api/health` 获取；不要提交 API Key、密码、会话信息或完整数据库。

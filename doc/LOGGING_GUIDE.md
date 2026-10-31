@@ -11,6 +11,7 @@
 - [最佳实践](#最佳实践)
 - [故障排查](#故障排查)
 - [前端日志](#前端日志-frontend-logger)
+- [调试模式与调试日志导出](#调试模式与调试日志导出)
 
 ---
 
@@ -364,9 +365,28 @@ frontendLogger.forceFlush();
 }
 ```
 
+浏览器中未捕获的异常和未处理的 Promise 拒绝由 `installGlobalErrorLogging()`（在 `src/components/providers.tsx` 中注册）以 `[GlobalError]` 前缀上报。
+
 ---
 
-**文档更新时间**: 2025-12-19
+## 调试模式与调试日志导出
+
+管理员在「设置 → 用户管理 → 调试日志」中开启调试模式后，`src/lib/debug-log.ts` 会把**所有级别**的服务端日志（不受 `LOG_LEVEL` 限制，包括 `debug`、`trace` 和 `logger.box`）以及经 `/api/logs/frontend` 上报的前端日志写入内存缓冲区，复现问题后可导出 JSON 文件发给作者。
+
+| 接口 | 说明 |
+|------|------|
+| `GET /api/admin/debug-logs` | 调试模式状态与已记录条数 |
+| `POST /api/admin/debug-logs` | `{ "enabled": true/false }` 开启（同时清空上一轮日志）或关闭 |
+| `DELETE /api/admin/debug-logs` | 清空已记录的日志 |
+| `GET /api/admin/debug-logs/export` | 下载调试日志：运行版本、系统环境、脱敏后的配置和日志条目 |
+
+- **脱敏**：字段名含 API Key、password、secret、authorization、cookie、各类 token（不含 `maxTokens` 等用量字段）的值替换为 `[REDACTED]`；字符串中的 `Bearer` 令牌、`sk-` 开头的 Key、URL 中的 `key` 参数同样替换；图片 data URL 只保留类型和长度；单个字符串最长保留 10000 字符。
+- **上限**：最多 5000 条、约 20 MB，超出后丢弃最早的记录；开启 24 小时后自动关闭。
+- **存储**：只在服务进程内存中（挂在 `globalThis` 上，各路由共享），服务重启后调试模式关闭、日志清空。
+
+---
+
+**文档更新时间**: 2026-10-31
 
 ## 📚 相关文档
 

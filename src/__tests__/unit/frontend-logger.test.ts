@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { frontendLogger } from '@/lib/frontend-logger';
+import { frontendLogger, installGlobalErrorLogging } from '@/lib/frontend-logger';
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -35,5 +35,28 @@ describe('前端日志上报', () => {
         frontendLogger.forceFlush();
 
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+});
+
+describe('全局错误上报', () => {
+    it('未处理的 Promise 拒绝上报到后端，卸载后不再上报', () => {
+        const fetchMock = vi.fn(async () => new Response('{}'));
+        vi.stubGlobal('fetch', fetchMock);
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        const uninstall = installGlobalErrorLogging();
+        const event = new Event('unhandledrejection') as Event & { reason?: unknown };
+        event.reason = new Error('lost');
+        window.dispatchEvent(event);
+        frontendLogger.forceFlush();
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+        expect(JSON.parse(String(init.body)).logs[0]).toMatchObject({ prefix: '[GlobalError]', context: { reason: 'lost' } });
+
+        uninstall();
+        window.dispatchEvent(event);
+        frontendLogger.forceFlush();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 });

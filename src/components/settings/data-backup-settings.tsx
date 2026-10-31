@@ -6,6 +6,7 @@ import { CheckCircle2, Download, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
+import { downloadFile } from "@/lib/download-file";
 import { confirmDialog, toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import type { Translations } from "@/lib/translations";
@@ -14,25 +15,6 @@ type ImportStats = Record<string, number | boolean | undefined>;
 
 interface DataBackupSettingsProps {
     isAdmin: boolean;
-}
-
-/** 下载导出文件，文件名优先取响应头 Content-Disposition */
-async function downloadExport(url: string, fallbackName: string) {
-    const res = await fetch(url);
-    if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || 'Export failed');
-    }
-    const blob = await res.blob();
-    const objectUrl = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = objectUrl;
-    const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/);
-    a.download = filenameMatch ? filenameMatch[1] : fallbackName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(objectUrl);
 }
 
 function formatImportResult(stats: ImportStats, t: Translations): string {
@@ -60,7 +42,7 @@ export function DataBackupSettings({ isAdmin }: DataBackupSettingsProps) {
         }
         setExporting(true);
         try {
-            await downloadExport(all ? '/api/export?all=true' : '/api/export', all ? 'wrong-notebook-export-all.json' : 'wrong-notebook-export.json');
+            await downloadFile(all ? '/api/export?all=true' : '/api/export', all ? 'wrong-notebook-export-all.json' : 'wrong-notebook-export.json');
             toast.success(t.settings?.exportSuccess || "Export successful");
         } catch (error) {
             frontendLogger.error('[DataBackupSettings]', all ? 'Export all failed' : 'Export failed', { error });
