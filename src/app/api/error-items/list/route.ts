@@ -109,11 +109,15 @@ export async function GET(req: Request) {
 
         // Tag filter (第三级筛选：具体知识点)
         if (tag && !chapter) {
-            // 只有在没有 chapter 筛选时才按 tag 过滤
-            // 因为 chapter 筛选已经更精确了
-            whereClause.knowledgePoints = {
-                contains: tag,
-            };
+            // 按标签名精确匹配。knowledgePoints 是 JSON 数组字符串，
+            // 只能带引号匹配完整元素，否则筛「函数」会把「二次函数」也筛出来；
+            // 保留它是为了兼容尚未迁移到 tags 关系的旧错题。
+            andConditions.push({
+                OR: [
+                    { tags: { some: { name: tag } } },
+                    { knowledgePoints: { contains: JSON.stringify(tag) } },
+                ],
+            });
         } else if (tag && chapter) {
             // 如果同时有 chapter 和 tag，优先用 tag 进一步过滤
             // 覆盖 chapter 的条件

@@ -768,10 +768,29 @@ describe('/api/error-items', () => {
             expect(mocks.mockPrismaErrorItem.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
                     where: expect.objectContaining({
-                        knowledgePoints: { contains: '一元一次方程' },
+                        AND: [{
+                            OR: [
+                                { tags: { some: { name: '一元一次方程' } } },
+                                { knowledgePoints: { contains: '"一元一次方程"' } },
+                            ],
+                        }],
                     }),
                 })
             );
+        });
+
+        it('按知识点筛选时不应把名称包含该词的其他标签算进来', async () => {
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+
+            await GET_LIST(new Request('http://localhost/api/error-items/list?tag=函数'));
+
+            const where = mocks.mockPrismaErrorItem.findMany.mock.calls.at(-1)?.[0].where;
+            // 旧字段按带引号的完整 JSON 元素匹配，"函数" 不会命中 ["二次函数"]
+            expect(where.knowledgePoints).toBeUndefined();
+            const legacy = where.AND[0].OR[1].knowledgePoints.contains as string;
+            expect(JSON.stringify(['二次函数']).includes(legacy)).toBe(false);
+            expect(JSON.stringify(['函数', '二次函数']).includes(legacy)).toBe(true);
         });
 
         it('应该支持按时间范围筛选（最近一周）', async () => {
