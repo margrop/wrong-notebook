@@ -93,6 +93,7 @@ export async function GET(req: Request) {
                 masteryThreshold: user.masteryThreshold,
                 enableGeogebra: user.enableGeogebra,
                 enableSvgAnimation: user.enableSvgAnimation,
+                themePreference: user.themePreference,
             },
             subjects,
             customTags,

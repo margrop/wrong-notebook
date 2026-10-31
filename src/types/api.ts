@@ -135,6 +135,8 @@ export interface UserProfile {
     confirmBeforeImport?: boolean;
     enableGeogebra?: boolean;
     enableSvgAnimation?: boolean;
+    /** 界面主题偏好：system / light / dark */
+    themePreference?: string;
     questionDuplicateThreshold?: number;
     masteryThreshold?: number;
 }

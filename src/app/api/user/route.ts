@@ -10,6 +10,7 @@ import { createLogger } from "@/lib/logger";
 import { isDefaultAdminPassword } from "@/lib/default-admin";
 import { syncMasteryLevels } from "@/lib/mastery";
 import { MAX_MASTERY_THRESHOLD, MIN_MASTERY_THRESHOLD } from "@/lib/mastery-status";
+import { THEME_PREFERENCES } from "@/lib/theme";
 
 const logger = createLogger('api:user');
 
@@ -22,6 +23,7 @@ const userUpdateSchema = z.object({
     confirmBeforeImport: z.boolean().optional(),
     enableGeogebra: z.boolean().optional(),
     enableSvgAnimation: z.boolean().optional(),
+    themePreference: z.enum(THEME_PREFERENCES).optional(),
     questionDuplicateThreshold: z.number().min(1).max(100).multipleOf(0.01).optional(),
     masteryThreshold: z.number().int().min(MIN_MASTERY_THRESHOLD).max(MAX_MASTERY_THRESHOLD).optional(),
 });
@@ -44,6 +46,7 @@ export async function GET() {
                 confirmBeforeImport: true,
                 enableGeogebra: true,
                 enableSvgAnimation: true,
+                themePreference: true,
                 questionDuplicateThreshold: true,
                 masteryThreshold: true,
                 // Do not return password
@@ -72,7 +75,7 @@ export async function PATCH(req: Request) {
 
     try {
         const body = await req.json();
-        const { name, email, password, educationStage, enrollmentYear, confirmBeforeImport, enableGeogebra, enableSvgAnimation, questionDuplicateThreshold, masteryThreshold } = userUpdateSchema.parse(body);
+        const { name, email, password, educationStage, enrollmentYear, confirmBeforeImport, enableGeogebra, enableSvgAnimation, themePreference, questionDuplicateThreshold, masteryThreshold } = userUpdateSchema.parse(body);
 
         const updateData: Prisma.UserUpdateInput = {};
 
@@ -90,6 +93,9 @@ export async function PATCH(req: Request) {
         }
         if (typeof enableSvgAnimation === 'boolean') {
             updateData.enableSvgAnimation = enableSvgAnimation;
+        }
+        if (themePreference) {
+            updateData.themePreference = themePreference;
         }
         if (typeof questionDuplicateThreshold === 'number') {
             updateData.questionDuplicateThreshold = questionDuplicateThreshold;
@@ -133,6 +139,7 @@ export async function PATCH(req: Request) {
                     confirmBeforeImport: true,
                     enableGeogebra: true,
                     enableSvgAnimation: true,
+                    themePreference: true,
                     questionDuplicateThreshold: true,
                     masteryThreshold: true,
                 }

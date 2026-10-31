@@ -10,6 +10,7 @@ import type { BackgroundTaskHandle } from "@/lib/background-tasks";
 import { generateUniqueShortId, isShortId } from "@/lib/short-id";
 import { isPracticeResult, scheduleMasteryEvaluation, syncMasteryLevels } from "@/lib/mastery";
 import { MAX_MASTERY_THRESHOLD, MIN_MASTERY_THRESHOLD } from "@/lib/mastery-status";
+import { THEME_PREFERENCES } from "@/lib/theme";
 import { findDuplicateQuestion, recordDuplicateQuestion } from "@/lib/question-deduplication";
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { resolveNotebookScope } from "@/lib/notebook-scope";
@@ -40,6 +41,7 @@ interface ImportData {
         masteryThreshold?: number;
         enableGeogebra?: boolean;
         enableSvgAnimation?: boolean;
+        themePreference?: string;
     };
     subjects: Array<{
         id: string;
@@ -162,6 +164,7 @@ const PREFERENCE_SCHEMAS = {
     masteryThreshold: z.number().int().min(MIN_MASTERY_THRESHOLD).max(MAX_MASTERY_THRESHOLD),
     enableGeogebra: z.boolean(),
     enableSvgAnimation: z.boolean(),
+    themePreference: z.enum(THEME_PREFERENCES),
 };
 
 function parsePreferences(source: ImportData['user']) {

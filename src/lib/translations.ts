@@ -97,6 +97,12 @@ export const translations = {
             admin: "Admin",
             menu: "Account",
         },
+        theme: {
+            toggle: "Theme",
+            system: "Auto (follow system)",
+            light: "Light",
+            dark: "Dark",
+        },
         app: {
             title: "Smart Error Notebook",
             subtitle: "AI-powered analysis and intelligent review",
@@ -1414,6 +1420,12 @@ export const translations = {
             exams: "试卷",
             admin: "管理",
             menu: "账户",
+        },
+        theme: {
+            toggle: "主题",
+            system: "自动（跟随系统）",
+            light: "浅色",
+            dark: "深色",
         },
         app: {
             title: "智能错题本",

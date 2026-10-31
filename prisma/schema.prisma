@@ -30,6 +30,7 @@ model User {
   masteryThreshold Int @default(50) // 百分比，掌握概率达到此值视为已掌握
   enableGeogebra Boolean @default(false) // 是否显示 GeoGebra 动态演示
   enableSvgAnimation Boolean @default(true) // 是否显示 SVG 动画讲解
+  themePreference String @default("system") // 界面主题：system 跟随系统、light 浅色、dark 深色
 
   errorItems ErrorItem[]
   subjects   Subject[]

@@ -131,6 +131,31 @@ describe('/api/user', () => {
             expect(mocks.mockPrismaUser.update.mock.calls[0][0].select.enableSvgAnimation).toBe(true);
         });
 
+        it('应该更新界面主题偏好，并在响应中返回该字段', async () => {
+            mocks.mockPrismaUser.update.mockResolvedValue({ themePreference: 'dark' });
+
+            const response = await PATCH(new Request('http://localhost/api/user', {
+                method: 'PATCH',
+                body: JSON.stringify({ themePreference: 'dark' }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect(response.status).toBe(200);
+            expect(mocks.mockPrismaUser.update.mock.calls[0][0].data).toEqual({ themePreference: 'dark' });
+            expect(mocks.mockPrismaUser.update.mock.calls[0][0].select.themePreference).toBe(true);
+        });
+
+        it('应该拒绝不支持的主题偏好', async () => {
+            const response = await PATCH(new Request('http://localhost/api/user', {
+                method: 'PATCH',
+                body: JSON.stringify({ themePreference: 'purple' }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect(response.status).toBe(400);
+            expect(mocks.mockPrismaUser.update).not.toHaveBeenCalled();
+        });
+
         it('应该更新已掌握阈值，并按新阈值同步错题的 masteryLevel', async () => {
             mocks.mockPrismaUser.update.mockResolvedValue({ id: 'user-1', masteryThreshold: 80 });
 

@@ -7,6 +7,7 @@ import { signOut, useSession } from "next-auth/react";
 import { BarChart3, BookOpen, CalendarCheck, FileText, LogOut, PlusCircle, Shield } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { SettingsDialog } from "@/components/settings-dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSetupRedirect } from "@/lib/use-setup-redirect";
@@ -101,6 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 </Button>
                             </Link>
                         )}
+                        <ThemeToggle />
                         <SettingsDialog />
                         <Button
                             variant="ghost"
