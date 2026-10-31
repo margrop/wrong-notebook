@@ -11,7 +11,7 @@ export function ProviderErrorDetail({ detail }: ProviderErrorDetailProps) {
     const { t } = useLanguage();
     if (!detail) return null;
     return (
-        <p className="mt-1 rounded bg-background/60 px-2 py-1 font-mono text-[11px] leading-relaxed text-red-700 break-all select-text">
+        <p className="mt-1 rounded bg-background/60 px-2 py-1 font-mono text-[11px] leading-relaxed text-red-700 dark:text-red-300 break-all select-text">
             <span className="font-sans text-muted-foreground">{t.settings.ai.providerErrorDetail}</span>
             {detail}
         </p>

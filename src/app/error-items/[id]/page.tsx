@@ -157,7 +157,7 @@ export default function ErrorDetailPage() {
                             </Button>
                         </Link>
                         {masteryStatus && <MasteryStatusBadge status={masteryStatus} className="h-8 self-center px-3" />}
-                        <Button variant="ghost" size="sm" onClick={deleteItem} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                        <Button variant="ghost" size="sm" onClick={deleteItem} className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40">
                             <Trash2 className="mr-2 h-4 w-4" />
                             {t.detail.delete || "Delete"}
                         </Button>

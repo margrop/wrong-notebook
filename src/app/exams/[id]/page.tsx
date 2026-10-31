@@ -148,14 +148,14 @@ export default function ExamDetailPage() {
                             {t.exam.retryFailed}
                         </Button>
                     )}
-                    <Button variant="ghost" size="sm" onClick={deletePaper} className="text-red-600 hover:text-red-700 hover:bg-red-50 sm:ml-auto">
+                    <Button variant="ghost" size="sm" onClick={deletePaper} className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 sm:ml-auto">
                         <Trash2 className="mr-2 h-4 w-4" />
                         {t.exam.delete}
                     </Button>
                 </div>
 
                 {paper.questions.length < paper.requestedCount && (
-                    <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                    <p className="rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-800 dark:text-amber-200">
                         {t.exam.fewerThanRequested.replaceAll("{actual}", String(paper.questions.length))}
                     </p>
                 )}

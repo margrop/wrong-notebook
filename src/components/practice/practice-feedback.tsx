@@ -47,7 +47,7 @@ export function PracticeFeedback({ isSubmitted, grading, isCorrect, gradeFailed,
 
     if (isCorrect === null) {
         return gradeFailed ? (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="status">
+            <p className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-200" role="status">
                 {t.practice.gradeFailed}
             </p>
         ) : null;
@@ -56,7 +56,7 @@ export function PracticeFeedback({ isSubmitted, grading, isCorrect, gradeFailed,
     const Icon = isCorrect ? CheckCircle : XCircle;
     const tone = isCorrect ? "green" : "red";
     return (
-        <Card className={isCorrect ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"}>
+        <Card className={isCorrect ? "border-green-500 bg-green-50 dark:bg-green-950/40" : "border-red-500 bg-red-50 dark:bg-red-950/40"}>
             <CardContent className="pt-6">
                 <div className="flex items-center gap-3 mb-4">
                     <Icon className={`h-8 w-8 ${tone === "green" ? "text-green-600" : "text-red-600"}`} />
@@ -64,7 +64,7 @@ export function PracticeFeedback({ isSubmitted, grading, isCorrect, gradeFailed,
                         <h3 className={`text-xl font-bold ${tone === "green" ? "text-green-600" : "text-red-600"}`}>
                             {isCorrect ? (t.practice.correct || "Correct!") : (t.practice.incorrect || "Incorrect")}
                         </h3>
-                        <p className={tone === "green" ? "text-green-700" : "text-red-700"}>
+                        <p className={tone === "green" ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}>
                             {isCorrect
                                 ? (t.practice.correctMessage || "Great job, keep it up!")
                                 : (t.practice.incorrectMessage || "Review the analysis and try again!")}
@@ -77,11 +77,11 @@ export function PracticeFeedback({ isSubmitted, grading, isCorrect, gradeFailed,
                     </p>
                 )}
                 {notes && (
-                    <div className="mt-4 p-3 bg-white rounded-lg border">
-                        <p className="text-sm font-medium text-gray-600 mb-1">
+                    <div className="mt-4 p-3 bg-background rounded-lg border">
+                        <p className="text-sm font-medium text-muted-foreground mb-1">
                             {t.practice.yourNotes || "Your Notes:"}
                         </p>
-                        <p className="text-gray-700 whitespace-pre-wrap">{notes}</p>
+                        <p className="text-foreground whitespace-pre-wrap">{notes}</p>
                     </div>
                 )}
             </CardContent>

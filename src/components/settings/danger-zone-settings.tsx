@@ -25,9 +25,9 @@ interface ActionCardProps {
 }
 
 const TONES = {
-    info: { card: "border-blue-200 bg-blue-50", title: "text-blue-900 font-bold", desc: "text-blue-800 font-medium", button: "bg-blue-100 hover:bg-blue-200 text-blue-900 border-blue-300" },
-    danger: { card: "border-red-200 bg-red-50", title: "text-red-700 font-medium", desc: "text-red-600", button: "" },
-    critical: { card: "border-red-600/50 bg-red-100/50", title: "text-red-900 font-bold", desc: "text-red-800 font-medium", button: "bg-red-700 hover:bg-red-800" },
+    info: { card: "border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40", title: "text-blue-900 dark:text-blue-200 font-bold", desc: "text-blue-800 dark:text-blue-200 font-medium", button: "bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 dark:hover:bg-blue-900/60 text-blue-900 dark:text-blue-200 border-blue-300 dark:border-blue-800" },
+    danger: { card: "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40", title: "text-red-700 dark:text-red-300 font-medium", desc: "text-red-600 dark:text-red-400", button: "" },
+    critical: { card: "border-red-600/50 bg-red-100/50 dark:bg-red-900/40", title: "text-red-900 dark:text-red-200 font-bold", desc: "text-red-800 dark:text-red-200 font-medium", button: "bg-red-700 hover:bg-red-800" },
 };
 
 function ActionCard({ title, description, tone, busy, icon, onClick }: ActionCardProps) {

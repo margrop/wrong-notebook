@@ -64,7 +64,7 @@ export function PracticeResultCard({ errorItemId, suggested, question, difficult
                     <p className="text-xs text-muted-foreground">{t.mastery.suggested}</p>
                 )}
                 {saved ? (
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-green-700">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-green-700 dark:text-green-300">
                         <span className="flex items-center gap-2">
                             <CheckCircle className="h-4 w-4" />
                             {t.mastery.resultSaved}

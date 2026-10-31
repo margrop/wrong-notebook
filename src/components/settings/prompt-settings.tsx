@@ -33,13 +33,13 @@ function VariableInfo({ name, description }: VariableInfoProps) {
 function WarningBox() {
     const { t } = useLanguage();
     return (
-        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex items-start gap-3 text-amber-900 text-sm mb-4">
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-md p-3 flex items-start gap-3 text-amber-900 dark:text-amber-200 text-sm mb-4">
             <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
             <div className="space-y-1">
                 <p className="font-medium">
                     {t.settings?.prompts?.caution || "Modify with Caution"}
                 </p>
-                <p className="text-amber-800/90 text-xs">
+                <p className="text-amber-800/90 dark:text-amber-200 text-xs">
                     {t.settings?.prompts?.warning || "Variables in {{brackets}} are used to inject dynamic content. Please preserve these variables, otherwise the AI providing may fail to get question context or return invalid formats."}
                 </p>
             </div>

@@ -28,9 +28,9 @@ const POLL_INTERVAL_MS = 4000;
 const MAX_POLLS = 20;
 
 export const RESULT_BADGE_CLASS: Record<string, string> = {
-    correct: "bg-green-100 text-green-700 border-green-200",
-    wrong: "bg-red-100 text-red-700 border-red-200",
-    not_attempted: "bg-amber-100 text-amber-700 border-amber-200",
+    correct: "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-200 dark:border-green-900",
+    wrong: "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
+    not_attempted: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
 };
 
 export function MasteryPanel({ errorItemId, onMasteryStatusChange }: MasteryPanelProps) {
@@ -167,7 +167,7 @@ export function MasteryPanel({ errorItemId, onMasteryStatusChange }: MasteryPane
                                             type="button"
                                             aria-label={t.mastery.deleteRecord}
                                             title={t.mastery.deleteRecord}
-                                            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                                            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400"
                                             onClick={() => deleteRecord(record.id)}
                                         >
                                             <Trash2 className="h-4 w-4" />

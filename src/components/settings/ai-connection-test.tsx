@@ -73,18 +73,18 @@ export function AiConnectionTest({ config, saving, saveButton }: AiConnectionTes
             </div>
 
             {result && (
-                <div className={`p-3 rounded-md text-sm ${result.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                <div className={`p-3 rounded-md text-sm ${result.success ? 'bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900' : 'bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900'}`}>
                     <div className="flex items-center gap-2 font-medium mb-2">
                         {result.success ? (
                             <>
                                 <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                <span className="text-green-700">{t.settings?.ai?.testSuccess || "Connection Successful"}</span>
+                                <span className="text-green-700 dark:text-green-300">{t.settings?.ai?.testSuccess || "Connection Successful"}</span>
                                 {result.modelInfo && <span className="text-green-600 text-xs">({result.modelInfo})</span>}
                             </>
                         ) : (
                             <>
                                 <XCircle className="h-4 w-4 text-red-600" />
-                                <span className="text-red-700">{t.settings?.ai?.testFailed || "Connection Failed"}</span>
+                                <span className="text-red-700 dark:text-red-300">{t.settings?.ai?.testFailed || "Connection Failed"}</span>
                             </>
                         )}
                     </div>

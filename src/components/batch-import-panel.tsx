@@ -135,7 +135,7 @@ function StatusLine({ item }: { item: BatchItem }) {
     const { t } = useLanguage();
     const label = t.batchImport.status[item.status];
     if (item.status === "success") {
-        return <span className="flex items-start gap-1 text-green-700"><CheckCircle className="h-4 w-4 shrink-0 mt-0.5" />{item.imported?.duplicate ? t.importFlow.duplicate : label}</span>;
+        return <span className="flex items-start gap-1 text-green-700 dark:text-green-300"><CheckCircle className="h-4 w-4 shrink-0 mt-0.5" />{item.imported?.duplicate ? t.importFlow.duplicate : label}</span>;
     }
     if (item.status === "failed") {
         return <span className="flex items-center gap-1 text-destructive"><XCircle className="h-4 w-4" />{label}</span>;

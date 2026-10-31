@@ -12,9 +12,9 @@ interface PracticeResultPickerProps {
 }
 
 const OPTIONS: { value: PracticeResult; icon: typeof CheckCircle; active: string }[] = [
-    { value: "correct", icon: CheckCircle, active: "border-green-600 bg-green-50 text-green-700" },
-    { value: "wrong", icon: XCircle, active: "border-red-600 bg-red-50 text-red-700" },
-    { value: "not_attempted", icon: HelpCircle, active: "border-amber-600 bg-amber-50 text-amber-700" },
+    { value: "correct", icon: CheckCircle, active: "border-green-600 bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300" },
+    { value: "wrong", icon: XCircle, active: "border-red-600 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300" },
+    { value: "not_attempted", icon: HelpCircle, active: "border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" },
 ];
 
 /** 做对 / 做错 / 不会做 三选一 */
