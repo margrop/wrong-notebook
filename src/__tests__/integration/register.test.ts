@@ -43,7 +43,6 @@ import { registerIpLimiter } from '@/lib/rate-limit';
 describe('/api/register', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        registerIpLimiter.reset('unknown');
         registerIpLimiter.reset('5.5.5.5');
         // Reset config mock to allow registration by default
         mocks.mockGetAppConfig.mockReturnValue({

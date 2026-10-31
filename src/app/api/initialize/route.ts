@@ -26,7 +26,7 @@ const initializeSchema = z.object({
 export async function POST(req: Request) {
     // 初始化令牌只能用一次，限制同一 IP 的尝试次数，防止猜测令牌
     const ip = getClientIp(req.headers);
-    const retryAfter = registerIpLimiter.retryAfter(ip);
+    const retryAfter = ip ? registerIpLimiter.retryAfter(ip) : 0;
     if (retryAfter > 0) return tooManyRequests(retryAfter);
 
     let body: unknown;
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
         const claim = claimSetupToken(token);
         if (!claim) {
-            registerIpLimiter.hit(ip);
+            if (ip) registerIpLimiter.hit(ip);
             logger.warn("Rejected initialization with an invalid setup token");
             return forbidden("Invalid or expired setup link");
         }

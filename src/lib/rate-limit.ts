@@ -84,8 +84,11 @@ function readHeader(headers: HeaderSource, name: string): string | undefined {
     return Array.isArray(value) ? value[0] : value;
 }
 
-/** 取客户端 IP：依次看 Cloudflare、反向代理头，取不到时归为 unknown */
-export function getClientIp(headers: HeaderSource): string {
+/**
+ * 取客户端 IP：依次看 Cloudflare、反向代理头。没有代理时 Next.js 会把连接的远端地址写入 x-forwarded-for。
+ * 取不到时返回 null，调用方应跳过按 IP 限流，避免所有人共用一个计数而被一起锁住。
+ */
+export function getClientIp(headers: HeaderSource): string | null {
     const candidates = [
         readHeader(headers, "cf-connecting-ip"),
         readHeader(headers, "x-real-ip"),
@@ -95,7 +98,7 @@ export function getClientIp(headers: HeaderSource): string {
         const ip = value?.trim();
         if (ip) return ip;
     }
-    return "unknown";
+    return null;
 }
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;

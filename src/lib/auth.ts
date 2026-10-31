@@ -52,13 +52,13 @@ export const authOptions: NextAuthOptions = {
                 // 防暴力破解：账号或来源 IP 失败次数过多时，在校验密码前直接拒绝
                 const ip = getClientIp(req?.headers);
                 const accountKey = credentials.email.trim().toLowerCase();
-                if (loginAccountLimiter.retryAfter(accountKey) > 0 || loginIpLimiter.retryAfter(ip) > 0) {
+                if (loginAccountLimiter.retryAfter(accountKey) > 0 || (ip && loginIpLimiter.retryAfter(ip) > 0)) {
                     logger.warn({ email: accountKey, ip }, 'Login locked after too many failed attempts');
                     throw new Error(TOO_MANY_ATTEMPTS)
                 }
                 const recordFailure = () => {
                     loginAccountLimiter.hit(accountKey);
-                    loginIpLimiter.hit(ip);
+                    if (ip) loginIpLimiter.hit(ip);
                 };
 
                 const user = await prisma.user.findUnique({

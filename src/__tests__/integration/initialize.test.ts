@@ -31,7 +31,7 @@ const tokenFile = () => join(configDir, 'setup-token');
 const initialize = (body: object) => POST(new Request('http://localhost/api/initialize', {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '7.7.7.7' },
 }));
 const valid = (token: string) => ({ token, name: '管理员', email: 'owner@example.com', password: 'secret-pass' });
 
@@ -49,7 +49,7 @@ beforeAll(() => {
 
 beforeEach(async () => {
     vi.clearAllMocks();
-    registerIpLimiter.reset('unknown');
+    registerIpLimiter.reset('7.7.7.7');
     await database.user.deleteMany();
     configDir = mkdtempSync(join(directory, 'config-'));
     vi.stubEnv('CONFIG_DIR', configDir);

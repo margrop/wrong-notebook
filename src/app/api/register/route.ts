@@ -28,11 +28,13 @@ export async function POST(req: Request) {
 
         // 同一 IP 每小时提交次数有限，防止批量注册或枚举邮箱
         const ip = getClientIp(req.headers)
-        const retryAfter = registerIpLimiter.retryAfter(ip)
-        if (retryAfter > 0) {
-            return tooManyRequests(retryAfter)
+        if (ip) {
+            const retryAfter = registerIpLimiter.retryAfter(ip)
+            if (retryAfter > 0) {
+                return tooManyRequests(retryAfter)
+            }
+            registerIpLimiter.hit(ip)
         }
-        registerIpLimiter.hit(ip)
 
         const body = await req.json()
         const { email, password, name, educationStage, enrollmentYear } = userSchema.parse(body)

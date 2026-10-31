@@ -56,7 +56,8 @@ describe('getClientIp', () => {
         expect(getClientIp(new Headers({ 'cf-connecting-ip': '1.1.1.1', 'x-real-ip': '2.2.2.2' }))).toBe('1.1.1.1');
         expect(getClientIp({ 'x-real-ip': '2.2.2.2' })).toBe('2.2.2.2');
         expect(getClientIp({ 'x-forwarded-for': ' 3.3.3.3, 10.0.0.1' })).toBe('3.3.3.3');
-        expect(getClientIp(undefined)).toBe('unknown');
+        expect(getClientIp(undefined)).toBeNull();
+        expect(getClientIp({})).toBeNull();
     });
 });
 
@@ -95,6 +96,16 @@ describe('登录失败锁定', () => {
         mocks.compare.mockResolvedValue(false);
         await expect(authorize({ email: 'kid@example.com', password: 'wrong' }, req)).resolves.toBeNull();
         expect(loginAccountLimiter.retryAfter('kid@example.com')).toBe(0);
+    });
+
+    it('取不到来源 IP 时只按账号限流，不会让所有人共用一个 IP 计数', async () => {
+        mocks.findUnique.mockResolvedValue(null);
+        for (let i = 0; i < 25; i++) {
+            await authorize({ email: `nobody${i}@example.com`, password: 'x' }, { headers: {} });
+        }
+        mocks.findUnique.mockResolvedValue(userRow);
+        mocks.compare.mockResolvedValue(true);
+        await expect(authorize({ email: 'kid@example.com', password: 'right' }, { headers: {} })).resolves.toMatchObject({ id: 'u1' });
     });
 
     it('不存在的账号也计入来源 IP 的失败次数', async () => {
