@@ -268,7 +268,10 @@ export const translations = {
             dialog: {
                 stageLabel: "Stage",
                 subjectLabel: "Subject",
-                scopeHint: "Stage and subject cannot be changed after creation. AI picks knowledge tags only from this stage and subject.",
+                tagSetLabel: "Tag System",
+                tagSetDefault: "Built-in",
+                tagSetNames: { cnm: "People's Education Press Curriculum Standard" } as Record<string, string>,
+                scopeHint: "Stage, subject and tag system cannot be changed after creation. AI picks knowledge tags only from this scope and tag system.",
                 title: "Create New Notebook",
                 desc: "Create separate notebooks for different subjects or chapters",
                 nameLabel: "Notebook Name",
@@ -524,6 +527,12 @@ export const translations = {
             account: {
                 changePassword: "Change Password (Leave empty to keep)",
                 update: "Update Profile",
+                currentGrade: "Current Grade & Semester",
+                selectGrade: "Select Grade",
+                selectSemester: "Select Semester",
+                firstSemester: "1st Semester",
+                secondSemester: "2nd Semester",
+                gradeAppliedHint: "New questions will default to this grade. You can also configure AI grade recognition in General Settings.",
             },
             ai: {
                 anthropicBaseUrlHint: "Leave empty for the official API. For compatible services enter the base URL without /v1 (e.g. https://api.example.com/anthropic).",
@@ -1615,7 +1624,10 @@ export const translations = {
             dialog: {
                 stageLabel: "学段",
                 subjectLabel: "学科",
-                scopeHint: "学段和学科创建后不可修改，AI 只会从该学段、该学科的知识点中选择标签。",
+                tagSetLabel: "标签体系",
+                tagSetDefault: "内置体系",
+                tagSetNames: { cnm: "人教版课标体系" } as Record<string, string>,
+                scopeHint: "学段、学科和标签体系创建后不可修改，AI 只会从该范围内选择知识点标签。",
                 title: "创建新错题本",
                 desc: "为不同科目或章节创建独立的错题本",
                 nameLabel: "错题本名称",
@@ -1871,6 +1883,12 @@ export const translations = {
             account: {
                 changePassword: "修改密码 (留空不修改)",
                 update: "更新个人信息",
+                currentGrade: "当前年级学期",
+                selectGrade: "选择年级",
+                selectSemester: "选择学期",
+                firstSemester: "上学期",
+                secondSemester: "下学期",
+                gradeAppliedHint: "新录入的错题将默认使用该年级，也可在常规设置中配置 AI 年级识别。",
             },
             ai: {
                 anthropicBaseUrlHint: "留空使用官方接口；兼容服务请填写不含 /v1 的地址（如 https://api.example.com/anthropic）。",

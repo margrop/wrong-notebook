@@ -40,5 +40,10 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
+// jsdom 未实现 scrollIntoView，Radix Select 打开下拉时调用
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = () => {};
+}
+
 // Export for use in individual tests
 export { localStorageMock };

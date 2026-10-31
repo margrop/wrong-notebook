@@ -12,6 +12,7 @@ import { apiClient } from "@/lib/api-client";
 import { getApiErrorMessage, getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { gradesForStage, parseGradeSemester } from "@/lib/grade-options";
 import type { UpdateUserProfileRequest, UserProfile } from "@/types/api";
 
 interface ProfileFormState {
@@ -19,12 +20,16 @@ interface ProfileFormState {
     email: string;
     educationStage: string;
     enrollmentYear: string | number;
+    /** 从 fixedGradeSemester 解析出的当前年级，空字符串表示未设置 */
+    currentGrade: string;
+    /** 从 fixedGradeSemester 解析出的当前学期：上 / 下 */
+    currentSemester: string;
     password: string;
 }
 
-const EMPTY_PROFILE: ProfileFormState = { name: "", email: "", educationStage: "", enrollmentYear: "", password: "" };
+const EMPTY_PROFILE: ProfileFormState = { name: "", email: "", educationStage: "", enrollmentYear: "", currentGrade: "", currentSemester: "", password: "" };
 
-/** 账户设置：姓名、邮箱、学段、入学年份和修改密码 */
+/** 账户设置：姓名、邮箱、学段、当前年级学期、入学年份和修改密码 */
 export function AccountSettings() {
     const { t } = useLanguage();
     const [profile, setProfile] = useState<ProfileFormState>(EMPTY_PROFILE);
@@ -35,11 +40,14 @@ export function AccountSettings() {
     const fetchProfile = useCallback(async () => {
         try {
             const data = await apiClient.get<UserProfile>("/api/user");
+            const parsed = data.fixedGradeSemester ? parseGradeSemester(data.fixedGradeSemester) : null;
             setProfile({
                 name: data.name || "",
                 email: data.email || "",
                 educationStage: data.educationStage || "",
                 enrollmentYear: data.enrollmentYear || "",
+                currentGrade: parsed?.grade || "",
+                currentSemester: parsed?.semester || "",
                 password: ""
             });
         } catch (error) {
@@ -73,6 +81,12 @@ export function AccountSettings() {
             }
             if (profile.password) {
                 payload.password = profile.password;
+            }
+            // 组装 fixedGradeSemester：有年级有学期才提交；清空年级时也提交 null
+            if (profile.currentGrade && profile.currentSemester) {
+                payload.fixedGradeSemester = `${profile.currentGrade}${profile.currentSemester}`;
+            } else if (!profile.currentGrade) {
+                payload.fixedGradeSemester = null;
             }
 
             await apiClient.patch("/api/user", payload);
@@ -122,7 +136,13 @@ export function AccountSettings() {
                     <Label>{t.auth?.educationStage || "Education Stage"}</Label>
                     <Select
                         value={profile.educationStage || ""}
-                        onValueChange={(val) => setProfile({ ...profile, educationStage: val })}
+                        onValueChange={(val) => setProfile({
+                            ...profile,
+                            educationStage: val,
+                            // 切换学段时重置年级学期，避免跨学段残留
+                            currentGrade: gradesForStage(val).includes(profile.currentGrade) ? profile.currentGrade : "",
+                            currentSemester: gradesForStage(val).includes(profile.currentGrade) ? profile.currentSemester : "",
+                        })}
                     >
                         <SelectTrigger>
                             <SelectValue placeholder={t.auth?.selectStage || "Select Stage"} />
@@ -145,6 +165,50 @@ export function AccountSettings() {
                     />
                 </div>
             </div>
+
+            {profile.educationStage && gradesForStage(profile.educationStage).length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label>{t.settings?.account?.currentGrade || "Current Grade & Semester"}</Label>
+                        <Select
+                            value={profile.currentGrade || ""}
+                            onValueChange={(val) => setProfile({ ...profile, currentGrade: val, currentSemester: val ? (profile.currentSemester || '上') : "" })}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder={t.settings?.account?.selectGrade || "Select Grade"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {gradesForStage(profile.educationStage).map((grade) => (
+                                    <SelectItem key={grade} value={grade}>{grade}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    {profile.currentGrade && (
+                        <div className="space-y-2">
+                            <Label>{t.settings?.account?.selectSemester || "Select Semester"}</Label>
+                            <Select
+                                value={profile.currentSemester || ""}
+                                onValueChange={(val) => setProfile({ ...profile, currentSemester: val })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder={t.settings?.account?.selectSemester || "Select Semester"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="上">{t.settings?.account?.firstSemester || "1st Semester"}</SelectItem>
+                                    <SelectItem value="下">{t.settings?.account?.secondSemester || "2nd Semester"}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {profile.currentGrade && profile.currentSemester && (
+                <p className="text-xs text-muted-foreground -mt-2">
+                    {t.settings?.account?.gradeAppliedHint || "New questions will default to this grade. You can also configure AI grade recognition in General Settings."}
+                </p>
+            )}
 
             <div className="space-y-3 pt-2 border-t">
                 <div className="space-y-2">

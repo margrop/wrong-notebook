@@ -62,17 +62,21 @@ model KnowledgeTag {
   userId    String?  // 如果是用户自定义标签，绑定 userId
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // 标签体系：标识标签所属的数据源/体系，不同体系可并存于同一学科
+  tagSet    String   @default("default")
+
   // 与错题的多对多关系
   errorItems ErrorItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // 联合索引：确保同一用户（或系统）下同一父节点下的标签名不重复
-  @@unique([subject, name, userId, parentId])
+  // 联合索引：确保同一用户（或系统）下同一父节点、同一体系下的标签名不重复
+  @@unique([subject, name, userId, parentId, tagSet])
   // 索引：加速父子查询
   @@index([parentId])
   @@index([subject])
+  @@index([tagSet])
 }
 
 model Subject {
@@ -80,6 +84,7 @@ model Subject {
   name       String
   stage      String  @default("primary") // 学段：primary / junior_high / senior_high，仅创建时设置
   subjectKey String? // 学科：math / english / physics 等，仅创建时设置；为空时按名称推断
+  tagSet     String  @default("default") // 标签体系：default=内置体系，其他值为导入的备选体系
   userId     String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 

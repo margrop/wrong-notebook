@@ -20,7 +20,7 @@ const userUpdateSchema = z.object({
     name: z.string().optional(),
     email: z.string().optional(),
     password: z.string().optional(),
-    educationStage: z.string().optional(),
+    educationStage: z.preprocess((val) => (val === '' ? undefined : val), z.enum(["primary", "junior_high", "senior_high", "university"]).optional()),
     enrollmentYear: z.number().optional().nullable(),
     gradeRecognitionMode: z.enum(GRADE_RECOGNITION_MODES).optional(),
     fixedGradeSemester: z.enum(GRADE_SEMESTERS).nullable().optional(),
