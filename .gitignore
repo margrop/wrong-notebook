@@ -79,3 +79,4 @@ __pycache__/
 
 # 安装包构建产物
 /dist/
+scripts/data/

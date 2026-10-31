@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { unauthorized, forbidden, notFound, badRequest, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
+import { resolveNotebookScope } from "@/lib/notebook-scope";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
 import { getDefaultPaperLevel } from "@/lib/paper-level";
 import { isValidFigureScale } from "@/lib/figure-scale";
@@ -142,20 +143,17 @@ export async function PUT(
                     ? JSON.parse(knowledgePoints)
                     : [];
 
-            // 推断学科
-            const subjectKey = errorItem.subject?.name?.toLowerCase().includes('math') ||
-                errorItem.subject?.name?.includes('数学')
-                ? 'math'
-                : errorItem.subject?.name?.toLowerCase().includes('english') ||
-                    errorItem.subject?.name?.includes('英语')
-                    ? 'english'
-                    : 'other';
+            // 推断学科和标签体系
+            const notebookScope = errorItem.subject ? resolveNotebookScope(errorItem.subject) : null;
+            const subjectKey = notebookScope?.subject || 'other';
+            const notebookTagSet = errorItem.subject?.tagSet || 'default';
 
             const tagConnections: { id: string }[] = [];
             for (const tagName of tagNames) {
                 let tag = await prisma.knowledgeTag.findFirst({
                     where: {
                         name: tagName,
+                        tagSet: notebookTagSet,
                         OR: [
                             { isSystem: true },
                             { userId: user.id },
@@ -168,7 +166,7 @@ export async function PUT(
                     // Use the incoming gradeSemester (priority) or the existing one on the item
                     const contextGrade = gradeSemester !== undefined ? gradeSemester : errorItem.gradeSemester;
 
-                    const parentId = await findParentTagIdForGrade(contextGrade, subjectKey);
+                    const parentId = await findParentTagIdForGrade(contextGrade, subjectKey, prisma, notebookTagSet);
 
                     tag = await prisma.knowledgeTag.create({
                         data: {
@@ -176,7 +174,8 @@ export async function PUT(
                             subject: subjectKey,
                             isSystem: false,
                             userId: user.id,
-                            parentId: parentId, // Link to Grade node
+                            parentId: parentId,
+                            tagSet: notebookTagSet,
                         },
                     });
                 }

@@ -49,10 +49,10 @@ async function handlePost(req: Request) {
         if (typeof subjectId === 'string' && subjectId && session.user?.email) {
             const notebook = await prisma.subject.findFirst({
                 where: { id: subjectId, user: { email: session.user.email } },
-                select: { name: true, stage: true, subjectKey: true },
+                select: { name: true, stage: true, subjectKey: true, tagSet: true },
             });
             if (notebook) {
-                candidateTags = await getNotebookCandidateTags(resolveNotebookScope(notebook));
+                candidateTags = await getNotebookCandidateTags(resolveNotebookScope(notebook), notebook.tagSet || 'default');
             }
         }
 

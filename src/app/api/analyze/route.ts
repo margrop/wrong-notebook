@@ -84,15 +84,15 @@ async function handlePost(req: Request) {
                 if (subjectId && user) {
                     const notebook = await prisma.subject.findUnique({
                         where: { id: subjectId },
-                        select: { name: true, userId: true, stage: true, subjectKey: true }
+                        select: { name: true, userId: true, stage: true, subjectKey: true, tagSet: true }
                     });
 
                     if (notebook && notebook.userId === user.id) {
                         notebookName = notebook.name;
                         const scope = resolveNotebookScope(notebook);
                         subjectChinese = scope.subject ? SUBJECT_DISPLAY_NAMES[scope.subject] : null;
-                        candidateTags = await getNotebookCandidateTags(scope);
-                        logger.debug({ scope, candidateTagCount: candidateTags?.tags.length }, 'Notebook scope resolved');
+                        candidateTags = await getNotebookCandidateTags(scope, notebook.tagSet || 'default');
+                        logger.debug({ scope, tagSet: notebook.tagSet, candidateTagCount: candidateTags?.tags.length }, 'Notebook scope resolved');
                     }
                 }
             } catch (error) {

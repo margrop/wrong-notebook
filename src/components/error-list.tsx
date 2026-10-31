@@ -28,6 +28,7 @@ import type { ErrorItemSummary, PaginatedResponse } from "@/types/api";
 interface ErrorListProps {
     subjectId?: string;
     subjectName?: string;
+    tagSet?: string;
 }
 
 type KnowledgeFilterChange = {
@@ -36,7 +37,7 @@ type KnowledgeFilterChange = {
     tag?: string | null;
 };
 
-export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
+export function ErrorList({ subjectId, subjectName, tagSet = 'default' }: ErrorListProps = {}) {
     const { t } = useLanguage();
     const router = useRouter();
     const [items, setItems] = useState<ErrorItemSummary[]>([]);
@@ -191,7 +192,7 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
             {/* Advanced Filters Row */}
             <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
                 <div className="w-full sm:w-auto">
-                    <KnowledgeFilter gradeSemester={gradeFilter} tag={selectedTag} onFilterChange={handleFilterChange} subjectName={subjectName} />
+                    <KnowledgeFilter gradeSemester={gradeFilter} tag={selectedTag} onFilterChange={handleFilterChange} subjectName={subjectName} tagSet={tagSet} />
                 </div>
                 <PaperLevelFilter value={paperLevelFilter} onChange={setPaperLevelFilter} />
             </div>

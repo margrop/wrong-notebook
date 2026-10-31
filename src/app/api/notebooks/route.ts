@@ -108,7 +108,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { name, stage, subjectKey } = body;
+        const { name, stage, subjectKey, tagSet } = body;
 
         if (typeof name !== "string" || !name.trim()) {
             return badRequest("Notebook name is required");
@@ -117,6 +117,8 @@ export async function POST(req: Request) {
         if (!isValidNotebookScope(stage, subjectKey)) {
             return badRequest("A valid stage and subject are required");
         }
+        // 标签体系：非空字符串，默认 default
+        const finalTagSet = typeof tagSet === 'string' && tagSet.trim() ? tagSet.trim() : 'default';
 
         // 检查是否已存在同名错题本
         const existing = await prisma.subject.findUnique({
@@ -137,6 +139,7 @@ export async function POST(req: Request) {
                 name: name.trim(),
                 stage,
                 subjectKey,
+                tagSet: finalTagSet,
                 userId: user.id,
             },
             include: {

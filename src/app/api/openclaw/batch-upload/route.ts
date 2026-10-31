@@ -151,12 +151,14 @@ async function createErrorItem(
 
         const subject = subjectId ? await tx.subject.findUnique({ where: { id: subjectId } }) : null;
         const subjectKey = subject ? inferSubjectFromName(subject.name) : null;
+        const notebookTagSet = subject?.tagSet || 'default';
 
         for (const tagName of tagNames) {
             try {
                 let tag = await tx.knowledgeTag.findFirst({
                     where: {
                         name: tagName,
+                        tagSet: notebookTagSet,
                         OR: [
                             { isSystem: true },
                             { userId: userId },
@@ -166,7 +168,7 @@ async function createErrorItem(
 
                 if (!tag) {
                     const parentId = finalGradeSemester && subjectKey
-                        ? await findParentTagIdForGrade(finalGradeSemester, subjectKey, tx)
+                        ? await findParentTagIdForGrade(finalGradeSemester, subjectKey, tx, notebookTagSet)
                         : null;
 
                     tag = await tx.knowledgeTag.create({
@@ -176,6 +178,7 @@ async function createErrorItem(
                             isSystem: false,
                             userId: userId,
                             parentId: parentId || undefined,
+                            tagSet: notebookTagSet,
                         },
                     });
                 }

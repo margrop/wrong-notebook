@@ -28,7 +28,7 @@ describe('findParentTagIdForGrade', () => {
     it('只查询该学科的系统年级根节点', async () => {
         await find('七年级上');
         expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
-            where: { subject: 'math', isSystem: true, parentId: null },
+            where: { subject: 'math', isSystem: true, parentId: null, tagSet: 'default' },
         }));
     });
 

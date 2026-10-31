@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -17,6 +17,7 @@ import { useNotebookScopeLabels } from "@/components/notebook-scope-label";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DEFAULT_NOTEBOOK_STAGE, NOTEBOOK_STAGES, STAGE_SUBJECTS, type NotebookStage, type NotebookSubject } from "@/lib/notebook-scope";
+import { apiClient } from "@/lib/api-client";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 
@@ -24,6 +25,7 @@ export interface CreateNotebookInput {
     name: string;
     stage: NotebookStage;
     subjectKey: NotebookSubject;
+    tagSet: string;
 }
 
 interface CreateNotebookDialogProps {
@@ -32,13 +34,32 @@ interface CreateNotebookDialogProps {
     onCreate: (input: CreateNotebookInput) => Promise<void>;
 }
 
+/** 从系统标签库查询可用的标签体系列表 */
+async function fetchAvailableTagSets(): Promise<string[]> {
+    try {
+        const data = await apiClient.get<{ tagSets: string[] }>('/api/tags?tagSetsOnly=true');
+        return data.tagSets?.length ? data.tagSets : ['default'];
+    } catch {
+        return ['default'];
+    }
+}
+
 export function CreateNotebookDialog({ open, onOpenChange, onCreate }: CreateNotebookDialogProps) {
     const [name, setName] = useState("");
     const [stage, setStage] = useState<NotebookStage>(DEFAULT_NOTEBOOK_STAGE);
     const [subjectKey, setSubjectKey] = useState<NotebookSubject>(STAGE_SUBJECTS[DEFAULT_NOTEBOOK_STAGE][0]);
+    const [tagSet, setTagSet] = useState("default");
+    const [availableTagSets, setAvailableTagSets] = useState<string[]>(['default']);
     const [loading, setLoading] = useState(false);
     const { t } = useLanguage();
     const { stageLabel, subjectLabel } = useNotebookScopeLabels();
+
+    // 打开对话框时加载可用标签体系
+    useEffect(() => {
+        if (open) {
+            fetchAvailableTagSets().then(setAvailableTagSets);
+        }
+    }, [open]);
 
     const handleStageChange = (value: NotebookStage) => {
         setStage(value);
@@ -56,7 +77,7 @@ export function CreateNotebookDialog({ open, onOpenChange, onCreate }: CreateNot
 
         setLoading(true);
         try {
-            await onCreate({ name: name.trim(), stage, subjectKey });
+            await onCreate({ name: name.trim(), stage, subjectKey, tagSet });
             setName("");
             onOpenChange(false);
         } catch (error) {
@@ -104,6 +125,25 @@ export function CreateNotebookDialog({ open, onOpenChange, onCreate }: CreateNot
                             </Select>
                         </div>
                     </div>
+                    {availableTagSets.length > 1 && (
+                        <div className="space-y-2">
+                            <Label htmlFor="notebook-tagset">{t.notebooks.dialog.tagSetLabel}</Label>
+                            <Select value={tagSet} onValueChange={setTagSet}>
+                                <SelectTrigger id="notebook-tagset">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableTagSets.map((ts) => (
+                                        <SelectItem key={ts} value={ts}>
+                                            {ts === 'default'
+                                                ? (t.notebooks.dialog.tagSetDefault || 'Built-in')
+                                                : (t.notebooks.dialog.tagSetNames?.[ts] || ts)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
                     <p className="text-xs text-muted-foreground">{t.notebooks.dialog.scopeHint}</p>
                     <div className="space-y-2">
                         <Label htmlFor="name">{t.notebooks?.dialog?.nameLabel || "Notebook Name"}</Label>

@@ -200,7 +200,7 @@ describe('/api/analyze', () => {
             }));
 
             expect(response.status).toBe(200);
-            expect(mockGetNotebookCandidateTags).toHaveBeenCalledWith({ stage: 'senior_high', subject: 'physics' });
+            expect(mockGetNotebookCandidateTags).toHaveBeenCalledWith({ stage: 'senior_high', subject: 'physics' }, 'default');
             const args = mocks.mockAIService.analyzeImage.mock.calls[0];
             expect(args[4]).toBe('物理');
             expect(args[6]).toEqual(candidateTags);

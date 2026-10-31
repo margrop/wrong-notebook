@@ -43,7 +43,7 @@ async function suggestTagsForItem(errorItemId: string, userId: string): Promise<
             mistakeAnalysis: true,
             gradeSemester: true,
             paperLevel: true,
-            subject: { select: { name: true, stage: true, subjectKey: true } },
+            subject: { select: { name: true, stage: true, subjectKey: true, tagSet: true } },
             tags: { select: { id: true, name: true, isSystem: true } },
             user: { select: { educationStage: true, enrollmentYear: true } },
         },
@@ -55,12 +55,13 @@ async function suggestTagsForItem(errorItemId: string, userId: string): Promise<
         throw new Error('NO_QUESTION_TEXT');
     }
 
-    // 候选知识点 = 错题本学段 + 学科下的全部标签；
+    // 候选知识点 = 错题本学段 + 学科 + 标签体系下的全部标签；
     // 不在错题本中或错题本学科未知时按数学处理，并按学生年级取标签（与识别时的默认行为一致）
     const scope = item.subject ? resolveNotebookScope(item.subject) : null;
     const subjectKey = scope?.subject || 'math';
+    const itemTagSet = item.subject?.tagSet || 'default';
     const allowedTags = scope?.subject
-        ? await getScopeTagsFromDB(scope.subject, scope.stage)
+        ? await getScopeTagsFromDB(scope.subject, scope.stage, itemTagSet)
         : await getMathTagsFromDB(calculateGradeNumber(item.user.educationStage, item.user.enrollmentYear, getAppTimeZone()));
     if (allowedTags.length === 0) {
         throw new Error('NO_AVAILABLE_TAGS');
@@ -85,9 +86,9 @@ async function suggestTagsForItem(errorItemId: string, userId: string): Promise<
         throw new Error('NO_TAGS_SELECTED');
     }
 
-    // 同名系统标签可能出现在多个年级下，取第一个即可（名称相同即同一知识点）
+    // 同名系统标签可能出现在多个年级或多个体系下，限定当前错题本的 tagSet，取第一个即可
     const systemTags = await prisma.knowledgeTag.findMany({
-        where: { isSystem: true, subject: subjectKey, name: { in: chosen } },
+        where: { isSystem: true, subject: subjectKey, tagSet: itemTagSet, name: { in: chosen } },
         select: { id: true, name: true },
     });
     const tagIdByName = new Map<string, string>();

@@ -2,16 +2,17 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
-export async function findParentTagIdForGrade(gradeSemester: string | null | undefined, subjectKey: string, client: Prisma.TransactionClient = prisma): Promise<string | null> {
+export async function findParentTagIdForGrade(gradeSemester: string | null | undefined, subjectKey: string, client: Prisma.TransactionClient = prisma, tagSet: string = 'default'): Promise<string | null> {
     if (!gradeSemester || !subjectKey) return null;
 
-    // Fetch all system root tags for the subject (which are typically Grades)
+    // Fetch all system root tags for the subject + tagSet (which are typically Grades)
     // We filter by parentId: null to get only the top level (Grades)
     const rootTags = await client.knowledgeTag.findMany({
         where: {
             subject: subjectKey,
             isSystem: true,
-            parentId: null
+            parentId: null,
+            tagSet,
         },
         select: { id: true, name: true }
     });

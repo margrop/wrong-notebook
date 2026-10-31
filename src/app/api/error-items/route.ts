@@ -134,12 +134,14 @@ export async function POST(req: Request) {
             const subjectKey = inferSubjectFromName(subject?.name ?? null) || 'other';
             logger.debug({ subjectId, subjectName: subject?.name, subjectKey }, 'Subject inferred');
 
-            // 处理每个标签
+            // 处理每个标签（限定在当前错题本的标签体系内）
+            const notebookTagSet = subject?.tagSet || 'default';
             for (const tagName of tagNames) {
                 try {
                     let tag = await tx.knowledgeTag.findFirst({
                         where: {
                             name: tagName,
+                            tagSet: notebookTagSet,
                             OR: [
                                 { isSystem: true },
                                 { userId: user.id },
@@ -148,8 +150,8 @@ export async function POST(req: Request) {
                     });
 
                     if (!tag) {
-                        const parentId = await findParentTagIdForGrade(finalGradeSemester, subjectKey, tx);
-                        logger.debug({ tagName, parentId, subjectKey }, 'Creating new custom tag');
+                        const parentId = await findParentTagIdForGrade(finalGradeSemester, subjectKey, tx, notebookTagSet);
+                        logger.debug({ tagName, parentId, subjectKey, tagSet: notebookTagSet }, 'Creating new custom tag');
 
                         tag = await tx.knowledgeTag.create({
                             data: {
@@ -158,6 +160,7 @@ export async function POST(req: Request) {
                                 isSystem: false,
                                 userId: user.id,
                                 parentId: parentId,
+                                tagSet: notebookTagSet,
                             },
                         });
                         logger.debug({ tagId: tag.id, tagName }, 'Custom tag created');

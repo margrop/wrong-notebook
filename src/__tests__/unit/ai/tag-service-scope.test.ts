@@ -33,7 +33,7 @@ describe('getScopeTagsFromDB', () => {
 
     it('返回该学段所有年级下的全部叶子知识点（不按学生年级裁剪），同名去重', async () => {
         expect(await getScopeTagsFromDB('math', 'primary')).toEqual(['10以内数的认识', '比大小', '鸡兔同笼']);
-        expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { subject: 'math', isSystem: true } }));
+        expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { subject: 'math', isSystem: true, tagSet: 'default' } }));
     });
 
     it('其他学段的知识点不会混入', async () => {

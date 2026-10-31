@@ -92,7 +92,7 @@ describe('知识点重新生成', () => {
 
         expect(response.status).toBe(200);
         expect(data.tags).toEqual(['假设法解鸡兔同笼', '鸡兔同笼', '易错']);
-        expect(mocks.getScopeTagsFromDB).toHaveBeenCalledWith('math', 'primary');
+        expect(mocks.getScopeTagsFromDB).toHaveBeenCalledWith('math', 'primary', 'default');
         expect(mocks.getMathTagsFromDB).not.toHaveBeenCalled();
         expect(mocks.suggestKnowledgeTags.mock.calls[0][0]).toMatchObject({
             subject: '数学',
@@ -123,7 +123,7 @@ describe('知识点重新生成', () => {
         const response = await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'));
 
         expect(response.status).toBe(200);
-        expect(mocks.getScopeTagsFromDB).toHaveBeenCalledWith('physics', 'senior_high');
+        expect(mocks.getScopeTagsFromDB).toHaveBeenCalledWith('physics', 'senior_high', 'default');
         expect(mocks.suggestKnowledgeTags.mock.calls[0][0]).toMatchObject({ subject: '物理', allowedTags: ['牛顿第二定律'] });
     });
 

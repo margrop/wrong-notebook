@@ -129,7 +129,7 @@ export default function NotebookDetailPage() {
                     }
                 />
 
-                <ErrorList key={listVersion} subjectId={notebook.id} subjectName={notebook.name} />
+                <ErrorList key={listVersion} subjectId={notebook.id} subjectName={notebook.name} tagSet={notebook.tagSet || 'default'} />
 
                 <RenameNotebookDialog
                     open={renameDialogOpen}

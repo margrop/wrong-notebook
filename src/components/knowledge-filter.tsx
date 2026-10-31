@@ -27,6 +27,7 @@ interface KnowledgeFilterProps {
     gradeSemester?: string;
     tag?: string | null;
     subjectName?: string;
+    tagSet?: string;
     onFilterChange: (filters: {
         gradeSemester?: string;
         chapter?: string;
@@ -56,6 +57,7 @@ export function KnowledgeFilter({
     gradeSemester: initialGrade,
     tag: initialTag,
     subjectName,
+    tagSet = 'default',
     onFilterChange,
     className
 }: KnowledgeFilterProps) {
@@ -160,10 +162,10 @@ export function KnowledgeFilter({
                 const subject = subjectName ? inferSubjectFromName(subjectName) : 'math';
                 // 移除仅 math 的限制，尝试获取当前科目的标签
                 try {
-                    const data = await apiClient.get<{ tags: TagTreeNode[] }>(`/api/tags?subject=${subject}`);
+                    const data = await apiClient.get<{ tags: TagTreeNode[] }>(`/api/tags?subject=${subject}&tagSet=${encodeURIComponent(tagSet)}`);
                     setTagTree(data.tags);
                 } catch (e) {
-                    frontendLogger.warn('[KnowledgeFilter]', 'Failed to fetch tags for subject', { subject, error: e });
+                    frontendLogger.warn('[KnowledgeFilter]', 'Failed to fetch tags for subject', { subject, tagSet, error: e });
                     setTagTree([]);
                 }
             } catch (error) {
@@ -174,7 +176,7 @@ export function KnowledgeFilter({
         };
 
         fetchData();
-    }, [subjectName, generateAvailableGrades]);
+    }, [subjectName, tagSet, generateAvailableGrades]);
 
     const handleGradeChange = (val: string) => {
         setGradeSemester(val);
