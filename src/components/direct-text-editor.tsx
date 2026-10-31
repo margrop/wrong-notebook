@@ -13,7 +13,6 @@ import { NotebookSelector } from "@/components/notebook-selector";
 import { PaperGroupSelect } from "@/components/paper-group-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
-import { usePaperGroups } from "@/lib/use-paper-groups";
 import type { MistakeStatus } from "@/lib/mistake-status";
 import { toast } from "@/lib/feedback";
 
@@ -49,8 +48,6 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
     const [subjectId, setSubjectId] = useState(defaultNotebookId || "");
     const [gradeSemester, setGradeSemester] = useState("");
     const [paperLevel, setPaperLevel] = useState("");
-    const { groups: paperGroups } = usePaperGroups();
-    const defaultGroupId = paperGroups.find((g) => g.isActive)?.id || "";
 
     const handleSubmit = async () => {
         if (!questionText.trim()) return;
@@ -69,7 +66,7 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
             knowledgePoints,
             subjectId,
             gradeSemester: gradeSemester || undefined,
-            paperLevel,
+            paperLevel: paperLevel || undefined,
         });
     };
 
@@ -82,7 +79,7 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
         setMistakeStatus("unknown");
         setKnowledgePoints([]);
         setGradeSemester("");
-        setPaperLevel(defaultGroupId);
+        setPaperLevel("");
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -182,7 +179,7 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
                     </div>
                     <div className="space-y-2">
                         <Label>{t.editor?.paperLevel || "Paper Level"}</Label>
-                        <PaperGroupSelect value={paperLevel || defaultGroupId} onChange={setPaperLevel} />
+                        <PaperGroupSelect value={paperLevel} onChange={setPaperLevel} />
                     </div>
                 </div>
 
