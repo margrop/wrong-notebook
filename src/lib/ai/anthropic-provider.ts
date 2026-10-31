@@ -186,7 +186,7 @@ export class AnthropicProvider implements AIService {
                 text,
                 choices: [{ finish_reason: message.stop_reason === 'max_tokens' ? 'length' : message.stop_reason, message: { content: text } }],
             };
-        }, maxTokens, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
+        }, maxTokens, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
         if (!response.text) throw new Error("Empty response from AI");
         return response.text;

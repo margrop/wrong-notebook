@@ -362,7 +362,7 @@ describe('OpenAI Provider 推理模型截断重试', () => {
         const result = await provider.reanswerQuestion('求解 2x + 3 = 7', 'zh');
 
         expect(result.answerText).toBe('x = 2');
-        expect(mockCompletionCreate.mock.calls.map((args) => args[0].max_tokens)).toEqual([8192, 32768]);
+        expect(mockCompletionCreate.mock.calls.map((args) => args[0].max_tokens)).toEqual([8192, 65536]);
     });
 
     it('重试后仍为空时返回 AI_OUTPUT_TRUNCATED 而不是未知错误', async () => {

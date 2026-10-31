@@ -298,7 +298,7 @@ export class OpenAIProvider implements AIService {
                     ],
                     // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
                     max_tokens: maxTokens,
-                }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
+                }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
             }
 
             logger.box('📦 Full API Response', JSON.stringify(response, null, 2));
@@ -359,7 +359,7 @@ export class OpenAIProvider implements AIService {
                 ],
                 // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
+            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
             const text = response.choices[0]?.message?.content || "";
 
@@ -429,7 +429,7 @@ export class OpenAIProvider implements AIService {
                     { role: "user", content: userContent }
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
+            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
             logger.debug({ response: JSON.stringify(response) }, 'Full API response');
 
@@ -485,7 +485,7 @@ export class OpenAIProvider implements AIService {
                     { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
+            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'GeoGebra AI raw response');
@@ -536,7 +536,7 @@ export class OpenAIProvider implements AIService {
                     { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
+            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Mastery AI raw response');
@@ -578,7 +578,7 @@ export class OpenAIProvider implements AIService {
                     { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
+            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Grading AI raw response');
@@ -609,7 +609,7 @@ export class OpenAIProvider implements AIService {
                     { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
+            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Tag suggestion AI raw response');
@@ -635,7 +635,7 @@ export class OpenAIProvider implements AIService {
                     { role: "user", content: [{ type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } }, { type: "text", text: prompt.user }] },
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
+            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
@@ -661,7 +661,7 @@ export class OpenAIProvider implements AIService {
                     { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
+            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'LaTeX fix AI raw response');
@@ -687,7 +687,7 @@ export class OpenAIProvider implements AIService {
                     { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
-            }), 16384, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
+            }), 16384, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'SVG animation AI raw response');
@@ -713,7 +713,7 @@ export class OpenAIProvider implements AIService {
                     { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
+            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'SVG narration AI raw response');

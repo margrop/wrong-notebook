@@ -174,7 +174,7 @@ describe('AnthropicProvider', () => {
         expect(figure.figureSvg).toContain('<rect');
     });
 
-    it('正文为空且因 max_tokens 截断时，用更大的上限重试一次', async () => {
+    it('正文为空且因 max_tokens 截断时，按默认模型的最大输出重试一次', async () => {
         mocks.create
             .mockResolvedValueOnce({ content: [{ type: 'thinking', thinking: '...', signature: 'x' }], stop_reason: 'max_tokens', usage: {} })
             .mockResolvedValueOnce(message('{"probability": 85, "reason": "连续答对"}'));
@@ -184,7 +184,7 @@ describe('AnthropicProvider', () => {
 
         expect(mocks.create).toHaveBeenCalledTimes(2);
         expect(mocks.create.mock.calls[0][0].max_tokens).toBe(4096);
-        expect(mocks.create.mock.calls[1][0].max_tokens).toBe(32768);
+        expect(mocks.create.mock.calls[1][0].max_tokens).toBe(128000);
         expect(result.probability).toBe(0.85);
     });
 
