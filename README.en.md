@@ -68,7 +68,7 @@ General settings control review before import, SVG animated explanations, GeoGeb
 <details>
 <summary><strong>Question details: formulas, difficulty stars, knowledge points and paper info</strong></summary>
 
-Each question shows its text, knowledge points, grade, term and paper level. You can check the original photo and start practicing similar questions from here.
+Each question shows its text, knowledge points, grade, term and paper level. Click **Edit grade/semester** to change the grade or term; the review page also provides a selector. You can check the original photo and start practicing similar questions from here.
 
 ![An English linear-equation question with formulas, difficulty stars, knowledge points, grade and term](doc/screenshots/en/question-detail.png)
 

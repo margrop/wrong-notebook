@@ -1,0 +1,63 @@
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { QuestionMetadata } from '@/components/error-detail/question-metadata';
+import type { ErrorItemDetail } from '@/components/error-detail/types';
+import { LanguageProvider } from '@/contexts/LanguageContext';
+import { apiClient } from '@/lib/api-client';
+
+vi.mock('@/lib/api-client', () => ({ apiClient: { put: vi.fn() } }));
+vi.mock('@/components/notebook-selector', () => ({ NotebookSelector: () => null }));
+vi.mock('@/lib/feedback', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+let container: HTMLDivElement;
+let root: Root;
+const onChanged = vi.fn();
+
+beforeEach(() => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+});
+
+afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+});
+
+async function render(gradeSemester = '初一，上期') {
+    const item: ErrorItemDetail = { id: 'e1', questionText: '题目', answerText: '', analysis: '', knowledgePoints: '[]', tags: [], masteryLevel: 0, originalImageUrl: '', userNotes: null, gradeSemester };
+    await act(async () => root.render(<LanguageProvider><QuestionMetadata item={item} onChanged={onChanged} /></LanguageProvider>));
+}
+
+async function click(label: string) {
+    await act(async () => [...container.querySelectorAll('button')].find((button) => button.textContent === label)!.click());
+}
+
+describe('题目年级编辑入口', () => {
+    it('独立入口可修改未归类题目的年级并保存', async () => {
+        await render();
+        await click('编辑年级/学期');
+        const select = container.querySelector<HTMLSelectElement>('#detail-grade-semester')!;
+        expect(select.value).toBe('初一，上期');
+        await act(async () => {
+            select.value = '高二下';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await click('保存');
+        expect(apiClient.put).toHaveBeenCalledWith('/api/error-items/e1', { gradeSemester: '高二下', paperLevel: 'a' });
+        expect(onChanged).toHaveBeenCalledOnce();
+    });
+
+    it('保留旧的自定义年级，取消时不保存', async () => {
+        await render('大学拓展课程');
+        await click('编辑年级/学期');
+        expect(container.querySelector<HTMLSelectElement>('#detail-grade-semester')!.value).toBe('大学拓展课程');
+        await click('取消');
+        expect(apiClient.put).not.toHaveBeenCalled();
+        expect(container.textContent).toContain('大学拓展课程');
+    });
+});

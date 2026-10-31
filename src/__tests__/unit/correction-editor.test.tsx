@@ -57,6 +57,33 @@ const selectPaper = (value: string) => act(async () => {
 });
 
 describe('校对页的默认卷别与手工覆盖', () => {
+    it('保留题目已有的年级，允许选择其他年级后保存', async () => {
+        await renderEditor({ gradeSemester: '四年级上' });
+        const select = container.querySelector<HTMLSelectElement>('#correction-grade-semester')!;
+        expect(select.value).toBe('四年级上');
+        await act(async () => {
+            select.value = '六年级下';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await clickButton(translations.zh.editor.save);
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ gradeSemester: '六年级下' }));
+    });
+
+    it('账户资料晚返回时不覆盖已经手工修改的年级', async () => {
+        let resolveProfile!: (profile: { educationStage: string; enrollmentYear: number }) => void;
+        const pending = new Promise<{ educationStage: string; enrollmentYear: number }>((resolve) => { resolveProfile = resolve; });
+        vi.mocked(apiClient.get).mockImplementation(async (url) => url === '/api/notebooks' ? [] : pending);
+        await renderEditor();
+        const select = container.querySelector<HTMLSelectElement>('#correction-grade-semester')!;
+        await act(async () => {
+            select.value = '五年级下';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            resolveProfile({ educationStage: 'junior_high', enrollmentYear: 2024 });
+        });
+        expect(select.value).toBe('五年级下');
+        vi.mocked(apiClient.get).mockImplementation(async (url) => url === '/api/notebooks' ? [] : {});
+    });
+
     it.each([[1, 'a'], [2, 'a'], [3, 'a'], [4, 'b'], [5, 'b']] as const)('%i 星校对题默认显示并保存为 %s 卷', async (difficultyStars, paperLevel) => {
         await renderEditor({ difficultyStars });
         expect(paperSelect().value).toBe(paperLevel);

@@ -2,7 +2,9 @@ import { test, expect, type Page } from '@playwright/test';
 import { ADMIN_PASSWORD } from './helpers';
 
 async function login(page: Page) {
+    const hydrated = page.waitForResponse((response) => response.url().endsWith('/api/register/status'));
     await page.goto('/login');
+    await hydrated;
     await page.getByLabel(/邮箱|Email/).fill('admin@localhost');
     await page.getByLabel(/^密码$|^Password$/).fill(ADMIN_PASSWORD);
     await page.getByRole('button', { name: /登录|Login/ }).click();
@@ -45,11 +47,18 @@ test('错题详情页显示各区块，编辑后保存并在刷新后保留', as
     await expect(card(page, /^解析$/)).toContainText('路程等于速度乘以时间。');
     await expect(card(page, '你的笔记 / 答案')).toContainText('暂无笔记');
 
+    // 年级有明确编辑入口，跨学段修改后持久保存。
+    await page.getByRole('button', { name: '编辑年级/学期' }).click();
+    await page.getByRole('combobox', { name: '年级/学期' }).selectOption('高二下');
+    await card(page, '题目').getByRole('button', { name: '保存', exact: true }).click();
+    await expect(card(page, '题目')).toContainText('高二下');
+
     // 编辑笔记并保存
     const notes = card(page, '你的笔记 / 答案');
     await notes.getByRole('button', { name: '编辑' }).click();
     await notes.locator('textarea').fill('注意单位换算');
     await notes.getByRole('button', { name: '保存' }).click();
+    await expect(notes.getByRole('button', { name: '编辑', exact: true })).toBeVisible();
     await expect(notes).toContainText('注意单位换算');
 
     // 取消编辑不保存修改
@@ -63,6 +72,8 @@ test('错题详情页显示各区块，编辑后保存并在刷新后保留', as
     await page.reload();
     await expect(card(page, '你的笔记 / 答案')).toContainText('注意单位换算', { timeout: 15000 });
     await expect(card(page, /^解析$/)).toContainText('路程等于速度乘以时间。');
+    await expect(card(page, '题目')).toContainText('高二下');
+    expect((await (await page.request.get(`/api/error-items/${item.id}`)).json()).gradeSemester).toBe('高二下');
 
     // 删除本用例创建的错题和错题本（错题本须为空才能删除），不影响其他用例
     expect((await page.request.delete(`/api/error-items/${item.id}/delete`)).ok()).toBeTruthy();

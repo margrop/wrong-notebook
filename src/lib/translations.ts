@@ -2,6 +2,12 @@ export type Language = 'zh' | 'en';
 
 export const translations = {
     en: {
+        gradeSelection: {
+            edit: "Edit grade/semester",
+            firstSemester: "1st Semester",
+            secondSemester: "2nd Semester",
+            names: ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Junior High Grade 1", "Junior High Grade 2", "Junior High Grade 3", "Senior High Grade 1", "Senior High Grade 2", "Senior High Grade 3", "Freshman", "Sophomore", "Junior", "Senior"],
+        },
         pageTitle: {
             base: "AI Smart Error Notebook",
             home: "Add Mistakes",
@@ -1326,6 +1332,12 @@ export const translations = {
         },
     },
     zh: {
+        gradeSelection: {
+            edit: "编辑年级/学期",
+            firstSemester: "上学期",
+            secondSemester: "下学期",
+            names: ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级", "初一", "初二", "初三", "高一", "高二", "高三", "大一", "大二", "大三", "大四"],
+        },
         pageTitle: {
             base: "AI智能错题本",
             home: "录入错题",

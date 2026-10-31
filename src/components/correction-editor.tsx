@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Loader2, RefreshCw, Save } from "lucide-react";
 import { GeogebraDraft } from "@/components/correction-editor/geogebra-draft";
 import { MetaFields } from "@/components/correction-editor/meta-fields";
@@ -45,9 +45,13 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
         mistakeAnalysis: initialData.mistakeAnalysis || "",
         mistakeStatus: initialData.mistakeStatus || "unknown",
         subjectId: initialSubjectId,
-        gradeSemester: "",
+        gradeSemester: initialData.gradeSemester || "",
     });
-    const update = (fields: Partial<CorrectionDraft>) => setData(prev => ({ ...prev, ...fields }));
+    const gradeEdited = useRef(false);
+    const update = (fields: Partial<CorrectionDraft>) => {
+        if ('gradeSemester' in fields) gradeEdited.current = true;
+        setData(prev => ({ ...prev, ...fields }));
+    };
     // 未手工选卷时随星级更新默认值，手工选择后优先保留。
     const paperLevel = data.paperLevel ?? getDefaultPaperLevel(data.difficultyStars) ?? "a";
     const [isReanswering, setIsReanswering] = useState(false);
@@ -67,8 +71,8 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
             .then(user => {
                 setGeogebraEnabled(!!user?.enableGeogebra);
                 if (user && user.educationStage && user.enrollmentYear) {
-                    const grade = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), language, timeZone);
-                    setData(prev => ({ ...prev, gradeSemester: grade }));
+                    const grade = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), 'zh', timeZone);
+                    setData(prev => prev.gradeSemester || gradeEdited.current ? prev : { ...prev, gradeSemester: grade });
                     setEducationStage(user.educationStage);
                 }
             })

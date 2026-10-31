@@ -1,8 +1,8 @@
 "use client";
 
 import { DifficultyStars } from "@/components/difficulty-stars";
+import { GradeSemesterSelect } from "@/components/grade-semester-select";
 import { NotebookSelector } from "@/components/notebook-selector";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -28,11 +28,11 @@ export function MetaFields({ data, paperLevel, onChange }: MetaFieldsProps) {
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>{t.editor.gradeSemester || "Grade/Semester"}</Label>
-                    <Input
+                    <Label htmlFor="correction-grade-semester">{t.editor.gradeSemester || "Grade/Semester"}</Label>
+                    <GradeSemesterSelect
+                        id="correction-grade-semester"
                         value={data.gradeSemester || ""}
-                        onChange={(e) => onChange({ gradeSemester: e.target.value })}
-                        placeholder="e.g. Junior High Grade 1, 1st Semester"
+                        onChange={(gradeSemester) => onChange({ gradeSemester })}
                     />
                 </div>
                 <div className="space-y-2">
