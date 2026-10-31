@@ -356,6 +356,23 @@ describe('/api/settings', () => {
             expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
         });
 
+        it('保存同一模型 AI 并发上限，拒绝 1～100 以外的值和非整数', async () => {
+            const post = (aiConcurrencyLimit: unknown) => POST(new Request('http://localhost/api/settings', {
+                method: 'POST',
+                body: JSON.stringify({ aiConcurrencyLimit }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect((await post(8)).status).toBe(200);
+            expect(mocks.mockUpdateAppConfig).toHaveBeenCalledWith(expect.objectContaining({ aiConcurrencyLimit: 8 }));
+
+            mocks.mockUpdateAppConfig.mockClear();
+            for (const invalid of [0, 101, 2.5, '10']) {
+                expect((await post(invalid)).status).toBe(400);
+            }
+            expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
+        });
+
         it('MiniMax Code 只保存模型和自动签到开关，拒绝无效取值', async () => {
             const post = (minimaxCode: unknown) => POST(new Request('http://localhost/api/settings', {
                 method: 'POST',

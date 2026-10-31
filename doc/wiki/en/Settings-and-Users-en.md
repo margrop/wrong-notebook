@@ -63,6 +63,15 @@ To keep children from using up your API quota by regenerating explanations and q
 - 0 means unlimited (the default); admins are not limited. The environment variable `AI_DAILY_LIMIT` sets the default; a value saved on the web page takes precedence.
 - Counts reset at midnight in the application time zone. Once the limit is reached, AI features show "You have used up today's AI allowance".
 
+### AI concurrency per model
+
+When several people recognize questions or generate explanations at once, a burst of requests is easily rejected by the provider with a 429 rate-limit error. Admins can set "AI Concurrency per Model" under "Settings → User Management":
+
+- AI calls to the same provider, API address and model never exceed the limit at the same time. Further calls wait in a queue and start in order as earlier ones finish; different models are counted separately.
+- Values range from 1 to 100, default 5. Lower it when the provider limits strictly (free quotas, trial plans); raise it when calls queue for long without any 429 errors.
+- A saved value applies to later calls immediately. The environment variable `AI_CONCURRENCY_LIMIT` sets the default; a value saved on the web page takes precedence.
+- Time spent in the queue counts toward the AI timeout on the page, so a task that waits too long may show a timeout.
+
 Fresh installs create the first admin with a one-time setup link (see the [FAQ](FAQ-en)) instead of shipping a default admin with a fixed password. Upgrades keep existing accounts; `scripts/seed-admin.js` only restores the admin role of an existing `admin@localhost` and never creates an account.
 
 ## Background tasks and progress

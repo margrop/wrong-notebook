@@ -4,6 +4,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { requireAdmin } from "@/lib/auth-utils";
 import { getAppConfig, updateAppConfig } from "@/lib/config";
+import { isValidConcurrencyLimit } from "@/lib/ai-concurrency-limit";
 import { badRequest, forbidden, internalError, unauthorized } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import type { OpenAIInstance } from "@/types/api";
@@ -63,6 +64,9 @@ export async function POST(req: Request) {
         }
         if (body.aiDailyLimit !== undefined && !(Number.isInteger(body.aiDailyLimit) && body.aiDailyLimit >= 0)) {
             return badRequest('INVALID_AI_DAILY_LIMIT');
+        }
+        if (body.aiConcurrencyLimit !== undefined && !isValidConcurrencyLimit(body.aiConcurrencyLimit)) {
+            return badRequest('INVALID_AI_CONCURRENCY_LIMIT');
         }
         if (body.minimaxCode !== undefined) {
             const parsed = minimaxCodeSchema.safeParse(body.minimaxCode);

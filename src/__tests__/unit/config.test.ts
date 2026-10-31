@@ -77,6 +77,21 @@ describe('config module', () => {
             expect(getAppConfig().aiDailyLimit).toBe(expected);
         });
 
+        it.each([
+            ['8', 8],
+            ['0', 5],
+            ['abc', 5],
+            [undefined, 5],
+        ])('AI_CONCURRENCY_LIMIT=%s 时默认并发上限为 %s', async (value, expected) => {
+            if (value === undefined) delete process.env.AI_CONCURRENCY_LIMIT;
+            else process.env.AI_CONCURRENCY_LIMIT = value;
+            mockNoConfigFile();
+
+            const { getAppConfig } = await import('@/lib/config');
+
+            expect(getAppConfig().aiConcurrencyLimit).toBe(expected);
+        });
+
         it('配置文件中保存的注册开关优先于环境变量', async () => {
             process.env.ALLOW_REGISTRATION = 'false';
             vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ allowRegistration: true }));

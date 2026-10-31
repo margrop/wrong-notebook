@@ -786,6 +786,9 @@ export const translations = {
             aiDailyLimit: "Daily AI Limit per User",
             aiDailyLimitDesc: "How many AI actions (recognition, explanations, practice, grading, exams…) each regular user can start per day. 0 means unlimited; admins are not limited.",
             aiDailyLimitSaved: "Daily AI limit saved",
+            aiConcurrencyLimit: "AI Concurrency per Model",
+            aiConcurrencyLimitDesc: "How many AI calls the same model may run at once (1–100, default 5). Further calls wait in a queue, which avoids rate-limit (429) errors from the provider.",
+            aiConcurrencyLimitSaved: "AI concurrency limit saved",
             aiUsageToday: "AI today",
             debugLog: {
                 title: "Debug Logs",
@@ -2125,6 +2128,9 @@ export const translations = {
             aiDailyLimit: "每人每日 AI 次数",
             aiDailyLimitDesc: "普通用户每天可发起的 AI 操作次数（识别、讲解、举一反三、判题、组卷等），0 表示不限制；管理员不受限制。",
             aiDailyLimitSaved: "每日 AI 次数已保存",
+            aiConcurrencyLimit: "同一模型 AI 并发上限",
+            aiConcurrencyLimitDesc: "同一模型同时进行的 AI 调用数量（1～100，默认 5），超出的调用排队等待，避免服务商返回 429 限流错误。",
+            aiConcurrencyLimitSaved: "AI 并发上限已保存",
             aiUsageToday: "今日 AI",
             debugLog: {
                 title: "调试日志",
