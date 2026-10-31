@@ -31,7 +31,7 @@ wrongNotebook/
 │   │   ├── layout.tsx            # 根布局 (Geist 字体, Providers)
 │   │   ├── globals.css           # 全局样式 (Tailwind)
 │   │   ├── manifest.ts           # PWA manifest
-│   │   ├── middleware.ts         # 认证中间件 (登录保护)
+│   │   ├── proxy.ts              # 登录保护（Next.js 16 的 proxy，原 middleware）
 │   │   ├── login/                # 登录页
 │   │   ├── register/             # 注册页
 │   │   ├── notebooks/            # 错题本列表 + 详情 [id]/
@@ -120,7 +120,7 @@ wrongNotebook/
 │   │   ├── unit/                 # 单元测试
 │   │   ├── integration/          # 集成测试
 │   │   └── setup.ts              # 测试环境配置
-│   └── middleware.ts             # 认证中间件
+│   └── proxy.ts                  # 登录保护（原 middleware）
 ├── prisma/                       # 数据库
 │   ├── schema.prisma             # 完整数据模型
 │   ├── seed.ts                   # 种子数据 (管理员 + 标签)

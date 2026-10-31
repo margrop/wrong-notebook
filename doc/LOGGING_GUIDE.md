@@ -47,7 +47,7 @@ const logger = createLogger('your-module-name');
 | 模块类型 | 命名格式 | 示例 |
 |---------|---------|------|
 | API 路由 | `api:路径` | `api:analyze`, `api:tags:suggestions` |
-| 库文件 | `模块名` | `auth`, `middleware`, `config` |
+| 库文件 | `模块名` | `auth`, `proxy`, `config` |
 | AI 层 | `ai:子模块` | `ai:openai`, `ai:gemini`, `ai:tag-service` |
 
 ### 3. 基本用法

@@ -3,10 +3,10 @@ import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 import { createLogger } from "@/lib/logger";
 
-const logger = createLogger('middleware');
+const logger = createLogger('proxy');
 
-export async function middleware(req: NextRequest) {
-    // Debug logging for middleware
+export async function proxy(req: NextRequest) {
+    // 页面请求的登录保护（Next.js 16 起由 middleware 更名为 proxy，运行在 Node.js 运行时）
     logger.debug({ method: req.method, path: req.nextUrl.pathname }, 'Processing request');
 
     try {

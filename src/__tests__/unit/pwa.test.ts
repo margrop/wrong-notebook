@@ -8,7 +8,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import manifest from '@/app/manifest';
-import { config } from '@/middleware';
+import { config } from '@/proxy';
 
 const publicDir = path.resolve(__dirname, '../../../public');
 
