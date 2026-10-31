@@ -41,6 +41,12 @@ export async function GET(req: Request) {
             where: userFilter,
         });
 
+        // 系统标签按 tagSet 分组导出，避免不同体系的系统标签混淆
+        const systemTags = await prisma.knowledgeTag.findMany({
+            where: {
+                isSystem: true,
+            },
+        });
         const customTags = await prisma.knowledgeTag.findMany({
             where: {
                 ...userFilter,
@@ -79,7 +85,7 @@ export async function GET(req: Request) {
         ]));
 
         const exportData = {
-            version: 2,
+            version: 3,
             exportedAt: new Date().toISOString(),
             scope: exportAll ? 'all' : 'user',
             user: {
@@ -99,6 +105,7 @@ export async function GET(req: Request) {
                 themePreference: user.themePreference,
             },
             subjects,
+            systemTags,
             customTags,
             errorItems: errorItems.map((item) => ({ ...item, figureScale: normalizeFigureScale(item.figureScale) })),
             reviewSchedules,
@@ -111,6 +118,7 @@ export async function GET(req: Request) {
             userId: user.id,
             scope: exportAll ? 'all' : 'user',
             subjectsCount: subjects.length,
+            systemTagsCount: systemTags.length,
             customTagsCount: customTags.length,
             errorItemsCount: errorItems.length,
             reviewSchedulesCount: reviewSchedules.length,

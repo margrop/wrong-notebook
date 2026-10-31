@@ -52,9 +52,12 @@ async function importBackup(body: object) {
 /** 清空当前用户的学习数据（保留账户），模拟换机后导入 */
 async function clearUserData() {
     await database.examPaper.deleteMany({ where: { userId: 'user-1' } });
+    await database.errorItem.deleteMany({ where: { userId: 'user-1' } });
     await database.subject.deleteMany({ where: { userId: 'user-1' } });
     await database.knowledgeTag.deleteMany({ where: { userId: 'user-1' } });
+    await database.knowledgeTag.deleteMany({ where: { isSystem: true } });
     await database.practiceRecord.deleteMany({ where: { userId: 'user-1' } });
+    await database.reviewSchedule.deleteMany();
 }
 
 beforeAll(() => {
@@ -74,10 +77,22 @@ beforeAll(() => {
 
 beforeEach(async () => {
     mocks.scheduleMasteryEvaluation.mockClear();
+    // 清理所有可能残留的数据（包括系统标签），确保每个测试从干净状态开始
+    await database.reviewSchedule.deleteMany();
+    await database.practiceRecord.deleteMany();
+    await database.examPaper.deleteMany();
+    await database.errorItem.deleteMany();
+    await database.knowledgeTag.deleteMany();
+    await database.subject.deleteMany();
     await database.user.deleteMany();
     await database.user.create({ data: { id: 'user-1', email: mocks.session.user.email, password: 'test-only' } });
     await database.subject.create({ data: { id: 'math', name: '数学', stage: 'junior_high', subjectKey: 'math', userId: 'user-1' } });
+    await database.subject.create({ data: { id: 'math-cnm', name: '数学（课标）', stage: 'junior_high', subjectKey: 'math', tagSet: 'cn-math-taxonomy', userId: 'user-1' } });
     await database.knowledgeTag.create({ data: { id: 'tag-1', name: '自定义标签', subject: 'math', userId: 'user-1' } });
+    await database.knowledgeTag.create({ data: { id: 'tag-2', name: '课标自定义', subject: 'math', tagSet: 'cn-math-taxonomy', userId: 'user-1' } });
+    // 系统标签：default 和 cn-math-taxonomy 各一条同名，验证按 tagSet 区分
+    await database.knowledgeTag.create({ data: { id: 'sys-default', name: '方程', subject: 'math', isSystem: true, tagSet: 'default' } });
+    await database.knowledgeTag.create({ data: { id: 'sys-cnm', name: '方程', subject: 'math', isSystem: true, tagSet: 'cn-math-taxonomy' } });
     await database.errorItem.create({
         data: {
             id: 'item-1', shortId: 'AbC234', userId: 'user-1', subjectId: 'math', originalImageUrl: 'data:image/png;base64,dGVzdA==',
@@ -87,7 +102,16 @@ beforeEach(async () => {
             geogebraCommands: 'A=(0,0)\nB=(1,1)', svgAnimation: animation('中文'), svgAnimationEn: animation('English'), lastPractice,
             masteryLevel: 2, masteryProbability: 0.8, masteryReason: '连续答对', masterySource: 'ai', masteryEvaluatedAt: new Date('2026-10-21T00:00:00Z'),
             createdAt: new Date('2026-10-01T00:00:00Z'), updatedAt: new Date('2026-10-21T00:00:00Z'),
-            tags: { connect: [{ id: 'tag-1' }] },
+            tags: { connect: [{ id: 'tag-1' }, { id: 'sys-default' }] },
+        },
+    });
+    await database.errorItem.create({
+        data: {
+            id: 'item-2', shortId: 'XyZ789', userId: 'user-1', subjectId: 'math-cnm', originalImageUrl: 'data:image/png;base64,dGVzdA==',
+            questionText: '求解 x + 3 = 7', answerText: 'x = 4', analysis: '移项',
+            masteryLevel: 1,
+            createdAt: new Date('2026-10-05T00:00:00Z'), updatedAt: new Date('2026-10-22T00:00:00Z'),
+            tags: { connect: [{ id: 'tag-2' }, { id: 'sys-cnm' }] },
         },
     });
     await database.reviewSchedule.create({ data: { errorItemId: 'item-1', scheduledFor: new Date('2026-11-01T00:00:00Z') } });
@@ -107,25 +131,53 @@ afterAll(async () => {
 });
 
 describe('数据导出后再导入（真实 SQLite）', () => {
-    it('导出文件使用第 2 版格式', async () => {
-        expect((await exportBackup()).version).toBe(2);
+    it('导出文件使用第 3 版格式，包含 tagSet 字段', async () => {
+        const backup = await exportBackup();
+        expect(backup.version).toBe(3);
+        expect(backup.systemTags).toBeDefined();
+        expect(backup.subjects).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ id: 'math', tagSet: 'default' }),
+                expect.objectContaining({ id: 'math-cnm', tagSet: 'cn-math-taxonomy' }),
+            ])
+        );
+        expect(backup.systemTags).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ id: 'sys-default', tagSet: 'default' }),
+                expect.objectContaining({ id: 'sys-cnm', tagSet: 'cn-math-taxonomy' }),
+            ])
+        );
+        expect(backup.customTags).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ id: 'tag-1', tagSet: 'default' }),
+                expect.objectContaining({ id: 'tag-2', tagSet: 'cn-math-taxonomy' }),
+            ])
+        );
     });
 
-    it('错题与举一反三记录的全部字段完整保留', async () => {
+    it('错题与举一反三记录的全部字段完整保留，tagSet 正确还原', async () => {
         const backup = await exportBackup();
         await clearUserData();
         const { stats } = await importBackup(backup);
-        expect(stats).toMatchObject({ errorItemsCreated: 1, practiceRecordsCreated: 1, reviewSchedulesCreated: 1, tagsLinked: 1 });
+        expect(stats).toMatchObject({ errorItemsCreated: 2, practiceRecordsCreated: 1, reviewSchedulesCreated: 1, tagsLinked: 4 });
 
-        const item = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1' }, include: { tags: true, subject: true } });
+        const item = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1', shortId: 'AbC234' }, include: { tags: true, subject: true } });
         expect(item).toMatchObject({
             shortId: 'AbC234', questionText: '求解 x + 2 = 5', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65,
             geogebraCommands: 'A=(0,0)\nB=(1,1)', svgAnimation: animation('中文'), svgAnimationEn: animation('English'), lastPractice,
             masteryProbability: 0.8, masteryReason: '连续答对', masterySource: 'ai', masteryEvaluatedAt: new Date('2026-10-21T00:00:00Z'),
             createdAt: new Date('2026-10-01T00:00:00Z'), updatedAt: new Date('2026-10-21T00:00:00Z'),
         });
-        expect(item.subject).toMatchObject({ name: '数学', stage: 'junior_high', subjectKey: 'math' });
-        expect(item.tags.map((tag) => tag.name)).toEqual(['自定义标签']);
+        expect(item.subject).toMatchObject({ name: '数学', stage: 'junior_high', subjectKey: 'math', tagSet: 'default' });
+        expect(item.tags.map((tag) => tag.name)).toEqual(['方程', '自定义标签']);
+
+        // 课标体系的错题：tagSet 保留，系统标签按 tagSet 匹配
+        const itemCnm = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1', shortId: 'XyZ789' }, include: { tags: true, subject: true } });
+        expect(itemCnm.subject).toMatchObject({ name: '数学（课标）', tagSet: 'cn-math-taxonomy' });
+        // 课标错题只应关联 cn-math-taxonomy 体系的"方程"标签，而非 default 体系的
+        const cnmTag = itemCnm.tags.find((t) => t.name === '方程');
+        expect(cnmTag?.tagSet).toBe('cn-math-taxonomy');
+        expect(cnmTag?.id).not.toBe('sys-default');
 
         const record = await database.practiceRecord.findFirstOrThrow({ where: { errorItemId: item.id } });
         expect(record).toMatchObject({ result: 'correct', questionText: '变式题', figureSvg: figure, source: 'practice' });
@@ -141,6 +193,28 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         const item = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1' } });
         expect(item.figureScale).toBe(100);
         expect(item.figureSvg).toBe(figure);
+    });
+
+    it('旧版备份（version 2，无 tagSet 字段）导入时按 default tagSet 处理', async () => {
+        const backup = await exportBackup();
+        // 模拟旧版导出：去掉 systemTags 和所有 tagSet 字段，version 降为 2
+        const legacyBackup = {
+            ...backup,
+            version: 2,
+            subjects: backup.subjects.map((s: { tagSet?: string }) => { const { tagSet, ...rest } = s; return rest; }),
+            customTags: backup.customTags.map((t: { tagSet?: string }) => { const { tagSet, ...rest } = t; return rest; }),
+        };
+        delete legacyBackup.systemTags;
+        await clearUserData();
+        await importBackup(legacyBackup);
+
+        // 旧版文件没有 systemTags，不创建系统标签
+        const sysTags = await database.knowledgeTag.findMany({ where: { isSystem: true } });
+        expect(sysTags.length).toBe(0);
+
+        // 自定义标签按 default tagSet 导入
+        const tags = await database.knowledgeTag.findMany({ where: { isSystem: false } });
+        expect(tags.map((t) => t.tagSet)).toEqual(['default', 'default']);
     });
 
     it('没有掌握概率的题目导入后重新评估', async () => {

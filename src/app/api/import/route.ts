@@ -53,7 +53,20 @@ interface ImportData {
         name: string;
         stage?: string | null;      // 旧版导出文件没有
         subjectKey?: string | null; // 旧版导出文件没有
+        tagSet?: string;            // 旧版导出文件没有，缺省 default
         userId: string;
+        createdAt: string;
+        updatedAt: string;
+    }>;
+    systemTags?: Array<{ // version 3 起导出
+        id: string;
+        name: string;
+        subject: string;
+        parentId: string | null;
+        order: number;
+        code: string | null;
+        isSystem: boolean;
+        tagSet: string;
         createdAt: string;
         updatedAt: string;
     }>;
@@ -65,6 +78,7 @@ interface ImportData {
         order: number;
         code: string | null;
         isSystem: boolean;
+        tagSet?: string;            // 旧版导出文件没有，缺省 default
         userId: string;
         createdAt: string;
         updatedAt: string;
@@ -305,6 +319,7 @@ export async function POST(req: Request) {
                             name: subject.name,
                             stage: scope.stage,
                             subjectKey: scope.subject,
+                            tagSet: subject.tagSet || 'default',
                             userId: targetUserId,
                         },
                     });
@@ -313,15 +328,51 @@ export async function POST(req: Request) {
                 }
             }
 
-            // 2. 导入 custom tags
+            // 2. 导入系统标签（按 tagSet 分组，避免不同体系混淆）
+            const systemTagIdMap = new Map<string, string>();
+            for (const tag of (body.systemTags || [])) {
+                const existing = await tx.knowledgeTag.findFirst({
+                    where: {
+                        name: tag.name,
+                        subject: tag.subject,
+                        isSystem: true,
+                        tagSet: tag.tagSet || 'default',
+                    },
+                });
+                if (existing) {
+                    systemTagIdMap.set(tag.id, existing.id);
+                } else {
+                    let newParentId: string | undefined;
+                    if (tag.parentId && systemTagIdMap.has(tag.parentId)) {
+                        newParentId = systemTagIdMap.get(tag.parentId);
+                    }
+
+                    await tx.knowledgeTag.create({
+                        data: {
+                            name: tag.name,
+                            subject: tag.subject,
+                            isSystem: true,
+                            tagSet: tag.tagSet || 'default',
+                            parentId: newParentId,
+                            order: tag.order || 0,
+                            code: tag.code,
+                        },
+                    });
+                    systemTagIdMap.set(tag.id, tag.id);
+                }
+            }
+
+            // 3. 导入 custom tags
             const tagIdMap = new Map<string, string>();
             for (const tag of (body.customTags || [])) {
                 const targetUserId = importAll ? tag.userId : user.id;
+                const tagSet = tag.tagSet || 'default';
                 const existing = await tx.knowledgeTag.findFirst({
                     where: {
                         name: tag.name,
                         userId: targetUserId,
                         isSystem: false,
+                        tagSet,
                     },
                 });
                 if (existing) {
@@ -338,6 +389,7 @@ export async function POST(req: Request) {
                             subject: tag.subject,
                             isSystem: false,
                             userId: targetUserId,
+                            tagSet: tag.tagSet || 'default',
                             parentId: newParentId,
                             order: tag.order || 0,
                             code: tag.code,
@@ -348,7 +400,14 @@ export async function POST(req: Request) {
                 }
             }
 
-            // 3. 预加载所有需要的 tags（批量查询，避免 N+1）
+            // 4. 预加载所有需要的 tags（批量查询，避免 N+1）
+            // tagSet 映射：subject ID → tagSet，用于错题按错题本 tagSet 匹配系统标签
+            const subjectTagSetMap = new Map<string, string>();
+            for (const subject of (body.subjects || [])) {
+                if (subject.tagSet) {
+                    subjectTagSetMap.set(subject.id, subject.tagSet);
+                }
+            }
             const allTagNames = new Set<string>();
             for (const item of body.errorItems) {
                 if (item.tags) {
@@ -367,6 +426,15 @@ export async function POST(req: Request) {
                     ],
                 },
             });
+            // 按 (tagSet, name) 建索引，错题关联时按错题本 tagSet 精确匹配系统标签
+            const tagBySetAndName = new Map<string, string>();
+            for (const tag of preloadedTags) {
+                const key = `${tag.tagSet}::${tag.name}`;
+                if (!tagBySetAndName.has(key) || (!importAll && tag.userId === user.id)) {
+                    tagBySetAndName.set(key, tag.id);
+                }
+            }
+            // 兼容旧版导出文件：不区分 tagSet 时按名字兜底
             const tagNameMap = new Map<string, string>();
             for (const tag of preloadedTags) {
                 if (!tagNameMap.has(tag.name) || (!importAll && tag.userId === user.id)) {
@@ -442,14 +510,20 @@ export async function POST(req: Request) {
                 if (created.masteryEvaluatedAt) evaluatedIds.add(created.id);
                 stats.errorItemsCreated++;
 
-                // 关联 tags
+                // 关联 tags：优先按错题本 tagSet 匹配系统标签，失败时按名字兜底
                 if (item.tags && item.tags.length > 0) {
+                    const itemTagSet = (item.subjectId && subjectTagSetMap.get(item.subjectId)) || 'default';
                     const tagConnections: { id: string }[] = [];
                     for (const tag of item.tags) {
                         if (tagIdMap.has(tag.id)) {
                             tagConnections.push({ id: tagIdMap.get(tag.id)! });
-                        } else if (tagNameMap.has(tag.name)) {
-                            tagConnections.push({ id: tagNameMap.get(tag.name)! });
+                        } else {
+                            const bySet = tagBySetAndName.get(`${itemTagSet}::${tag.name}`);
+                            const byName = tagNameMap.get(tag.name);
+                            const matched = bySet || byName;
+                            if (matched) {
+                                tagConnections.push({ id: matched });
+                            }
                         }
                     }
 

@@ -76,9 +76,25 @@ bash scripts/ci.sh          # 完整 CI（要求 Node.js 22 及以上，含生�
 ## 测试
 
 - 修改逻辑代码后运行 `npm run test:unit && npm run test:integration`；仅改文档、样式、注释时可跳过。
-- 修改导出、导入或新增需要备份的字段和表时，同步更新 `src/app/api/export`、`src/app/api/import` 与 `src/__tests__/integration/data-backup.test.ts`。
 - 测试失败先修复再重跑；不要为通过测试而删除或弱化断言。
 - 除非用户要求或运行完整 CI，不主动执行 `npm run build`。
+
+## 导入导出同步
+
+任何新增或修改以下项目时，必须同步检查并更新导入导出：
+- Prisma 模型新增字段或表
+- 错题本、标签、试卷等核心数据的结构变化
+- 新增需要备份的用户数据（偏好设置、自定义标签等）
+
+**必须同步修改的文件：**
+- `src/app/api/export/route.ts` — 导出接口，确保新字段被正确序列化
+- `src/app/api/import/route.ts` — 导入接口，确保新字段被正确解析和写入，并处理旧版导出文件的兼容性
+- `src/__tests__/integration/data-backup.test.ts` — 数据备份测试，验证导出后导入能完整还原
+
+**导入导出格式约定：**
+- 导出文件 `version` 字段：新增字段时版本号 +1（当前 version 3）
+- 旧版导出文件没有的新字段，导入时必须有默认值或跳过逻辑
+- 多标签体系数据（`tagSet`）需按体系分组导出和导入，避免混淆
 
 ## Git 与提交
 
