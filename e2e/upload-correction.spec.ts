@@ -38,27 +38,22 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
     // Go to Notebooks page
     await page.goto('/notebooks');
 
-    // Check if "数学" exists, if not create it
-    try {
-        await expect(page.getByRole('link', { name: '数学' })).toBeVisible({ timeout: 3000 });
-        console.log('Notebook math already exists.');
-    } catch (e) {
-        console.log('Notebook math not found, creating...');
-        // Create it
+    // 按名称精确查找「数学」错题本；其他错题本卡片上也可能显示「数学」学科标签，不能按页面文字判断
+    const findMathNotebook = async () => {
+        const notebooks: Array<{ id: string; name: string }> = await (await page.request.get('/api/notebooks')).json();
+        return notebooks.find((n) => n.name === '数学');
+    };
+    if (!(await findMathNotebook())) {
         await page.getByRole('button', { name: /新建|New|Create/ }).first().click();
-
-        // Dialog appears
         await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
-
-        // Fill name using ID 'name' which we confirmed in source code
         await page.locator('#name').fill('数学');
-
-        // Click Create
+        // 等创建接口返回后再离开页面，否则请求可能被导航中断
+        const created = page.waitForResponse((r) => r.url().endsWith('/api/notebooks') && r.request().method() === 'POST');
         await page.getByRole('button', { name: /创建|Create/ }).last().click();
-
-        // Wait for creation to appear
-        await expect(page.getByText('数学')).toBeVisible({ timeout: 5000 });
+        expect((await created).ok()).toBeTruthy();
     }
+    const mathNotebook = await findMathNotebook();
+    expect(mathNotebook).toBeDefined();
 
     // 3. Go back to Home for Upload
     await page.goto('/');
@@ -148,14 +143,12 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
     await expect(page.getByText('试题：2 + 2 = ?')).not.toBeVisible();
 
     // 13. Delete the Notebook：列表不再有删除按钮，进入错题本详情页删除
-    await page.goto('/notebooks');
-    await page.locator('.group').filter({ hasText: '数学' }).first().click();
-    await page.waitForURL(/\/notebooks\/[^/]+$/);
+    await page.goto(`/notebooks/${mathNotebook!.id}`);
     await page.getByRole('button', { name: /^(删除|Delete)$/ }).click();
     await acceptConfirmDialog(page);
     await page.waitForURL(/\/notebooks$/);
 
     // 14. Verify Notebook Deleted
-    await expect(page.getByText('数学', { exact: true })).not.toBeVisible({ timeout: 5000 });
+    expect(await findMathNotebook()).toBeUndefined();
 
 });
