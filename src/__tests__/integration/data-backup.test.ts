@@ -83,7 +83,7 @@ beforeEach(async () => {
             id: 'item-1', shortId: 'AbC234', userId: 'user-1', subjectId: 'math', originalImageUrl: 'data:image/png;base64,dGVzdA==',
             questionText: '求解 x + 2 = 5', answerText: 'x = 3', analysis: '移项', wrongAnswerText: 'x = 7', mistakeAnalysis: '符号错误',
             mistakeStatus: 'wrong_attempt', source: '期中考试', errorType: '计算', userNotes: '注意符号', gradeSemester: '初二上',
-            paperLevel: 'b', difficultyStars: 3, hasFigure: true, figureSvg: figure,
+            paperLevel: 'b', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65,
             geogebraCommands: 'A=(0,0)\nB=(1,1)', svgAnimation: animation('中文'), svgAnimationEn: animation('English'), lastPractice,
             masteryLevel: 2, masteryProbability: 0.8, masteryReason: '连续答对', masterySource: 'ai', masteryEvaluatedAt: new Date('2026-10-21T00:00:00Z'),
             createdAt: new Date('2026-10-01T00:00:00Z'), updatedAt: new Date('2026-10-21T00:00:00Z'),
@@ -119,7 +119,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
 
         const item = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1' }, include: { tags: true, subject: true } });
         expect(item).toMatchObject({
-            shortId: 'AbC234', questionText: '求解 x + 2 = 5', difficultyStars: 3, hasFigure: true, figureSvg: figure,
+            shortId: 'AbC234', questionText: '求解 x + 2 = 5', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65,
             geogebraCommands: 'A=(0,0)\nB=(1,1)', svgAnimation: animation('中文'), svgAnimationEn: animation('English'), lastPractice,
             masteryProbability: 0.8, masteryReason: '连续答对', masterySource: 'ai', masteryEvaluatedAt: new Date('2026-10-21T00:00:00Z'),
             createdAt: new Date('2026-10-01T00:00:00Z'), updatedAt: new Date('2026-10-21T00:00:00Z'),
@@ -131,6 +131,16 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(record).toMatchObject({ result: 'correct', questionText: '变式题', figureSvg: figure, source: 'practice' });
         // 已带掌握概率导入，不重复评估
         expect(mocks.scheduleMasteryEvaluation).not.toHaveBeenCalled();
+    });
+
+    it.each([undefined, null, 0, 201, 50.5, '65'])('旧备份或非法配图比例 %s 回退为 100%%', async (figureScale) => {
+        const backup = await exportBackup();
+        backup.errorItems[0].figureScale = figureScale;
+        await clearUserData();
+        await importBackup(backup);
+        const item = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1' } });
+        expect(item.figureScale).toBe(100);
+        expect(item.figureSvg).toBe(figure);
     });
 
     it('没有掌握概率的题目导入后重新评估', async () => {

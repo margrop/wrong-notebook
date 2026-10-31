@@ -130,6 +130,7 @@ model ErrorItem {
   difficultyStars  Int?    // 难度星级 1~5（参考高思导引星级），未评定时为空
   hasFigure        Boolean @default(false) // 识别时判断题目是否有配图
   figureSvg        String? // AI 用 SVG 重绘的题目配图（已净化），显示和打印时使用
+  figureScale      Int     @default(100) // 配图显示与打印比例，10~200%
   lastPractice     String? // 最近一次生成的举一反三题目与解答（JSON），再次进入练习页时直接显示
 
   // 根据举一反三历史推测的掌握情况

@@ -91,6 +91,7 @@ export interface ErrorItem {
     difficultyStars?: number | null; // 难度星级 1~5
     hasFigure?: boolean;             // 是否有配图
     figureSvg?: string | null;       // AI 重绘的 SVG 配图
+    figureScale?: number;            // 配图显示与打印比例，默认 100%
 
     createdAt: string;
     updatedAt: string;
@@ -104,12 +105,13 @@ export type ErrorItemSummary = Pick<ErrorItem,
 
 /** 打印所需内容，独立于完整详情与列表卡片的数据类型。 */
 export type PrintableErrorItem = ErrorItemSummary & Pick<ErrorItem,
-    'originalImageUrl' | 'answerText' | 'analysis' | 'figureSvg' | 'gradeSemester' | 'paperLevel'
+    'originalImageUrl' | 'answerText' | 'analysis' | 'figureSvg' | 'figureScale' | 'gradeSemester' | 'paperLevel'
 > & { subject?: Pick<Notebook, 'name'> | null };
 
 // For creation/updates
 export interface CreateErrorItemRequest extends ParsedQuestion {
     originalImageUrl: string;
+    figureScale?: number;
     subjectId?: string;
     gradeSemester?: string | null;
     recognizedGradeSemester?: string | null;

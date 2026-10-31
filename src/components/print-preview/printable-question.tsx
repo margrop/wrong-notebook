@@ -63,7 +63,7 @@ export function PrintableQuestion({ item, index, options, reserveAnswerSpace }: 
                 <div className="mb-4">
                     <MarkdownRenderer content={item.questionText} />
                     {/* 有 SVG 配图时打印配图，不再打印拍照原图 */}
-                    <QuestionFigure svg={item.figureSvg} />
+                    <QuestionFigure svg={item.figureSvg} scale={item.figureScale} />
                 </div>
             ) : (
                 item.originalImageUrl && (

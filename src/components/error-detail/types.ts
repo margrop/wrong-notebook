@@ -32,6 +32,7 @@ export interface ErrorItemDetail {
     difficultyStars?: number | null;
     hasFigure?: boolean;
     figureSvg?: string | null;
+    figureScale?: number;
     geogebraCommands?: string | null;
     svgAnimation?: string | null;    // 中文版动画讲解
     svgAnimationEn?: string | null;  // 英文版动画讲解

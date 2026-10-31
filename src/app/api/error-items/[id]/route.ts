@@ -8,6 +8,7 @@ import { createLogger } from "@/lib/logger";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
 import { getDefaultPaperLevel } from "@/lib/paper-level";
+import { isValidFigureScale } from "@/lib/figure-scale";
 
 const logger = createLogger('api:error-items:id');
 
@@ -77,6 +78,10 @@ export async function PUT(
 
         const body = await req.json();
         const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands, difficultyStars } = body;
+        const { figureScale } = body;
+        if (figureScale !== undefined && !isValidFigureScale(figureScale)) {
+            return badRequest("figureScale must be an integer from 10 to 200");
+        }
         // 难度星级：1~5 的整数，null 表示清除
         if (difficultyStars !== undefined && difficultyStars !== null
             && !(Number.isInteger(difficultyStars) && difficultyStars >= 1 && difficultyStars <= 5)) {
@@ -98,6 +103,7 @@ export async function PUT(
 
         // 构建更新数据
         const updateData: Prisma.ErrorItemUpdateInput = {};
+        if (figureScale !== undefined) updateData.figureScale = figureScale;
         if (gradeSemester !== undefined) updateData.gradeSemester = gradeSemester;
         if (paperLevel !== undefined) updateData.paperLevel = paperLevel;
         else if (!errorItem.paperLevel) {

@@ -6,6 +6,7 @@ import { unauthorized, internalError, forbidden } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
+import { normalizeFigureScale } from "@/lib/figure-scale";
 import { exportSpeeches } from "@/lib/tts/speech-cache";
 
 const logger = createLogger('api:export');
@@ -99,7 +100,7 @@ export async function GET(req: Request) {
             },
             subjects,
             customTags,
-            errorItems,
+            errorItems: errorItems.map((item) => ({ ...item, figureScale: normalizeFigureScale(item.figureScale) })),
             reviewSchedules,
             practiceRecords,
             examPapers,

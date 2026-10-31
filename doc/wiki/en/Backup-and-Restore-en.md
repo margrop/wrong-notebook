@@ -23,6 +23,8 @@ Keep the original backup before importing, and afterwards check the new question
 
 Restoring a backup keeps each question's original grade and does not apply the current entry rule. Old backups without a grade rule leave your current account settings unchanged.
 
+Each mistake's figure display scale is exported and restored for its details page and text printouts. Older backups with no scale, or an invalid value, use the default 100%.
+
 ## Docker full-site backup
 
 This example uses the directory layout from the [deployment guide](Deployment-en). Stopping the app before archiving keeps the SQLite data file, its WAL/SHM files and the configuration consistent.

@@ -17,6 +17,7 @@ import { findDuplicateQuestion, recordDuplicateQuestion } from "@/lib/question-d
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { resolveNotebookScope } from "@/lib/notebook-scope";
 import { sanitizeFigureSvg } from "@/lib/figure-svg";
+import { normalizeFigureScale } from "@/lib/figure-scale";
 import { sanitizeSvgAnimation } from "@/lib/svg-animation";
 import { importSpeeches } from "@/lib/tts/speech-cache";
 import { parseLastPractice } from "@/lib/last-practice";
@@ -91,6 +92,7 @@ interface ImportData {
         difficultyStars?: number | null; // 旧版导出文件没有该字段
         hasFigure?: boolean;             // 旧版导出文件没有该字段
         figureSvg?: string | null;       // 旧版导出文件没有该字段
+        figureScale?: number;           // 旧版备份缺省为 100%
         // 以下字段 version 2 起导入，version 1 文件中即使有也按同样规则处理
         geogebraCommands?: string | null;
         svgAnimation?: string | null;
@@ -420,6 +422,7 @@ export async function POST(req: Request) {
                         difficultyStars,
                         hasFigure: item.hasFigure === true || sanitizeFigureSvg(item.figureSvg) !== null,
                         figureSvg: sanitizeFigureSvg(item.figureSvg),
+                        figureScale: normalizeFigureScale(item.figureScale),
                         geogebraCommands: typeof item.geogebraCommands === 'string' && item.geogebraCommands ? item.geogebraCommands : null,
                         svgAnimation: sanitizeSvgAnimation(item.svgAnimation),
                         svgAnimationEn: sanitizeSvgAnimation(item.svgAnimationEn),

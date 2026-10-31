@@ -1158,6 +1158,10 @@ export const translations = {
         },
         figure: {
             alt: "Question figure",
+            scale: "Figure display scale",
+            scaleSlider: "Adjust figure scale",
+            scaleHint: "10–200%, default 100%. Save to apply to this question's display and text printouts. Enlarged figures fit the available width.",
+            resetScale: "Reset to 100%",
             regenerate: "AI Redraw Figure",
             regenerating: "Drawing figure…",
             noFigure: "AI found no figure in this question",
@@ -2500,6 +2504,10 @@ export const translations = {
         },
         figure: {
             alt: "题目配图",
+            scale: "配图显示比例",
+            scaleSlider: "调整配图比例",
+            scaleHint: "范围 10%～200%，默认 100%。保存后同时用于本题的显示和文字打印；放大以可用宽度为上限。",
+            resetScale: "恢复 100%",
             regenerate: "AI 重新生成配图",
             regenerating: "生成配图中…",
             noFigure: "AI 判断本题没有配图",

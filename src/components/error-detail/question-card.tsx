@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { QuestionFigure } from "@/components/question-figure";
 import { RegenerateFigureButton } from "@/components/regenerate-figure-button";
 import { ReplaceQuestionImageButton } from "@/components/replace-question-image-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { EditButton, SaveCancelButtons, SectionHeader } from "./edit-controls";
+import { FigureScaleEditor } from "./figure-scale-editor";
 import { QuestionMetadata } from "./question-metadata";
 import { QuestionTags } from "./question-tags";
 import { ToggleImage } from "./toggle-image";
@@ -45,7 +45,15 @@ export function QuestionCard({ item, educationStage, saveFields, onUpdate, reloa
                         <MarkdownEditor value={question.value} onChange={question.setValue} placeholder="Enter question text..." rows={8} className="w-full font-mono text-sm" />
                         <SaveCancelButtons onSave={question.submit} onCancel={question.cancel} />
                     </div>
-                ) : <><MarkdownRenderer content={item.questionText} /><QuestionFigure svg={item.figureSvg} /></>}
+                ) : <>
+                    <MarkdownRenderer content={item.questionText} />
+                    <FigureScaleEditor
+                        key={item.id}
+                        svg={item.figureSvg}
+                        scale={item.figureScale}
+                        onSave={(figureScale) => saveFields({ figureScale })}
+                    />
+                </>}
 
                 <QuestionTags item={item} educationStage={educationStage} onChanged={reload} />
                 <QuestionMetadata item={item} onChanged={reload} />

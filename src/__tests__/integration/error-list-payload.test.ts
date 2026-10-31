@@ -40,7 +40,7 @@ describe('错题列表大字段与打印回归（真实 SQLite）', () => {
             id: `question-${index}`, userId: 'reader', subjectId: 'math',
             createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, 52 - index)),
             questionText: `题目 ${index}：求解方程`, originalImageUrl: image,
-            answerText: 'x = 1', analysis: '等式两边同时运算', figureSvg: figure,
+            answerText: 'x = 1', analysis: '等式两边同时运算', figureSvg: figure, figureScale: 65,
             svgAnimation: animation, svgAnimationEn: animation, ocrText: '完整 OCR',
             lastPractice: '{"questionText":"历史练习"}',
             mistakeStatus: 'wrong_attempt', difficultyStars: 3, masteryProbability: 0.8,
@@ -112,7 +112,7 @@ describe('错题列表大字段与打印回归（真实 SQLite）', () => {
         expect(response.status).toBe(200);
         expect(data.items[0]).toMatchObject({
             id: 'question-0', originalImageUrl: image, questionText: '题目 0：求解方程',
-            figureSvg: figure, answerText: 'x = 1', analysis: '等式两边同时运算',
+            figureSvg: figure, figureScale: 65, answerText: 'x = 1', analysis: '等式两边同时运算',
             subject: { name: '数学' }, tags: [{ name: '方程' }],
         });
         expect(Object.keys(data.items[0])).not.toContain('svgAnimation');
