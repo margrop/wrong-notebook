@@ -33,9 +33,10 @@ export async function POST(
         }
 
         const body = retrySchema.safeParse(await req.json().catch(() => ({})));
-        await prisma.examPaper.update({ where: { id }, data: { status: 'generating' } });
+        // 先检查 AI 额度：额度用完时不能把试卷改成「生成中」，否则会一直卡住
         const limited = await consumeAiQuota(user, 'exam');
         if (limited) return limited;
+        await prisma.examPaper.update({ where: { id }, data: { status: 'generating' } });
 
         void generateExamPaper(id, body.success ? body.data.language || 'zh' : 'zh');
 
