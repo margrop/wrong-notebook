@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { ChatCompletion } from "openai/resources/chat/completions";
-import { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateGradeRecognitionPrompt, generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateMasteryPrompt, generateGradingPrompt, generateTagSuggestPrompt, generateFigurePrompt, generateSvgAnimationPrompt, generateSvgNarrationPrompt, generateLatexFixPrompt, SVG_ANIMATION_REQUEST, SVG_NARRATION_REQUEST } from './prompts';
+import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
+import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest } from './prompt-requests';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
@@ -14,6 +14,7 @@ import { AI_OUTPUT_TRUNCATED, withTruncationRetry } from './truncation';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
 import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
+import { normalizeAiQuestionTags } from './knowledge-points';
 
 const logger = createLogger('ai:openai');
 
@@ -191,7 +192,7 @@ export class OpenAIProvider implements AIService {
         // 有错题本学段 + 学科时直接使用其全部知识点，否则按学科、年级取标签
         const tagOptions = candidateTags ? { candidateTags } : await prefetchSubjectTags(subject, grade);
 
-        const systemPrompt = generateAnalyzePrompt(language, grade, subject, {
+        const systemPrompt = generateAnalyzeRequest(language, grade, subject, {
             customTemplate: config.prompts?.analyze,
             ...tagOptions,
         }, gradeSemester);
@@ -205,7 +206,7 @@ export class OpenAIProvider implements AIService {
             language,
             grade: grade || 'all'
         });
-        logger.box('📝 Full System Prompt', systemPrompt);
+        logger.box('📝 Full System Prompt', systemPrompt.system);
 
         try {
             // 构建请求参数（用于日志显示，图片数据截断）
@@ -214,11 +215,12 @@ export class OpenAIProvider implements AIService {
                 messages: [
                     {
                         role: "system",
-                        content: systemPrompt
+                        content: systemPrompt.system
                     },
                     {
                         role: "user",
                         content: [
+                            { type: "text", text: systemPrompt.user },
                             {
                                 type: "image_url",
                                 image_url: {
@@ -238,10 +240,11 @@ export class OpenAIProvider implements AIService {
             if (this.isLongCat) {
                 // LongCat 使用不同的多模态格式，绕过 SDK 直接请求
                 const messages = this.adaptMessagesForLongCat([
-                    { role: "system", content: systemPrompt },
+                    { role: "system", content: systemPrompt.system },
                     {
                         role: "user",
                         content: [
+                            { type: "text", text: systemPrompt.user },
                             {
                                 type: "image_url",
                                 image_url: {
@@ -278,11 +281,12 @@ export class OpenAIProvider implements AIService {
                     messages: [
                         {
                             role: "system",
-                            content: systemPrompt
+                            content: systemPrompt.system
                         },
                         {
                             role: "user",
                             content: [
+                            { type: "text", text: systemPrompt.user },
                                 {
                                     type: "image_url",
                                     image_url: {
@@ -310,7 +314,7 @@ export class OpenAIProvider implements AIService {
             logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error("Empty response from AI");
-            const parsedResult = this.parseResponse(text);
+            const parsedResult = normalizeAiQuestionTags(this.parseResponse(text), tagOptions);
 
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
@@ -328,11 +332,11 @@ export class OpenAIProvider implements AIService {
 
     async generateSimilarQuestion(originalQuestion: string, knowledgePoints: string[], language: 'zh' | 'en' = 'zh', difficulty: DifficultyLevel = 'medium', gradeSemester?: string | null, originalFigureSvg?: string | null): Promise<ParsedQuestion> {
         const config = getAppConfig();
-        const systemPrompt = generateSimilarQuestionPrompt(language, originalQuestion, knowledgePoints, difficulty, {
+        const systemPrompt = generateSimilarQuestionRequest(language, originalQuestion, knowledgePoints, difficulty, {
             customTemplate: config.prompts?.similar,
             originalFigureSvg,
         }, gradeSemester);
-        const userPrompt = `\nOriginal Question: "${originalQuestion}"\nKnowledge Points: ${knowledgePoints.join(", ")}\n    `;
+        const userPrompt = systemPrompt.user;
 
         logger.box('🎯 Generate Similar Question Request', {
             provider: 'OpenAI',
@@ -343,14 +347,14 @@ export class OpenAIProvider implements AIService {
             difficulty,
             language
         });
-        logger.box('📝 System Prompt', systemPrompt);
+        logger.box('📝 System Prompt', systemPrompt.system);
         logger.box('📝 User Prompt', userPrompt);
 
         try {
             const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: "system", content: systemPrompt },
+                    { role: "system", content: systemPrompt.system },
                     { role: "user", content: userPrompt },
                 ],
                 // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
@@ -379,8 +383,8 @@ export class OpenAIProvider implements AIService {
     }
 
     async reanswerQuestion(questionText: string, language: 'zh' | 'en' = 'zh', subject?: string | null, imageBase64?: string, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ReanswerQuestionResult> {
-        const { generateReanswerPrompt } = await import('./prompts');
-        const prompt = generateReanswerPrompt(language, questionText, subject, { candidateTags }, gradeSemester);
+        const { generateReanswerRequest } = await import('./prompt-requests');
+        const prompt = generateReanswerRequest(language, questionText, subject, { candidateTags }, gradeSemester);
 
         logger.info({
             provider: 'OpenAI',
@@ -394,13 +398,13 @@ export class OpenAIProvider implements AIService {
 
         try {
             // 根据是否有图片构建不同的消息内容
-            let userContent: OpenAIUserContent = "请根据上述题目提供答案和解析。";
+            let userContent: OpenAIUserContent = prompt.user;
             if (imageBase64) {
                 // 如果有图片，构建多模态消息
                 const imageUrl = imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
                 logger.debug({ imageLength: imageUrl.length }, 'Image added to request');
                 userContent = [
-                    { type: "text", text: "请结合图片和题目描述提供答案和解析。" },
+                    { type: "text", text: prompt.user },
                     { type: "image_url", image_url: { url: imageUrl } }
                 ];
             } else {
@@ -411,7 +415,7 @@ export class OpenAIProvider implements AIService {
             const requestParams = {
                 model: this.model,
                 messages: [
-                    { role: "system", content: prompt.substring(0, 200) + "..." },
+                    { role: "system", content: prompt.system.substring(0, 200) + "..." },
                     { role: "user", content: typeof userContent === 'string' ? userContent : "[包含图片的多模态消息]" }
                 ],
                 max_tokens: 8192
@@ -421,7 +425,7 @@ export class OpenAIProvider implements AIService {
             const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: "system", content: prompt },
+                    { role: "system", content: prompt.system },
                     { role: "user", content: userContent }
                 ],
                 max_tokens: maxTokens,
@@ -455,7 +459,7 @@ export class OpenAIProvider implements AIService {
 
             logger.info('Reanswer parsed successfully');
 
-            return { answerText, analysis, knowledgePoints, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(this.extractTag(text, "subject")), gradeSemester: parseRecognizedGrade(this.extractTag(text, "grade_semester")), difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")) };
+            return normalizeAiQuestionTags({ answerText, analysis, knowledgePoints, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(this.extractTag(text, "subject")), gradeSemester: parseRecognizedGrade(this.extractTag(text, "grade_semester")), difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")) }, { candidateTags });
 
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
@@ -465,7 +469,7 @@ export class OpenAIProvider implements AIService {
     }
 
     async analyzeForGeogebra(questionText: string, answerText: string, analysis: string, previousErrors?: string): Promise<GeogebraAnalysisResult> {
-        const prompt = generateGeogebraPrompt(questionText, answerText, analysis, previousErrors);
+        const prompt = generateGeogebraRequest(questionText, answerText, analysis, previousErrors);
 
         logger.info({
             provider: 'OpenAI',
@@ -477,8 +481,8 @@ export class OpenAIProvider implements AIService {
             const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: "system", content: prompt },
-                    { role: "user", content: "请分析上述题目并生成 GeoGebra 演示命令。" }
+                    { role: "system", content: prompt.system },
+                    { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
             }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
@@ -517,7 +521,7 @@ export class OpenAIProvider implements AIService {
     }
 
     async evaluateMastery(input: MasteryEvaluationInput): Promise<MasteryEvaluationResult> {
-        const prompt = generateMasteryPrompt(input);
+        const prompt = generateMasteryRequest(input);
 
         logger.info({
             provider: 'OpenAI',
@@ -528,8 +532,8 @@ export class OpenAIProvider implements AIService {
             const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: "system", content: prompt },
-                    { role: "user", content: "请根据上述练习历史给出掌握概率评估。" }
+                    { role: "system", content: prompt.system },
+                    { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
             }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
@@ -547,10 +551,11 @@ export class OpenAIProvider implements AIService {
     }
 
     async recognizeGrade(questionText: string): Promise<string | null> {
+        const prompt = generateGradeRecognitionRequest(questionText);
         try {
             const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
-                messages: [{ role: 'user', content: generateGradeRecognitionPrompt(questionText) }],
+                messages: [{ role: 'system', content: prompt.system }, { role: 'user', content: prompt.user }],
                 max_tokens: maxTokens,
             }), 1024, () => logger.warn('年级识别输出截断，增加上限重试'));
             return parseGradeRecognition(response.choices[0]?.message?.content || '');
@@ -562,14 +567,15 @@ export class OpenAIProvider implements AIService {
     }
 
     async gradeAnswer(input: AnswerGradingInput): Promise<AnswerGradingResult> {
+        const prompt = generateGradingRequest(input);
         logger.info({ provider: 'OpenAI' }, 'Answer Grading Request');
 
         try {
             const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: "system", content: generateGradingPrompt(input) },
-                    { role: "user", content: "请判定学生答案是否正确。" }
+                    { role: "system", content: prompt.system },
+                    { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
             }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
@@ -587,7 +593,7 @@ export class OpenAIProvider implements AIService {
     }
 
     async suggestKnowledgeTags(input: TagSuggestionInput): Promise<TagSuggestionResult> {
-        const prompt = generateTagSuggestPrompt(input);
+        const prompt = generateTagSuggestRequest(input);
 
         logger.info({
             provider: 'OpenAI',
@@ -599,8 +605,8 @@ export class OpenAIProvider implements AIService {
             const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: "system", content: prompt },
-                    { role: "user", content: "请为上述题目选择知识点。" }
+                    { role: "system", content: prompt.system },
+                    { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
             }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
@@ -618,15 +624,15 @@ export class OpenAIProvider implements AIService {
     }
 
     async generateFigureSvg(imageBase64: string, mimeType: string, questionText?: string | null): Promise<FigureResult> {
-        const prompt = generateFigurePrompt(questionText);
+        const prompt = generateFigureRequest(questionText);
         logger.info({ provider: 'OpenAI', model: this.model, imageSize: imageBase64.length }, 'Figure SVG Request');
 
         try {
             const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: "system", content: prompt },
-                    { role: "user", content: [{ type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } }] },
+                    { role: "system", content: prompt.system },
+                    { role: "user", content: [{ type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } }, { type: "text", text: prompt.user }] },
                 ],
                 max_tokens: maxTokens,
             }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
@@ -644,15 +650,15 @@ export class OpenAIProvider implements AIService {
     }
 
     async fixLatex(input: LatexFixInput): Promise<LatexFixResult> {
-        const prompt = generateLatexFixPrompt(input);
+        const prompt = generateLatexFixRequest(input);
         logger.info({ provider: 'OpenAI', model: this.model, fields: Object.keys(input) }, 'LaTeX Fix Request');
 
         try {
             const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: "system", content: prompt },
-                    { role: "user", content: "请修复上述内容中的 LaTeX 语法。" },
+                    { role: "system", content: prompt.system },
+                    { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
             }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
@@ -670,15 +676,15 @@ export class OpenAIProvider implements AIService {
     }
 
     async generateSvgAnimation(questionText: string, answerText: string, analysis: string, figureSvg?: string | null, language: 'zh' | 'en' = 'zh'): Promise<string | null> {
-        const prompt = generateSvgAnimationPrompt(questionText, answerText, analysis, figureSvg, language);
+        const prompt = generateSvgAnimationRequest(questionText, answerText, analysis, figureSvg, language);
         logger.info({ provider: 'OpenAI', model: this.model, questionLength: questionText.length }, 'SVG Animation Request');
 
         try {
             const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: "system", content: prompt },
-                    { role: "user", content: SVG_ANIMATION_REQUEST[language] },
+                    { role: "system", content: prompt.system },
+                    { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
             }), 16384, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));
@@ -696,15 +702,15 @@ export class OpenAIProvider implements AIService {
     }
 
     async generateSvgNarration(questionText: string, answerText: string, analysis: string, svgAnimation: string, language: 'zh' | 'en' = 'zh'): Promise<NarrationSegment[] | null> {
-        const prompt = generateSvgNarrationPrompt(questionText, answerText, analysis, svgAnimation, language);
+        const prompt = generateSvgNarrationRequest(questionText, answerText, analysis, svgAnimation, language);
         logger.info({ provider: 'OpenAI', model: this.model, svgLength: svgAnimation.length }, 'SVG Narration Request');
 
         try {
             const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: "system", content: prompt },
-                    { role: "user", content: SVG_NARRATION_REQUEST[language] },
+                    { role: "system", content: prompt.system },
+                    { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
             }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'));

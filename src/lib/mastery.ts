@@ -106,6 +106,7 @@ export async function evaluateErrorItemMastery(errorItemId: string): Promise<voi
         return;
     }
 
+    const evaluatedAt = new Date();
     let probability = ruleProbability;
     let reason = '';
     let source: 'ai' | 'rule' = 'rule';
@@ -116,6 +117,7 @@ export async function evaluateErrorItemMastery(errorItemId: string): Promise<voi
             mistakeStatus: item.mistakeStatus,
             history,
             ruleProbability,
+            evaluatedAt: evaluatedAt.toISOString(),
         });
         probability = result.probability;
         reason = result.reason;
@@ -132,7 +134,7 @@ export async function evaluateErrorItemMastery(errorItemId: string): Promise<voi
             masteryProbability: probability,
             masteryReason: reason,
             masterySource: source,
-            masteryEvaluatedAt: new Date(),
+            masteryEvaluatedAt: evaluatedAt,
             masteryLevel: masteryLevelFor(probability, item.user.masteryThreshold),
         },
     });

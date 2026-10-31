@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateGradeRecognitionPrompt, generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateMasteryPrompt, generateGradingPrompt, generateTagSuggestPrompt, generateReanswerPrompt, generateFigurePrompt, generateSvgAnimationPrompt, generateSvgNarrationPrompt, generateLatexFixPrompt, SVG_ANIMATION_REQUEST, SVG_NARRATION_REQUEST } from './prompts';
+import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
+import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateReanswerRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest } from './prompt-requests';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
@@ -14,6 +14,7 @@ import { AI_OUTPUT_TRUNCATED, withTruncationRetry } from './truncation';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
 import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
+import { normalizeAiQuestionTags } from './knowledge-points';
 
 const logger = createLogger('ai:anthropic');
 
@@ -193,10 +194,11 @@ export class AnthropicProvider implements AIService {
 
     async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: GradeLevel | null, subject?: string | null, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ParsedQuestion> {
         const config = getAppConfig();
-        const systemPrompt = generateAnalyzePrompt(language, grade, subject, {
+        const tagOptions = candidateTags ? { candidateTags } : await prefetchSubjectTags(subject, grade);
+        const systemPrompt = generateAnalyzeRequest(language, grade, subject, {
             customTemplate: config.prompts?.analyze,
             // 有错题本学段 + 学科时直接使用其全部知识点，否则按学科、年级取标签
-            ...(candidateTags ? { candidateTags } : await prefetchSubjectTags(subject, grade)),
+            ...tagOptions,
         }, gradeSemester);
 
         logger.box('🔍 AI Image Analysis Request', {
@@ -208,15 +210,15 @@ export class AnthropicProvider implements AIService {
             language,
             grade: grade || 'all'
         });
-        logger.box('📝 Full System Prompt', systemPrompt);
+        logger.box('📝 Full System Prompt', systemPrompt.system);
 
         try {
-            const text = await this.complete(systemPrompt, [
+            const text = await this.complete(systemPrompt.system, [
                 imageBlock(imageBase64, mimeType),
-                { type: 'text', text: language === 'zh' ? '请分析图片中的题目。' : 'Please analyze the question in the image.' },
+                { type: 'text', text: systemPrompt.user },
             ], 8192);
             logger.box('🤖 AI Raw Response', text);
-            const parsedResult = parseQuestionResponse(text);
+            const parsedResult = normalizeAiQuestionTags(parseQuestionResponse(text), tagOptions);
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
             return parsedResult;
         } catch (error) {
@@ -228,16 +230,16 @@ export class AnthropicProvider implements AIService {
 
     async generateSimilarQuestion(originalQuestion: string, knowledgePoints: string[], language: 'zh' | 'en' = 'zh', difficulty: DifficultyLevel = 'medium', gradeSemester?: string | null, originalFigureSvg?: string | null): Promise<ParsedQuestion> {
         const config = getAppConfig();
-        const systemPrompt = generateSimilarQuestionPrompt(language, originalQuestion, knowledgePoints, difficulty, {
+        const systemPrompt = generateSimilarQuestionRequest(language, originalQuestion, knowledgePoints, difficulty, {
             customTemplate: config.prompts?.similar,
             originalFigureSvg,
         }, gradeSemester);
-        const userPrompt = `\nOriginal Question: "${originalQuestion}"\nKnowledge Points: ${knowledgePoints.join(", ")}\n    `;
+        const userPrompt = systemPrompt.user;
 
         logger.info({ provider: 'Anthropic', model: this.model, difficulty, language }, 'Generate Similar Question Request');
 
         try {
-            const text = await this.complete(systemPrompt, userPrompt, 8192);
+            const text = await this.complete(systemPrompt.system, userPrompt, 8192);
             logger.box('🤖 AI Raw Response', text);
             return normalizeGeneratedQuestion(parseQuestionResponse(text));
         } catch (error) {
@@ -248,7 +250,7 @@ export class AnthropicProvider implements AIService {
     }
 
     async reanswerQuestion(questionText: string, language: 'zh' | 'en' = 'zh', subject?: string | null, imageBase64?: string, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ReanswerQuestionResult> {
-        const prompt = generateReanswerPrompt(language, questionText, subject, { candidateTags }, gradeSemester);
+        const prompt = generateReanswerRequest(language, questionText, subject, { candidateTags }, gradeSemester);
 
         logger.info({
             provider: 'Anthropic',
@@ -260,13 +262,13 @@ export class AnthropicProvider implements AIService {
 
         try {
             const content: UserContent = imageBase64
-                ? [imageBlock(imageBase64), { type: 'text', text: "请结合图片和题目描述提供答案和解析。" }]
-                : "请根据上述题目提供答案和解析。";
-            const text = await this.complete(prompt, content, 8192);
+                ? [imageBlock(imageBase64), { type: 'text', text: prompt.user }]
+                : prompt.user;
+            const text = await this.complete(prompt.system, content, 8192);
             logger.debug({ rawResponse: text }, 'AI raw response');
 
             const wrongAnswerText = extractTag(text, "wrong_answer_text") || "";
-            return {
+            return normalizeAiQuestionTags({
                 answerText: extractTag(text, "answer_text") || "",
                 analysis: extractTag(text, "analysis") || "",
                 knowledgePoints: splitKnowledgePoints(extractTag(text, "knowledge_points")),
@@ -276,7 +278,7 @@ export class AnthropicProvider implements AIService {
                 subject: normalizeSubject(extractTag(text, "subject")),
                 gradeSemester: parseRecognizedGrade(extractTag(text, "grade_semester")),
                 difficultyStars: parseDifficultyStars(extractTag(text, "difficulty_stars")),
-            };
+            }, { candidateTags });
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
             this.handleError(error);
@@ -285,11 +287,11 @@ export class AnthropicProvider implements AIService {
     }
 
     async analyzeForGeogebra(questionText: string, answerText: string, analysis: string, previousErrors?: string): Promise<GeogebraAnalysisResult> {
-        const prompt = generateGeogebraPrompt(questionText, answerText, analysis, previousErrors);
+        const prompt = generateGeogebraRequest(questionText, answerText, analysis, previousErrors);
         logger.info({ provider: 'Anthropic', model: this.model, questionLength: questionText.length }, 'GeoGebra Analysis Request');
 
         try {
-            const text = await this.complete(prompt, "请分析上述题目并生成 GeoGebra 演示命令。", 4096);
+            const text = await this.complete(prompt.system, prompt.user, 4096);
             logger.debug({ rawResponse: text }, 'GeoGebra AI raw response');
             const parsed = extractJsonObject(text) as { suitable?: unknown; commands?: unknown; description?: unknown };
             return {
@@ -305,10 +307,11 @@ export class AnthropicProvider implements AIService {
     }
 
     async evaluateMastery(input: MasteryEvaluationInput): Promise<MasteryEvaluationResult> {
+        const prompt = generateMasteryRequest(input);
         logger.info({ provider: 'Anthropic', historyCount: input.history.length }, 'Mastery Evaluation Request');
 
         try {
-            const text = await this.complete(generateMasteryPrompt(input), "请根据上述练习历史给出掌握概率评估。", 4096);
+            const text = await this.complete(prompt.system, prompt.user, 4096);
             logger.debug({ rawResponse: text }, 'Mastery AI raw response');
             return parseMasteryEvaluation(text);
         } catch (error) {
@@ -319,9 +322,10 @@ export class AnthropicProvider implements AIService {
     }
 
     async recognizeGrade(questionText: string): Promise<string | null> {
+        const prompt = generateGradeRecognitionRequest(questionText);
         try {
             return parseGradeRecognition(await this.complete(
-                generateGradeRecognitionPrompt(questionText), '请只返回题目年级识别的 JSON 结果。', 1024,
+                prompt.system, prompt.user, 1024,
             ));
         } catch (error) {
             logger.error({ error }, '识别题目年级失败');
@@ -331,10 +335,11 @@ export class AnthropicProvider implements AIService {
     }
 
     async gradeAnswer(input: AnswerGradingInput): Promise<AnswerGradingResult> {
+        const prompt = generateGradingRequest(input);
         logger.info({ provider: 'Anthropic' }, 'Answer Grading Request');
 
         try {
-            const text = await this.complete(generateGradingPrompt(input), "请判定学生答案是否正确。", 4096);
+            const text = await this.complete(prompt.system, prompt.user, 4096);
             logger.debug({ rawResponse: text }, 'Grading AI raw response');
             return parseAnswerGrading(text);
         } catch (error) {
@@ -345,10 +350,11 @@ export class AnthropicProvider implements AIService {
     }
 
     async suggestKnowledgeTags(input: TagSuggestionInput): Promise<TagSuggestionResult> {
+        const prompt = generateTagSuggestRequest(input);
         logger.info({ provider: 'Anthropic', subject: input.subject, allowedTagCount: input.allowedTags.length }, 'Tag Suggestion Request');
 
         try {
-            const text = await this.complete(generateTagSuggestPrompt(input), "请为上述题目选择知识点。", 4096);
+            const text = await this.complete(prompt.system, prompt.user, 4096);
             logger.debug({ rawResponse: text }, 'Tag suggestion AI raw response');
             return parseTagSuggestion(text, input.allowedTags);
         } catch (error) {
@@ -359,11 +365,12 @@ export class AnthropicProvider implements AIService {
     }
 
     async generateFigureSvg(imageBase64: string, mimeType: string, questionText?: string | null): Promise<FigureResult> {
+        const prompt = generateFigureRequest(questionText);
         logger.info({ provider: 'Anthropic', model: this.model, imageSize: imageBase64.length }, 'Figure SVG Request');
 
         try {
-            const text = await this.complete(generateFigurePrompt(questionText), [
-                imageBlock(imageBase64, mimeType),
+            const text = await this.complete(prompt.system, [
+                imageBlock(imageBase64, mimeType), { type: 'text', text: prompt.user },
                 { type: 'text', text: '请重新绘制图中题目的配图。' },
             ], 8192);
             logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
@@ -376,10 +383,11 @@ export class AnthropicProvider implements AIService {
     }
 
     async fixLatex(input: LatexFixInput): Promise<LatexFixResult> {
+        const prompt = generateLatexFixRequest(input);
         logger.info({ provider: 'Anthropic', model: this.model, fields: Object.keys(input) }, 'LaTeX Fix Request');
 
         try {
-            const text = await this.complete(generateLatexFixPrompt(input), "请修复上述内容中的 LaTeX 语法。", 8192);
+            const text = await this.complete(prompt.system, prompt.user, 8192);
             logger.debug({ rawResponse: text }, 'LaTeX fix AI raw response');
             return parseLatexFix(text, input);
         } catch (error) {
@@ -390,10 +398,11 @@ export class AnthropicProvider implements AIService {
     }
 
     async generateSvgAnimation(questionText: string, answerText: string, analysis: string, figureSvg?: string | null, language: 'zh' | 'en' = 'zh'): Promise<string | null> {
+        const prompt = generateSvgAnimationRequest(questionText, answerText, analysis, figureSvg, language);
         logger.info({ provider: 'Anthropic', model: this.model, questionLength: questionText.length }, 'SVG Animation Request');
 
         try {
-            const text = await this.complete(generateSvgAnimationPrompt(questionText, answerText, analysis, figureSvg, language), SVG_ANIMATION_REQUEST[language], 16384);
+            const text = await this.complete(prompt.system, prompt.user, 16384);
             logger.debug({ rawResponse: text }, 'SVG animation AI raw response');
             return sanitizeSvgAnimation(extractTag(text, "svg_animation") || text);
         } catch (error) {
@@ -404,10 +413,11 @@ export class AnthropicProvider implements AIService {
     }
 
     async generateSvgNarration(questionText: string, answerText: string, analysis: string, svgAnimation: string, language: 'zh' | 'en' = 'zh'): Promise<NarrationSegment[] | null> {
+        const prompt = generateSvgNarrationRequest(questionText, answerText, analysis, svgAnimation, language);
         logger.info({ provider: 'Anthropic', model: this.model, svgLength: svgAnimation.length }, 'SVG Narration Request');
 
         try {
-            const text = await this.complete(generateSvgNarrationPrompt(questionText, answerText, analysis, svgAnimation, language), SVG_NARRATION_REQUEST[language], 4096);
+            const text = await this.complete(prompt.system, prompt.user, 4096);
             logger.debug({ rawResponse: text }, 'SVG narration AI raw response');
             return parseNarration(extractTag(text, "narration") || text);
         } catch (error) {

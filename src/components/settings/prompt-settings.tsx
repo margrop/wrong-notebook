@@ -105,7 +105,7 @@ export function PromptSettings({ config, onUpdate }: PromptSettingsProps) {
                                 />
                                 <VariableInfo
                                     name="provider_hints"
-                                    description={t.settings?.prompts?.vars?.providerHints || "System-injected hints (e.g., enforcing JSON format)."}
+                                    description={t.settings?.prompts?.vars?.providerHints || "Provider compatibility hints that follow the application output contract."}
                                 />
                             </div>
                         </div>

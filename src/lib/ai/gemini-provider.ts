@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
-import { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateGradeRecognitionPrompt, generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateMasteryPrompt, generateGradingPrompt, generateTagSuggestPrompt, generateFigurePrompt, generateSvgAnimationPrompt, generateSvgNarrationPrompt, generateLatexFixPrompt, SVG_ANIMATION_REQUEST, SVG_NARRATION_REQUEST } from './prompts';
+import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
+import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest } from './prompt-requests';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
@@ -13,6 +13,7 @@ import { AI_OUTPUT_TRUNCATED } from './truncation';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
 import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
+import { normalizeAiQuestionTags } from './knowledge-points';
 
 const logger = createLogger('ai:gemini');
 
@@ -174,7 +175,7 @@ export class GeminiProvider implements AIService {
         // 有错题本学段 + 学科时直接使用其全部知识点，否则按学科、年级取标签
         const tagOptions = candidateTags ? { candidateTags } : await prefetchSubjectTags(subject, grade);
 
-        const prompt = generateAnalyzePrompt(language, grade, subject, {
+        const prompt = generateAnalyzeRequest(language, grade, subject, {
             customTemplate: config.prompts?.analyze,
             ...tagOptions,
         }, gradeSemester);
@@ -188,7 +189,7 @@ export class GeminiProvider implements AIService {
             language,
             grade: grade || 'all'
         });
-        logger.box('📝 Full Prompt', prompt);
+        logger.box('📝 Full Prompt', prompt.system);
 
         try {
             // 构建请求参数（用于日志显示）
@@ -196,7 +197,7 @@ export class GeminiProvider implements AIService {
                 model: this.modelName,
                 contents: [
                     {
-                        text: prompt
+                        text: prompt.user
                     },
                     {
                         inlineData: {
@@ -211,9 +212,10 @@ export class GeminiProvider implements AIService {
 
             const response = await this.retryOperation(() => this.ai.models.generateContent({
                 model: this.modelName,
+                config: { systemInstruction: prompt.system },
                 contents: [
                     {
-                        text: prompt
+                        text: prompt.user
                     },
                     {
                         inlineData: {
@@ -233,7 +235,7 @@ export class GeminiProvider implements AIService {
             logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error(response.candidates?.[0]?.finishReason === 'MAX_TOKENS' ? AI_OUTPUT_TRUNCATED : "Empty response from AI");
-            const parsedResult = this.parseResponse(text);
+            const parsedResult = normalizeAiQuestionTags(this.parseResponse(text), tagOptions);
 
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
@@ -251,7 +253,7 @@ export class GeminiProvider implements AIService {
 
     async generateSimilarQuestion(originalQuestion: string, knowledgePoints: string[], language: 'zh' | 'en' = 'zh', difficulty: DifficultyLevel = 'medium', gradeSemester?: string | null, originalFigureSvg?: string | null): Promise<ParsedQuestion> {
         const config = getAppConfig();
-        const prompt = generateSimilarQuestionPrompt(language, originalQuestion, knowledgePoints, difficulty, {
+        const prompt = generateSimilarQuestionRequest(language, originalQuestion, knowledgePoints, difficulty, {
             customTemplate: config.prompts?.similar,
             originalFigureSvg,
         }, gradeSemester);
@@ -264,12 +266,13 @@ export class GeminiProvider implements AIService {
             difficulty,
             language
         });
-        logger.box('📝 Full Prompt', prompt);
+        logger.box('📝 Full Prompt', prompt.system);
 
         try {
             const response = await this.retryOperation(() => this.ai.models.generateContent({
                 model: this.modelName,
-                contents: prompt
+                config: { systemInstruction: prompt.system },
+                contents: prompt.user
             }));
 
             const text = response.text || '';
@@ -294,8 +297,8 @@ export class GeminiProvider implements AIService {
     }
 
     async reanswerQuestion(questionText: string, language: 'zh' | 'en' = 'zh', subject?: string | null, imageBase64?: string, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ReanswerQuestionResult> {
-        const { generateReanswerPrompt } = await import('./prompts');
-        const prompt = generateReanswerPrompt(language, questionText, subject, { candidateTags }, gradeSemester);
+        const { generateReanswerRequest } = await import('./prompt-requests');
+        const prompt = generateReanswerRequest(language, questionText, subject, { candidateTags }, gradeSemester);
 
         logger.info({
             provider: 'Gemini',
@@ -313,15 +316,16 @@ export class GeminiProvider implements AIService {
                 // 移除 data:image/xxx;base64, 前缀（如果存在）
                 const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
                 contents = [
-                    { text: prompt },
+                    { text: prompt.user },
                     { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
                 ];
             } else {
-                contents = prompt;
+                contents = prompt.user;
             }
 
             const response = await this.retryOperation(() => this.ai.models.generateContent({
                 model: this.modelName,
+                config: { systemInstruction: prompt.system },
                 contents
             }));
 
@@ -345,7 +349,7 @@ export class GeminiProvider implements AIService {
 
             logger.info('Reanswer parsed successfully');
 
-            return { answerText, analysis, knowledgePoints: knowledgePointsParsed, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(this.extractTag(text, "subject")), gradeSemester: parseRecognizedGrade(this.extractTag(text, "grade_semester")), difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")) };
+            return normalizeAiQuestionTags({ answerText, analysis, knowledgePoints: knowledgePointsParsed, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(this.extractTag(text, "subject")), gradeSemester: parseRecognizedGrade(this.extractTag(text, "grade_semester")), difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")) }, { candidateTags });
 
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
@@ -355,7 +359,7 @@ export class GeminiProvider implements AIService {
     }
 
     async analyzeForGeogebra(questionText: string, answerText: string, analysis: string, previousErrors?: string): Promise<GeogebraAnalysisResult> {
-        const prompt = generateGeogebraPrompt(questionText, answerText, analysis, previousErrors);
+        const prompt = generateGeogebraRequest(questionText, answerText, analysis, previousErrors);
 
         logger.info({
             provider: 'Gemini',
@@ -366,7 +370,8 @@ export class GeminiProvider implements AIService {
         try {
             const response = await this.retryOperation(() => this.ai.models.generateContent({
                 model: this.modelName,
-                contents: prompt
+                config: { systemInstruction: prompt.system },
+                contents: prompt.user
             }));
 
             const text = response.text || '';
@@ -403,7 +408,7 @@ export class GeminiProvider implements AIService {
     }
 
     async evaluateMastery(input: MasteryEvaluationInput): Promise<MasteryEvaluationResult> {
-        const prompt = generateMasteryPrompt(input);
+        const prompt = generateMasteryRequest(input);
 
         logger.info({
             provider: 'Gemini',
@@ -413,7 +418,8 @@ export class GeminiProvider implements AIService {
         try {
             const response = await this.retryOperation(() => this.ai.models.generateContent({
                 model: this.modelName,
-                contents: prompt
+                config: { systemInstruction: prompt.system },
+                contents: prompt.user
             }));
 
             const text = response.text || '';
@@ -429,10 +435,12 @@ export class GeminiProvider implements AIService {
     }
 
     async recognizeGrade(questionText: string): Promise<string | null> {
+        const prompt = generateGradeRecognitionRequest(questionText);
         try {
             const response = await this.retryOperation(() => this.ai.models.generateContent({
                 model: this.modelName,
-                contents: generateGradeRecognitionPrompt(questionText),
+                config: { systemInstruction: prompt.system },
+                contents: prompt.user,
             }));
             const text = response.text || '';
             if (!text && response.candidates?.[0]?.finishReason === 'MAX_TOKENS') throw new Error(AI_OUTPUT_TRUNCATED);
@@ -445,12 +453,14 @@ export class GeminiProvider implements AIService {
     }
 
     async gradeAnswer(input: AnswerGradingInput): Promise<AnswerGradingResult> {
+        const prompt = generateGradingRequest(input);
         logger.info({ provider: 'Gemini' }, 'Answer Grading Request');
 
         try {
             const response = await this.retryOperation(() => this.ai.models.generateContent({
                 model: this.modelName,
-                contents: generateGradingPrompt(input)
+                config: { systemInstruction: prompt.system },
+                contents: prompt.user
             }));
 
             const text = response.text || '';
@@ -466,7 +476,7 @@ export class GeminiProvider implements AIService {
     }
 
     async suggestKnowledgeTags(input: TagSuggestionInput): Promise<TagSuggestionResult> {
-        const prompt = generateTagSuggestPrompt(input);
+        const prompt = generateTagSuggestRequest(input);
 
         logger.info({
             provider: 'Gemini',
@@ -477,7 +487,8 @@ export class GeminiProvider implements AIService {
         try {
             const response = await this.retryOperation(() => this.ai.models.generateContent({
                 model: this.modelName,
-                contents: prompt
+                config: { systemInstruction: prompt.system },
+                contents: prompt.user
             }));
 
             const text = response.text || '';
@@ -493,14 +504,15 @@ export class GeminiProvider implements AIService {
     }
 
     async generateFigureSvg(imageBase64: string, mimeType: string, questionText?: string | null): Promise<FigureResult> {
-        const prompt = generateFigurePrompt(questionText);
+        const prompt = generateFigureRequest(questionText);
         logger.info({ provider: 'Gemini', model: this.modelName, imageSize: imageBase64.length }, 'Figure SVG Request');
 
         try {
             const response = await this.retryOperation(() => this.ai.models.generateContent({
                 model: this.modelName,
+                config: { systemInstruction: prompt.system },
                 contents: [
-                    { text: prompt },
+                    { text: prompt.user },
                     { inlineData: { data: imageBase64, mimeType } },
                 ],
             }));
@@ -518,13 +530,14 @@ export class GeminiProvider implements AIService {
     }
 
     async fixLatex(input: LatexFixInput): Promise<LatexFixResult> {
-        const prompt = generateLatexFixPrompt(input);
+        const prompt = generateLatexFixRequest(input);
         logger.info({ provider: 'Gemini', model: this.modelName, fields: Object.keys(input) }, 'LaTeX Fix Request');
 
         try {
             const response = await this.retryOperation(() => this.ai.models.generateContent({
                 model: this.modelName,
-                contents: [{ text: prompt }, { text: "请修复上述内容中的 LaTeX 语法。" }],
+                config: { systemInstruction: prompt.system },
+                contents: [{ text: prompt.user }],
             }));
 
             const text = response.text || '';
@@ -540,13 +553,14 @@ export class GeminiProvider implements AIService {
     }
 
     async generateSvgAnimation(questionText: string, answerText: string, analysis: string, figureSvg?: string | null, language: 'zh' | 'en' = 'zh'): Promise<string | null> {
-        const prompt = generateSvgAnimationPrompt(questionText, answerText, analysis, figureSvg, language);
+        const prompt = generateSvgAnimationRequest(questionText, answerText, analysis, figureSvg, language);
         logger.info({ provider: 'Gemini', model: this.modelName, questionLength: questionText.length }, 'SVG Animation Request');
 
         try {
             const response = await this.retryOperation(() => this.ai.models.generateContent({
                 model: this.modelName,
-                contents: [{ text: prompt }, { text: SVG_ANIMATION_REQUEST[language] }],
+                config: { systemInstruction: prompt.system },
+                contents: [{ text: prompt.user }],
             }));
 
             const text = response.text || '';
@@ -562,13 +576,14 @@ export class GeminiProvider implements AIService {
     }
 
     async generateSvgNarration(questionText: string, answerText: string, analysis: string, svgAnimation: string, language: 'zh' | 'en' = 'zh'): Promise<NarrationSegment[] | null> {
-        const prompt = generateSvgNarrationPrompt(questionText, answerText, analysis, svgAnimation, language);
+        const prompt = generateSvgNarrationRequest(questionText, answerText, analysis, svgAnimation, language);
         logger.info({ provider: 'Gemini', model: this.modelName, svgLength: svgAnimation.length }, 'SVG Narration Request');
 
         try {
             const response = await this.retryOperation(() => this.ai.models.generateContent({
                 model: this.modelName,
-                contents: [{ text: prompt }, { text: SVG_NARRATION_REQUEST[language] }],
+                config: { systemInstruction: prompt.system },
+                contents: [{ text: prompt.user }],
             }));
 
             const text = response.text || '';

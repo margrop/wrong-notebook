@@ -45,6 +45,8 @@ export interface MasteryHistoryEntry {
 }
 
 export interface MasteryEvaluationInput {
+    /** 本次评估的 UTC 时间；未提供时按请求时间评估。 */
+    evaluatedAt?: string;
     questionText: string;
     knowledgePoints: string[];
     mistakeStatus?: string | null;
