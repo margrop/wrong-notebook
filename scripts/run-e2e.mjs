@@ -16,6 +16,14 @@ mkdirSync(app);
 mkdirSync(configDir);
 mkdirSync(reportDir);
 const children = new Set();
+const stopChildren = async () => {
+    for (const child of children) child.kill('SIGTERM');
+    await Promise.all([...children].map((child) => child.exitCode !== null || child.signalCode !== null ? Promise.resolve() : new Promise((resolve_) => {
+        const timer = setTimeout(() => child.kill('SIGKILL'), 3000);
+        child.once('exit', () => { clearTimeout(timer); resolve_(); });
+    })));
+    children.clear();
+};
 let interrupted = false;
 const interrupt = () => { interrupted = true; for (const child of children) child.kill('SIGTERM'); };
 process.on('SIGINT', interrupt);
@@ -90,15 +98,23 @@ try {
     if (args.includes('--serve')) await new Promise((resolve_) => { process.once('SIGINT', resolve_); process.once('SIGTERM', resolve_); });
     else await run(process.execPath, [join(root, 'node_modules/@playwright/test/cli.js'), 'test', ...args], { cwd: root,
         env: { ...safeEnvironment, E2E_RUN_FILE: manifestFile }, stdio: 'inherit' });
+    // 先终止本次应用，防止已取消的页面请求在审计前又创建默认错题本。
+    await stopChildren();
     const requireApp = createRequire(join(app, 'package.json'));
     const { PrismaClient } = requireApp('@prisma/client');
     const database = new PrismaClient({ datasources: { db: { url } } });
+    const defaults = await database.subject.deleteMany({ where: {
+        user: { email: { in: ['admin@localhost', 'setup-admin@localhost'] } },
+        OR: [{ name: '数学', subjectKey: 'math' }, { name: '英语', subjectKey: 'english' }],
+        errorItems: { none: {} },
+    } });
+    writeFileSync(join(reportDir, 'default-notebooks-cleanup.json'), JSON.stringify({ removed: defaults.count }));
     const cleanup = { users: await database.user.count(), notebooks: await database.subject.count(), items: await database.errorItem.count(),
         records: await database.practiceRecord.count(), papers: await database.examPaper.count(), groups: await database.paperGroup.count(),
         privateTags: await database.knowledgeTag.count({ where: { userId: { not: null } } }) };
     await database.$disconnect();
     writeFileSync(join(reportDir, 'cleanup-audit.json'), JSON.stringify(cleanup, null, 2));
-    if (cleanup.users !== 2 || Object.entries(cleanup).some(([key, count]) => key !== 'users' && count !== 0)) throw new Error('测试结束后仍有残留学习数据');
+    if (cleanup.users !== 2 || Object.entries(cleanup).some(([key, count]) => key !== 'users' && count !== 0)) throw new Error(`测试结束后仍有残留学习数据：${JSON.stringify(cleanup)}`);
     const blocked = existsSync(manifest.networkLog) ? readFileSync(manifest.networkLog, 'utf8').trim() : '';
     if (blocked || mock.violations.length) throw new Error('检测到未声明的模型请求或外部网络连接');
     exitCode = 0;
@@ -110,11 +126,7 @@ try {
     for (const name of ['setup.log', 'server.log']) {
         if (existsSync(join(directory, name))) cpSync(join(directory, name), join(reportDir, name));
     }
-    for (const child of children) child.kill('SIGTERM');
-    await Promise.all([...children].map((child) => child.exitCode !== null ? Promise.resolve() : new Promise((resolve_) => {
-        const timer = setTimeout(() => child.kill('SIGKILL'), 3000);
-        child.once('exit', () => { clearTimeout(timer); resolve_(); });
-    })));
+    await stopChildren();
     await mock.close();
     // 保留报告和日志，移除体积较大的隔离构建，测试临时库也随本次目录隔离。
     await new Promise((resolve_) => setTimeout(resolve_, 300));
