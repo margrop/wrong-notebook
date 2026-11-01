@@ -39,7 +39,7 @@ describe('print preview helpers', () => {
     });
 
     it('提取打印题目的知识点名称并兼容旧版 JSON 字符串', () => {
-        expect(getPrintableItemTagNames({ tags: [{ id: '1', name: '勾股定理' }], knowledgePoints: '["旧标签"]' }))
+        expect(getPrintableItemTagNames({ tags: [{ name: '勾股定理' }], knowledgePoints: '["旧标签"]' }))
             .toEqual(['勾股定理']);
         expect(getPrintableItemTagNames({ tags: [], knowledgePoints: '["二次函数","配方法"]' }))
             .toEqual(['二次函数', '配方法']);

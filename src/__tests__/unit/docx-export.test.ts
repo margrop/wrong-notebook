@@ -123,6 +123,8 @@ describe("rasterizeSvgFigureForDocx & triggerDocxDownload", () => {
         try {
             const result = await rasterizeImageForDocx("https://example.com/broken.png");
             expect(result).toBeNull();
+            const svgResult = await rasterizeSvgFigureForDocx('<svg xmlns="http://www.w3.org/2000/svg"/>', 80, "center");
+            expect(svgResult).toBeNull();
         } finally {
             globalThis.Image = OriginalImage;
         }

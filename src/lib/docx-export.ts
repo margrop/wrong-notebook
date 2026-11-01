@@ -1,5 +1,6 @@
-import { normalizeFigureAlign, normalizeFigureScale, svgToDataUri } from "@/lib/figure-scale";
+import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import type { FigureAlign } from "@/lib/figure-scale";
+import { figureSvgToDataUri } from "@/lib/figure-svg";
 import { separateChoiceOptions } from "@/lib/markdown-math";
 
 /** DOCX 内嵌图片数据 */
@@ -609,7 +610,7 @@ export async function rasterizeSvgFigureForDocx(
     align?: FigureAlign | string | null,
 ): Promise<DocxEmbeddedImage | null> {
     if (!svg) return null;
-    return rasterizeImageForDocx(svgToDataUri(svg), {
+    return rasterizeImageForDocx(figureSvgToDataUri(svg), {
         scalePercent: normalizeFigureScale(scale ?? undefined),
         maxBaseWidthPx: 360,
         align,
