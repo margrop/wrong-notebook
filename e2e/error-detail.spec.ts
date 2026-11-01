@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './support/fixtures';
 import { ADMIN_PASSWORD } from './helpers';
 
 async function login(page: Page) {

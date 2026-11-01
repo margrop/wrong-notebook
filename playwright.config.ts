@@ -1,31 +1,17 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
-// 本机 3000 端口被占用时，可用 E2E_BASE_URL 指向另行启动的开发服务器
-const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000';
+const manifestFile = process.env.E2E_RUN_FILE;
+if (!manifestFile) throw new Error('请使用 npm run test:e2e，测试启动器会创建独立的应用、数据库及本地模型服务');
+const run = JSON.parse(readFileSync(manifestFile, 'utf8')) as { origin: string; reportDir: string };
+if (!['127.0.0.1', 'localhost', '::1'].includes(new URL(run.origin).hostname)) throw new Error('E2E 只能访问隔离的本地服务');
 
 export default defineConfig({
-    testDir: './e2e',
-    fullyParallel: true,
-    forbidOnly: !!process.env.CI,
-    retries: process.env.CI ? 2 : 0,
-    workers: process.env.CI ? 1 : undefined,
-    reporter: [['html', { host: '0.0.0.0' }]],
-    use: {
-        baseURL,
-        trace: 'on-first-retry',
-    },
-    webServer: {
-        command: process.env.CI ? 'npm run start' : 'npm run dev',
-        url: baseURL,
-        reuseExistingServer: !process.env.CI,
-        timeout: 120 * 1000,
-        // 注册默认关闭，注册流程用例需要开启
-        env: { ...process.env as Record<string, string>, ALLOW_REGISTRATION: 'true' },
-    },
-    projects: [
-        {
-            name: 'chromium',
-            use: { ...devices['Desktop Chrome'] },
-        },
-    ],
+    testDir: './e2e', fullyParallel: false, forbidOnly: !!process.env.CI, retries: 0, workers: 1,
+    timeout: 90000, expect: { timeout: 10000 },
+    outputDir: join(run.reportDir, 'artifacts'),
+    reporter: [['line'], ['json', { outputFile: join(run.reportDir, 'results.json') }], ['html', { outputFolder: join(run.reportDir, 'html'), open: 'never' }]],
+    use: { baseURL: run.origin, actionTimeout: 15000, navigationTimeout: 30000, trace: 'retain-on-failure', screenshot: 'only-on-failure' },
+    projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } } }],
 });

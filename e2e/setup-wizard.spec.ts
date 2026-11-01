@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './support/fixtures';
 import { ADMIN_PASSWORD } from './helpers';
 
 test('管理员可从设置重新打开安装向导，跳过各步骤后回到首页', async ({ page }) => {

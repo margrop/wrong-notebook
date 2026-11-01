@@ -1,7 +1,7 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './support/fixtures';
 import { ADMIN_PASSWORD } from './helpers';
 
-test('Admin can configure OpenAI settings with multi-instance support', async ({ page }) => {
+test('Admin can configure OpenAI settings with multi-instance support', async ({ page, scenario }) => {
     // 增加测试超时时间
     test.setTimeout(60000);
 
@@ -36,9 +36,9 @@ test('Admin can configure OpenAI settings with multi-instance support', async ({
 
     // 6. Fill instance configuration
     const instanceName = '智谱 GLM-4V';
-    const apiKey = 'sk-aaa';
-    const baseURL = 'https://new.xxx.net/v1';
-    const modelName = 'claude-haiku-4.5';
+    const apiKey = 'e2e-dummy-key';
+    const baseURL = scenario.mockBaseURL;
+    const modelName = 'e2e-mock-model';
 
     // Instance Name Input - use the actual placeholder from the component
     await page.locator('input[placeholder="e.g. GLM-4V"]').fill(instanceName);
@@ -54,16 +54,13 @@ test('Admin can configure OpenAI settings with multi-instance support', async ({
     await page.locator('input[placeholder="gpt-6.1-sol"]').fill(modelName);
 
     // 7. Save Settings
-    page.once('dialog', async dialog => {
-        console.log(`Dialog message: ${dialog.message()}`);
-        expect(dialog.message()).toMatch(/设置已保存|Settings saved/);
-        await dialog.accept();
-    });
+    const savedResponse = page.waitForResponse((response) => response.url().endsWith('/api/settings') && response.request().method() === 'POST');
 
     await page.getByRole('button', { name: /保存 AI 设置|Save AI Settings/ }).click();
 
+    expect((await savedResponse).ok()).toBeTruthy();
     // 等待保存完成
-    await page.waitForTimeout(1000);
+    await expect(page.getByRole('status').filter({ hasText: /设置已保存|Settings saved/ })).toBeVisible();
 
     // 8. Verify Persistence
     await page.reload();

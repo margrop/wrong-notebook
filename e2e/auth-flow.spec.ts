@@ -1,18 +1,18 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './support/fixtures';
 import { acceptConfirmDialog, ADMIN_PASSWORD } from './helpers';
 
 test.describe('Authentication Flow', () => {
 
-    test('Registration and fallback Login', async ({ page }) => {
+    test('Registration and fallback Login', async ({ page, scenario }) => {
         // 增加测试超时时间
         test.setTimeout(60000);
 
         const user = {
-            name: 'jason',
-            email: 'jason@qq.com',
+            name: `jason-${scenario.id}`,
+            email: `auth-${scenario.id}@example.test`,
             password: '123456',
             stage: 'junior_high',
-            year: '2024' // 使用当前年份确保有效
+            year: String(new Date().getFullYear() - 2) // 使用相对年份，避免长期运行后样本失效。
         };
 
         // --- Try Registration ---
@@ -52,7 +52,7 @@ test.describe('Authentication Flow', () => {
                 console.log('Registration error visible, going to login.');
                 await page.goto('/login');
             }
-        } catch (e) {
+        } catch {
             if (page.url().includes('/login')) {
                 console.log('Redirected to login page automatically.');
             } else {
@@ -100,7 +100,6 @@ test.describe('Authentication Flow', () => {
         await page.getByRole('tab', { name: /User Management|用户管理/ }).click();
 
         // 等待用户列表加载
-        await page.waitForTimeout(1000);
 
         // --- Delete User 'jason' ---
         // Find row with 'jason@qq.com'

@@ -499,9 +499,11 @@ npm run test:unit           # 单元测试
 npm run test:integration    # 集成测试
 npm test                    # 全部 Vitest 测试
 npm run test:coverage       # 测试覆盖率（低于最低要求时失败）
-npm run test:e2e            # Playwright E2E（先运行 node scripts/prepare-e2e.js 准备测试账号）
+npm run test:e2e            # 隔离应用、正式迁移测试库与本地模型服务，无需真实 API Key
 bash scripts/ci.sh          # 完整 CI（Node.js 22+、Python 3，含生产构建）
 ```
+
+E2E 启动器会在系统临时目录复制应用和依赖、执行正式迁移、生成测试账号并完成生产构建，随后使用本地固定模型响应运行浏览器用例。不会读取现有应用配置、复用开发服务器或访问外部模型。报告路径在命令结束时输出；可用 `npm run test:e2e -- --grep E2E-M01` 筛选用例。用例与运行边界见 [E2E 设计与验收](doc/E2E_MOCK_AI_TEST_DESIGN.md)。
 
 修改 `prisma/schema.prisma` 后使用 `npx prisma migrate dev --name <名称>` 生成正式迁移并提交；迁移须兼容已有数据。更多开发约定见 [AGENTS.md](AGENTS.md)。
 

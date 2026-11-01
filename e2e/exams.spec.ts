@@ -1,0 +1,81 @@
+import { test, expect } from './support/fixtures';
+import { viewports } from './support/flows';
+import { createExam, questionCard } from './support/exam-flows';
+import { FIGURE } from './support/mock-ai.mjs';
+
+for (const profile of viewports) {
+    test.describe(profile.name, () => {
+        test.use({ viewport: profile.viewport, isMobile: profile.isMobile, hasTouch: profile.hasTouch });
+        test('[E2E-M03] 按卷别出卷并保存配图打印及作答结果', async ({ page, scenario }) => {
+            const a = await scenario.item('A', { figureSvg: FIGURE, hasFigure: true });
+            const b = await scenario.item('B', { figureSvg: FIGURE, hasFigure: true });
+            await scenario.item('C', { paperLevel: scenario.groups.b });
+            const id = await createExam(page, scenario);
+            await expect.poll(async () => (await scenario.db.examPaper.findUniqueOrThrow({ where: { id } })).status).toBe('ready');
+            let questions = await scenario.db.examQuestion.findMany({ where: { paperId: id }, orderBy: { order: 'asc' } });
+            expect(questions.map((question) => question.errorItemId).sort()).toEqual([a.id, b.id].sort());
+            await expect(page.getByText(`${scenario.marker}变式`, { exact: false })).toBeVisible();
+            const uniform = page.getByRole('spinbutton', { name: '统一配图比例', exact: true });
+            await uniform.fill('75');
+            await uniform.locator('xpath=ancestor::form').getByRole('button', { name: '保存', exact: true }).click();
+            await expect.poll(() => scenario.db.examQuestion.count({ where: { paperId: id, figureScale: 75 } })).toBe(2);
+            const card = questionCard(page, a.shortId!);
+            const scale = card.getByRole('spinbutton', { name: '配图显示比例', exact: true });
+            await scale.fill('50');
+            await scale.locator('xpath=ancestor::form').getByRole('button', { name: '居右', exact: true }).click();
+            await scale.locator('xpath=ancestor::form').getByRole('button', { name: '保存', exact: true }).click();
+            const questionA = questions.find((question) => question.errorItemId === a.id)!;
+            await expect.poll(async () => (await scenario.db.examQuestion.findUniqueOrThrow({ where: { id: questionA.id } })).figureScale).toBe(50);
+            await page.reload();
+            await expect(questionCard(page, a.shortId!).getByRole('spinbutton', { name: '配图显示比例', exact: true })).toHaveValue('50');
+            expect(await scenario.db.errorItem.findUniqueOrThrow({ where: { id: a.id } })).toMatchObject({ figureScale: 100, figureAlign: 'center' });
+            await page.locator(`a[href="/exams/${id}/print"]`).click();
+            await page.emulateMedia({ media: 'print' });
+            questions = await scenario.db.examQuestion.findMany({ where: { paperId: id }, orderBy: { order: 'asc' } });
+            const printed = page.getByRole('img', { name: '题目配图', exact: true });
+            await expect(printed).toHaveCount(2);
+            const printedA = printed.nth(questions.findIndex((question) => question.id === questionA.id));
+            await expect(printedA).toHaveCSS('zoom', '0.5');
+            await expect(printedA).toHaveClass(/ml-auto/);
+            await printedA.evaluate((element: HTMLImageElement) => element.decode());
+            await expect.poll(() => printedA.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(0);
+            await page.emulateMedia({ media: 'screen' });
+            await page.goto(`/exams/${id}`);
+            await page.getByRole('button', { name: '录入结果', exact: true }).click();
+            await questionCard(page, a.shortId!).getByRole('radio', { name: '做对', exact: true }).click();
+            await questionCard(page, b.shortId!).getByRole('radio', { name: '做错', exact: true }).click();
+            await page.getByRole('button', { name: '保存结果', exact: true }).click();
+            await expect.poll(async () => (await scenario.records()).length).toBe(2);
+            const records = await scenario.records();
+            expect(records.every((record) => record.source === 'exam')).toBeTruthy();
+            expect(records.map((record) => record.examQuestionId).sort()).toEqual(questions.map((question) => question.id).sort());
+            await page.reload();
+            await expect(page.getByText('第 1 次', { exact: true }).first()).toBeVisible();
+            expect(await scenario.records()).toHaveLength(2);
+            await expect.poll(() => scenario.db.errorItem.count({ where: { id: { in: [a.id, b.id] }, masteryProbability: 0.7 } })).toBe(2);
+        });
+    });
+}
+
+test('[E2E-M04] 试卷部分失败后仅重试未成功题目', async ({ page, scenario }) => {
+    const a = await scenario.item('A');
+    await scenario.item('B');
+    await scenario.control({ partial: true });
+    const id = await createExam(page, scenario);
+    await expect.poll(async () => (await scenario.db.examPaper.findUniqueOrThrow({ where: { id } })).status).toBe('partial');
+    await expect(page.getByRole('button', { name: '重新生成失败的题', exact: true })).toBeVisible();
+    const before = await scenario.db.examQuestion.findMany({ where: { paperId: id }, orderBy: { order: 'asc' } });
+    const successful = before.find((question) => question.errorItemId === a.id)!;
+    expect(successful.status).toBe('ready');
+    await scenario.control({ partial: false });
+    await page.getByRole('button', { name: '重新生成失败的题', exact: true }).click();
+    await expect.poll(async () => (await scenario.db.examPaper.findUniqueOrThrow({ where: { id } })).status).toBe('ready');
+    const after = await scenario.db.examQuestion.findMany({ where: { paperId: id }, orderBy: { order: 'asc' } });
+    expect(after.map((question) => question.id)).toEqual(before.map((question) => question.id));
+    expect(after.find((question) => question.id === successful.id)).toMatchObject({ questionText: successful.questionText, figureSvg: successful.figureSvg });
+    expect((await scenario.model()).calls.filter((call) => call.operation === 'variant' && call.marker.endsWith('_A'))).toHaveLength(1);
+    expect((await scenario.model()).calls.filter((call) => call.operation === 'variant' && call.marker.endsWith('_B'))).toHaveLength(2);
+    expect(await scenario.db.examPaper.count({ where: { userId: scenario.user.id } })).toBe(1);
+    await page.reload();
+    await expect(page.getByRole('button', { name: '重新生成失败的题', exact: true })).toHaveCount(0);
+});

@@ -39,7 +39,7 @@ npm run test:integration
 npm run test:e2e
 ```
 
-E2E 用例以非默认密码登录管理员：运行前先执行 `node scripts/prepare-e2e.js`，它创建（或重置）`admin@localhost` 并把密码设为 `E2E_ADMIN_PASSWORD`（默认 `e2e-admin-pass`），并创建仍用默认密码的 `setup-admin@localhost`。本机 3000 端口被占用时，可另起开发服务器并用 `E2E_BASE_URL` 指定地址。
+运行 `npm run test:e2e` 时，启动器会自动准备隔离的生产应用、正式迁移后的临时 SQLite、测试账号及本地 Mock AI。模型仅使用固定假 Key，运行时禁止访问外部模型，也不复用现有开发服务或应用配置。报告保存在系统临时目录，命令结束时输出路径。筛选示例：`npm run test:e2e -- --grep E2E-M01`。
 
 CI 会运行 `npm run lint`，出现任何 ESLint 错误或警告都会失败。
 
