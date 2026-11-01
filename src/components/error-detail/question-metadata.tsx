@@ -72,7 +72,7 @@ export function QuestionMetadata({ item, onChanged }: QuestionMetadataProps) {
             ) : (
                 <div className="space-y-2 text-sm">
                     <div className="flex justify-between"><span className="text-muted-foreground">{t.notebooks?.title || "Notebook"}:</span><span className="font-medium">{item.subject?.name || notSet}</span></div>
-                    <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-muted-foreground">{t.editor.gradeSemester}:</span><div className="flex flex-wrap items-center gap-2"><span className="font-medium">{item.gradeSemester || notSet}</span><EditButton onClick={field.start} label={t.gradeSelection.edit} /></div></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">{t.editor.gradeSemester}:</span><span className="font-medium">{item.gradeSemester || notSet}</span></div>
                     <div className="flex justify-between"><span className="text-muted-foreground">{t.filter.paperLevel}:</span><span className="font-medium">{groupName(item.paperLevel)}</span></div>
                 </div>
             )}

@@ -45,10 +45,11 @@ for (const viewport of [{ name: '桌面', width: 1280, height: 900 }, { name: '�
 
             // 无所属错题本也能保存年级，刷新后仍保留手工选择。
             await page.goto(`/error-items/${fixed.id}`);
-            await page.getByRole('button', { name: '编辑年级/学期' }).click();
+            const editMetadataButton = page.getByRole('heading', { name: '试卷信息' }).locator('..').getByRole('button', { name: '编辑' });
+            await editMetadataButton.click();
             await page.locator('#detail-grade-semester').selectOption('初二上');
             await page.getByRole('button', { name: '保存', exact: true }).click();
-            await expect(page.getByRole('button', { name: '编辑年级/学期' })).toBeVisible();
+            await expect(editMetadataButton).toBeVisible();
             await page.reload();
             expect((await (await page.request.get(`/api/error-items/${fixed.id}`)).json()).gradeSemester).toBe('初二上');
 

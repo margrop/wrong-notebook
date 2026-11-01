@@ -58,10 +58,16 @@ async function click(label: string) {
     await act(async () => [...container.querySelectorAll('button')].find((button) => button.textContent === label)!.click());
 }
 
-describe('题目年级编辑入口', () => {
+describe('题目试卷信息编辑入口', () => {
+    it('只渲染一个编辑按钮，避免与年级行重复', async () => {
+        await render('初一，上期', 'group-a');
+        expect(container.querySelectorAll('button')).toHaveLength(1);
+        expect(container.querySelector('button')!.textContent).toBe('编辑');
+    });
+
     it.each([undefined, 'group-a', 'inactive-group'])('修改年级时不重复提交未改变的卷别 %s', async (paperLevel) => {
         await render('初一，上期', paperLevel);
-        await click('编辑年级/学期');
+        await click('编辑');
         const select = container.querySelector<HTMLSelectElement>('#detail-grade-semester')!;
         expect(select.value).toBe('初一，上期');
         await act(async () => {
@@ -75,7 +81,7 @@ describe('题目年级编辑入口', () => {
 
     it('手工改组时提交选中的卷别分组 ID', async () => {
         await render('初二上', 'group-a');
-        await click('编辑年级/学期');
+        await click('编辑');
         const select = [...container.querySelectorAll('select')].find((element) => element.value === 'group-a')!;
         await act(async () => {
             select.value = 'group-b';
@@ -88,7 +94,7 @@ describe('题目年级编辑入口', () => {
 
     it('保留旧的自定义年级，取消时不保存', async () => {
         await render('大学拓展课程');
-        await click('编辑年级/学期');
+        await click('编辑');
         expect(container.querySelector<HTMLSelectElement>('#detail-grade-semester')!.value).toBe('大学拓展课程');
         await click('取消');
         expect(apiClient.put).not.toHaveBeenCalled();

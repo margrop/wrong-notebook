@@ -32,10 +32,11 @@ test('[E2E-M02] 卷别新增改名停用同步到录入筛选与历史题目', a
     await page.keyboard.press('Escape');
     await page.goto(`/error-items/${saved.id}`);
     await expect(page.getByText(renamed, { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: '编辑年级/学期' }).click();
+    const editMetadataButton = page.getByRole('heading', { name: '试卷信息' }).locator('..').getByRole('button', { name: '编辑' });
+    await editMetadataButton.click();
     await page.locator('#detail-grade-semester').selectOption('高二下');
     await page.getByRole('button', { name: '保存', exact: true }).click();
-    await expect(page.getByRole('button', { name: '编辑年级/学期' })).toBeVisible();
+    await expect(editMetadataButton).toBeVisible();
     await page.reload();
     await expect(page.getByText('高二下', { exact: true })).toBeVisible();
     expect((await scenario.db.errorItem.findUniqueOrThrow({ where: { id: saved.id } })).paperLevel).toBe(group.id);
