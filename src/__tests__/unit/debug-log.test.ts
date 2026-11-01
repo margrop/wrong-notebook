@@ -84,6 +84,24 @@ describe('调试日志脱敏', () => {
         expect(text).toContain('&a=1');
     });
 
+    it('攻击者控制的原型键只作为自有数据属性保存，嵌套密钥仍脱敏', () => {
+        const input = JSON.parse('{"__proto__":{"polluted":true,"apiKey":"fixture-secret"},"constructor":{"prototype":{"polluted":true}},"safe":"ok"}') as Record<string, unknown>;
+        const result = sanitizeForDebug(input) as Record<string, unknown>;
+        expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+        expect(Object.hasOwn(result, '__proto__')).toBe(true);
+        expect(Object.getOwnPropertyDescriptor(result, '__proto__')?.value).toEqual({ polluted: true, apiKey: '[REDACTED]' });
+        expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+        expect(JSON.stringify(result)).not.toContain('fixture-secret');
+        expect(JSON.parse(JSON.stringify(result))).toHaveProperty('safe', 'ok');
+
+        setDebugMode(true);
+        recordDebugLog('info', input, 'prototype input');
+        const entry = getDebugLogEntries()[0];
+        expect(Object.getPrototypeOf(entry)).toBe(Object.prototype);
+        expect(Object.hasOwn(entry, '__proto__')).toBe(true);
+        expect(JSON.stringify(entry)).not.toContain('fixture-secret');
+    });
+
     it('超长字符串截断，循环引用和 Error 可序列化', () => {
         const circular: Record<string, unknown> = { name: 'a' };
         circular.self = circular;

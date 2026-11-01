@@ -150,13 +150,13 @@ export function sanitizeForDebug(value: unknown, depth = 0, seen: WeakSet<object
         return `[Binary ${value.byteLength} bytes]`;
     }
 
-    const result: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(value)) {
-        result[key] = SENSITIVE_KEY_PATTERN.test(key) && item !== undefined && item !== null && item !== ''
+    // fromEntries 创建自有数据属性，避免 __proto__ 等输入键触发原型 setter。
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+        key,
+        SENSITIVE_KEY_PATTERN.test(key) && item !== undefined && item !== null && item !== ''
             ? REDACTED
-            : sanitizeForDebug(item, depth + 1, seen);
-    }
-    return result;
+            : sanitizeForDebug(item, depth + 1, seen),
+    ]));
 }
 
 /** 写入一条调试日志；调试模式关闭时直接返回 */
