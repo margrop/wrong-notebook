@@ -207,9 +207,16 @@ export const DIFFICULTY_STARS_RULES = `请参考《高思学校竞赛数学导�
  */
 export const FIGURE_SVG_RULES = `- 输出一个完整的 <svg> 元素，包含 xmlns="http://www.w3.org/2000/svg" 和 viewBox（建议宽 400~600），不要用 Markdown 代码块包裹。
 - 白色背景、黑色线条（stroke="#000"，线宽 1.5~2），需要区分的区域可用浅灰填充；不要使用彩色装饰。
-- 按原图比例和相对位置绘制，保留所有标注：顶点字母、数字、长度、角度、单位、箭头和虚线等，文字用 <text>（font-size 14~18）。
+- 按原图比例和相对位置绘制，保留原题印刷标注：顶点字母、数字、长度、角度、单位、箭头和虚线等，文字用 <text>（font-size 14~18）；必须过滤掉人在图上手写的草稿、演算、思考批注、圈画和涂改痕迹。
 - 只使用基本图形元素：line、polyline、polygon、rect、circle、ellipse、path、text、g、defs、marker。
 - 严禁使用 <image>、<script>、<foreignObject>、外部链接、外部字体或事件属性。`;
+
+/**
+ * 过滤图片中人的思考过程与草稿演算的规则（图片解析、重新解题共用）
+ */
+export const DRAFT_FILTER_RULES = `【过滤草稿与思考过程规则】
+- question_text 只转录原题本身，必须过滤掉图片中人的思考过程、手写草稿、竖式演算、试算过程、审题圈画、旁批注释以及填在横线或括号里的手写答案；已被手写填入答案的填空处必须还原为空白（____ 或空括号）。
+- wrong_answer_text 和 mistake_analysis 只记录和分析学生针对本题写出的正式错误答案或正式解题步骤，必须过滤掉空白处或题干旁的零散草稿、竖式演算、试算涂改和人的思考批注；若图片中仅有草稿或思考痕迹而无正式错误作答，wrong_answer_text 和 mistake_analysis 必须留空。`;
 
 /**
  * LaTeX 书写规则：页面用 KaTeX 渲染，只支持其中的命令（识别、举一反三、重新解题、修复公式共用）
@@ -254,11 +261,11 @@ ${FIGURE_SVG_RULES}
 </figure_svg>
 
 <wrong_answer_text>
-如果图片中包含学生已经写出的错误解答、错误步骤、草稿或错误答案，请尽量按原样摘录；如果没有看到学生错误解答，请留空。
+如果图片中包含学生针对本题提交的正式错误答案或正式解题步骤，请按原样摘录；必须过滤掉空白处或题干旁的草稿、竖式演算、试算数字、涂改痕迹、审题圈画以及人的思考过程批注。如果图片中只有草稿/思考痕迹或没有看到正式错误解答，请留空。
 </wrong_answer_text>
 
 <mistake_status>
-填写以下值之一：wrong_attempt（图片中有错误解答或错误步骤）、not_attempted（没有错误解答，像是完全不会做或未作答）、unknown（无法判断）。
+填写以下值之一：wrong_attempt（图片中有明确的正式错误答案或正式错误步骤；仅有草稿、涂改或思考批注不算作答）、not_attempted（没有正式错误解答，像是不会做、未作答或仅有草稿/思考痕迹）、unknown（无法判断）。
 </mistake_status>
 
 <difficulty_stars>
@@ -267,16 +274,17 @@ ${DIFFICULTY_STARS_RULES}
 </difficulty_stars>
 
 <mistake_analysis>
-如果图片中包含错误解答，请分析错误可能发生在哪一步、为什么错、导致了什么后果；如果没有错误解答，请留空。
+如果图片中包含学生的正式错误解答，请分析错误可能发生在哪一步、为什么错、导致了什么后果；必须忽略零散草稿和人的思考过程，如果没有正式错误解答，请留空。
 </mistake_analysis>
 
 <question_text>
 在此处填写题目的完整文本。使用 Markdown 格式。所有数学公式使用 LaTeX 符号（行内 $...$，块级 $$...$$）。
 
 【题干转录规则】
-1. **逐字照录**：按图片原文转录题干（含题号、分值和标点），不要改写、概括、增删字词或调整语序；看不清的字用 [?] 标注。
-2. **填空统一**：所有填空处统一写作 ____（4 个下划线），不论原图横线长短。
-3. **图形描述**：如果题目依赖图形，在题干原文之后空一行，单独写**一段**以「图示：」开头的图形描述；只能使用「图示：」这一种写法（不要写「图示信息」「图示说明」等），描述中不要重复题干已有的文字。题目不依赖图形时不要写图示段落。
+1. **逐字照录**：只按图片原题转录题干（含题号、分值和标点），不要改写、概括、增删字词或调整语序；看不清的字用 [?] 标注。
+2. **过滤草稿与思考过程**：必须过滤掉图片中人的手写草稿、竖式演算、试算算式、思考过程批注、审题圈画、涂改痕迹以及学生在横线或括号中填入的答案，严禁将草稿或人的思考过程记录进 question_text。
+3. **填空统一**：所有填空处（含已被学生手写填入答案的横线）统一还原写作 ____（4 个下划线），不论原图横线长短。
+4. **图形描述**：如果题目依赖图形，在题干原文之后空一行，单独写**一段**以「图示：」开头的图形描述；只能使用「图示：」这一种写法（不要写「图示信息」「图示说明」等），描述中不要重复题干已有的文字，且不要包含学生的手写草稿或作答痕迹。题目不依赖图形时不要写图示段落。
 
 【表格处理规则】
 如果图片中包含表格，必须完整转录表格内容，遵循以下原则：
@@ -595,8 +603,8 @@ ${englishTagsString}`;
     grade_instruction: generateGradeInstruction(gradeSemester),
     provider_hints: options?.providerHints || ''
   }).trim() + '\n\n' + [
-    '请完整识别用户图片中的题目、独立求解，并仅根据可见作答分析错因。',
-    generateOutputContract('analyze'), langInstruction, LATEX_RULES,
+    '请完整识别用户图片中的题目、独立求解，并仅根据可见的正式作答分析错因，过滤掉草稿与人的思考过程。',
+    generateOutputContract('analyze'), DRAFT_FILTER_RULES, langInstruction, LATEX_RULES,
     generateGradeInstruction(gradeSemester), generateGradeRecognitionInstruction(gradeSemester),
     tagsSection, DIFFICULTY_STARS_RULES,
     '有配图时必须输出 figure_svg；无配图时留空。' + FIGURE_SVG_RULES,
@@ -694,15 +702,15 @@ export const DEFAULT_REANSWER_TEMPLATE = `【角色与核心任务 (ROLE AND COR
 </knowledge_points>
 
 <wrong_answer_text>
-请只根据校正后的题目文本和当前图片中可见的学生作答痕迹重新判断学生错误解答。如果当前图片中可见错误解答、错误步骤、草稿或错误答案，请尽量按原样摘录；如果看不到学生作答痕迹，请留空，不要猜测。
+请只根据校正后的题目文本和当前图片中可见的学生作答痕迹重新判断学生错误解答。如果当前图片中可见正式错误答案或正式错误步骤，请按原样摘录；必须过滤掉空白处或题干旁的草稿、竖式演算、试算涂改、审题圈画和人的思考过程批注。如果只有草稿/思考痕迹或看不到学生作答痕迹，请留空，不要猜测。
 </wrong_answer_text>
 
 <mistake_status>
-重新判断并填写以下值之一：wrong_attempt（当前题目文本或当前图片中明确有错误解答或错误步骤）、not_attempted（当前图片明确显示未作答或空白）、unknown（看不到学生作答痕迹或无法判断）。不要猜测。
+重新判断并填写以下值之一：wrong_attempt（当前题目文本或当前图片中明确有正式错误答案或正式错误步骤；仅有草稿或思考批注不算作答）、not_attempted（当前图片明确显示未作答、空白，或仅有草稿/思考痕迹）、unknown（看不到学生作答痕迹或无法判断）。不要猜测。
 </mistake_status>
 
 <mistake_analysis>
-请基于校正后的题目和当前图片中可见的学生作答痕迹重新判断错因。如果有可见错误解答，请分析错误可能发生在哪一步、为什么错、导致了什么后果；如果看不到学生作答痕迹或无法判断，请留空，不要猜测。
+请基于校正后的题目和当前图片中可见的学生作答痕迹重新判断错因。如果有可见的正式错误解答，请分析错误可能发生在哪一步、为什么错、导致了什么后果；必须忽略零散草稿和人的思考过程，如果看不到学生作答痕迹或无法判断，请留空，不要猜测。
 </mistake_analysis>
 
 <subject>
@@ -1058,8 +1066,8 @@ export function generateReanswerPrompt(
     grade_instruction: generateGradeInstruction(gradeSemester),
     provider_hints: options?.providerHints || ''
   }).trim() + '\n\n' + [
-    '请以校正后的题目文本为准重新解答，图片仅用于补充图形及可见作答。',
-    generateOutputContract('reanswer'), langInstruction, LATEX_RULES,
+    '请以校正后的题目文本为准重新解答，图片仅用于补充图形及可见的正式作答，过滤掉草稿与人的思考过程。',
+    generateOutputContract('reanswer'), DRAFT_FILTER_RULES, langInstruction, LATEX_RULES,
     generateGradeInstruction(gradeSemester), generateGradeRecognitionInstruction(gradeSemester),
     DIFFICULTY_STARS_RULES,
     options?.candidateTags ? `只能从候选知识点中选择，名称必须完全一致，最多 5 个；无可用标签时留空：${options.candidateTags.tags.join('、')}` : '',

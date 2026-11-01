@@ -123,7 +123,7 @@ describe('AI Prompts', () => {
             expect(prompt).not.toContain('{{provider_hints}}');
         });
 
-        it('应该要求 AI 输出错因分析相关 XML 标签', () => {
+        it('应该要求 AI 输出错因分析相关 XML 标签并过滤人的思考和草稿', () => {
             const prompt = generateAnalyzePrompt('zh', null, '数学');
             expect(prompt).toContain('<wrong_answer_text>');
             expect(prompt).toContain('<mistake_status>');
@@ -131,6 +131,9 @@ describe('AI Prompts', () => {
             expect(prompt).toContain('wrong_attempt');
             expect(prompt).toContain('not_attempted');
             expect(prompt).toContain('unknown');
+            expect(prompt).toContain('【过滤草稿与思考过程规则】');
+            expect(prompt).toContain('必须过滤掉图片中人的思考过程、手写草稿');
+            expect(prompt).not.toContain('草稿或错误答案，请尽量按原样摘录');
         });
     });
 
@@ -241,11 +244,13 @@ describe('AI Prompts', () => {
             expect(prompt).toContain('重新判断');
         });
 
-        it('重新解题提示词不应允许无依据推断学生错因', () => {
+        it('重新解题提示词不应允许无依据推断学生错因，并要求过滤草稿和思考过程', () => {
             const prompt = generateReanswerPrompt('zh', questionText, '数学');
             expect(prompt).not.toContain('推断');
             expect(prompt).toContain('不要猜测');
             expect(prompt).toContain('当前图片中可见');
+            expect(prompt).toContain('【过滤草稿与思考过程规则】');
+            expect(prompt).not.toContain('草稿或错误答案，请尽量按原样摘录');
         });
     });
 

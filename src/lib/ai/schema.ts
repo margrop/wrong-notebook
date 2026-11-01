@@ -59,10 +59,17 @@ export const MasteryEvaluationSchema = z.object({
 });
 
 /**
+ * 过滤推理模型在回复文本中输出的 <think> / <thinking> 思考过程块
+ */
+export function stripThinkingTags(text: string): string {
+    return text.replace(/<(think|thinking)\b[^>]*>[\s\S]*?<\/\1>/gi, '').trim();
+}
+
+/**
  * 从 AI 文本回复中提取 JSON 对象（兼容 markdown 代码块和前后多余文本）
  */
 export function extractJsonObject(text: string): unknown {
-    let jsonStr = text.trim();
+    let jsonStr = stripThinkingTags(text);
     const blockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (blockMatch) {
         jsonStr = blockMatch[1].trim();

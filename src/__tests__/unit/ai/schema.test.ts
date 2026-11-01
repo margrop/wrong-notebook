@@ -4,7 +4,7 @@
  * 测试 Zod 验证 schema，特别是新增的错因分析字段
  */
 import { describe, it, expect } from 'vitest';
-import { ParsedQuestionSchema, safeParseParsedQuestion, parseMasteryEvaluation, extractJsonObject, normalizeSubject, parseTagSuggestion, parseDifficultyStars } from '@/lib/ai/schema';
+import { ParsedQuestionSchema, safeParseParsedQuestion, parseMasteryEvaluation, extractJsonObject, normalizeSubject, parseTagSuggestion, parseDifficultyStars, stripThinkingTags } from '@/lib/ai/schema';
 
 describe('ParsedQuestionSchema 验证', () => {
     const validBaseQuestion = {
@@ -150,8 +150,10 @@ describe('ParsedQuestionSchema 验证', () => {
 });
 
 describe('掌握概率解析与学科规范化', () => {
-    it('兼容代码块和前后多余文字', () => {
+    it('兼容代码块和前后多余文字，并过滤推理模型的思考块', () => {
         expect(extractJsonObject('结果：```json\n{"a": 1}\n```')).toEqual({ a: 1 });
+        expect(extractJsonObject('<think>{"a": 999}</think>{"a": 1}')).toEqual({ a: 1 });
+        expect(stripThinkingTags('<thinking>先草稿演算\n<question_text>伪题干</question_text></thinking><question_text>真题干</question_text>')).toBe('<question_text>真题干</question_text>');
         expect(parseMasteryEvaluation('好的 {"probability": "64", "reason": "一般"} 以上')).toEqual({ probability: 0.64, reason: '一般' });
     });
 

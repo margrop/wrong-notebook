@@ -5,7 +5,7 @@ import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
-import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure } from './schema';
+import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure, stripThinkingTags } from './schema';
 import { getAppConfig } from '../config';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
@@ -94,16 +94,17 @@ export class GeminiProvider implements AIService {
     }
 
     private extractTag(text: string, tagName: string): string | null {
+        const cleaned = stripThinkingTags(text);
         const startTag = `<${tagName}>`;
         const endTag = `</${tagName}>`;
-        const startIndex = text.indexOf(startTag);
-        const endIndex = text.lastIndexOf(endTag);
+        const startIndex = cleaned.indexOf(startTag);
+        const endIndex = cleaned.lastIndexOf(endTag);
 
         if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
             return null;
         }
 
-        return text.substring(startIndex + startTag.length, endIndex).trim();
+        return cleaned.substring(startIndex + startTag.length, endIndex).trim();
     }
 
     private parseResponse(text: string): ParsedQuestion {

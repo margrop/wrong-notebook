@@ -7,7 +7,7 @@ import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
 import { getAppConfig } from '../config';
-import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure } from './schema';
+import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure, stripThinkingTags } from './schema';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
 import { AI_OUTPUT_TRUNCATED, withTruncationRetry } from './truncation';
@@ -94,9 +94,10 @@ export class OpenAIProvider implements AIService {
     }
 
     private extractTag(text: string, tagName: string): string | null {
+        const cleaned = stripThinkingTags(text);
         const startTag = `<${tagName}>`;
         const endTag = `</${tagName}>`;
-        const startIndex = text.indexOf(startTag);
+        const startIndex = cleaned.indexOf(startTag);
 
         // 如果找不到开始标签，返回 null
         if (startIndex === -1) {
@@ -104,20 +105,20 @@ export class OpenAIProvider implements AIService {
         }
 
         const contentStartIndex = startIndex + startTag.length;
-        const endIndex = text.lastIndexOf(endTag);
+        const endIndex = cleaned.lastIndexOf(endTag);
 
         // 特殊处理：如果闭合标签丢失（通常主要发生在最后的 analysis 标签被截断时）
         // 我们尝试读取到字符串末尾
         if (endIndex === -1 && tagName === 'analysis') {
             logger.warn({ tagName }, 'Tag was verified unclosed, treating as truncated and reading to end');
-            return text.substring(contentStartIndex).trim();
+            return cleaned.substring(contentStartIndex).trim();
         }
 
         if (endIndex === -1 || contentStartIndex >= endIndex) {
             return null;
         }
 
-        return text.substring(contentStartIndex, endIndex).trim();
+        return cleaned.substring(contentStartIndex, endIndex).trim();
     }
 
     private parseResponse(text: string): ParsedQuestion {

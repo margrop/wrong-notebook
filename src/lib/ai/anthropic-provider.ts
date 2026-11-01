@@ -6,7 +6,7 @@ import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
 import { getAppConfig } from '../config';
-import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, extractJsonObject, parseDifficultyStars, parseFigure } from './schema';
+import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, extractJsonObject, parseDifficultyStars, parseFigure, stripThinkingTags } from './schema';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
 import { trimTrailingSlashes } from '../utils';
@@ -50,23 +50,24 @@ function imageBlock(base64: string, mimeType?: string): Anthropic.ImageBlockPara
 
 /** 提取 <tag>…</tag> 内容；analysis 未闭合时视为被截断，读取到末尾 */
 function extractTag(text: string, tagName: string): string | null {
+    const cleaned = stripThinkingTags(text);
     const startTag = `<${tagName}>`;
     const endTag = `</${tagName}>`;
-    const startIndex = text.indexOf(startTag);
+    const startIndex = cleaned.indexOf(startTag);
     if (startIndex === -1) {
         return null;
     }
 
     const contentStartIndex = startIndex + startTag.length;
-    const endIndex = text.lastIndexOf(endTag);
+    const endIndex = cleaned.lastIndexOf(endTag);
     if (endIndex === -1 && tagName === 'analysis') {
         logger.warn({ tagName }, 'Tag was verified unclosed, treating as truncated and reading to end');
-        return text.substring(contentStartIndex).trim();
+        return cleaned.substring(contentStartIndex).trim();
     }
     if (endIndex === -1 || contentStartIndex >= endIndex) {
         return null;
     }
-    return text.substring(contentStartIndex, endIndex).trim();
+    return cleaned.substring(contentStartIndex, endIndex).trim();
 }
 
 function splitKnowledgePoints(raw: string | null): string[] {
