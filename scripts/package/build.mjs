@@ -262,7 +262,7 @@ function buildNpm() {
         bugs: 'https://github.com/margrop/wrong-notebook/issues',
         license: 'MIT',
         bin: { 'wrong-notebook': 'bin/wrong-notebook.js' },
-        files: ['bin', 'launcher.js', 'server.js', '.next', 'public', 'prisma', 'README.md', 'LICENSE'],
+        files: ['bin', 'launcher.js', 'server.js', '.next', 'public', 'prisma', 'dist-scripts', 'README.md', 'LICENSE'],
         engines: { node: '>=22.15' },
         scripts: { postinstall: 'node bin/wrong-notebook.js prepare-client' },
         dependencies: readJson(path.join(WORK, 'runtime-dependencies.json')),

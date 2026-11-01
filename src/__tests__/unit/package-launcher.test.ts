@@ -49,4 +49,10 @@ describe('package launcher', () => {
             fs.rmSync(dir, { recursive: true, force: true });
         }
     });
+
+    it('npm 打包文件列表包含启动时同步语文标签所需的 dist-scripts', () => {
+        const buildScript = fs.readFileSync(path.resolve(__dirname, '../../../scripts/package/build.mjs'), 'utf8');
+        const match = /files:\s*\[([^\]]+)\]/.exec(buildScript);
+        expect(match?.[1]).toContain("'dist-scripts'");
+    });
 });
