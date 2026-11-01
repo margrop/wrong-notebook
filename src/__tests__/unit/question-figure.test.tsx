@@ -50,6 +50,19 @@ describe('题目配图', () => {
         expect(markup(false)).toContain('src="/photo.png"');
         expect(markup(false)).toContain('max-width:70%');
         expect(markup(false)).not.toContain('question-figure');
+
+        const fillMarkup = renderToStaticMarkup(
+            <LanguageProvider>
+                <PrintableQuestion item={{ ...item, questionText: '1 + 1 = ____' }} index={0} reserveAnswerSpace={true} options={{ showQuestionText: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }} />
+            </LanguageProvider>,
+        );
+        const solutionMarkup = renderToStaticMarkup(
+            <LanguageProvider>
+                <PrintableQuestion item={{ ...item, questionText: '已知二次函数，求其最小值及对称轴。' }} index={0} reserveAnswerSpace={true} options={{ showQuestionText: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }} />
+            </LanguageProvider>,
+        );
+        expect(fillMarkup).toContain('min-height:16px');
+        expect(solutionMarkup).toContain('min-height:240px');
     });
 
     it('试卷配图支持单题与全卷统一调整比例和显示位置，无配图时不渲染控件', () => {

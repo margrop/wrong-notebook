@@ -3,6 +3,7 @@
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { QuestionFigure } from "@/components/question-figure";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getAnswerSpacePx } from "@/lib/exam-answer-space";
 import { usePaperGroups } from "@/lib/use-paper-groups";
 import type { PrintableErrorItem } from "@/types/api";
 import type { PrintDisplayOptions } from "./print-options";
@@ -34,9 +35,10 @@ export function PrintableQuestion({ item, index, options, reserveAnswerSpace }: 
     const paperGroupName = item.paperLevel
         ? paperGroups.find((g) => g.id === item.paperLevel)?.name || item.paperLevel
         : null;
+    const answerSpacePx = reserveAnswerSpace ? getAnswerSpacePx("auto", item.questionText || "") : 0;
 
     return (
-        <div className={`mb-4 border-b last:border-b-0 print:break-inside-avoid ${reserveAnswerSpace ? "pb-20 print:pb-16" : "pb-6"}`}>
+        <div className={`mb-4 border-b last:border-b-0 print:break-inside-avoid ${reserveAnswerSpace ? "pb-4" : "pb-6"}`}>
             <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 leading-7">
                 <span className="text-lg font-bold">
                     {t.printPreview?.questionNumber?.replace('{num}', String(index + 1)) || `Question ${index + 1}`}
@@ -95,6 +97,10 @@ export function PrintableQuestion({ item, index, options, reserveAnswerSpace }: 
                     <h3 className="font-semibold mb-2">{t.printPreview?.analysis || 'Analysis'}:</h3>
                     <MarkdownRenderer content={item.analysis} />
                 </div>
+            )}
+
+            {reserveAnswerSpace && (
+                <div className="print-answer-space" style={{ minHeight: `${answerSpacePx}px` }} />
             )}
         </div>
     );

@@ -14,6 +14,7 @@ describe('detectQuestionKind', () => {
     it('识别逐行或同行排列的选项为选择题', () => {
         expect(detectQuestionKind('下列哪个数是质数？\nA. 4\nB. 6\nC. 7\nD. 9')).toBe('choice');
         expect(detectQuestionKind('计算 $2+3$ 的值（ ）  A．4  B．5  C．6  D．7')).toBe('choice');
+        expect(detectQuestionKind('下列正确的是（ ） A. x=1 B. x=2 C. x=3 D. x=4')).toBe('choice');
         expect(detectQuestionKind('Which is prime? (A) 4 (B) 6 (C) 7 (D) 9')).toBe('choice');
     });
 
@@ -27,11 +28,14 @@ describe('detectQuestionKind', () => {
         expect(detectQuestionKind('True or False: every square is a rectangle.')).toBe('judgment');
     });
 
-    it('识别下划线、空括号等填空标记', () => {
+    it('识别下划线、空括号等填空标记，而多小问或证明解答题仍按大题处理', () => {
         expect(detectQuestionKind('$3 \\times 4 =$ ______。')).toBe('fill');
         expect(detectQuestionKind('一个三角形的内角和是（ ）度。')).toBe('fill');
+        expect(detectQuestionKind('2 + 3 = ()')).toBe('fill');
         expect(detectQuestionKind('圆的周长公式是 \\_\\_\\_。')).toBe('fill');
         expect(detectQuestionKind('$x = \\underline{\\quad}$')).toBe('fill');
+        expect(detectQuestionKind('已知函数。（1）当 x=1 时，y=____；（2）求函数的最小值。')).toBe('solution');
+        expect(detectQuestionKind('如图，已知 AB=____，求证：△ABC ≌ △DEF。')).toBe('solution');
     });
 
     it('乘号和函数括号不影响判断，其余按解答题处理', () => {

@@ -19,37 +19,40 @@ export const FIXED_ANSWER_SPACE_PX: Record<Exclude<AnswerSpaceMode, 'auto'>, num
 /** 从题干识别出的题型 */
 export type QuestionKind = 'choice' | 'judgment' | 'fill' | 'solution';
 
-/** 自动模式下各题型的留白高度（px） */
+/** 自动模式下各题型的留白高度（px）：选择、判断、填空在题干内作答不留大间隔，大题放大写题空间 */
 export const AUTO_ANSWER_SPACE_PX: Record<QuestionKind, number> = {
-    choice: 40,
-    judgment: 32,
-    fill: 64,
-    solution: 180,
+    choice: 12,
+    judgment: 12,
+    fill: 16,
+    solution: 240,
 };
 
 /** 解答题每多一个小问增加的留白，以及解答题留白上限 */
-export const SOLUTION_EXTRA_PER_PART_PX = 100;
-export const SOLUTION_MAX_PX = 480;
+export const SOLUTION_EXTRA_PER_PART_PX = 120;
+export const SOLUTION_MAX_PX = 560;
 
 export function isAnswerSpaceMode(value: unknown): value is AnswerSpaceMode {
     return typeof value === 'string' && (ANSWER_SPACE_MODES as readonly string[]).includes(value);
 }
 
-// 选项标记：行首或两个以上空白后的 A. / B、/ C：，或括号包住的 (A) / （B）；
+// 选项标记：行首或空白后的 A. / B．/ C: / D：，行首或两个以上空白后的 A、，或括号包住的 (A) / （B）；
 // 不认单个空格后的“A、B 两地”，避免把几何点名、地名当作选项
-const CHOICE_MARK = /(?:(?:^|\s{2,})([A-D])\s*[.．、:：]|[(（]([A-D])[)）])/gm;
+const CHOICE_MARK = /(?:(?:^|[\s*+-])([A-D])\s*[.．:：]|(?:^|\s{2,})([A-D])\s*、|[(（]([A-D])[)）])/gm;
 const JUDGMENT_HINT = /判断(?:下列|以下|正误|对错|题)|对的(?:打|画)|错的(?:打|画)|true\s*(?:or|\/)\s*false/i;
-// 填空标记：下划线（含 Markdown 转义）、\underline、全角空括号、含空格的半角空括号
-const FILL_MARK = /_{3,}|(?:\\_){2,}|\\underline|（\s*）|\(\s+\)|填空/;
+// 填空标记：下划线（含 Markdown 转义）、LaTeX 横线/空白、全角/半角空括号、方括号或句末等号
+const FILL_MARK = /_{2,}|(?:\\_){2,}|\\underline|\\rule\b|\\hspace\b|（\s*）|【\s*】|\[\s+\]|(?<![A-Za-z0-9_])\(\s*\)|[=＝]\s*[。？?]?\s*$|填空/;
+// 解答/证明题提示词：即使带有局部横线或括号，仍需完整写题空间
+const SOLUTION_HINT = /求证|证明[：:，,]|写出(?:解题|计算|推导|推理)?过程|解答下列|试说明理由|请说明理由/;
 // 小问编号：全角（1）任意位置，半角 (1) 只认行首或句读之后，避免把 f(1) 当作小问
 const PART_MARK_FULL = /（\s*(\d{1,2})\s*）/g;
 const PART_MARK_HALF = /(?:^|[\n。；;：:？?！!]\s*)\(\s*(\d{1,2})\s*\)/g;
 
 /** 根据题干文字推断题型；无法识别时按解答题处理 */
 export function detectQuestionKind(text: string): QuestionKind {
-    const letters = new Set(Array.from(text.matchAll(CHOICE_MARK), (match) => match[1] ?? match[2]));
+    const letters = new Set(Array.from(text.matchAll(CHOICE_MARK), (match) => match[1] ?? match[2] ?? match[3]));
     if (letters.has('A') && letters.has('B') && letters.has('C')) return 'choice';
     if (JUDGMENT_HINT.test(text)) return 'judgment';
+    if (countQuestionParts(text) > 1 || SOLUTION_HINT.test(text)) return 'solution';
     if (FILL_MARK.test(text)) return 'fill';
     return 'solution';
 }

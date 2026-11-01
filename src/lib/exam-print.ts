@@ -10,7 +10,7 @@ export const EXAM_PRINT_CSS = `
 .exam-sheet .exam-question { break-inside: avoid; page-break-inside: avoid; padding: 12px 0; border-bottom: 1px dashed #ccc; }
 .exam-sheet .exam-question-head { display: flex; justify-content: space-between; gap: 12px; font-weight: 600; }
 .exam-sheet .exam-source { font-family: ui-monospace, Menlo, monospace; font-weight: 400; font-size: 12px; color: #666; white-space: nowrap; }
-.exam-sheet .exam-answer-space { min-height: 120px; }
+.exam-sheet .exam-answer-space { min-height: 0; }
 .exam-sheet .exam-answer-key { break-before: page; page-break-before: always; padding-top: 8px; }
 .exam-sheet .exam-answer-key h2 { text-align: center; font-size: 18px; margin: 0 0 12px; }
 .exam-sheet .exam-label { font-weight: 600; color: #444; }
