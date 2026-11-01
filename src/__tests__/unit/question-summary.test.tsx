@@ -53,9 +53,10 @@ describe('buildQuestionSummary', () => {
 /** 渲染摘要，返回 HTML 与去掉标签后的可见文字（不含 KaTeX 隐藏的 MathML 源码） */
 function renderSummary(text: string) {
     const html = renderToStaticMarkup(<QuestionSummary text={text} maxLength={80} />);
-    const visible = html
-        .replace(/<span class="katex-mathml">[\s\S]*?<\/math><\/span>/g, '')
-        .replace(/<[^>]+>/g, '');
+    // 在惰性文档中读取文字，避免将不完整的正则标签删除当作 HTML 解析。
+    const document = new DOMParser().parseFromString(html, 'text/html');
+    document.querySelectorAll('.katex-mathml').forEach((node) => node.remove());
+    const visible = document.body.textContent ?? '';
     return { html, visible };
 }
 
@@ -65,6 +66,16 @@ describe('QuestionSummary', () => {
         expect(html).toContain('class="katex"');
         expect(visible).toContain('已知');
         expect(visible).not.toContain('\\');
+    });
+
+    it('恶意标签及嵌套标签仍作为文本处理，不创建可执行元素', () => {
+        for (const text of ['题干 <script>globalThis.injected = true</script>',
+            '题干 <img src=x onerror=alert(1)>', '题干 <scr<script>ipt>alert(1)</scr<script>ipt>']) {
+            const { html } = renderSummary(text);
+            const parsed = new DOMParser().parseFromString(html, 'text/html');
+            expect(parsed.querySelector('script, img')).toBeNull();
+            expect(parsed.body.textContent).toContain('题干');
+        }
     });
 
     it('公式无法解析时退回纯文本', () => {
