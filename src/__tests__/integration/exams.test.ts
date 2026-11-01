@@ -119,9 +119,26 @@ describe('/api/exams', () => {
             const response = await CREATE(json('http://localhost/api/exams', 'POST', options));
 
             expect(response.status).toBe(201);
-            expect(mocks.errorItem.findMany.mock.calls[0][0].select._count).toEqual({ select: { practiceRecords: true } });
+            expect(mocks.errorItem.findMany.mock.calls[0][0].select._count).toEqual({ select: { practiceRecords: true, examQuestions: true } });
             const created = mocks.examPaper.create.mock.calls[0][0].data;
             expect(created.questions.create.map((question: { errorItemId: string }) => question.errorItemId)).toEqual(['e2', 'e3']);
+        });
+
+        it('优先练习较少时，同练习次数下优先抽取未出现在已有试卷中的题目', async () => {
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            mocks.errorItem.findMany.mockResolvedValue([
+                { id: 'e1', shortId: 'AAAAAA', _count: { practiceRecords: 1, examQuestions: 2 } },
+                { id: 'e2', shortId: 'BBBBBB', _count: { practiceRecords: 0, examQuestions: 1 } },
+                { id: 'e3', shortId: 'CCCCCC', _count: { practiceRecords: 0, examQuestions: 0 } },
+                { id: 'e4', shortId: 'DDDDDD', _count: { practiceRecords: 1, examQuestions: 0 } },
+            ]);
+            mocks.examPaper.create.mockResolvedValue({ id: 'p1', title: '数学', requestedCount: 3, _count: { questions: 3 } });
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', { ...options, count: 3 }));
+
+            expect(response.status).toBe(201);
+            const created = mocks.examPaper.create.mock.calls[0][0].data;
+            expect(created.questions.create.map((question: { errorItemId: string }) => question.errorItemId)).toEqual(['e3', 'e2', 'e4']);
         });
 
         it('没有符合条件的错题时返回 NO_SOURCE_ITEMS', async () => {

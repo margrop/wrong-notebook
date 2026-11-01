@@ -64,20 +64,30 @@ export function sampleItems<T>(items: T[], count: number, random: () => number =
     return copy.slice(0, count);
 }
 
-/** 优先抽练习次数少的题；先洗牌再稳定排序，练习次数相同的题目之间仍随机 */
-export function pickLeastPracticed<T extends { practiceCount: number }>(items: T[], count: number, random: () => number = Math.random): T[] {
+/** 是否已出现在已有试卷中 */
+function isInExam(item: { inExam?: boolean; examCount?: number }): number {
+    if (typeof item.inExam === 'boolean') return item.inExam ? 1 : 0;
+    return (item.examCount ?? 0) > 0 ? 1 : 0;
+}
+
+/** 优先抽练习次数少的题；同次数时优先从未进过试卷的题，仍相同时随机（先洗牌再稳定排序） */
+export function pickLeastPracticed<T extends { practiceCount: number; inExam?: boolean; examCount?: number }>(items: T[], count: number, random: () => number = Math.random): T[] {
     return sampleItems(items, items.length, random)
-        .sort((a, b) => a.practiceCount - b.practiceCount)
+        .sort((a, b) => a.practiceCount - b.practiceCount || isInExam(a) - isInExam(b))
         .slice(0, count);
 }
 
-/** 按抽题规则选取原题，练习次数为该题的全部举一反三记录数 */
+/** 按抽题规则选取原题，练习次数为该题的全部举一反三记录数，同次数优先选未出现在已有试卷中的题 */
 export async function selectSourceItems(userId: string, selection: ExamSelection) {
     const candidates = await prisma.errorItem.findMany({
         where: buildSourceWhere(userId, selection, await getMasteryThreshold(userId)),
-        select: { id: true, shortId: true, _count: { select: { practiceRecords: true } } },
+        select: { id: true, shortId: true, _count: { select: { practiceRecords: true, examQuestions: true } } },
     });
-    const items = candidates.map(({ _count, ...item }) => ({ ...item, practiceCount: _count.practiceRecords }));
+    const items = candidates.map(({ _count, ...item }) => ({
+        ...item,
+        practiceCount: _count.practiceRecords,
+        inExam: (_count.examQuestions ?? 0) > 0,
+    }));
     return (selection.pickRule ?? DEFAULT_EXAM_PICK_RULE) === 'random'
         ? sampleItems(items, selection.count)
         : pickLeastPracticed(items, selection.count);

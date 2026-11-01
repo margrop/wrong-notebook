@@ -67,6 +67,30 @@ describe('pickLeastPracticed', () => {
         expect(first).toEqual(new Set(['b', 'd']));
     });
 
+    it('练习次数相同时优先选择未出现在已有试卷中的题目', () => {
+        const candidates = [
+            { id: 'in-exam-0', practiceCount: 0, inExam: true },
+            { id: 'fresh-0', practiceCount: 0, inExam: false },
+            { id: 'in-exam-1', practiceCount: 1, examCount: 2 },
+            { id: 'fresh-1', practiceCount: 1, examCount: 0 },
+        ];
+        const picked = pickLeastPracticed(candidates, 4);
+        expect(picked.map((item) => item.id)).toEqual(['fresh-0', 'in-exam-0', 'fresh-1', 'in-exam-1']);
+    });
+
+    it('同练习次数且都未进过试卷（或都进过试卷）时保持随机', () => {
+        const candidates = [
+            { id: 'used-a', practiceCount: 1, inExam: true },
+            { id: 'used-b', practiceCount: 1, inExam: true },
+            { id: 'fresh-a', practiceCount: 1, inExam: false },
+            { id: 'fresh-b', practiceCount: 1, inExam: false },
+        ];
+        const firstChoice = new Set(Array.from({ length: 50 }, () => pickLeastPracticed(candidates, 1)[0].id));
+        expect(firstChoice).toEqual(new Set(['fresh-a', 'fresh-b']));
+        const thirdChoice = new Set(Array.from({ length: 50 }, () => pickLeastPracticed(candidates, 3)[2].id));
+        expect(thirdChoice).toEqual(new Set(['used-a', 'used-b']));
+    });
+
     it('不足题量时返回全部', () => {
         expect(pickLeastPracticed(items, 10)).toHaveLength(4);
     });

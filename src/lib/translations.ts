@@ -1110,7 +1110,7 @@ export const translations = {
                 random: "Fully random",
             },
             pickRuleHints: {
-                least_practiced: "Questions with fewer practice records come first; ties are random.",
+                least_practiced: "Questions with fewer practice records come first; for ties, questions never used in an exam come first, then random.",
                 random: "Every matching question has the same chance.",
             },
             count: "Number of questions",
@@ -2479,7 +2479,7 @@ export const translations = {
                 random: "完全随机",
             },
             pickRuleHints: {
-                least_practiced: "举一反三记录越少的题目越优先抽到，次数相同时随机。",
+                least_practiced: "举一反三记录越少的题目越优先抽到；次数相同时优先抽取未出现在已有试卷中的题目，仍相同时随机。",
                 random: "所有符合条件的题目被抽到的机会相同。",
             },
             count: "题目数量",
