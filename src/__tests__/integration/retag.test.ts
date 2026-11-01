@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     errorItem: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
     knowledgeTag: { findMany: vi.fn() },
     subject: { findUnique: vi.fn() },
+    paperGroup: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn() },
     suggestKnowledgeTags: vi.fn(),
     getMathTagsFromDB: vi.fn(),
     getScopeTagsFromDB: vi.fn(),
@@ -15,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/prisma', () => ({
-    prisma: { user: mocks.user, errorItem: mocks.errorItem, knowledgeTag: mocks.knowledgeTag, subject: mocks.subject },
+    prisma: { user: mocks.user, errorItem: mocks.errorItem, knowledgeTag: mocks.knowledgeTag, subject: mocks.subject, paperGroup: mocks.paperGroup },
 }));
 vi.mock('@/lib/ai', () => ({ getAIService: vi.fn(() => ({ suggestKnowledgeTags: mocks.suggestKnowledgeTags })) }));
 vi.mock('@/lib/ai/tag-service', () => ({ getMathTagsFromDB: mocks.getMathTagsFromDB, getScopeTagsFromDB: mocks.getScopeTagsFromDB }));
@@ -49,6 +50,13 @@ describe('知识点重新生成', () => {
         mocks.user.findUnique.mockResolvedValue({ id: 'user-1' });
         mocks.getScopeTagsFromDB.mockResolvedValue(['鸡兔同笼', '假设法解鸡兔同笼', '植树问题']);
         mocks.getMathTagsFromDB.mockResolvedValue(['鸡兔同笼', '假设法解鸡兔同笼', '植树问题']);
+        // 模拟默认分组：key='a' → group-a，key='b' → group-b
+        mocks.paperGroup.findFirst.mockImplementation(async (args: { where?: { key?: string } }) => {
+            const key = args?.where?.key;
+            if (key === 'a') return { id: 'group-a' };
+            if (key === 'b') return { id: 'group-b' };
+            return null;
+        });
     });
 
     it('preview 模式只返回建议的知识点（含保留的自定义标签），不写数据库', async () => {
@@ -108,7 +116,7 @@ describe('知识点重新生成', () => {
             data: {
                 knowledgePoints: JSON.stringify(['假设法解鸡兔同笼', '鸡兔同笼', '易错']),
                 difficultyStars: 2,
-                paperLevel: 'a',
+                paperLevel: 'group-a',
                 tags: { disconnect: [{ id: 'old-sys' }], connect: [{ id: 'tag-a' }, { id: 'tag-b' }] },
             },
         });
@@ -150,13 +158,13 @@ describe('知识点重新生成', () => {
         expect(mocks.errorItem.update.mock.calls[0][0].data).not.toHaveProperty('paperLevel');
     });
 
-    it.each([null, 'a', 'other'])('补评为 5 星时只为未设置卷别的题目补默认值（原卷别 %s）', async (paperLevel) => {
+    it.each([null, 'group-a', 'group-other'])('补评为 5 星时只为未设置卷别的题目补默认值（原卷别 %s）', async (paperLevel) => {
         mocks.errorItem.findUnique.mockResolvedValue({ ...item, paperLevel });
         mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 5 });
         mocks.knowledgeTag.findMany.mockResolvedValue([{ id: 'tag-b', name: '鸡兔同笼' }]);
         expect((await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'))).status).toBe(200);
         const data = mocks.errorItem.update.mock.calls[0][0].data;
-        if (paperLevel === null) expect(data.paperLevel).toBe('b');
+        if (paperLevel === null) expect(data.paperLevel).toBe('group-b');
         else expect(data).not.toHaveProperty('paperLevel');
     });
 

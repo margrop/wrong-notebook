@@ -3,6 +3,7 @@
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { QuestionFigure } from "@/components/question-figure";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePaperGroups } from "@/lib/use-paper-groups";
 import type { PrintableErrorItem } from "@/types/api";
 import type { PrintDisplayOptions } from "./print-options";
 
@@ -29,6 +30,10 @@ function tagNames(item: PrintableErrorItem): string[] {
 export function PrintableQuestion({ item, index, options, reserveAnswerSpace }: PrintableQuestionProps) {
     const { t } = useLanguage();
     const tags = tagNames(item);
+    const { groups: paperGroups } = usePaperGroups();
+    const paperGroupName = item.paperLevel
+        ? paperGroups.find((g) => g.id === item.paperLevel)?.name || item.paperLevel
+        : null;
 
     return (
         <div className={`mb-4 border-b last:border-b-0 print:break-inside-avoid ${reserveAnswerSpace ? "pb-20 print:pb-16" : "pb-6"}`}>
@@ -44,9 +49,9 @@ export function PrintableQuestion({ item, index, options, reserveAnswerSpace }: 
                 )}
                 {item.subject && <span className="text-sm text-muted-foreground">{item.subject.name}</span>}
                 {item.gradeSemester && <span className="text-sm text-muted-foreground">{item.gradeSemester}</span>}
-                {item.paperLevel && (
+                {paperGroupName && (
                     <span className="text-sm text-muted-foreground">
-                        {t.printPreview?.paperLevel || 'Paper Level'}: {item.paperLevel.toUpperCase()}
+                        {t.printPreview?.paperLevel || 'Paper Level'}: {paperGroupName}
                     </span>
                 )}
                 {options.showTags && tags.length > 0 && (

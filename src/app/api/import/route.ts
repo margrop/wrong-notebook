@@ -21,7 +21,7 @@ import { normalizeFigureScale } from "@/lib/figure-scale";
 import { sanitizeSvgAnimation } from "@/lib/svg-animation";
 import { importSpeeches } from "@/lib/tts/speech-cache";
 import { parseLastPractice } from "@/lib/last-practice";
-import { getDefaultPaperLevel } from "@/lib/paper-level";
+import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
 import { EXAM_DIFFICULTIES, EXAM_SCOPES, summarizePaperStatus } from "@/lib/exam";
 import type { Prisma } from "@prisma/client";
 
@@ -172,6 +172,17 @@ interface ImportData {
             figureSvg: string | null;
             error: string | null;
         }>;
+    }>;
+    /** 卷别分组，version 3 起导出 */
+    paperGroups?: Array<{
+        id: string;
+        userId: string;
+        key: string | null;
+        name: string;
+        order: number;
+        isActive: boolean;
+        createdAt: string;
+        updatedAt: string;
     }>;
     /** 动画讲解的云端语音（服务商、模型、音色、文字与 Base64 编码的 MP3），写入语音缓存 */
     ttsSpeeches?: unknown;
@@ -445,6 +456,50 @@ export async function POST(req: Request) {
             // 4. 导入 error items
             const errorItemIdMap = new Map<string, string>();
             const errorItemOwnerMap = new Map<string, string>();
+
+            // 4.0 预导入卷别分组（paperGroups），建立 id 映射
+            const paperGroupIdMap = new Map<string, string>();
+            for (const group of (body.paperGroups || [])) {
+                const targetUserId = importAll ? group.userId : user.id;
+                const existing = await tx.paperGroup.findFirst({
+                    where: { id: group.id, userId: targetUserId },
+                });
+                if (existing) {
+                    paperGroupIdMap.set(group.id, existing.id);
+                } else {
+                    // 按 name 匹配，避免重复创建
+                    const byName = await tx.paperGroup.findFirst({
+                        where: { name: group.name, userId: targetUserId },
+                    });
+                    if (byName) {
+                        paperGroupIdMap.set(group.id, byName.id);
+                    } else {
+                        const created = await tx.paperGroup.create({
+                            data: {
+                                userId: targetUserId,
+                                key: group.key,
+                                name: group.name,
+                                order: group.order || 0,
+                                isActive: group.isActive !== false,
+                            },
+                        });
+                        paperGroupIdMap.set(group.id, created.id);
+                    }
+                }
+            }
+
+            // 兼容旧版备份：为每个有错题的用户确保默认分组存在
+            const legacyLevelMap = new Map<string, string>();
+            for (const item of body.errorItems) {
+                const targetUserId = importAll ? item.userId : user.id;
+                if (!legacyLevelMap.has(`${targetUserId}:a`)) {
+                    const defaults = await ensureDefaultPaperGroups(targetUserId, tx);
+                    legacyLevelMap.set(`${targetUserId}:a`, defaults.a || "");
+                    legacyLevelMap.set(`${targetUserId}:b`, defaults.b || "");
+                    legacyLevelMap.set(`${targetUserId}:other`, defaults.other || "");
+                }
+            }
+
             for (const item of body.errorItems) {
                 const targetUserId = importAll ? item.userId : user.id;
                 errorItemOwnerMap.set(item.id, targetUserId);
@@ -467,6 +522,27 @@ export async function POST(req: Request) {
                 const difficultyStars = parseDifficultyStars(item.difficultyStars);
                 const masteryProbability = safeMasteryProbability(item.masteryProbability);
                 const masteryEvaluatedAt = masteryProbability === null ? undefined : safeParseDate(item.masteryEvaluatedAt);
+
+                // 解析 paperLevel：优先查 paperGroupIdMap，其次查 legacyLevelMap，最后按星级推荐
+                let resolvedPaperLevel: string | null = null;
+                const rawPaperLevel = item.paperLevel;
+                if (rawPaperLevel) {
+                    if (paperGroupIdMap.has(rawPaperLevel)) {
+                        resolvedPaperLevel = paperGroupIdMap.get(rawPaperLevel)!;
+                    } else if (legacyLevelMap.has(`${targetUserId}:${rawPaperLevel}`)) {
+                        resolvedPaperLevel = legacyLevelMap.get(`${targetUserId}:${rawPaperLevel}`) || null;
+                    } else {
+                        // 尝试按 id 直接查（同用户）
+                        const direct = await tx.paperGroup.findFirst({
+                            where: { id: rawPaperLevel, userId: targetUserId },
+                        });
+                        resolvedPaperLevel = direct?.id || null;
+                    }
+                }
+                if (!resolvedPaperLevel && difficultyStars !== null) {
+                    resolvedPaperLevel = await getDefaultPaperLevelGroupId(targetUserId, difficultyStars, tx);
+                }
+
                 const created = await tx.errorItem.create({
                     data: {
                         shortId: keepShortId ? item.shortId : await generateUniqueShortId(tx),
@@ -486,7 +562,7 @@ export async function POST(req: Request) {
                         userNotes: item.userNotes,
                         masteryLevel: safeMasteryLevel(item.masteryLevel),
                         gradeSemester: item.gradeSemester,
-                        paperLevel: item.paperLevel ?? getDefaultPaperLevel(difficultyStars),
+                        paperLevel: resolvedPaperLevel,
                         difficultyStars,
                         hasFigure: item.hasFigure === true || sanitizeFigureSvg(item.figureSvg) !== null,
                         figureSvg: sanitizeFigureSvg(item.figureSvg),

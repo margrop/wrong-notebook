@@ -59,7 +59,7 @@ The home page offers photo upload, manual input and direct entry, with drag-and-
 
 ![Photo upload, manual input, direct entry, clipboard paste and screenshot on the home page](doc/screenshots/en/upload.png)
 
-General settings control review before import, the per-user grade rule (fixed grade or AI recognition), SVG animated explanations, GeoGebra demos, the similarity threshold for duplicate detection and the mastered threshold.
+General settings control review before import, the per-user grade rule (fixed grade or AI recognition), SVG animated explanations, GeoGebra demos, the similarity threshold for duplicate detection and the mastered threshold. Paper groups (A/B/Other) can be customized in settings: rename default groups, add custom groups (e.g. Unit Test, Midterm, Final), deactivate or delete custom groups.
 
 ![Review before import, animated explanations, GeoGebra and duplicate threshold in General settings](doc/screenshots/en/preferences.png)
 

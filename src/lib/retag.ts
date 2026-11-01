@@ -5,7 +5,7 @@ import { calculateGradeNumber } from "@/lib/knowledge-tags";
 import { calculateGrade } from "@/lib/grade-calculator";
 import { resolveNotebookScope, SUBJECT_DISPLAY_NAMES } from "@/lib/notebook-scope";
 import { createLogger } from "@/lib/logger";
-import { getDefaultPaperLevel } from "@/lib/paper-level";
+import { getDefaultPaperLevelGroupId } from "@/lib/paper-level";
 import { getAppTimeZone } from "@/lib/config";
 import { startBackgroundTask } from "@/lib/background-tasks";
 
@@ -121,7 +121,7 @@ export async function previewRetagErrorItem(errorItemId: string, userId: string)
  */
 export async function retagErrorItem(errorItemId: string, userId: string): Promise<RetagResult> {
     const { tagNames, newTagIds, oldSystemTags, difficultyStars, paperLevel } = await suggestTagsForItem(errorItemId, userId);
-    const defaultPaperLevel = !paperLevel ? getDefaultPaperLevel(difficultyStars) : null;
+    const defaultPaperLevel = !paperLevel ? await getDefaultPaperLevelGroupId(userId, difficultyStars) : null;
 
     await prisma.errorItem.update({
         where: { id: errorItemId },

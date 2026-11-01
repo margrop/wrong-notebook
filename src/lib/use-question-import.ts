@@ -107,10 +107,10 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     };
 
     /** 识别结果：未开启人工确认时直接入库，否则进入校对页 */
-    const handleParsed = async (data: ParsedQuestion, imageUrl: string | null) => {
+    const handleParsed = async (data: ParsedQuestion, imageUrl: string | null, paperLevel?: string) => {
         if (!confirmBeforeImport) {
             setAnalysisStep('saving');
-            const imported = await saveParsedQuestion(data, { subjectId: importSubjectId, imageUrl });
+            const imported = await saveParsedQuestion(data, { subjectId: importSubjectId, imageUrl, paperLevel });
             setLastImported(imported);
             setCurrentImage(null);
             frontendLogger.info(logPrefix, 'Imported without review', { id: imported.id });

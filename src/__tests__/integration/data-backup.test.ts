@@ -93,12 +93,14 @@ beforeEach(async () => {
     // 系统标签：default 和 cn-math-taxonomy 各一条同名，验证按 tagSet 区分
     await database.knowledgeTag.create({ data: { id: 'sys-default', name: '方程', subject: 'math', isSystem: true, tagSet: 'default' } });
     await database.knowledgeTag.create({ data: { id: 'sys-cnm', name: '方程', subject: 'math', isSystem: true, tagSet: 'cn-math-taxonomy' } });
+    // 创建默认卷别分组，模拟真实数据结构
+    await database.paperGroup.create({ data: { id: 'group-b', userId: 'user-1', key: 'b', name: 'B卷', order: 1 } });
     await database.errorItem.create({
         data: {
             id: 'item-1', shortId: 'AbC234', userId: 'user-1', subjectId: 'math', originalImageUrl: 'data:image/png;base64,dGVzdA==',
             questionText: '求解 x + 2 = 5', answerText: 'x = 3', analysis: '移项', wrongAnswerText: 'x = 7', mistakeAnalysis: '符号错误',
             mistakeStatus: 'wrong_attempt', source: '期中考试', errorType: '计算', userNotes: '注意符号', gradeSemester: '初二上',
-            paperLevel: 'b', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65,
+            paperLevel: 'group-b', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65,
             geogebraCommands: 'A=(0,0)\nB=(1,1)', svgAnimation: animation('中文'), svgAnimationEn: animation('English'), lastPractice,
             masteryLevel: 2, masteryProbability: 0.8, masteryReason: '连续答对', masterySource: 'ai', masteryEvaluatedAt: new Date('2026-10-21T00:00:00Z'),
             createdAt: new Date('2026-10-01T00:00:00Z'), updatedAt: new Date('2026-10-21T00:00:00Z'),

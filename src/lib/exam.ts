@@ -26,12 +26,13 @@ const GENERATION_CONCURRENCY = 3;
 export interface ExamSelection {
     subjectIds: string[];
     tagNames?: string[];
+    paperLevelIds?: string[];
     scope: ExamScope;
     count: number;
     pickRule?: ExamPickRule;
 }
 
-/** 构造抽题条件：限定错题本、掌握范围（按用户的已掌握阈值），可选按知识点标签 */
+/** 构造抽题条件：限定错题本、掌握范围（按用户的已掌握阈值），可选按知识点标签和卷别分组 */
 export function buildSourceWhere(userId: string, selection: ExamSelection, masteryThreshold = DEFAULT_MASTERY_THRESHOLD): Prisma.ErrorItemWhereInput {
     const where: Prisma.ErrorItemWhereInput = {
         userId,
@@ -46,6 +47,9 @@ export function buildSourceWhere(userId: string, selection: ExamSelection, maste
     }
     if (selection.tagNames && selection.tagNames.length > 0) {
         where.tags = { some: { name: { in: selection.tagNames } } };
+    }
+    if (selection.paperLevelIds && selection.paperLevelIds.length > 0) {
+        where.paperLevel = { in: selection.paperLevelIds };
     }
     return where;
 }

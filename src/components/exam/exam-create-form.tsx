@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { TagInput } from "@/components/tag-input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
+import { usePaperGroups } from "@/lib/use-paper-groups";
 import type { ExamPickRule, ExamScope, Notebook } from "@/types/api";
 
 const SCOPES: ExamScope[] = ["unmastered", "mastered", "all"];
@@ -24,6 +25,7 @@ export function ExamCreateForm() {
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
     const [subjectIds, setSubjectIds] = useState<string[]>([]);
     const [tagNames, setTagNames] = useState<string[]>([]);
+    const [paperLevelIds, setPaperLevelIds] = useState<string[]>([]);
     const [scope, setScope] = useState<ExamScope>("unmastered");
     const [pickRule, setPickRule] = useState<ExamPickRule>("least_practiced");
     const [count, setCount] = useState(10);
@@ -31,6 +33,7 @@ export function ExamCreateForm() {
     const [title, setTitle] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { groups: paperGroups, loading: groupsLoading } = usePaperGroups();
 
     useEffect(() => {
         apiClient.get<Notebook[]>("/api/notebooks")
@@ -45,6 +48,10 @@ export function ExamCreateForm() {
         setSubjectIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]));
     };
 
+    const togglePaperGroup = (id: string) => {
+        setPaperLevelIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]));
+    };
+
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
         if (subjectIds.length === 0) {
@@ -57,6 +64,7 @@ export function ExamCreateForm() {
             const paper = await apiClient.post<{ id: string }>("/api/exams", {
                 subjectIds,
                 tagNames,
+                paperLevelIds: paperLevelIds.length > 0 ? paperLevelIds : undefined,
                 scope,
                 pickRule,
                 count,
@@ -109,6 +117,28 @@ export function ExamCreateForm() {
                         <Label>{t.exam.tags}</Label>
                         <TagInput value={tagNames} onChange={setTagNames} placeholder={t.exam.tagsPlaceholder} />
                     </div>
+
+                    {!groupsLoading && paperGroups.filter((g) => g.isActive).length > 0 && (
+                        <div className="space-y-2">
+                            <Label>{t.filter.paperLevel}</Label>
+                            <div className="flex flex-wrap gap-2">
+                                {paperGroups.filter((g) => g.isActive).map((group) => (
+                                    <button
+                                        key={group.id}
+                                        type="button"
+                                        onClick={() => togglePaperGroup(group.id)}
+                                        className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                                            paperLevelIds.includes(group.id)
+                                                ? "border-primary bg-primary text-primary-foreground"
+                                                : "border-input bg-background hover:bg-muted"
+                                        }`}
+                                    >
+                                        {group.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="grid gap-4 sm:grid-cols-3">
                         <div className="space-y-2">

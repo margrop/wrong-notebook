@@ -7,8 +7,29 @@ import type { ErrorItemDetail } from '@/components/error-detail/types';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { apiClient } from '@/lib/api-client';
 
-vi.mock('@/lib/api-client', () => ({ apiClient: { put: vi.fn() } }));
+vi.mock('@/lib/api-client', () => ({
+    apiClient: {
+        put: vi.fn(),
+        get: vi.fn(async (url: string) => {
+            if (url === '/api/paper-groups') return [
+                { id: 'group-a', name: 'A卷', key: 'a', order: 0, isActive: true },
+                { id: 'group-b', name: 'B卷', key: 'b', order: 1, isActive: true },
+                { id: 'group-other', name: '其他', key: 'other', order: 2, isActive: true },
+            ];
+            return {};
+        }),
+    },
+}));
 vi.mock('@/components/notebook-selector', () => ({ NotebookSelector: () => null }));
+vi.mock('@/components/paper-group-select', () => ({
+    PaperGroupSelect: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+        <select value={value} onChange={(e) => onChange(e.target.value)}>
+            <option value="group-a">A卷</option>
+            <option value="group-b">B卷</option>
+            <option value="group-other">其他</option>
+        </select>
+    ),
+}));
 vi.mock('@/lib/feedback', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 let container: HTMLDivElement;
@@ -28,8 +49,8 @@ afterEach(async () => {
     vi.unstubAllGlobals();
 });
 
-async function render(gradeSemester = '初一，上期') {
-    const item: ErrorItemDetail = { id: 'e1', questionText: '题目', answerText: '', analysis: '', knowledgePoints: '[]', tags: [], masteryLevel: 0, originalImageUrl: '', userNotes: null, gradeSemester };
+async function render(gradeSemester = '初一，上期', paperLevel?: string) {
+    const item: ErrorItemDetail = { id: 'e1', questionText: '题目', answerText: '', analysis: '', knowledgePoints: '[]', tags: [], masteryLevel: 0, originalImageUrl: '', userNotes: null, gradeSemester, paperLevel };
     await act(async () => root.render(<LanguageProvider><QuestionMetadata item={item} onChanged={onChanged} /></LanguageProvider>));
 }
 
@@ -48,7 +69,7 @@ describe('题目年级编辑入口', () => {
             select.dispatchEvent(new Event('change', { bubbles: true }));
         });
         await click('保存');
-        expect(apiClient.put).toHaveBeenCalledWith('/api/error-items/e1', { gradeSemester: '高二下', paperLevel: 'a' });
+        expect(apiClient.put).toHaveBeenCalledWith('/api/error-items/e1', { gradeSemester: '高二下', paperLevel: '' });
         expect(onChanged).toHaveBeenCalledOnce();
     });
 

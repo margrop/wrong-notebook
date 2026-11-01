@@ -78,6 +78,10 @@ export async function GET(req: Request) {
             },
         });
 
+        const paperGroups = await prisma.paperGroup.findMany({
+            where: userFilter,
+        });
+
         // 与动画讲解文字一致的云端语音（MP3），导入后无需重新合成
         const ttsSpeeches = await exportSpeeches(errorItems.flatMap((item) => [
             ...(item.svgAnimation ? [{ language: 'zh' as const, svg: item.svgAnimation }] : []),
@@ -111,6 +115,7 @@ export async function GET(req: Request) {
             reviewSchedules,
             practiceRecords,
             examPapers,
+            paperGroups,
             ttsSpeeches,
         };
 

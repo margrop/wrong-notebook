@@ -1,6 +1,6 @@
 import type { MasteryStatus } from "@/lib/mastery-status";
 
-export type PaperLevelFilter = "all" | "a" | "b" | "other";
+export type PaperLevelFilter = string;
 export type TimeFilter = "all" | "week" | "month";
 
 /** 错题列表的筛选条件，列表请求和导出打印共用 */

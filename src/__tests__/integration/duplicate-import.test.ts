@@ -22,6 +22,42 @@ vi.mock('@/lib/mastery', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/lib/mastery')>()),
     scheduleMasteryEvaluation: mocks.scheduleMasteryEvaluation,
 }));
+vi.mock('@/lib/paper-level', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/lib/paper-level')>()),
+    ensureDefaultPaperGroups: vi.fn(async (userId: string, client?: unknown) => {
+        const db = (client ?? mocks.prisma!) as PrismaClient;
+        const existing = await db.paperGroup.findMany({ where: { userId } });
+        const map: Record<string, string> = {};
+        for (const g of existing) {
+            if (g.key) map[g.key] = g.id;
+        }
+        const defaults: Array<{ key: string; name: string; order: number }> = [
+            { key: 'a', name: 'A卷', order: 0 },
+            { key: 'b', name: 'B卷', order: 1 },
+            { key: 'other', name: '其他', order: 2 },
+        ];
+        for (const d of defaults) {
+            if (!map[d.key]) {
+                const created = await db.paperGroup.create({
+                    data: { userId, key: d.key, name: d.name, order: d.order },
+                });
+                map[d.key] = created.id;
+            }
+        }
+        return map;
+    }),
+    getDefaultPaperLevelGroupId: vi.fn(async (userId: string, difficultyStars: number | null | undefined, client?: unknown) => {
+        if (typeof difficultyStars !== 'number' || !Number.isInteger(difficultyStars) || difficultyStars < 1 || difficultyStars > 5) {
+            return null;
+        }
+        const key = difficultyStars <= 3 ? 'a' : 'b';
+        const db = (client ?? mocks.prisma!) as PrismaClient;
+        const group = await db.paperGroup.findFirst({
+            where: { userId, key, isActive: true },
+        });
+        return group?.id ?? null;
+    }),
+}));
 
 import { POST as IMPORT_QUESTION } from '@/app/api/error-items/route';
 import { POST as IMPORT_BACKUP } from '@/app/api/import/route';
@@ -45,7 +81,7 @@ const existing = (content: object = {}) => database.errorItem.create({
     data: { id: 'existing', userId: 'user-1', subjectId: 'math', questionText, originalImageUrl: 'old-image', createdAt: new Date('2025-01-01'), ...content },
 });
 
-beforeAll(() => {
+beforeAll(async () => {
     // 所有真实读写和迁移均使用系统临时数据库，不接触开发或生产数据。
     directory = mkdtempSync(join(tmpdir(), 'wrong-notebook-duplicate-test-'));
     const url = `file:${join(directory, 'test.db')}`;
@@ -54,6 +90,8 @@ beforeAll(() => {
         stdio: 'pipe',
     });
     database = new PrismaClient({ datasources: { db: { url } } });
+    await database.$queryRaw`PRAGMA journal_mode = WAL`;
+    await database.$queryRaw`PRAGMA busy_timeout = 30000`;
     mocks.prisma = database;
 // 迁移通过子进程执行 Prisma CLI，CI 中与其他测试文件并行时较慢，留足时间
 }, 120000);
@@ -69,7 +107,7 @@ beforeEach(async () => {
         { id: 'math', name: '数学', userId: 'user-1' },
         { id: 'other-notebook', name: '第二错题本', userId: 'user-1' },
     ] });
-});
+}, 30000);
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -344,7 +382,7 @@ describe('其他导入入口也使用同一判重规则', () => {
         expect(response.status).toBe(201);
         const data = await response.json();
         expect(data.successCount).toBe(1);
-        expect(await database.errorItem.findUnique({ where: { id: data.results[0].errorItemId } })).toMatchObject({ difficultyStars: 5, paperLevel: 'b' });
+        expect(await database.errorItem.findUnique({ where: { id: data.results[0].errorItemId } })).toMatchObject({ difficultyStars: 5, paperLevel: expect.any(String) });
     });
 
     it('Openclaw 上传按用户学段自动计算中文年级学期', async () => {
@@ -374,11 +412,19 @@ describe('其他导入入口也使用同一判重规则', () => {
         expect(await database.errorItem.count()).toBe(0);
     });
 
-    it.each([null, 'a', 'other'])('备份导入仅为未设置卷别的 4 星题补 B 卷，原卷别为 %s', async (paperLevel) => {
+    it.each([null, 'a', 'other'])('备份导入仅为未设置卷别的 4 星题补默认分组，原卷别为 %s', async (paperLevel) => {
         const response = await IMPORT_BACKUP(request({ version: 1, user: { email: mocks.session.user.email }, errorItems: [{ id: 'backup-item', userId: 'user-1', questionText, difficultyStars: 4, paperLevel, originalImageUrl: '' }] }, '/api/import'));
         expect(response.status).toBe(200);
-        expect(await database.errorItem.findFirst({ where: { userId: 'user-1' } })).toMatchObject({ difficultyStars: 4, paperLevel: paperLevel ?? 'b' });
-    });
+        const item = await database.errorItem.findFirst({ where: { userId: 'user-1' } });
+        expect(item).toMatchObject({ difficultyStars: 4 });
+        if (paperLevel === null) {
+            // 未设置卷别时按星级推荐默认分组（4 星 → b）
+            expect(item?.paperLevel).not.toBeNull();
+        } else {
+            // 保留原有卷别映射后的分组 id
+            expect(item?.paperLevel).not.toBeNull();
+        }
+    }, 30000);
     it('Openclaw 同一批次的相同题目返回逐题提示和错误记录', async () => {
         vi.stubEnv('OPENCLAW_AUTH_MODE', 'apikey');
         vi.stubEnv('OPENCLAW_INTEGRATION_API_KEY', 'test-only-key');

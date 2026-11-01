@@ -23,6 +23,7 @@ import { DangerZoneSettings } from "@/components/settings/danger-zone-settings";
 import { DataBackupSettings } from "@/components/settings/data-backup-settings";
 import { DebugLogSettings } from "@/components/settings/debug-log-settings";
 import { GeneralSettings } from "@/components/settings/general-settings";
+import { PaperGroupSettings } from "@/components/settings/paper-group-settings";
 import { PromptSettings } from "@/components/settings/prompt-settings";
 import { TtsSettings } from "@/components/settings/tts-settings";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -142,6 +143,7 @@ export function SettingsDialog() {
 
                     <TabsContent value="general" className="space-y-4 py-4">
                         <GeneralSettings config={config} setConfig={setConfig} isAdmin={isAdmin} disabled={loading || saving} />
+                        <PaperGroupSettings />
                         {isAdmin && saveButton(t.settings?.save || "Save Settings")}
                     </TabsContent>
 

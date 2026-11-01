@@ -40,6 +40,7 @@ model User {
   customTags KnowledgeTag[] // User's custom tags
   examPapers ExamPaper[]
   aiUsages   AiUsage[]
+  paperGroups PaperGroup[]
 }
 
 // 统一知识点标签表 (支持无限层级)
@@ -98,6 +99,22 @@ model Subject {
   @@index([userId])
 }
 
+model PaperGroup {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String?  // 系统预留：'a' | 'b' | 'other'；自定义为 null
+  name      String   // 显示名：A卷/B卷/单元测试/期中/期末…
+  order     Int      @default(0)
+  isActive  Boolean  @default(true) // 停用后不出现下拉里，但历史数据仍保留
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  errorItems ErrorItem[]
+  @@unique([userId, key])
+  @@unique([userId, name])
+  @@index([userId, order])
+}
+
 model ErrorItem {
   id             String   @id @default(cuid())
   shortId        String?  @unique // 6 位 base58 短 ID，创建后不变
@@ -131,7 +148,8 @@ model ErrorItem {
   
   masteryLevel     Int     @default(0) // 0: New, 1: Reviewing, 2: Mastered
   gradeSemester    String? // e.g. "Junior High Grade 2, 1st Semester"
-  paperLevel       String? // e.g. "A", "B", "Other"
+  paperLevel       String? // 现在存 PaperGroup.id
+  paperGroup       PaperGroup? @relation(fields: [paperLevel], references: [id], onDelete: SetNull)
   difficultyStars  Int?    // 难度星级 1~5（参考高思导引星级），未评定时为空
   hasFigure        Boolean @default(false) // 识别时判断题目是否有配图
   figureSvg        String? // AI 用 SVG 重绘的题目配图（已净化），显示和打印时使用

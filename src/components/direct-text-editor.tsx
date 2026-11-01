@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { TagInput } from "@/components/tag-input";
 import { NotebookSelector } from "@/components/notebook-selector";
+import { PaperGroupSelect } from "@/components/paper-group-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import type { MistakeStatus } from "@/lib/mistake-status";
@@ -46,7 +47,7 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
     const [knowledgePoints, setKnowledgePoints] = useState<string[]>([]);
     const [subjectId, setSubjectId] = useState(defaultNotebookId || "");
     const [gradeSemester, setGradeSemester] = useState("");
-    const [paperLevel, setPaperLevel] = useState("a");
+    const [paperLevel, setPaperLevel] = useState("");
 
     const handleSubmit = async () => {
         if (!questionText.trim()) return;
@@ -65,7 +66,7 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
             knowledgePoints,
             subjectId,
             gradeSemester: gradeSemester || undefined,
-            paperLevel,
+            paperLevel: paperLevel || undefined,
         });
     };
 
@@ -78,7 +79,7 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
         setMistakeStatus("unknown");
         setKnowledgePoints([]);
         setGradeSemester("");
-        setPaperLevel("a");
+        setPaperLevel("");
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -178,19 +179,7 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
                     </div>
                     <div className="space-y-2">
                         <Label>{t.editor?.paperLevel || "Paper Level"}</Label>
-                        <Select
-                            value={paperLevel}
-                            onValueChange={setPaperLevel}
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="a">{t.editor?.paperLevels?.a || "Paper A"}</SelectItem>
-                                <SelectItem value="b">{t.editor?.paperLevels?.b || "Paper B"}</SelectItem>
-                                <SelectItem value="other">{t.editor?.paperLevels?.other || "Other"}</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <PaperGroupSelect value={paperLevel} onChange={setPaperLevel} />
                     </div>
                 </div>
 

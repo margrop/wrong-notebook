@@ -15,7 +15,7 @@ import { resolveNotebookForSubject } from "@/lib/notebook-resolver";
 import { scheduleMasteryEvaluation } from "@/lib/mastery";
 import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from "@/lib/question-deduplication";
 import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
-import { getDefaultPaperLevel } from "@/lib/paper-level";
+import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
 import { DEFAULT_FIGURE_SCALE, MAX_FIGURE_SCALE, MIN_FIGURE_SCALE } from "@/lib/figure-scale";
 
 const logger = createLogger('api:error-items');
@@ -108,6 +108,19 @@ export async function POST(req: Request) {
             return unauthorized("No user found in DB");
         }
 
+        // 校验传入的 paperLevel 是否有效（不创建分组，分组在事务内按需创建）
+        let resolvedPaperLevel: string | null = null;
+        if (paperLevel !== null && paperLevel !== undefined) {
+            const group = await prisma.paperGroup.findFirst({
+                where: { id: paperLevel, userId: user.id, isActive: true },
+                select: { id: true },
+            });
+            if (!group) {
+                return validationError('Invalid paperLevel', [{ code: 'invalid_paper_level', path: ['paperLevel'], message: 'Invalid paper level' }]);
+            }
+            resolvedPaperLevel = group.id;
+        }
+
         const duplicateBeforeRecognition = needsQuestionGradeRecognition(user, body)
             ? await findDuplicateQuestion(prisma, user.id, body) : null;
         const gradeResult = await prepareImportGrade(user, body, duplicateBeforeRecognition !== null);
@@ -116,6 +129,12 @@ export async function POST(req: Request) {
         const result = await runQuestionImportTransaction(async (tx) => {
             const duplicate = await findDuplicateQuestion(tx, user.id, body);
             if (duplicate) return recordDuplicateQuestion(tx, user.id, duplicate, body);
+
+            // 事务内确保默认分组存在（并发安全），并解析默认卷别
+            if (resolvedPaperLevel === null) {
+                await ensureDefaultPaperGroups(user.id, tx);
+                resolvedPaperLevel = await getDefaultPaperLevelGroupId(user.id, difficultyStars, tx);
+            }
 
             // 未指定错题本时，按学科名匹配或新建错题本
             let subjectId: string | undefined = requestedSubjectId || undefined;
@@ -193,7 +212,7 @@ export async function POST(req: Request) {
                         mistakeStatus: normalizeMistakeStatusForSave(mistakeStatus, wrongAnswerText),
                         knowledgePoints: JSON.stringify(tagNames),
                         gradeSemester: finalGradeSemester,
-                        paperLevel: paperLevel ?? getDefaultPaperLevel(difficultyStars),
+                        paperLevel: resolvedPaperLevel,
                         difficultyStars: difficultyStars ?? null,
                         hasFigure,
                         figureSvg,

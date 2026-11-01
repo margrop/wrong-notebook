@@ -40,7 +40,7 @@ Each question shows its text, answer, analysis, knowledge points, difficulty, se
 | 6-character question ID | Copy it and locate the question by ID in a notebook; shown as the source ID in printouts |
 | 1–5 star difficulty | Rated by the AI with reference to competition-math difficulty; can be changed manually |
 | Grade/semester | Click **Edit grade/semester** to change and save it; review also offers a selector, and loading the profile preserves manual edits |
-| Paper A/B | When not set, 1–3 stars default to paper A and 4–5 stars to paper B; a manual choice takes priority |
+| Paper level | When not set, 1–3 stars default to the "Paper A" group and 4–5 stars to the "Paper B" group; a manual choice takes priority. Customize groups in **Settings → General → Paper Groups**: rename defaults, add custom groups (e.g. Unit Test, Midterm, Final), deactivate or delete custom groups |
 | Knowledge points | Tags from the matching stage and subject; re-recognize one question or a whole notebook |
 | Regenerate full solution | Generates a new answer and analysis; asks for confirmation before overwriting |
 | Fix LaTeX | Appears when formula syntax issues are detected, letting the AI correct the formulas |

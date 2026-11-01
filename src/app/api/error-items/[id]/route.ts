@@ -8,7 +8,7 @@ import { createLogger } from "@/lib/logger";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 import { resolveNotebookScope } from "@/lib/notebook-scope";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
-import { getDefaultPaperLevel } from "@/lib/paper-level";
+import { getDefaultPaperLevelGroupId } from "@/lib/paper-level";
 import { isValidFigureScale } from "@/lib/figure-scale";
 
 const logger = createLogger('api:error-items:id');
@@ -106,9 +106,19 @@ export async function PUT(
         const updateData: Prisma.ErrorItemUpdateInput = {};
         if (figureScale !== undefined) updateData.figureScale = figureScale;
         if (gradeSemester !== undefined) updateData.gradeSemester = gradeSemester;
-        if (paperLevel !== undefined) updateData.paperLevel = paperLevel;
-        else if (!errorItem.paperLevel) {
-            const defaultPaperLevel = getDefaultPaperLevel(difficultyStars);
+        if (paperLevel !== undefined) {
+            if (paperLevel !== null) {
+                const group = await prisma.paperGroup.findFirst({
+                    where: { id: paperLevel, userId: user.id, isActive: true },
+                    select: { id: true },
+                });
+                if (!group) {
+                    return badRequest("Invalid paperLevel");
+                }
+            }
+            updateData.paperLevel = paperLevel;
+        } else if (!errorItem.paperLevel) {
+            const defaultPaperLevel = await getDefaultPaperLevelGroupId(user.id, difficultyStars);
             if (defaultPaperLevel) updateData.paperLevel = defaultPaperLevel;
         }
         if (questionText !== undefined) updateData.questionText = questionText;

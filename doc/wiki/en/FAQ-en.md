@@ -51,9 +51,11 @@ Check the formula delimiters, backslashes and KaTeX-supported syntax using the s
 
 The import may have matched duplicate detection. Check the message and the original question's answer history; a duplicate is recorded as another wrong attempt on the original. The default threshold is 90% and a question is a duplicate when the similarity is strictly greater; adjust it in your personal settings. See the [User Guide](User-Guide-en).
 
-## Why do the difficulty and paper A/B differ?
+## Why do the difficulty and paper level differ?
 
-Difficulty and paper level are separate fields. When the paper level is not set, 1–3 stars default to paper A and 4–5 stars to paper B; a manually chosen paper level is kept. Changing the stars does not overwrite an existing manual choice.
+Difficulty and paper level are separate fields. When the paper level is not set, 1–3 stars default to the "Paper A" group and 4–5 stars to the "Paper B" group; a manually chosen paper level is kept. Changing the stars does not overwrite an existing manual choice.
+
+Paper groups can be customized in **Settings → General → Paper Groups**: rename the default groups (Paper A / Paper B / Other), add custom groups (e.g. Unit Test, Midterm, Final), deactivate or delete custom groups. When deleting a group with questions, you can clear or migrate the affected questions.
 
 ## The AI analysis percentage is stuck for a long time?
 

@@ -14,6 +14,7 @@ const logger = createLogger('api:exams');
 const createSchema = z.object({
     subjectIds: z.array(z.string().min(1)).min(1).max(50),
     tagNames: z.array(z.string().trim().min(1)).max(50).optional(),
+    paperLevelIds: z.array(z.string().min(1)).max(20).optional(),
     scope: z.enum(EXAM_SCOPES),
     count: z.number().int().min(1).max(MAX_EXAM_QUESTIONS),
     pickRule: z.enum(EXAM_PICK_RULES).default(DEFAULT_EXAM_PICK_RULE),
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
         if (!parsed.success) {
             return validationError("Invalid exam options", parsed.error.issues);
         }
-        const { subjectIds, tagNames, scope, count, pickRule, difficulty, language } = parsed.data;
+        const { subjectIds, tagNames, paperLevelIds, scope, count, pickRule, difficulty, language } = parsed.data;
 
         // 只允许使用自己的错题本
         const notebooks = await prisma.subject.findMany({
@@ -87,9 +88,20 @@ export async function POST(req: Request) {
             return badRequest("NO_SOURCE_ITEMS");
         }
 
+        // 校验卷别分组属于当前用户
+        if (paperLevelIds && paperLevelIds.length > 0) {
+            const validGroups = await prisma.paperGroup.count({
+                where: { id: { in: paperLevelIds }, userId: user.id },
+            });
+            if (validGroups !== paperLevelIds.length) {
+                return validationError("Invalid paperLevelIds", [{ code: 'invalid_paper_level', path: ['paperLevelIds'], message: 'Invalid paper level group' }]);
+            }
+        }
+
         const sources = await selectSourceItems(user.id, {
             subjectIds: notebooks.map((notebook) => notebook.id),
             tagNames,
+            paperLevelIds,
             scope,
             count,
             pickRule,

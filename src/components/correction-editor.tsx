@@ -19,7 +19,7 @@ import { frontendLogger } from "@/lib/frontend-logger";
 import { getFixedQuestionGrade } from "@/lib/question-grade";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
-import { getDefaultPaperLevel } from "@/lib/paper-level";
+import { usePaperGroups } from "@/lib/use-paper-groups";
 import { getReanswerErrorMessage } from "@/lib/reanswer-error";
 import { buildReanswerRequestBody } from "@/lib/reanswer-request";
 import type { CorrectionDraft } from "@/components/correction-editor/types";
@@ -53,7 +53,13 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
         setData(prev => ({ ...prev, ...fields }));
     };
     // 未手工选卷时随星级更新默认值，手工选择后优先保留。
-    const paperLevel = data.paperLevel ?? getDefaultPaperLevel(data.difficultyStars) ?? "a";
+    const { groups: paperGroups } = usePaperGroups();
+    const defaultPaperLevelId = (() => {
+        if (data.paperLevel) return data.paperLevel;
+        const key = typeof data.difficultyStars === "number" && data.difficultyStars >= 4 ? "b" : "a";
+        return paperGroups.find((g) => g.key === key && g.isActive)?.id || "";
+    })();
+    const paperLevel = data.paperLevel ?? defaultPaperLevelId;
     const [isReanswering, setIsReanswering] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     // GeoGebra 动态演示默认关闭，用户在设置中开启后才显示

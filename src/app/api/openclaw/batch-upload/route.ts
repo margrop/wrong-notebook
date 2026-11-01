@@ -13,7 +13,7 @@ import { generateUniqueShortId } from "@/lib/short-id";
 import { scheduleMasteryEvaluation } from "@/lib/mastery";
 import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from "@/lib/question-deduplication";
 import { parseDifficultyStars } from "@/lib/ai/schema";
-import { getDefaultPaperLevel } from "@/lib/paper-level";
+import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
 import { getErrorMessage } from "@/lib/error-message";
 
 const logger = createLogger('api:openclaw:batch-upload');
@@ -189,6 +189,10 @@ async function createErrorItem(
             }
         }
 
+        // 事务内确保默认分组存在（并发安全），并解析默认卷别
+        await ensureDefaultPaperGroups(userId, tx);
+        const defaultPaperLevel = await getDefaultPaperLevelGroupId(userId, difficultyStars, tx);
+
         const errorItem = await tx.errorItem.create({
             data: {
                 shortId: await generateUniqueShortId(tx),
@@ -201,7 +205,7 @@ async function createErrorItem(
                 analysis: analysis || null,
                 knowledgePoints: JSON.stringify(tagNames),
                 gradeSemester: finalGradeSemester,
-                paperLevel: getDefaultPaperLevel(difficultyStars),
+                paperLevel: defaultPaperLevel,
                 difficultyStars,
                 errorType: errorType || null,
                 source: source || 'Openclaw',

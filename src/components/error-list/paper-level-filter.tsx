@@ -2,34 +2,40 @@
 
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { PaperLevelFilter as PaperLevel } from "@/lib/error-list-filters";
+import { usePaperGroups } from "@/lib/use-paper-groups";
 
 interface PaperLevelFilterProps {
-    value: PaperLevel;
-    onChange: (value: PaperLevel) => void;
+    value: string;
+    onChange: (value: string) => void;
 }
 
-/** 按卷别筛选的标签按钮 */
+/** 按卷别分组筛选的标签按钮，动态渲染当前用户的活跃分组 */
 export function PaperLevelFilter({ value, onChange }: PaperLevelFilterProps) {
     const { t } = useLanguage();
-    const options = [
-        { value: "all", label: t.filter.all || "All" },
-        { value: "a", label: t.editor.paperLevels?.a || "Paper A" },
-        { value: "b", label: t.editor.paperLevels?.b || "Paper B" },
-        { value: "other", label: t.editor.paperLevels?.other || "Other" },
-    ] as const;
+    const { groups, loading } = usePaperGroups();
+    const activeGroups = groups.filter((g) => g.isActive);
+
+    if (loading) return null;
 
     return (
         <div className="flex flex-wrap gap-2">
-            {options.map((option) => (
+            <Button
+                variant={value === "all" ? "default" : "outline"}
+                size="sm"
+                className="rounded-full"
+                onClick={() => onChange("all")}
+            >
+                {t.filter.all || "All"}
+            </Button>
+            {activeGroups.map((group) => (
                 <Button
-                    key={option.value}
-                    variant={value === option.value ? "default" : "outline"}
+                    key={group.id}
+                    variant={value === group.id ? "default" : "outline"}
                     size="sm"
                     className="rounded-full"
-                    onClick={() => onChange(option.value)}
+                    onClick={() => onChange(group.id)}
                 >
-                    {option.label}
+                    {group.name}
                 </Button>
             ))}
         </div>

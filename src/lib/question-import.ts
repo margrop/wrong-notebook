@@ -51,7 +51,7 @@ export async function analyzeQuestionImage(
  */
 export async function saveParsedQuestion(
     parsed: ParsedQuestion,
-    options: { subjectId?: string | null; imageUrl?: string | null }
+    options: { subjectId?: string | null; imageUrl?: string | null; paperLevel?: string | null }
 ): Promise<ImportedQuestion> {
     const created = await apiClient.post<CreatedErrorItem>("/api/error-items", {
         questionText: parsed.questionText,
@@ -68,6 +68,7 @@ export async function saveParsedQuestion(
         subjectId: options.subjectId || undefined,
         subjectName: options.subjectId ? undefined : parsed.subject,
         originalImageUrl: options.imageUrl || "",
+        paperLevel: options.paperLevel || undefined,
     });
     return {
         id: created.id,
@@ -81,11 +82,11 @@ export async function saveParsedQuestion(
 /** 压缩、识别并保存一张题目图片（批量导入时每个框调用一次） */
 export async function importQuestionImage(
     file: Blob,
-    options: { language: 'zh' | 'en'; subjectId?: string | null; timeout?: number; onStage?: (stage: 'analyzing' | 'saving') => void }
+    options: { language: 'zh' | 'en'; subjectId?: string | null; timeout?: number; paperLevel?: string | null; onStage?: (stage: 'analyzing' | 'saving') => void }
 ): Promise<ImportedQuestion> {
     const imageBase64 = await processImageFile(file instanceof File ? file : new File([file], "question.jpg", { type: file.type || "image/jpeg" }));
     options.onStage?.('analyzing');
     const parsed = await analyzeQuestionImage(imageBase64, options);
     options.onStage?.('saving');
-    return saveParsedQuestion(parsed, { subjectId: options.subjectId, imageUrl: imageBase64 });
+    return saveParsedQuestion(parsed, { subjectId: options.subjectId, imageUrl: imageBase64, paperLevel: options.paperLevel });
 }

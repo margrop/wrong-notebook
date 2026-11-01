@@ -3,14 +3,14 @@
 import { DifficultyStars } from "@/components/difficulty-stars";
 import { GradeSemesterSelect } from "@/components/grade-semester-select";
 import { NotebookSelector } from "@/components/notebook-selector";
+import { PaperGroupSelect } from "@/components/paper-group-select";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { CorrectionDraft, UpdateDraft } from "./types";
 
 interface MetaFieldsProps {
     data: CorrectionDraft;
-    /** 未手工选卷时由星级推算的卷别 */
+    /** 未手工选卷时由星级推算的卷别分组 id */
     paperLevel: string;
     onChange: UpdateDraft;
 }
@@ -37,16 +37,7 @@ export function MetaFields({ data, paperLevel, onChange }: MetaFieldsProps) {
                 </div>
                 <div className="space-y-2">
                     <Label>{t.editor.paperLevel || "Paper Level"}</Label>
-                    <Select value={paperLevel} onValueChange={(val) => onChange({ paperLevel: val })}>
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="a">{t.editor.paperLevels?.a || "Paper A"}</SelectItem>
-                            <SelectItem value="b">{t.editor.paperLevels?.b || "Paper B"}</SelectItem>
-                            <SelectItem value="other">{t.editor.paperLevels?.other || "Other"}</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <PaperGroupSelect value={paperLevel} onChange={(val) => onChange({ paperLevel: val })} />
                 </div>
             </div>
 
