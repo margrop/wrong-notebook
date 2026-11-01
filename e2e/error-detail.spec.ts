@@ -48,7 +48,7 @@ test('错题详情页显示各区块，编辑后保存并在刷新后保留', as
     await expect(card(page, '你的笔记 / 答案')).toContainText('暂无笔记');
 
     // 年级有明确编辑入口，跨学段修改后持久保存。
-    await page.getByRole('button', { name: '编辑年级/学期' }).click();
+    await page.getByRole('heading', { name: '试题信息' }).locator('..').getByRole('button', { name: '编辑' }).click();
     await page.getByRole('combobox', { name: '年级/学期' }).selectOption('高二下');
     await card(page, '题目').getByRole('button', { name: '保存', exact: true }).click();
     await expect(card(page, '题目')).toContainText('高二下');

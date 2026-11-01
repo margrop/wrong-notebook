@@ -45,7 +45,7 @@ for (const viewport of [{ name: '桌面', width: 1280, height: 900 }, { name: '�
 
             // 无所属错题本也能保存年级，刷新后仍保留手工选择。
             await page.goto(`/error-items/${fixed.id}`);
-            const editMetadataButton = page.getByRole('heading', { name: '试卷信息' }).locator('..').getByRole('button', { name: '编辑' });
+            const editMetadataButton = page.getByRole('heading', { name: '试题信息' }).locator('..').getByRole('button', { name: '编辑' });
             await editMetadataButton.click();
             await page.locator('#detail-grade-semester').selectOption('初二上');
             await page.getByRole('button', { name: '保存', exact: true }).click();
