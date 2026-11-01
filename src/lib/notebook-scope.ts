@@ -30,11 +30,11 @@ export const SUBJECT_DISPLAY_NAMES: Record<NotebookSubject, string> = {
     biology: "生物", history: "历史", geography: "地理", politics: "政治",
 };
 
-// 标签库顶层节点是年级（如「三年级」「七年级上」「高一下」），按名称归入学段
+// 标签库顶层节点是年级（如「三年级」「七年级上」「高一下」，课标体系高中按册名为「高中 选必一」），按名称归入学段
 const STAGE_GRADE_PATTERNS: Record<NotebookStage, RegExp> = {
     primary: /^[一二三四五六]年级/,
     junior_high: /^[七八九]年级/,
-    senior_high: /^高[一二三]/,
+    senior_high: /^高[一二三中]/,
 };
 
 export function isNotebookStage(value: unknown): value is NotebookStage {

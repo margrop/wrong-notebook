@@ -86,6 +86,15 @@ The task list lives in the server process's memory. Navigating away usually does
 
 "About" in the settings and `GET /api/health` both show the running version. When troubleshooting, note the version, the steps to reproduce and the redacted error message; do not send real API keys or full configuration files.
 
+## PEP curriculum knowledge points
+
+Admins can import the PEP curriculum tag system as a second tag library alongside the built-in one:
+
+1. Download the required JSON file: [topics.json](https://raw.githubusercontent.com/xiaoyang111222/cn-math-taxonomy/HEAD/data/topics.json) (about 2.6 MB, from [cn-math-taxonomy](https://github.com/xiaoyang111222/cn-math-taxonomy)).
+2. Open "Settings → User Management → PEP Curriculum Knowledge Points" and click "Select topics.json and Import".
+
+The data is mainly math and also covers Chinese, English, physics, history, geography and morality & law (filed under politics); unsupported subjects such as primary science are skipped. The import is incremental and safe to repeat, and does not change the built-in tag system or existing questions. Afterwards, "PEP Curriculum Standard" can be chosen under "Tag System" when creating a notebook; it cannot be changed later. The command-line equivalent is `npx tsx scripts/seed-cnm-tags.ts <file path>`.
+
 ## Debug logs
 
 When a problem is hard to describe, an admin can export a debug log and send it to the author:

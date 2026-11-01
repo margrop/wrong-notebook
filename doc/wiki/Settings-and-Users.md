@@ -86,6 +86,15 @@
 
 设置中的“关于”和 `GET /api/health` 可查看运行版本。排查问题时记录版本、复现步骤及脱敏后的错误提示；不要发送实际 API Key 或完整配置文件。
 
+## 人教版课标知识点
+
+管理员可以导入「人教版课标体系」，作为与内置知识点并存的另一套标签：
+
+1. 下载所需的 JSON 文件：[topics.json](https://raw.githubusercontent.com/xiaoyang111222/cn-math-taxonomy/HEAD/data/topics.json)（约 2.6MB，来自 [cn-math-taxonomy](https://github.com/xiaoyang111222/cn-math-taxonomy)）。
+2. 打开“设置 → 用户管理 → 人教版课标知识点”，点击“选择 topics.json 并导入”。
+
+数据以数学为主，也包含语文、英语、物理、历史、地理和道德与法治（归入政治）；小学科学等不支持的学科会跳过。导入是增量的，可重复执行，不改动内置标签体系和已有题目。导入后创建错题本时可在“标签体系”中选择「人教版课标体系」，创建后不可更改。也可在命令行执行 `npx tsx scripts/seed-cnm-tags.ts <文件路径>`。
+
 ## 调试日志
 
 遇到难以描述的问题时，管理员可以导出调试日志发给作者：

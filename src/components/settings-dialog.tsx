@@ -19,6 +19,7 @@ import { UserManagement } from "@/components/admin/user-management";
 import { AboutSettings } from "@/components/settings/about-settings";
 import { AccountSettings } from "@/components/settings/account-settings";
 import { AiProviderSettings } from "@/components/settings/ai-provider-settings";
+import { CnmTagImportSettings } from "@/components/settings/cnm-tag-import-settings";
 import { DangerZoneSettings } from "@/components/settings/danger-zone-settings";
 import { DataBackupSettings } from "@/components/settings/data-backup-settings";
 import { DebugLogSettings } from "@/components/settings/debug-log-settings";
@@ -189,6 +190,7 @@ export function SettingsDialog() {
                                 {t.setup.rerun}
                             </Button>
                             <DebugLogSettings />
+                            <CnmTagImportSettings />
                             <div className="border-t pt-4">
                                 <UserManagement />
                             </div>
