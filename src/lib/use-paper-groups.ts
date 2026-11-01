@@ -17,6 +17,7 @@ export interface PaperGroup {
 let cachedGroups: PaperGroup[] | null = null;
 let cachedAt = 0;
 const CACHE_TTL = 30_000;
+const subscribers = new Set<(groups: PaperGroup[]) => void>();
 
 export function invalidatePaperGroupsCache() {
     cachedGroups = null;
@@ -44,7 +45,8 @@ export function usePaperGroups() {
             const data = await apiClient.get<PaperGroup[]>("/api/paper-groups");
             cachedGroups = data;
             cachedAt = now;
-            setGroups(data);
+            // 设置页刷新后，通知已挂载的录入、筛选和详情组件更新选项。
+            subscribers.forEach((subscriber) => subscriber(data));
             setError(null);
         } catch (err) {
             frontendLogger.error("[usePaperGroups]", "Failed to fetch paper groups", { error: err });
@@ -55,8 +57,10 @@ export function usePaperGroups() {
     }, []);
 
     useEffect(() => {
+        subscribers.add(setGroups);
         // eslint-disable-next-line react-hooks/set-state-in-effect -- 数据请求：进入页面时加载分组
         fetchGroups();
+        return () => { subscribers.delete(setGroups); };
     }, [fetchGroups]);
 
     const refetch = useCallback(() => {
