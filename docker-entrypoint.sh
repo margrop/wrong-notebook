@@ -10,6 +10,7 @@ VERSION_FILE="/app/data/.app_version"
 PRISMA_BIN="node /app/node_modules/prisma/build/index.js"
 SEED_ADMIN_SCRIPT="/app/dist-scripts/scripts/seed-admin.js"
 REBUILD_TAGS_SCRIPT="/app/dist-scripts/scripts/rebuild-system-tags.js"
+SEED_CHINESE_TAGS_SCRIPT="/app/dist-scripts/scripts/seed-chinese-primary.js"
 
 # Get current app version from package.json
 CURRENT_VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "unknown")
@@ -75,6 +76,9 @@ if [ "$PREVIOUS_VERSION" != "$CURRENT_VERSION" ]; then
     # Update version marker
     echo "$CURRENT_VERSION" > "$VERSION_FILE"
 fi
+
+# 旧安装保留标签时也增量补齐语文课程，不重建已有标签或修改题目关联。
+node "$SEED_CHINESE_TAGS_SCRIPT"
 
 # HTTPS Setup
 CERT_DIR="/app/certs"

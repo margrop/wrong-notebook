@@ -13,12 +13,13 @@ describe('错题本学段与学科', () => {
 
     it('只允许标签库中存在的学段与学科组合', () => {
         expect(isValidNotebookScope('primary', 'math')).toBe(true);
+        expect(isValidNotebookScope('primary', 'chinese')).toBe(true);
         expect(isValidNotebookScope('primary', 'physics')).toBe(false);
         expect(isValidNotebookScope('junior_high', 'physics')).toBe(true);
         expect(isValidNotebookScope('university', 'math')).toBe(false);
         expect(isValidNotebookScope('primary', 'music')).toBe(false);
         expect(isValidNotebookScope(undefined, undefined)).toBe(false);
-        expect(STAGE_SUBJECTS.primary).toEqual(['math', 'english']);
+        expect(STAGE_SUBJECTS.primary).toEqual(['math', 'english', 'chinese']);
     });
 
     it('旧错题本未记录学科时按名称推断，学段缺省为小学', () => {

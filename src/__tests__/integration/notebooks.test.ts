@@ -140,6 +140,23 @@ describe('/api/notebooks', () => {
             expect(mocks.mockPrismaSubject.create.mock.calls[0][0].data).toMatchObject({ name: '奥数', stage: 'primary', subjectKey: 'math' });
         });
 
+        it('允许创建小学语文错题本并保存学段与学科', async () => {
+            const notebook = { id: 'nb-chinese', name: '小学语文', stage: 'primary', subjectKey: 'chinese', _count: { errorItems: 0 } };
+            mocks.mockPrismaSubject.findUnique.mockResolvedValue(null);
+            mocks.mockPrismaSubject.create.mockResolvedValue(notebook);
+
+            const response = await POST(new Request('http://localhost/api/notebooks', {
+                method: 'POST',
+                body: JSON.stringify({ name: '小学语文', stage: 'primary', subjectKey: 'chinese' }),
+            }));
+
+            expect(response.status).toBe(201);
+            expect(await response.json()).toMatchObject(notebook);
+            expect(mocks.mockPrismaSubject.create).toHaveBeenCalledWith(expect.objectContaining({
+                data: expect.objectContaining({ name: '小学语文', stage: 'primary', subjectKey: 'chinese', userId: mockUser.id }),
+            }));
+        });
+
         it('缺少学段或学科、取值非法或组合不可选时返回 400', async () => {
             for (const body of [
                 { name: '数学' },

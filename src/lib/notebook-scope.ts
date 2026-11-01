@@ -13,9 +13,13 @@ export const DEFAULT_NOTEBOOK_STAGE: NotebookStage = "primary";
 export const NOTEBOOK_SUBJECTS = ["math", "english", "chinese", "physics", "chemistry", "biology", "history", "geography", "politics"] as const;
 export type NotebookSubject = (typeof NOTEBOOK_SUBJECTS)[number];
 
-/** 各学段可选的学科：只列出标签库中有该学段知识点的学科 */
+/**
+ * 各学段可选的学科：只列出标签库中有该学段知识点的学科。
+ * 语文已包含小学各年级的章节和知识点，故小学可选「数学/英语/语文」；
+ * 其余学科（物理/化学/生物/历史/地理/政治）当前标签库仍无小学知识点，故不在小学列出。
+ */
 export const STAGE_SUBJECTS: Record<NotebookStage, readonly NotebookSubject[]> = {
-    primary: ["math", "english"],
+    primary: ["math", "english", "chinese"],
     junior_high: NOTEBOOK_SUBJECTS,
     senior_high: NOTEBOOK_SUBJECTS,
 };

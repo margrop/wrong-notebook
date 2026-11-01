@@ -143,7 +143,7 @@ Practice statistics show total practice, accuracy and active months, with distri
 - **📝 Regenerate the solution**: **Regenerate full solution** on the details page asks AI to rewrite the answer and analysis (with confirmation before overwriting); knowledge points and the cause of the mistake stay unchanged.
 - **🖼️ Question figures**: during recognition AI redraws figures as SVG, which is used on the details page, in printouts and in exams. For a saved mistake with a figure, set **Figure display scale** on its details page (10–200%, default 100%). The saved scale applies to that question's display and text printouts and is restored from backups. Check the original photo with "View original image", or replace and add photos.
 - **⭐ Difficulty stars**: on import AI rates difficulty from 1 to 5 stars following the star scale of a well-known Chinese math competition textbook series (1–2 stars: textbook and school extension, 3–4: regular math olympiad, 5: hardest competition problems). You can change it manually; questions with 4 stars or more go to paper B by default.
-- **🏷️ Knowledge-point tags**: each notebook is created for a school stage (primary / junior high / senior high) and a subject (cannot be changed later). AI picks tags from all knowledge points of that stage and subject. Custom tags are supported, and AI can re-tag the knowledge points and difficulty of one question or a whole notebook.
+- **🏷️ Knowledge-point tags**: each notebook is created for a school stage (primary / junior high / senior high) and a subject (cannot be changed later). Primary school supports math, English and Chinese; the built-in Chinese chapters and knowledge points cover grades 1–6, junior high and senior high. AI picks tags from all knowledge points of that stage and subject. Custom tags are supported, and AI can re-tag the knowledge points and difficulty of one question or a whole notebook.
 
 ### Explanations and demos
 
@@ -246,7 +246,7 @@ Every release publishes an image to GitHub Container Registry, `ghcr.io/margrop/
 
 3. **Sign in**: open `http://your-ip-or-domain:3000`.
 
-4. **Upgrade**: pull the new image and recreate the container. Data stays in the mounted directories; on startup only database migrations run. Back up the `data/` directory before upgrading.
+4. **Upgrade**: pull the new image and recreate the container. Data stays in the mounted directories; startup runs database migrations and fills in missing built-in Chinese tags while preserving existing tag IDs and question links. Back up the `data/` directory before upgrading.
 
    ```bash
    docker compose pull && docker compose up -d
@@ -514,6 +514,7 @@ The `scripts/` directory contains maintenance and debugging scripts, for example
 - **Reset a password**: `node scripts/reset-password.js <email> <new-password>`
 - **Restore the default admin role**: `node scripts/seed-admin.js` (only restores the admin role and re-enables an existing `admin@localhost`; when no admin exists, restarting the server prints a new setup link in the log)
 - **Rebuild system knowledge points**: `npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/rebuild-system-tags.ts` (keeps custom tags and question links; back up before running in production)
+- **Fill in Chinese knowledge points**: `npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/seed-chinese-primary.ts` (uses the same curriculum source as the app, adds missing built-in Chinese tags and updates their curriculum order while preserving tag IDs, question links, custom tags and other tag systems; safe to repeat). Docker and installation packages run the compiled `dist-scripts/scripts/seed-chinese-primary.js` at startup, so existing installations do not need a full tag rebuild.
 - **Inspect the database**: `node scripts/check-db-users.js`, `node scripts/check-db-data.js`
 
 ### Documentation

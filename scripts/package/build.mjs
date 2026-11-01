@@ -93,8 +93,8 @@ function buildSeedDatabase() {
     const scriptsOut = path.join(WORK, 'dist-scripts');
     const env = { DATABASE_URL: `file:${seedDb.split(path.sep).join('/')}` };
     runNodeBin('typescript/bin/tsc', [
-        'scripts/rebuild-system-tags.ts', '--outDir', scriptsOut,
-        '--esModuleInterop', '--resolveJsonModule', '--skipLibCheck', '--module', 'commonjs', '--target', 'ES2020',
+        'scripts/rebuild-system-tags.ts', 'scripts/seed-chinese-primary.ts', '--outDir', scriptsOut,
+        '--esModuleInterop', '--resolveJsonModule', '--skipLibCheck', '--module', 'commonjs', '--target', 'ES2022',
     ]);
     runNodeBin('prisma/build/index.js', ['migrate', 'deploy'], { env });
     run(process.execPath, ['scripts/seed-admin.js'], { env });
@@ -210,6 +210,7 @@ function buildBundle() {
     fs.copyFileSync(path.join(ROOT, 'prisma', 'schema.prisma'), path.join(BUNDLE, 'prisma', 'schema.prisma'));
     copy(path.join(ROOT, 'prisma', 'migrations'), path.join(BUNDLE, 'prisma', 'migrations'));
     fs.copyFileSync(seedDb, path.join(BUNDLE, 'prisma', 'seed.db'));
+    copy(path.join(WORK, 'dist-scripts'), path.join(BUNDLE, 'dist-scripts'));
     // 运行时迁移需要 Prisma CLI 和本平台的 schema 引擎（与 Dockerfile 一致）
     for (const dir of ['.prisma', 'prisma', '@prisma']) {
         copy(path.join(ROOT, 'node_modules', dir), path.join(BUNDLE, 'node_modules', dir));
@@ -286,7 +287,7 @@ function buildDesktop() {
 
 /** electron-builder 的文件过滤规则较多，打包后确认服务端关键文件确实进入安装包 */
 function verifyDesktopOutput(releaseDir) {
-    const required = ['launcher.js', 'server.js', '.next/BUILD_ID', 'node_modules/.prisma/client/index.js', 'prisma/seed.db'];
+    const required = ['launcher.js', 'server.js', '.next/BUILD_ID', 'node_modules/.prisma/client/index.js', 'prisma/seed.db', 'dist-scripts/scripts/seed-chinese-primary.js'];
     const roots = [];
     const walk = (dir, depth) => {
         if (depth > 6 || !fs.existsSync(dir)) return;
