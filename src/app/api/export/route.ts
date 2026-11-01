@@ -8,6 +8,7 @@ import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
 import { normalizeFigureScale } from "@/lib/figure-scale";
 import { exportSpeeches } from "@/lib/tts/speech-cache";
+import { sortTagsByParent } from "@/lib/tag-hierarchy";
 
 const logger = createLogger('api:export');
 
@@ -109,8 +110,8 @@ export async function GET(req: Request) {
                 themePreference: user.themePreference,
             },
             subjects,
-            systemTags,
-            customTags,
+            systemTags: sortTagsByParent(systemTags),
+            customTags: sortTagsByParent(customTags),
             errorItems: errorItems.map((item) => ({ ...item, figureScale: normalizeFigureScale(item.figureScale) })),
             reviewSchedules,
             practiceRecords,

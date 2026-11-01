@@ -16,6 +16,7 @@ import { GRADE_SEMESTERS } from "@/lib/grade-options";
 import { findDuplicateQuestion, recordDuplicateQuestion } from "@/lib/question-deduplication";
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { resolveNotebookScope } from "@/lib/notebook-scope";
+import { sortTagsByParent } from "@/lib/tag-hierarchy";
 import { sanitizeFigureSvg } from "@/lib/figure-svg";
 import { normalizeFigureScale } from "@/lib/figure-scale";
 import { sanitizeSvgAnimation } from "@/lib/svg-animation";
@@ -339,61 +340,56 @@ export async function POST(req: Request) {
                 }
             }
 
-            // 2. 导入系统标签（按 tagSet 分组，避免不同体系混淆）
+            // 2. 按体系和父节点路径导入，保留不同年级下的同名章节与知识点。
             const systemTagIdMap = new Map<string, string>();
-            for (const tag of (body.systemTags || [])) {
+            for (const tag of sortTagsByParent(body.systemTags || [])) {
+                const parentId = tag.parentId ? systemTagIdMap.get(tag.parentId) ?? null : null;
                 const existing = await tx.knowledgeTag.findFirst({
                     where: {
                         name: tag.name,
                         subject: tag.subject,
                         isSystem: true,
                         tagSet: tag.tagSet || 'default',
+                        parentId,
                     },
                 });
                 if (existing) {
                     systemTagIdMap.set(tag.id, existing.id);
                 } else {
-                    let newParentId: string | undefined;
-                    if (tag.parentId && systemTagIdMap.has(tag.parentId)) {
-                        newParentId = systemTagIdMap.get(tag.parentId);
-                    }
-
-                    await tx.knowledgeTag.create({
+                    const created = await tx.knowledgeTag.create({
                         data: {
                             name: tag.name,
                             subject: tag.subject,
                             isSystem: true,
                             tagSet: tag.tagSet || 'default',
-                            parentId: newParentId,
+                            parentId,
                             order: tag.order || 0,
                             code: tag.code,
                         },
                     });
-                    systemTagIdMap.set(tag.id, tag.id);
+                    systemTagIdMap.set(tag.id, created.id);
                 }
             }
 
             // 3. 导入 custom tags
             const tagIdMap = new Map<string, string>();
-            for (const tag of (body.customTags || [])) {
+            for (const tag of sortTagsByParent(body.customTags || [])) {
                 const targetUserId = importAll ? tag.userId : user.id;
                 const tagSet = tag.tagSet || 'default';
+                const parentId = tag.parentId ? tagIdMap.get(tag.parentId) ?? systemTagIdMap.get(tag.parentId) ?? null : null;
                 const existing = await tx.knowledgeTag.findFirst({
                     where: {
                         name: tag.name,
+                        subject: tag.subject,
                         userId: targetUserId,
                         isSystem: false,
                         tagSet,
+                        parentId,
                     },
                 });
                 if (existing) {
                     tagIdMap.set(tag.id, existing.id);
                 } else {
-                    let newParentId: string | undefined;
-                    if (tag.parentId && tagIdMap.has(tag.parentId)) {
-                        newParentId = tagIdMap.get(tag.parentId);
-                    }
-
                     const created = await tx.knowledgeTag.create({
                         data: {
                             name: tag.name,
@@ -401,7 +397,7 @@ export async function POST(req: Request) {
                             isSystem: false,
                             userId: targetUserId,
                             tagSet: tag.tagSet || 'default',
-                            parentId: newParentId,
+                            parentId,
                             order: tag.order || 0,
                             code: tag.code,
                         },
@@ -586,13 +582,15 @@ export async function POST(req: Request) {
                 if (created.masteryEvaluatedAt) evaluatedIds.add(created.id);
                 stats.errorItemsCreated++;
 
-                // 关联 tags：优先按错题本 tagSet 匹配系统标签，失败时按名字兜底
+                // 关联 tags：优先按备份 ID 还原具体节点，旧备份再按体系和名字兜底。
                 if (item.tags && item.tags.length > 0) {
                     const itemTagSet = (item.subjectId && subjectTagSetMap.get(item.subjectId)) || 'default';
                     const tagConnections: { id: string }[] = [];
                     for (const tag of item.tags) {
                         if (tagIdMap.has(tag.id)) {
                             tagConnections.push({ id: tagIdMap.get(tag.id)! });
+                        } else if (systemTagIdMap.has(tag.id)) {
+                            tagConnections.push({ id: systemTagIdMap.get(tag.id)! });
                         } else {
                             const bySet = tagBySetAndName.get(`${itemTagSet}::${tag.name}`);
                             const byName = tagNameMap.get(tag.name);

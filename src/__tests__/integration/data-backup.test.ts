@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
+import type { KnowledgeTag } from '@prisma/client';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -26,6 +27,7 @@ import { POST as IMPORT } from '@/app/api/import/route';
 import { sanitizeFigureSvg } from '@/lib/figure-svg';
 import { embedNarration, sanitizeSvgAnimation } from '@/lib/svg-animation';
 import { encodeMp3 } from '@/lib/tts/mp3';
+import { seedChineseTags } from '@/lib/seed-chinese-tags';
 
 let database: PrismaClient;
 let directory: string;
@@ -135,6 +137,49 @@ afterAll(async () => {
 });
 
 describe('数据导出后再导入（真实 SQLite）', () => {
+    it('完整语文课程备份往返保留同名章节的层级及题目关联，兼容乱序与重复导入', async () => {
+        await seedChineseTags(database);
+        const scope = { subject: 'chinese', isSystem: true, tagSet: 'default' };
+        const before = await database.knowledgeTag.findMany({ where: scope });
+        function hierarchy(tags: KnowledgeTag[]) {
+            const byId = new Map(tags.map((tag) => [tag.id, tag]));
+            const path = (tag: KnowledgeTag): string => {
+                const parent = tag.parentId ? byId.get(tag.parentId) : undefined;
+                return parent ? `${path(parent)}/${tag.name}` : tag.name;
+            };
+            return tags.map((tag) => `${tag.tagSet}:${tag.subject}:${path(tag)}:${tag.order}:${tag.code}`).sort();
+        }
+        const grade = before.find((tag) => tag.name === '四年级' && tag.parentId === null)!;
+        const chapter = before.find((tag) => tag.name === '句子' && tag.parentId === grade.id)!;
+        const leaf = before.find((tag) => tag.name === '修改病句' && tag.parentId === chapter.id)!;
+        await database.subject.create({ data: { id: 'chinese', name: '小学语文', stage: 'primary', subjectKey: 'chinese', userId: 'user-1' } });
+        await database.knowledgeTag.create({ data: { id: 'custom-chinese', name: '我的句式笔记', subject: 'chinese', parentId: chapter.id, userId: 'user-1' } });
+        await database.errorItem.update({
+            where: { id: 'item-1' },
+            data: { subjectId: 'chinese', tags: { set: [{ id: leaf.id }, { id: 'custom-chinese' }] } },
+        });
+        const backup = await exportBackup();
+        // 旧版或外部整理过的备份可能先列出子节点。
+        backup.systemTags.reverse();
+        await clearUserData();
+        await importBackup(backup);
+
+        const restored = await database.knowledgeTag.findMany({ where: scope });
+        expect(hierarchy(restored)).toEqual(hierarchy(before));
+        const newGrade = restored.find((tag) => tag.name === '四年级' && tag.parentId === null)!;
+        const newChapter = restored.find((tag) => tag.name === '句子' && tag.parentId === newGrade.id)!;
+        const newLeaf = restored.find((tag) => tag.name === '修改病句' && tag.parentId === newChapter.id)!;
+        expect(await database.knowledgeTag.findFirstOrThrow({ where: { name: '我的句式笔记' } })).toMatchObject({ parentId: newChapter.id });
+        const item = await database.errorItem.findFirstOrThrow({ where: { shortId: 'AbC234' }, include: { tags: true, subject: true } });
+        expect(item.subject).toMatchObject({ stage: 'primary', subjectKey: 'chinese' });
+        expect(item.tags.find((tag) => tag.isSystem)?.id).toBe(newLeaf.id);
+        expect(item.tags.map((tag) => tag.name).sort()).toEqual(['修改病句', '我的句式笔记']);
+
+        await importBackup(backup);
+        expect(hierarchy(await database.knowledgeTag.findMany({ where: scope }))).toEqual(hierarchy(before));
+        expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
+    });
+
     it('导出文件使用第 3 版格式，包含 tagSet 字段', async () => {
         const backup = await exportBackup();
         expect(backup.version).toBe(3);
