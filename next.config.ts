@@ -17,6 +17,22 @@ export const securityHeaders = [
 const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: ['@prisma/client', 'bcryptjs'],
+  // 排除因 process.cwd() 动态路径被文件追踪误扫入 standalone 的开发、测试与打包目录
+  outputFileTracingExcludes: {
+    '*': [
+      './src/**/*',
+      './e2e/**/*',
+      './tests/**/*',
+      './coverage/**/*',
+      './packaging/**/*',
+      './dist/**/*',
+      './dist-scripts/**/*',
+      './doc/**/*',
+      './perf/**/*',
+      './scripts/**/*',
+      './.git/**/*',
+    ],
+  },
   // 禁止 next dev 自动向 AGENTS.md / CLAUDE.md 写入 agent-rules 段落
   agentRules: false,
   poweredByHeader: false,

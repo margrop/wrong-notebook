@@ -12,7 +12,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma/schema.prisma ./prisma/schema.prisma
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci && npx prisma generate
+    npm ci --no-audit --no-fund && npx prisma generate
 
 # Pre-compile runtime scripts and initialize seed database in an isolated stage
 # so code-only changes reuse the cached database layer and BuildKit can run it in parallel.

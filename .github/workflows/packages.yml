@@ -37,7 +37,16 @@ jobs:
             echo "PACKAGE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           fi
 
-      - run: npm ci
+      - name: Cache Next.js build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ github.workspace }}/.next/cache
+          key: nextjs-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}-
+            nextjs-${{ runner.os }}-${{ runner.arch }}-
+
+      - run: npm ci --no-audit --no-fund
 
       - name: Build bundle and npm package
         run: |
@@ -152,7 +161,23 @@ jobs:
           sudo gem install --no-document fpm
           echo "USE_SYSTEM_FPM=true" >> "$GITHUB_ENV"
 
-      - run: npm ci
+      - name: Cache Next.js and Electron binaries
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ${{ github.workspace }}/.next/cache
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: desktop-${{ matrix.name }}-${{ hashFiles('package-lock.json', 'packaging/desktop/package.json') }}-${{ github.sha }}
+          restore-keys: |
+            desktop-${{ matrix.name }}-${{ hashFiles('package-lock.json', 'packaging/desktop/package.json') }}-
+            desktop-${{ matrix.name }}-
+
+      - run: npm ci --no-audit --no-fund
 
       - name: Build bundle
         run: node scripts/package/build.mjs bundle
@@ -270,7 +295,16 @@ jobs:
           echo "${{ matrix.sha256 }}  /usr/local/bin/fnpack" | sha256sum -c -
           chmod +x /usr/local/bin/fnpack
 
-      - run: npm ci
+      - name: Cache Next.js build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ github.workspace }}/.next/cache
+          key: nextjs-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}-
+            nextjs-${{ runner.os }}-${{ runner.arch }}-
+
+      - run: npm ci --no-audit --no-fund
 
       - name: Build fpk
         run: |
@@ -314,7 +348,16 @@ jobs:
             echo "PACKAGE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           fi
 
-      - run: npm ci
+      - name: Cache Next.js build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ github.workspace }}/.next/cache
+          key: nextjs-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}-
+            nextjs-${{ runner.os }}-${{ runner.arch }}-
+
+      - run: npm ci --no-audit --no-fund
 
       # 单机版内置的服务端与其他安装包相同
       - name: Build bundle

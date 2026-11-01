@@ -192,11 +192,11 @@ function buildBundle() {
     log('组装 dist/bundle');
     rm(BUNDLE);
     copy(standalone, BUNDLE);
-    // standalone 可能带入本机的 .env、配置文件和数据库，全部移除，避免把密钥打进安装包
+    // standalone 仅保留运行时必需的顶层项，移除可能带入的本机配置、数据库及开发目录
+    const allowedTopLevel = new Set(['server.js', 'package.json', '.next', 'node_modules']);
     for (const entry of fs.readdirSync(BUNDLE)) {
-        if (entry.startsWith('.env') || /\.(db|db-journal|sqlite)$/.test(entry)) rm(path.join(BUNDLE, entry));
+        if (!allowedTopLevel.has(entry)) rm(path.join(BUNDLE, entry));
     }
-    for (const dir of ['config', 'data', 'prisma', 'certs', 'dist-scripts']) rm(path.join(BUNDLE, dir));
     // 外部包别名链接由 launcher.js 在运行时解析（见 installExternalAliasResolver）
     rm(path.join(BUNDLE, '.next', 'node_modules'));
 
