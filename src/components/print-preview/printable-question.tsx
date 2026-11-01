@@ -5,6 +5,7 @@ import { AnswerSpaceControl } from "@/components/print-preview/answer-space-cont
 import { QuestionFigure } from "@/components/question-figure";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { resolveQuestionAnswerSpacePx } from "@/lib/exam-answer-space";
+import { getPrintableItemTagNames } from "@/lib/print-preview";
 import { usePaperGroups } from "@/lib/use-paper-groups";
 import type { PrintableErrorItem } from "@/types/api";
 import type { PrintDisplayOptions } from "./print-options";
@@ -21,17 +22,6 @@ interface PrintableQuestionProps {
     onCustomAnswerSpaceChange?: (px: number | null) => void;
 }
 
-/** 题目的知识点：优先使用 tags 关联，旧数据回退到 knowledgePoints */
-function tagNames(item: PrintableErrorItem): string[] {
-    if (item.tags && item.tags.length > 0) return item.tags.map((tag) => tag.name);
-    try {
-        const parsed: unknown = JSON.parse(item.knowledgePoints || "[]");
-        return Array.isArray(parsed) ? parsed.filter((tag): tag is string => typeof tag === "string") : [];
-    } catch {
-        return [];
-    }
-}
-
 /** 打印页中的一道题：题号、来源信息、原图或文字，以及可选的答案和解析 */
 export function PrintableQuestion({
     item,
@@ -42,7 +32,7 @@ export function PrintableQuestion({
     onCustomAnswerSpaceChange,
 }: PrintableQuestionProps) {
     const { t } = useLanguage();
-    const tags = tagNames(item);
+    const tags = getPrintableItemTagNames(item);
     const { groups: paperGroups } = usePaperGroups();
     const paperGroupName = item.paperLevel
         ? paperGroups.find((g) => g.id === item.paperLevel)?.name || item.paperLevel

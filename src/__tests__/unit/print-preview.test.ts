@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    getPrintableItemTagNames,
     getPrintPreviewCountLabel,
     getPrintPreviewEmptyState,
     getSelectedPrintItems,
@@ -35,5 +36,14 @@ describe('print preview helpers', () => {
         expect(getPrintPreviewEmptyState(0, 0)).toBe('noItems');
         expect(getPrintPreviewEmptyState(88, 0)).toBe('noSelection');
         expect(getPrintPreviewEmptyState(88, 2)).toBeNull();
+    });
+
+    it('提取打印题目的知识点名称并兼容旧版 JSON 字符串', () => {
+        expect(getPrintableItemTagNames({ tags: [{ id: '1', name: '勾股定理' }], knowledgePoints: '["旧标签"]' }))
+            .toEqual(['勾股定理']);
+        expect(getPrintableItemTagNames({ tags: [], knowledgePoints: '["二次函数","配方法"]' }))
+            .toEqual(['二次函数', '配方法']);
+        expect(getPrintableItemTagNames({ tags: [], knowledgePoints: 'invalid-json' }))
+            .toEqual([]);
     });
 });
