@@ -20,7 +20,7 @@ export const EXAM_PRINT_CSS = `
 .exam-sheet .question-figure img { display: block; margin: 0 auto; max-width: 100%; max-height: 360px; background: #fff; }
 .exam-sheet .markdown-content table { border-collapse: collapse; }
 .exam-sheet .markdown-content td, .exam-sheet .markdown-content th { border: 1px solid #999; padding: 2px 6px; }
-@media print { .exam-sheet { padding: 0; max-width: none; } .exam-sheet .figure-scale-editor-controls { display: none; } @page { size: A4; margin: 15mm; } }
+@media print { .exam-sheet { padding: 0; max-width: none; } .exam-sheet .figure-scale-editor-controls, .exam-sheet .answer-space-controls { display: none; } @page { size: A4; margin: 15mm; } }
 `;
 
 function escapeHtml(value: string): string {

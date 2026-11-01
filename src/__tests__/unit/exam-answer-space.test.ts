@@ -2,12 +2,16 @@ import { describe, it, expect } from 'vitest';
 import {
     AUTO_ANSWER_SPACE_PX,
     FIXED_ANSWER_SPACE_PX,
+    MAX_CUSTOM_ANSWER_SPACE_PX,
+    MIN_CUSTOM_ANSWER_SPACE_PX,
     SOLUTION_EXTRA_PER_PART_PX,
     SOLUTION_MAX_PX,
+    clampAnswerSpacePx,
     countQuestionParts,
     detectQuestionKind,
     getAnswerSpacePx,
     isAnswerSpaceMode,
+    resolveQuestionAnswerSpacePx,
 } from '@/lib/exam-answer-space';
 
 describe('detectQuestionKind', () => {
@@ -79,5 +83,21 @@ describe('isAnswerSpaceMode', () => {
         expect(isAnswerSpaceMode('large')).toBe(true);
         expect(isAnswerSpaceMode('huge')).toBe(false);
         expect(isAnswerSpaceMode(null)).toBe(false);
+    });
+});
+
+describe('clampAnswerSpacePx & resolveQuestionAnswerSpacePx', () => {
+    it('限制单题自定义留白高度在有效区间并四舍五入', () => {
+        expect(clampAnswerSpacePx(-20)).toBe(MIN_CUSTOM_ANSWER_SPACE_PX);
+        expect(clampAnswerSpacePx(999)).toBe(MAX_CUSTOM_ANSWER_SPACE_PX);
+        expect(clampAnswerSpacePx(135.6)).toBe(136);
+        expect(clampAnswerSpacePx(Number.NaN)).toBe(MIN_CUSTOM_ANSWER_SPACE_PX);
+    });
+
+    it('单题自定义留白优先于全局模式，未设置时回退到全局模式', () => {
+        expect(resolveQuestionAnswerSpacePx('auto', '1 + 1 = ____', 200)).toBe(200);
+        expect(resolveQuestionAnswerSpacePx('large', '求解。', 0)).toBe(0);
+        expect(resolveQuestionAnswerSpacePx('auto', '1 + 1 = ____', null)).toBe(AUTO_ANSWER_SPACE_PX.fill);
+        expect(resolveQuestionAnswerSpacePx('small', '求解。', undefined)).toBe(FIXED_ANSWER_SPACE_PX.small);
     });
 });

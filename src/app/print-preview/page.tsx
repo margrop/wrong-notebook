@@ -32,9 +32,22 @@ function PrintPreviewContent() {
         showAnalysis: false,
         showTags: false,
         imageScale: 70,
+        answerSpace: "auto",
     });
     const updateOptions = (patch: Partial<PrintDisplayOptions>) => setOptions((prev) => ({ ...prev, ...patch }));
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [customSpaces, setCustomSpaces] = useState<Record<string, number>>({});
+
+    const setQuestionCustomSpace = (id: string, px: number | null) => {
+        setCustomSpaces((prev) => {
+            if (px === null) {
+                const next = { ...prev };
+                delete next[id];
+                return next;
+            }
+            return { ...prev, [id]: px };
+        });
+    };
 
     const fetchItems = useCallback(async () => {
         try {
@@ -109,7 +122,12 @@ function PrintPreviewContent() {
                         </Button>
                     </div>
 
-                    <PrintOptions options={options} onChange={updateOptions} />
+                    <PrintOptions
+                        options={options}
+                        onChange={updateOptions}
+                        hasCustomSpaces={Object.keys(customSpaces).length > 0}
+                        onResetCustomSpaces={() => setCustomSpaces({})}
+                    />
                     <PrintItemPicker
                         items={items}
                         selectedIds={selectedIds}
@@ -124,7 +142,15 @@ function PrintPreviewContent() {
             {/* Print Content */}
             <div className="max-w-4xl mx-auto p-8 print:p-0">
                 {selectedItems.map((item, index) => (
-                    <PrintableQuestion key={item.id} item={item} index={index} options={options} reserveAnswerSpace={reserveAnswerSpace} />
+                    <PrintableQuestion
+                        key={item.id}
+                        item={item}
+                        index={index}
+                        options={options}
+                        reserveAnswerSpace={reserveAnswerSpace}
+                        customAnswerSpacePx={customSpaces[item.id]}
+                        onCustomAnswerSpaceChange={(px) => setQuestionCustomSpace(item.id, px)}
+                    />
                 ))}
 
                 {emptyState && (

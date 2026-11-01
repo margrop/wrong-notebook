@@ -61,8 +61,23 @@ describe('题目配图', () => {
                 <PrintableQuestion item={{ ...item, questionText: '已知二次函数，求其最小值及对称轴。' }} index={0} reserveAnswerSpace={true} options={{ showQuestionText: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }} />
             </LanguageProvider>,
         );
+        const customSpaceMarkup = renderToStaticMarkup(
+            <LanguageProvider>
+                <PrintableQuestion
+                    item={{ ...item, questionText: '1 + 1 = ____' }}
+                    index={0}
+                    reserveAnswerSpace={true}
+                    customAnswerSpacePx={180}
+                    onCustomAnswerSpaceChange={vi.fn()}
+                    options={{ showQuestionText: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70, answerSpace: 'auto' }}
+                />
+            </LanguageProvider>,
+        );
         expect(fillMarkup).toContain('min-height:16px');
         expect(solutionMarkup).toContain('min-height:240px');
+        expect(customSpaceMarkup).toContain('min-height:180px');
+        expect(customSpaceMarkup).toContain('本题留白: 180px');
+        expect(customSpaceMarkup).toContain('恢复默认');
     });
 
     it('试卷配图支持单题与全卷统一调整比例和显示位置，无配图时不渲染控件', () => {

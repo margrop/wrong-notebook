@@ -10,6 +10,7 @@ import { BackButton } from "@/components/ui/back-button";
 import { FigureScaleEditor } from "@/components/error-detail/figure-scale-editor";
 import { ExamFigureScaleBar } from "@/components/exam/exam-figure-scale-bar";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { AnswerSpaceControl } from "@/components/print-preview/answer-space-control";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
 import { apiClient } from "@/lib/api-client";
@@ -17,8 +18,8 @@ import { EXAM_PRINT_CSS, buildExamHtmlDocument, examFileName } from "@/lib/exam-
 import {
     ANSWER_SPACE_STORAGE_KEY,
     DEFAULT_ANSWER_SPACE_MODE,
-    getAnswerSpacePx,
     isAnswerSpaceMode,
+    resolveQuestionAnswerSpacePx,
 } from "@/lib/exam-answer-space";
 import type { AnswerSpaceMode } from "@/lib/exam-answer-space";
 import type { FigureAlign } from "@/lib/figure-scale";
@@ -31,8 +32,20 @@ export default function ExamPrintPage() {
     usePageTitle(t.exam.title, paper?.title, t.pageTitle.examPrint);
     const [includeAnswers, setIncludeAnswers] = useState(true);
     const [answerSpace, setAnswerSpace] = useState<AnswerSpaceMode>(DEFAULT_ANSWER_SPACE_MODE);
+    const [customSpaces, setCustomSpaces] = useState<Record<string, number>>({});
     const [uniformPreview, setUniformPreview] = useState<{ scale: number | null; align: FigureAlign | null }>({ scale: null, align: null });
     const sheetRef = useRef<HTMLDivElement>(null);
+
+    const setQuestionCustomSpace = (questionId: string, px: number | null) => {
+        setCustomSpaces((prev) => {
+            if (px === null) {
+                const next = { ...prev };
+                delete next[questionId];
+                return next;
+            }
+            return { ...prev, [questionId]: px };
+        });
+    };
 
     useEffect(() => {
         let saved: string | null = null;
@@ -85,7 +98,7 @@ export default function ExamPrintPage() {
     const downloadHtml = () => {
         if (!sheetRef.current) return;
         const clone = sheetRef.current.cloneNode(true) as HTMLElement;
-        clone.querySelectorAll(".figure-scale-editor-controls, .print\\:hidden").forEach((element) => element.remove());
+        clone.querySelectorAll(".figure-scale-editor-controls, .answer-space-controls, .print\\:hidden").forEach((element) => element.remove());
         const html = buildExamHtmlDocument(paper.title, clone.outerHTML, language === "en" ? "en" : "zh-CN");
         const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
         const link = document.createElement("a");
@@ -120,6 +133,11 @@ export default function ExamPrintPage() {
                                 <SelectItem value="large">{t.exam.answerSpaceLarge}</SelectItem>
                             </SelectContent>
                         </Select>
+                        {Object.keys(customSpaces).length > 0 && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setCustomSpaces({})}>
+                                {t.exam.resetAllQuestionAnswerSpaces}
+                            </Button>
+                        )}
                     </div>
                     <div className="flex gap-2 sm:ml-auto">
                         <Button variant="outline" size="sm" onClick={downloadHtml}>
@@ -171,10 +189,23 @@ export default function ExamPrintPage() {
                             previewAlignOverride={uniformPreview.align}
                             onSave={(figureScale, figureAlign) => saveQuestionFigureScale(question.id, figureScale, figureAlign)}
                         />
-                        <div
-                            className="exam-answer-space"
-                            style={{ minHeight: `${getAnswerSpacePx(answerSpace, question.questionText!)}px` }}
-                        />
+                        {(() => {
+                            const effectivePx = resolveQuestionAnswerSpacePx(answerSpace, question.questionText!, customSpaces[question.id]);
+                            return (
+                                <>
+                                    <div
+                                        className="exam-answer-space"
+                                        style={{ minHeight: `${effectivePx}px` }}
+                                    />
+                                    <AnswerSpaceControl
+                                        effectivePx={effectivePx}
+                                        isCustom={typeof customSpaces[question.id] === "number"}
+                                        onChange={(px) => setQuestionCustomSpace(question.id, px)}
+                                        onReset={() => setQuestionCustomSpace(question.id, null)}
+                                    />
+                                </>
+                            );
+                        })()}
                     </section>
                 ))}
                 {includeAnswers && (

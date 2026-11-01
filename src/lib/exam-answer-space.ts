@@ -31,8 +31,19 @@ export const AUTO_ANSWER_SPACE_PX: Record<QuestionKind, number> = {
 export const SOLUTION_EXTRA_PER_PART_PX = 120;
 export const SOLUTION_MAX_PX = 560;
 
+/** 单题手动调整留白高度的范围与步进（px） */
+export const MIN_CUSTOM_ANSWER_SPACE_PX = 0;
+export const MAX_CUSTOM_ANSWER_SPACE_PX = 600;
+export const CUSTOM_ANSWER_SPACE_STEP_PX = 20;
+
 export function isAnswerSpaceMode(value: unknown): value is AnswerSpaceMode {
     return typeof value === 'string' && (ANSWER_SPACE_MODES as readonly string[]).includes(value);
+}
+
+/** 将手动调整的留白高度限制在合理范围内（0～600px） */
+export function clampAnswerSpacePx(px: number): number {
+    if (!Number.isFinite(px)) return MIN_CUSTOM_ANSWER_SPACE_PX;
+    return Math.min(MAX_CUSTOM_ANSWER_SPACE_PX, Math.max(MIN_CUSTOM_ANSWER_SPACE_PX, Math.round(px)));
 }
 
 // 选项标记：行首或空白后的 A. / B．/ C: / D：，行首或两个以上空白后的 A、，或括号包住的 (A) / （B）；
@@ -72,4 +83,16 @@ export function getAnswerSpacePx(mode: AnswerSpaceMode, questionText: string): n
     if (kind !== 'solution') return AUTO_ANSWER_SPACE_PX[kind];
     const extra = (countQuestionParts(questionText) - 1) * SOLUTION_EXTRA_PER_PART_PX;
     return Math.min(SOLUTION_MAX_PX, AUTO_ANSWER_SPACE_PX.solution + extra);
+}
+
+/** 计算一道题最终生效的留白高度：优先使用单题手动覆盖值，否则按全局模式与题型计算 */
+export function resolveQuestionAnswerSpacePx(
+    mode: AnswerSpaceMode,
+    questionText: string,
+    customPx?: number | null,
+): number {
+    if (typeof customPx === 'number' && Number.isFinite(customPx)) {
+        return clampAnswerSpacePx(customPx);
+    }
+    return getAnswerSpacePx(mode, questionText);
 }
