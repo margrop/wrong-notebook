@@ -6,6 +6,8 @@ When creating a notebook, choose its school stage (primary, junior high or senio
 
 Primary school offers math, English and Chinese. The built-in Chinese library includes chapters and knowledge points for grades 1–6, junior high and senior high. After upgrading Docker or an installation package, startup fills in missing built-in Chinese tags while preserving existing tag IDs, question links, custom tags and other tag systems.
 
+After an administrator imports the PEP curriculum math knowledge points (`scripts/seed-cnm-tags.ts`, see [Development](Development-en)), a **Tag system** option appears when creating a notebook. It coexists with the built-in system and cannot be changed after creation; AI recognition and knowledge-point filters only use tags from the notebook's tag system.
+
 The notebook list shows only each name and question count; click one to open its detail page, where you can rename or delete it. Only an empty notebook can be deleted, so move or delete its questions first.
 
 ## Add questions
