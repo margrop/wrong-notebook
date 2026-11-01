@@ -67,6 +67,17 @@ test('知识点统计按标签计数，打印预览显示所选错题本的题�
         await firstQuestion.uncheck();
         await expect(firstQuestion).not.toBeChecked();
         await expect(page.getByRole('button', { name: /打印/ })).toBeEnabled();
+
+        // 深色系统下打印时仍保持白底深色文字，不出现浅白近透明字迹
+        await page.emulateMedia({ colorScheme: 'dark', media: 'print' });
+        await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+        const answerColor = await page.getByText(`答案 2-${suffix}`).evaluate((el) => getComputedStyle(el).color);
+        expect(answerColor).not.toBe('rgb(255, 255, 255)');
+        const channels = answerColor.match(/\d+(\.\d+)?/g)?.slice(0, 3).map(Number) ?? [];
+        expect(channels).toHaveLength(3);
+        // 无论是 rgb(r, g, b) 还是 oklch(L C H)，亮度/RGB 值都远低于深色前景（0.97 / 245）
+        expect(channels[0]).toBeLessThan(80);
+        await page.emulateMedia({ colorScheme: 'light', media: 'screen' });
     } finally {
         for (const id of ids) {
             expect((await page.request.delete(`/api/error-items/${id}/delete`)).ok()).toBeTruthy();

@@ -3,7 +3,7 @@ export const KATEX_CSS_URL = "https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/kat
 
 /** 试卷打印样式：页面内与导出的独立 HTML 共用，不依赖 Tailwind */
 export const EXAM_PRINT_CSS = `
-.exam-sheet { max-width: 210mm; margin: 0 auto; padding: 16px; color: #111; background: #fff; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.6; }
+.exam-sheet { max-width: 210mm; margin: 0 auto; padding: 16px; color: #111; background: #fff; color-scheme: light; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.6; }
 .exam-sheet h1 { text-align: center; font-size: 22px; margin: 0 0 8px; }
 .exam-sheet .exam-meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 32px; font-size: 14px; margin-bottom: 20px; }
 .exam-sheet .exam-meta span { min-width: 120px; }

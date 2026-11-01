@@ -71,4 +71,10 @@ describe('代码渲染', () => {
         const html = renderToStaticMarkup(<MarkdownRenderer content={'```\nblock\n```'} />);
         expect(html).toMatch(/<pre class="bg-muted p-4[^"]*"><code[^>]*>block\n<\/code><\/pre>/);
     });
+
+    it('加粗与行内代码继承外层文字颜色，不在深色系统下的白底打印区变成浅色字', () => {
+        const html = renderToStaticMarkup(<MarkdownRenderer content={'**重点**与`代码`'} />);
+        expect(html).toContain('<strong class="font-bold">重点</strong>');
+        expect(html).not.toContain('text-foreground');
+    });
 });

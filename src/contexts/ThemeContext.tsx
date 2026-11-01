@@ -75,8 +75,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const root = document.documentElement;
-        root.classList.toggle("dark", theme === "dark");
-        root.style.colorScheme = theme;
+        const applyTheme = (mode: "light" | "dark") => {
+            root.classList.toggle("dark", mode === "dark");
+            root.style.colorScheme = mode;
+        };
+        applyTheme(theme);
+
+        // 打印时临时切回浅色，防止浏览器按深色主题渲染出接近透明的浅色文字
+        const handleBeforePrint = () => applyTheme("light");
+        const handleAfterPrint = () => applyTheme(theme);
+        window.addEventListener("beforeprint", handleBeforePrint);
+        window.addEventListener("afterprint", handleAfterPrint);
+        return () => {
+            window.removeEventListener("beforeprint", handleBeforePrint);
+            window.removeEventListener("afterprint", handleAfterPrint);
+        };
     }, [theme]);
 
     // 登录后以账号中保存的偏好为准，换设备或换账号时保持一致
