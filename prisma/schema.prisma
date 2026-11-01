@@ -154,6 +154,7 @@ model ErrorItem {
   hasFigure        Boolean @default(false) // 识别时判断题目是否有配图
   figureSvg        String? // AI 用 SVG 重绘的题目配图（已净化），显示和打印时使用
   figureScale      Int     @default(100) // 配图显示与打印比例，10~200%
+  figureAlign      String  @default("center") // 配图显示与打印位置：left | center | right
   lastPractice     String? // 最近一次生成的举一反三题目与解答（JSON），再次进入练习页时直接显示
 
   // 根据举一反三历史推测的掌握情况
@@ -255,6 +256,8 @@ model ExamQuestion {
   answerText    String?
   analysis      String?
   figureSvg     String?    // 新题的 SVG 配图
+  figureScale   Int        @default(100) // 配图显示与打印比例，10~200%
+  figureAlign   String     @default("center") // 配图显示与打印位置：left | center | right
   error         String?
   practiceRecordId String? // [DEPRECATED] 旧版一对一关联，部署校验要求保留已有列，改用 PracticeRecord.examQuestionId
   practiceRecords PracticeRecord[]

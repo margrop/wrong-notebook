@@ -25,7 +25,7 @@ Keep the original backup before importing, and afterwards check the new question
 
 Restoring a backup keeps each question's original grade and does not apply the current entry rule. Old backups without a grade rule leave your current account settings unchanged.
 
-Each mistake's figure display scale is exported and restored for its details page and text printouts. Older backups with no scale, or an invalid value, use the default 100%.
+Each mistake's and each exam question's figure display scale and alignment (left / center / right) are exported and restored for page display and printouts. Older backups with no scale or alignment, or an invalid value, use the default 100% and center.
 
 ## Docker full-site backup
 

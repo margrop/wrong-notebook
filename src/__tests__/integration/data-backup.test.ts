@@ -103,7 +103,7 @@ beforeEach(async () => {
             id: 'item-1', shortId: 'AbC234', userId: 'user-1', subjectId: 'math', originalImageUrl: 'data:image/png;base64,dGVzdA==',
             questionText: '求解 x + 2 = 5', answerText: 'x = 3', analysis: '移项', wrongAnswerText: 'x = 7', mistakeAnalysis: '符号错误',
             mistakeStatus: 'wrong_attempt', source: '期中考试', errorType: '计算', userNotes: '注意符号', gradeSemester: '初二上',
-            paperLevel: 'group-b', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65,
+            paperLevel: 'group-b', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65, figureAlign: 'left',
             geogebraCommands: 'A=(0,0)\nB=(1,1)', svgAnimation: animation('中文'), svgAnimationEn: animation('English'), lastPractice,
             masteryLevel: 2, masteryProbability: 0.8, masteryReason: '连续答对', masterySource: 'ai', masteryEvaluatedAt: new Date('2026-10-21T00:00:00Z'),
             createdAt: new Date('2026-10-01T00:00:00Z'), updatedAt: new Date('2026-10-21T00:00:00Z'),
@@ -213,7 +213,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
 
         const item = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1', shortId: 'AbC234' }, include: { tags: true, subject: true, paperGroup: true } });
         expect(item).toMatchObject({
-            shortId: 'AbC234', questionText: '求解 x + 2 = 5', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65,
+            shortId: 'AbC234', questionText: '求解 x + 2 = 5', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65, figureAlign: 'left',
             geogebraCommands: 'A=(0,0)\nB=(1,1)', svgAnimation: animation('中文'), svgAnimationEn: animation('English'), lastPractice,
             masteryProbability: 0.8, masteryReason: '连续答对', masterySource: 'ai', masteryEvaluatedAt: new Date('2026-10-21T00:00:00Z'),
             createdAt: new Date('2026-10-01T00:00:00Z'), updatedAt: new Date('2026-10-21T00:00:00Z'),
@@ -236,13 +236,15 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(mocks.scheduleMasteryEvaluation).not.toHaveBeenCalled();
     });
 
-    it.each([undefined, null, 0, 201, 50.5, '65'])('旧备份或非法配图比例 %s 回退为 100%%', async (figureScale) => {
+    it.each([undefined, null, 0, 201, 50.5, '65'])('旧备份或非法配图比例 %s 回退为 100%%，非法配图位置回退为居中', async (figureScale) => {
         const backup = await exportBackup();
         backup.errorItems[0].figureScale = figureScale;
+        backup.errorItems[0].figureAlign = 'invalid-align';
         await clearUserData();
         await importBackup(backup);
         const item = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1' } });
         expect(item.figureScale).toBe(100);
+        expect(item.figureAlign).toBe('center');
         expect(item.figureSvg).toBe(figure);
     });
 
@@ -285,7 +287,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
                 subjectIds: JSON.stringify(['math']), tagNames: JSON.stringify(['自定义标签']), resultsRecordedAt: new Date('2026-10-22T00:00:00Z'),
                 createdAt: new Date('2026-10-21T00:00:00Z'),
                 questions: { create: [
-                    { id: 'question-1', order: 0, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', answerText: '答', analysis: '析', figureSvg: figure },
+                    { id: 'question-1', order: 0, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', answerText: '答', analysis: '析', figureSvg: figure, figureScale: 75, figureAlign: 'right' },
                     { id: 'question-2', order: 1, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'pending' },
                 ] },
             },
@@ -294,6 +296,8 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             data: { userId: 'user-1', errorItemId: 'item-1', examQuestionId: 'question-1', result: 'wrong', isCorrect: false, source: 'exam', questionText: '试卷新题' },
         });
         const backup = await exportBackup();
+        expect(backup.examPapers[0].questions[0].figureScale).toBe(75);
+        expect(backup.examPapers[0].questions[0].figureAlign).toBe('right');
         await clearUserData();
         const { stats } = await importBackup(backup);
         expect(stats.examPapersCreated).toBe(1);
@@ -307,9 +311,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             resultsRecordedAt: new Date('2026-10-22T00:00:00Z'), createdAt: new Date('2026-10-21T00:00:00Z'),
         });
         expect(paper.questions).toMatchObject([
-            { order: 0, errorItemId: item.id, sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', figureSvg: figure },
-            // 导出时仍在生成的题目按失败导入
-            { order: 1, errorItemId: item.id, status: 'failed' },
+            { order: 0, errorItemId: item.id, sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', figureSvg: figure, figureScale: 75, figureAlign: 'right' },
+            // 导出时仍在生成的题目按失败导入，缺省配图比例为 100、位置为居中
+            { order: 1, errorItemId: item.id, status: 'failed', figureScale: 100, figureAlign: 'center' },
         ]);
         expect(await database.practiceRecord.findFirstOrThrow({ where: { source: 'exam' } })).toMatchObject({ examQuestionId: paper.questions[0].id, errorItemId: item.id });
 

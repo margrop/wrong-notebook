@@ -32,6 +32,7 @@ for (const width of [1280, 390]) {
             const item = await response.json();
             itemIds.push(item.id);
             expect(item.figureScale).toBe(100);
+            expect(item.figureAlign).toBe('center');
             await page.goto(`/error-items/${item.id}`);
             const input = page.getByRole('spinbutton', { name: '配图显示比例' });
             const image = page.getByRole('img', { name: '题目配图', exact: true });
@@ -51,15 +52,20 @@ for (const width of [1280, 390]) {
             await expect(input.locator('xpath=ancestor::form').getByRole('button', { name: '保存', exact: true })).toBeDisabled();
 
             await input.fill('50');
+            await input.locator('xpath=ancestor::form').getByRole('button', { name: '居右', exact: true }).click();
             await expect(image).toHaveCSS('zoom', '0.5');
+            await expect(image).toHaveClass(/ml-auto/);
             const smaller = await image.boundingBox();
             expect(smaller!.width / original!.width).toBeCloseTo(0.5, 1);
             expect(smaller!.height / original!.height).toBeCloseTo(0.5, 1);
             await input.locator('xpath=ancestor::form').getByRole('button', { name: '保存', exact: true }).click();
             await expect(input.locator('xpath=ancestor::form').getByRole('button', { name: '保存', exact: true })).toBeDisabled();
-            expect((await (await page.request.get(`/api/error-items/${item.id}`)).json()).figureScale).toBe(50);
+            const savedItem = await (await page.request.get(`/api/error-items/${item.id}`)).json();
+            expect(savedItem.figureScale).toBe(50);
+            expect(savedItem.figureAlign).toBe('right');
             await page.reload();
             await expect(input).toHaveValue('50');
+            await expect(image).toHaveClass(/ml-auto/);
             await page.screenshot({ path: testInfo.outputPath('detail-50-percent.png'), fullPage: true });
 
             // 未保存的调整可以取消，恢复 100% 也需保存后才写入数据库。
@@ -86,10 +92,11 @@ for (const width of [1280, 390]) {
             await page.unroute(`**/api/error-items/${item.id}`);
             await input.locator('xpath=ancestor::form').getByRole('button', { name: '取消', exact: true }).click();
 
-            // 打印文字时使用题目保存的比例，在 print 媒体下实测尺寸。
+            // 打印文字时使用题目保存的比例与位置，在 print 媒体下实测尺寸。
             await page.goto(`/print-preview?subjectId=${notebook.id}`);
             await page.getByRole('checkbox', { name: '原题文字' }).check();
             await expect(image).toHaveCSS('zoom', '0.5');
+            await expect(image).toHaveClass(/ml-auto/);
             await image.evaluate((element: HTMLImageElement) => element.decode());
             await page.emulateMedia({ media: 'print' });
             const printed = await image.boundingBox();
@@ -100,10 +107,12 @@ for (const width of [1280, 390]) {
 
             await page.goto(`/error-items/${item.id}`);
             await input.locator('xpath=ancestor::form').getByRole('button', { name: '恢复 100%' }).click();
+            await input.locator('xpath=ancestor::form').getByRole('button', { name: '居中', exact: true }).click();
             await input.locator('xpath=ancestor::form').getByRole('button', { name: '保存', exact: true }).click();
             await expect(input.locator('xpath=ancestor::form').getByRole('button', { name: '保存', exact: true })).toBeDisabled();
             await page.reload();
             await expect(input).toHaveValue('100');
+            await expect(image).toHaveClass(/mx-auto/);
 
             // 没有配图的题目不显示比例配置。
             const textResponse = await page.request.post('/api/error-items', {

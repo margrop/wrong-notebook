@@ -227,11 +227,29 @@ describe('/api/error-items', () => {
             }));
             expect(response.status).toBe(201);
             expect(mocks.mockPrismaErrorItem.create.mock.calls[0][0].data.figureScale).toBe(figureScale ?? 100);
+            expect(mocks.mockPrismaErrorItem.create.mock.calls[0][0].data.figureAlign).toBe('center');
+        });
+
+        it.each(['left', 'center', 'right'] as const)('创建错题保留配图位置 %s', async (figureAlign) => {
+            mocks.mockPrismaErrorItem.create.mockResolvedValue({ id: 'new-item', userId: 'user-123' });
+            const response = await POST(new Request('http://localhost/api/error-items', {
+                method: 'POST', body: JSON.stringify({ questionText: '新题', figureAlign }),
+            }));
+            expect(response.status).toBe(201);
+            expect(mocks.mockPrismaErrorItem.create.mock.calls[0][0].data.figureAlign).toBe(figureAlign);
         });
 
         it.each([null, 0, 9, 201, 50.5, '80', true])('创建时拒绝非法配图比例 %s', async (figureScale) => {
             const response = await POST(new Request('http://localhost/api/error-items', {
                 method: 'POST', body: JSON.stringify({ questionText: '新题', figureScale }),
+            }));
+            expect(response.status).toBe(400);
+            expect(mocks.mockPrismaErrorItem.create).not.toHaveBeenCalled();
+        });
+
+        it.each([null, '', 'top', 100])('创建时拒绝非法配图位置 %s', async (figureAlign) => {
+            const response = await POST(new Request('http://localhost/api/error-items', {
+                method: 'POST', body: JSON.stringify({ questionText: '新题', figureAlign }),
             }));
             expect(response.status).toBe(400);
             expect(mocks.mockPrismaErrorItem.create).not.toHaveBeenCalled();
@@ -556,6 +574,26 @@ describe('/api/error-items', () => {
         it.each([null, 0, 9, 201, 50.5, '80', true])('更新时拒绝非法配图比例 %s', async (figureScale) => {
             const response = await PUT(new Request('http://localhost/api/error-items/e1', {
                 method: 'PUT', body: JSON.stringify({ figureScale }),
+            }), { params: Promise.resolve({ id: 'e1' }) });
+            expect(response.status).toBe(400);
+            expect(mocks.mockPrismaErrorItem.update).not.toHaveBeenCalled();
+        });
+
+        it.each(['left', 'center', 'right'] as const)('可保存配图显示位置 %s', async (figureAlign) => {
+            const item = { id: 'e1', userId: 'user-123', figureScale: 100, figureAlign: 'center' };
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(item);
+            mocks.mockPrismaErrorItem.update.mockResolvedValue({ ...item, figureAlign });
+            const response = await PUT(new Request('http://localhost/api/error-items/e1', {
+                method: 'PUT', body: JSON.stringify({ figureAlign }),
+            }), { params: Promise.resolve({ id: 'e1' }) });
+            expect(response.status).toBe(200);
+            expect((await response.json()).figureAlign).toBe(figureAlign);
+            expect(mocks.mockPrismaErrorItem.update.mock.calls[0][0].data).toEqual({ figureAlign });
+        });
+
+        it.each([null, '', 'bottom', 100, false])('更新时拒绝非法配图显示位置 %s', async (figureAlign) => {
+            const response = await PUT(new Request('http://localhost/api/error-items/e1', {
+                method: 'PUT', body: JSON.stringify({ figureAlign }),
             }), { params: Promise.resolve({ id: 'e1' }) });
             expect(response.status).toBe(400);
             expect(mocks.mockPrismaErrorItem.update).not.toHaveBeenCalled();

@@ -48,7 +48,7 @@ vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.mock('@/lib/config', () => ({ getAppTimeZone: vi.fn(() => 'Asia/Shanghai') }));
 
 import { POST as CREATE, GET as LIST } from '@/app/api/exams/route';
-import { GET as DETAIL, DELETE } from '@/app/api/exams/[id]/route';
+import { GET as DETAIL, PATCH as UPDATE_SCALE, DELETE } from '@/app/api/exams/[id]/route';
 import { POST as RESULTS } from '@/app/api/exams/[id]/results/route';
 import { POST as REGENERATE } from '@/app/api/exams/[id]/questions/[questionId]/regenerate/route';
 import { generateExamPaper } from '@/lib/exam';
@@ -199,6 +199,57 @@ describe('/api/exams', () => {
 
         expect(response.status).toBe(200);
         expect(mocks.examPaper.delete).toHaveBeenCalledWith({ where: { id: 'p1' } });
+    });
+
+    describe('PATCH 保存试卷题目配图比例与显示位置', () => {
+        it('单题保存配图比例与位置时只更新指定试卷题目', async () => {
+            mocks.examPaper.findUnique.mockResolvedValue({ userId: 'user-1' });
+            mocks.examQuestion.updateMany.mockResolvedValue({ count: 1 });
+
+            const response = await UPDATE_SCALE(json('http://localhost', 'PATCH', { questionId: 'q1', figureScale: 65, figureAlign: 'left' }), params('p1'));
+
+            expect(response.status).toBe(200);
+            expect(await response.json()).toEqual({ questionId: 'q1', figureScale: 65, figureAlign: 'left' });
+            expect(mocks.examQuestion.updateMany).toHaveBeenCalledWith({
+                where: { id: 'q1', paperId: 'p1' },
+                data: { figureScale: 65, figureAlign: 'left' },
+            });
+        });
+
+        it('统一调整配图比例或位置时更新该试卷全部题目', async () => {
+            mocks.examPaper.findUnique.mockResolvedValue({ userId: 'user-1' });
+            mocks.examQuestion.updateMany.mockResolvedValue({ count: 3 });
+
+            const scaleResponse = await UPDATE_SCALE(json('http://localhost', 'PATCH', { figureScale: 120 }), params('p1'));
+            expect(scaleResponse.status).toBe(200);
+            expect(await scaleResponse.json()).toEqual({ figureScale: 120 });
+            expect(mocks.examQuestion.updateMany).toHaveBeenCalledWith({
+                where: { paperId: 'p1' },
+                data: { figureScale: 120 },
+            });
+
+            const alignResponse = await UPDATE_SCALE(json('http://localhost', 'PATCH', { figureAlign: 'right' }), params('p1'));
+            expect(alignResponse.status).toBe(200);
+            expect(await alignResponse.json()).toEqual({ figureAlign: 'right' });
+            expect(mocks.examQuestion.updateMany).toHaveBeenLastCalledWith({
+                where: { paperId: 'p1' },
+                data: { figureAlign: 'right' },
+            });
+        });
+
+        it('校验比例范围、显示位置、试卷归属与题目归属', async () => {
+            expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', {}), params('p1'))).status).toBe(400);
+            expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { figureScale: 9 }), params('p1'))).status).toBe(400);
+            expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { figureScale: 201 }), params('p1'))).status).toBe(400);
+            expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { figureAlign: 'top' }), params('p1'))).status).toBe(400);
+
+            mocks.examPaper.findUnique.mockResolvedValueOnce({ userId: 'other' });
+            expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { figureScale: 80 }), params('p1'))).status).toBe(404);
+
+            mocks.examPaper.findUnique.mockResolvedValueOnce({ userId: 'user-1' });
+            mocks.examQuestion.updateMany.mockResolvedValueOnce({ count: 0 });
+            expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { questionId: 'q-other', figureScale: 80 }), params('p1'))).status).toBe(404);
+        });
     });
 
     describe('POST 录入结果', () => {

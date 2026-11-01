@@ -11,8 +11,10 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { RESULT_BADGE_CLASS } from "@/components/mastery-panel";
 import { PracticeResultPicker } from "@/components/practice-result-picker";
 import { QuestionFigure } from "@/components/question-figure";
+import { FigureScaleEditor } from "@/components/error-detail/figure-scale-editor";
 import { ExamQuestionRegenerate } from "@/components/exam/exam-question-regenerate";
 import { useLanguage } from "@/contexts/LanguageContext";
+import type { FigureAlign } from "@/lib/figure-scale";
 import type { ExamQuestionDetail, PracticeResult } from "@/types/api";
 
 interface ExamQuestionCardProps {
@@ -25,9 +27,25 @@ interface ExamQuestionCardProps {
     onDeleteAttempt?: (attemptId: string) => void;
     /** 单题重新生成完成后回调 */
     onRegenerated?: () => void;
+    /** 统一调整全卷配图比例时的临时预览值 */
+    previewFigureScale?: number | null;
+    /** 统一调整全卷配图位置时的临时预览值 */
+    previewFigureAlign?: FigureAlign | null;
+    /** 单题保存配图显示与打印比例、位置 */
+    onSaveFigureScale?: (questionId: string, figureScale: number, figureAlign: FigureAlign) => Promise<void>;
 }
 
-export function ExamQuestionCard({ paperId, question, editingResult, onResultChange, onDeleteAttempt, onRegenerated }: ExamQuestionCardProps) {
+export function ExamQuestionCard({
+    paperId,
+    question,
+    editingResult,
+    onResultChange,
+    onDeleteAttempt,
+    onRegenerated,
+    previewFigureScale,
+    previewFigureAlign,
+    onSaveFigureScale,
+}: ExamQuestionCardProps) {
     const { t } = useLanguage();
     const { timeZone } = useTimeZone();
     const [showAnswer, setShowAnswer] = useState(false);
@@ -92,7 +110,23 @@ export function ExamQuestionCard({ paperId, question, editingResult, onResultCha
                 {question.status === "ready" && question.questionText && (
                     <>
                         <MarkdownRenderer content={question.questionText} />
-                        <QuestionFigure svg={question.figureSvg} />
+                        {onSaveFigureScale ? (
+                            <FigureScaleEditor
+                                key={`${question.id}-${question.figureScale ?? 100}-${question.figureAlign ?? "center"}`}
+                                svg={question.figureSvg}
+                                scale={question.figureScale}
+                                align={question.figureAlign}
+                                previewScaleOverride={previewFigureScale}
+                                previewAlignOverride={previewFigureAlign}
+                                onSave={(figureScale, figureAlign) => onSaveFigureScale(question.id, figureScale, figureAlign)}
+                            />
+                        ) : (
+                            <QuestionFigure
+                                svg={question.figureSvg}
+                                scale={previewFigureScale ?? question.figureScale}
+                                align={previewFigureAlign ?? question.figureAlign}
+                            />
+                        )}
                         <button
                             type="button"
                             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"

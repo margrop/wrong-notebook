@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BackButton } from "@/components/ui/back-button";
+import { FigureScaleEditor } from "@/components/error-detail/figure-scale-editor";
+import { ExamFigureScaleBar } from "@/components/exam/exam-figure-scale-bar";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { QuestionFigure } from "@/components/question-figure";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
 import { apiClient } from "@/lib/api-client";
@@ -20,6 +21,7 @@ import {
     isAnswerSpaceMode,
 } from "@/lib/exam-answer-space";
 import type { AnswerSpaceMode } from "@/lib/exam-answer-space";
+import type { FigureAlign } from "@/lib/figure-scale";
 import type { ExamPaperDetail } from "@/types/api";
 
 export default function ExamPrintPage() {
@@ -29,6 +31,7 @@ export default function ExamPrintPage() {
     usePageTitle(t.exam.title, paper?.title, t.pageTitle.examPrint);
     const [includeAnswers, setIncludeAnswers] = useState(true);
     const [answerSpace, setAnswerSpace] = useState<AnswerSpaceMode>(DEFAULT_ANSWER_SPACE_MODE);
+    const [uniformPreview, setUniformPreview] = useState<{ scale: number | null; align: FigureAlign | null }>({ scale: null, align: null });
     const sheetRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -61,10 +64,29 @@ export default function ExamPrintPage() {
     if (!paper) return <div className="p-8 text-center">{t.common.loading}</div>;
 
     const questions = paper.questions.filter((question) => question.status === "ready" && question.questionText);
+    const figureQuestions = questions.filter((question) => Boolean(question.figureSvg));
+
+    const saveQuestionFigureScale = async (questionId: string, figureScale: number, figureAlign: FigureAlign) => {
+        await apiClient.patch(`/api/exams/${paper.id}`, { questionId, figureScale, figureAlign });
+        setPaper((prev) => (prev ? {
+            ...prev,
+            questions: prev.questions.map((question) => (question.id === questionId ? { ...question, figureScale, figureAlign } : question)),
+        } : prev));
+    };
+
+    const saveUniformFigureScale = async (patch: { figureScale?: number; figureAlign?: FigureAlign }) => {
+        await apiClient.patch(`/api/exams/${paper.id}`, patch);
+        setPaper((prev) => (prev ? {
+            ...prev,
+            questions: prev.questions.map((question) => ({ ...question, ...patch })),
+        } : prev));
+    };
 
     const downloadHtml = () => {
         if (!sheetRef.current) return;
-        const html = buildExamHtmlDocument(paper.title, sheetRef.current.outerHTML, language === "en" ? "en" : "zh-CN");
+        const clone = sheetRef.current.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll(".figure-scale-editor-controls, .print\\:hidden").forEach((element) => element.remove());
+        const html = buildExamHtmlDocument(paper.title, clone.outerHTML, language === "en" ? "en" : "zh-CN");
         const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
         const link = document.createElement("a");
         link.href = url;
@@ -115,6 +137,14 @@ export default function ExamPrintPage() {
                     {questions.length < paper.questions.length && (
                         <p className="w-full text-xs text-muted-foreground">{t.exam.notReadyHint}</p>
                     )}
+                    {figureQuestions.length > 0 && (
+                        <ExamFigureScaleBar
+                            scales={figureQuestions.map((question) => question.figureScale)}
+                            aligns={figureQuestions.map((question) => question.figureAlign)}
+                            onPreviewChange={setUniformPreview}
+                            onSave={saveUniformFigureScale}
+                        />
+                    )}
                 </div>
             </div>
 
@@ -132,7 +162,15 @@ export default function ExamPrintPage() {
                             <span className="exam-source">{t.exam.sourceLabel}: {question.sourceShortId}</span>
                         </div>
                         <MarkdownRenderer content={question.questionText!} />
-                        <QuestionFigure svg={question.figureSvg} />
+                        <FigureScaleEditor
+                            key={`${question.id}-${question.figureScale ?? 100}-${question.figureAlign ?? "center"}`}
+                            svg={question.figureSvg}
+                            scale={question.figureScale}
+                            align={question.figureAlign}
+                            previewScaleOverride={uniformPreview.scale}
+                            previewAlignOverride={uniformPreview.align}
+                            onSave={(figureScale, figureAlign) => saveQuestionFigureScale(question.id, figureScale, figureAlign)}
+                        />
                         <div
                             className="exam-answer-space"
                             style={{ minHeight: `${getAnswerSpacePx(answerSpace, question.questionText!)}px` }}

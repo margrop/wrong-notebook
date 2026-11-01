@@ -16,7 +16,7 @@ import { scheduleMasteryEvaluation } from "@/lib/mastery";
 import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from "@/lib/question-deduplication";
 import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
-import { DEFAULT_FIGURE_SCALE, MAX_FIGURE_SCALE, MIN_FIGURE_SCALE } from "@/lib/figure-scale";
+import { DEFAULT_FIGURE_ALIGN, DEFAULT_FIGURE_SCALE, FIGURE_ALIGNS, MAX_FIGURE_SCALE, MIN_FIGURE_SCALE } from "@/lib/figure-scale";
 
 const logger = createLogger('api:error-items');
 
@@ -41,6 +41,7 @@ const importSchema = z.object({
     hasFigure: z.boolean().optional(),
     figureSvg: z.string().max(MAX_FIGURE_SVG_LENGTH).nullish(),
     figureScale: z.number().int().min(MIN_FIGURE_SCALE).max(MAX_FIGURE_SCALE).default(DEFAULT_FIGURE_SCALE),
+    figureAlign: z.enum(FIGURE_ALIGNS).default(DEFAULT_FIGURE_ALIGN),
     geogebraCommands: z.string().nullish(),
 });
 
@@ -217,6 +218,7 @@ export async function POST(req: Request) {
                         hasFigure,
                         figureSvg,
                         figureScale: body.figureScale,
+                        figureAlign: body.figureAlign,
                         geogebraCommands: geogebraCommands || null,
                         masteryLevel: 0,
                         tags: {

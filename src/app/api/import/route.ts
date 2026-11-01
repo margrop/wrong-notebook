@@ -18,7 +18,7 @@ import { parseDifficultyStars } from "@/lib/ai/schema";
 import { resolveNotebookScope } from "@/lib/notebook-scope";
 import { sortTagsByParent } from "@/lib/tag-hierarchy";
 import { sanitizeFigureSvg } from "@/lib/figure-svg";
-import { normalizeFigureScale } from "@/lib/figure-scale";
+import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import { sanitizeSvgAnimation } from "@/lib/svg-animation";
 import { importSpeeches } from "@/lib/tts/speech-cache";
 import { parseLastPractice } from "@/lib/last-practice";
@@ -108,6 +108,7 @@ interface ImportData {
         hasFigure?: boolean;             // 旧版导出文件没有该字段
         figureSvg?: string | null;       // 旧版导出文件没有该字段
         figureScale?: number;           // 旧版备份缺省为 100%
+        figureAlign?: string;           // 旧版备份缺省为居中
         // 以下字段 version 2 起导入，version 1 文件中即使有也按同样规则处理
         geogebraCommands?: string | null;
         svgAnimation?: string | null;
@@ -171,6 +172,8 @@ interface ImportData {
             answerText: string | null;
             analysis: string | null;
             figureSvg: string | null;
+            figureScale?: number;           // 旧版备份缺省为 100%
+            figureAlign?: string;           // 旧版备份缺省为居中
             error: string | null;
         }>;
     }>;
@@ -563,6 +566,7 @@ export async function POST(req: Request) {
                         hasFigure: item.hasFigure === true || sanitizeFigureSvg(item.figureSvg) !== null,
                         figureSvg: sanitizeFigureSvg(item.figureSvg),
                         figureScale: normalizeFigureScale(item.figureScale),
+                        figureAlign: normalizeFigureAlign(item.figureAlign),
                         geogebraCommands: typeof item.geogebraCommands === 'string' && item.geogebraCommands ? item.geogebraCommands : null,
                         svgAnimation: sanitizeSvgAnimation(item.svgAnimation),
                         svgAnimationEn: sanitizeSvgAnimation(item.svgAnimationEn),
@@ -694,6 +698,8 @@ export async function POST(req: Request) {
                             answerText: question.answerText,
                             analysis: question.analysis,
                             figureSvg: sanitizeFigureSvg(question.figureSvg),
+                            figureScale: normalizeFigureScale(question.figureScale),
+                            figureAlign: normalizeFigureAlign(question.figureAlign),
                             error: question.error,
                         },
                     });

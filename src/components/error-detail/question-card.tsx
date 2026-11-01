@@ -48,10 +48,11 @@ export function QuestionCard({ item, educationStage, saveFields, onUpdate, reloa
                 ) : <>
                     <MarkdownRenderer content={item.questionText} />
                     <FigureScaleEditor
-                        key={item.id}
+                        key={`${item.id}-${item.figureScale ?? 100}-${item.figureAlign ?? "center"}`}
                         svg={item.figureSvg}
                         scale={item.figureScale}
-                        onSave={(figureScale) => saveFields({ figureScale })}
+                        align={item.figureAlign}
+                        onSave={(figureScale, figureAlign) => saveFields({ figureScale, figureAlign })}
                     />
                 </>}
 

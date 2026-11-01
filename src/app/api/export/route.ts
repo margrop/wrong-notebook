@@ -6,7 +6,7 @@ import { unauthorized, internalError, forbidden } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
-import { normalizeFigureScale } from "@/lib/figure-scale";
+import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import { exportSpeeches } from "@/lib/tts/speech-cache";
 import { sortTagsByParent } from "@/lib/tag-hierarchy";
 
@@ -112,10 +112,21 @@ export async function GET(req: Request) {
             subjects,
             systemTags: sortTagsByParent(systemTags),
             customTags: sortTagsByParent(customTags),
-            errorItems: errorItems.map((item) => ({ ...item, figureScale: normalizeFigureScale(item.figureScale) })),
+            errorItems: errorItems.map((item) => ({
+                ...item,
+                figureScale: normalizeFigureScale(item.figureScale),
+                figureAlign: normalizeFigureAlign(item.figureAlign),
+            })),
             reviewSchedules,
             practiceRecords,
-            examPapers,
+            examPapers: examPapers.map((paper) => ({
+                ...paper,
+                questions: paper.questions.map((question) => ({
+                    ...question,
+                    figureScale: normalizeFigureScale(question.figureScale),
+                    figureAlign: normalizeFigureAlign(question.figureAlign),
+                })),
+            })),
             paperGroups,
             ttsSpeeches,
         };

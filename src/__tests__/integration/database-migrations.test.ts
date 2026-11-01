@@ -104,7 +104,15 @@ describe('真实 Prisma 数据库迁移', () => {
         openDatabase();
         expectConstraints();
         expect(database!.prepare('PRAGMA table_info("ErrorItem")').all())
-            .toContainEqual(expect.objectContaining({ name: 'figureScale', dflt_value: '100' }));
+            .toEqual(expect.arrayContaining([
+                expect.objectContaining({ name: 'figureScale', dflt_value: '100' }),
+                expect.objectContaining({ name: 'figureAlign', dflt_value: "'center'" }),
+            ]));
+        expect(database!.prepare('PRAGMA table_info("ExamQuestion")').all())
+            .toEqual(expect.arrayContaining([
+                expect.objectContaining({ name: 'figureScale', dflt_value: '100' }),
+                expect.objectContaining({ name: 'figureAlign', dflt_value: "'center'" }),
+            ]));
         closeDatabase();
 
         expect(() => execFileSync(process.execPath, [resolve('node_modules/prisma/build/index.js'), 'migrate', 'diff',
@@ -119,8 +127,11 @@ describe('真实 Prisma 数据库迁移', () => {
         seedLegacyData();
         if (hasScale) database!.exec('UPDATE "ErrorItem" SET figureScale=65');
         const beforeItems = rows('ErrorItem');
-        const beforeRelated = relatedTables.map((table) => rows(table).map((row) =>
-            table === 'Subject' || table === 'KnowledgeTag' ? { ...row, tagSet: row.tagSet ?? 'default' } : row));
+        const beforeRelated = relatedTables.map((table) => rows(table).map((row) => {
+            if (table === 'Subject' || table === 'KnowledgeTag') return { ...row, tagSet: row.tagSet ?? 'default' };
+            if (table === 'ExamQuestion') return { ...row, figureScale: row.figureScale ?? 100, figureAlign: row.figureAlign ?? 'center' };
+            return row;
+        }));
         closeDatabase();
 
         deploy();
@@ -131,7 +142,7 @@ describe('真实 Prisma 数据库迁移', () => {
         for (const item of beforeItems) {
             const group = groups.find((entry) => entry.userId === item.userId && entry.key === item.paperLevel);
             expect(rows('ErrorItem').find((entry) => entry.id === item.id)).toEqual({
-                ...item, paperLevel: group?.id ?? null, figureScale: hasScale ? 65 : 100,
+                ...item, paperLevel: group?.id ?? null, figureScale: hasScale ? 65 : 100, figureAlign: 'center',
             });
         }
         expect(relatedTables.map(rows)).toEqual(beforeRelated);
@@ -146,7 +157,7 @@ describe('真实 Prisma 数据库迁移', () => {
     }, 120000);
 
     it('补齐外键时保留已有的自定义分组、停用状态和配图比例', () => {
-        deploy(migrations.filter((name) => name !== relationMigration));
+        deploy(migrations.filter((name) => name < relationMigration));
         openDatabase();
         database!.exec(`
             INSERT INTO "User" (id, email, password, updatedAt) VALUES ('existing-user', 'existing@example.com', 'test-only', '2026-10-01');
@@ -155,7 +166,7 @@ describe('真实 Prisma 数据库迁移', () => {
             INSERT INTO "ErrorItem" (id, userId, originalImageUrl, paperLevel, figureScale, updatedAt)
                 VALUES ('existing-item', 'existing-user', 'original', 'custom-group', 175, '2026-10-01');
         `);
-        const beforeItems = rows('ErrorItem');
+        const beforeItems = rows('ErrorItem').map((item) => ({ ...item, figureAlign: 'center' }));
         const beforeGroups = rows('PaperGroup');
         closeDatabase();
 

@@ -10,11 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BackButton } from "@/components/ui/back-button";
 import { PageLoading } from "@/components/ui/page-loading";
+import { ExamFigureScaleBar } from "@/components/exam/exam-figure-scale-bar";
 import { ExamQuestionCard } from "@/components/exam/exam-question-card";
 import { ExamStatusBadge } from "@/components/exam/exam-status-badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
 import { apiClient } from "@/lib/api-client";
+import type { FigureAlign } from "@/lib/figure-scale";
 import type { ExamPaperDetail, PracticeResult } from "@/types/api";
 import { confirmDialog } from "@/lib/feedback";
 
@@ -34,6 +36,7 @@ export default function ExamDetailPage() {
     const [takenAt, setTakenAt] = useState(formatDateTime(new Date(), "yyyy-MM-dd", timeZone));
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
+    const [uniformPreview, setUniformPreview] = useState<{ scale: number | null; align: FigureAlign | null }>({ scale: null, align: null });
 
     const load = useCallback(async () => {
         try {
@@ -62,6 +65,7 @@ export default function ExamDetailPage() {
     const recorded = paper.questions.some((question) => question.attempts.length > 0);
     const hasFailed = paper.questions.some((question) => question.status === "failed");
     const recordable = paper.questions.filter((question) => question.status === "ready" && question.errorItemId);
+    const figureQuestions = paper.questions.filter((question) => question.status === "ready" && Boolean(question.figureSvg));
 
     const selectedCount = draft ? recordable.filter((question) => draft[question.id]).length : 0;
 
@@ -112,6 +116,22 @@ export default function ExamDetailPage() {
         if (!(await confirmDialog(t.exam.deleteConfirm, { destructive: true }))) return;
         await apiClient.delete(`/api/exams/${paper.id}`);
         router.push("/exams");
+    };
+
+    const saveQuestionFigureScale = async (questionId: string, figureScale: number, figureAlign: FigureAlign) => {
+        await apiClient.patch(`/api/exams/${paper.id}`, { questionId, figureScale, figureAlign });
+        setPaper((prev) => (prev ? {
+            ...prev,
+            questions: prev.questions.map((question) => (question.id === questionId ? { ...question, figureScale, figureAlign } : question)),
+        } : prev));
+    };
+
+    const saveUniformFigureScale = async (patch: { figureScale?: number; figureAlign?: FigureAlign }) => {
+        await apiClient.patch(`/api/exams/${paper.id}`, patch);
+        setPaper((prev) => (prev ? {
+            ...prev,
+            questions: prev.questions.map((question) => ({ ...question, ...patch })),
+        } : prev));
     };
 
     return (
@@ -171,6 +191,15 @@ export default function ExamDetailPage() {
                     </div>
                 )}
 
+                {figureQuestions.length > 0 && (
+                    <ExamFigureScaleBar
+                        scales={figureQuestions.map((question) => question.figureScale)}
+                        aligns={figureQuestions.map((question) => question.figureAlign)}
+                        onPreviewChange={setUniformPreview}
+                        onSave={saveUniformFigureScale}
+                    />
+                )}
+
                 <div className="space-y-3">
                     {paper.questions.map((question) => (
                         <ExamQuestionCard
@@ -181,6 +210,9 @@ export default function ExamDetailPage() {
                             onResultChange={(result) => setDraft((prev) => (prev ? { ...prev, [question.id]: result } : prev))}
                             onDeleteAttempt={deleteAttempt}
                             onRegenerated={load}
+                            previewFigureScale={uniformPreview.scale}
+                            previewFigureAlign={uniformPreview.align}
+                            onSaveFigureScale={saveQuestionFigureScale}
                         />
                     ))}
                 </div>

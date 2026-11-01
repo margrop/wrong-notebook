@@ -23,6 +23,7 @@ export const ERROR_ITEM_PRINT_SELECT = {
     analysis: true,
     figureSvg: true,
     figureScale: true,
+    figureAlign: true,
     gradeSemester: true,
     paperLevel: true,
     subject: { select: { name: true } },
