@@ -13,6 +13,46 @@ const DOUBLE_ESCAPED_COMMAND = /(?<!\\)\\\\(?=(?:frac|dfrac|tfrac|sqrt|times|div
 const PLACEHOLDER = (index: number) => `@@MATH${index}@@`;
 const PLACEHOLDER_PATTERN = /@@MATH(\d+)@@/g;
 
+// 选择题选项标记：支持行首、空白或句读/括号后的 A. / B．/ C: / D：、(A) / （B），以及行首或双空格/括号后的 A、
+const CHOICE_OPTION_GLOBAL = /(?:(?:^|[\s*+\-)）:：。？?；;，,_])([A-D])\s*[.．:：]|(?:^|\s{2,}|[)）:：。？?])([A-D])\s*、|[(（]([A-D])[)）])/gm;
+
+/** 判断文本中是否同时包含 A、B、C 三个选择题选项标记 */
+export function hasChoiceOptions(text: string): boolean {
+    const letters = new Set(
+        Array.from(text.matchAll(CHOICE_OPTION_GLOBAL), (m) => m[1] ?? m[2] ?? m[3]),
+    );
+    return letters.has('A') && letters.has('B') && letters.has('C');
+}
+
+/**
+ * 将紧跟在题干同一行后面的选择题首选项（A. / (A) / A、等）拆到新行，
+ * 并把选项行前的单个换行升级为指定的分隔符（Markdown 用 "\n\n"，纯文本用 "\n"）
+ */
+export function separateChoiceOptions(text: string, lineBreak: '\n' | '\n\n' = '\n\n'): string {
+    if (!hasChoiceOptions(text)) return text;
+
+    let result = text
+        // 题干与 A. / A．/ (A) / （A）在同一行时，在 A 选项前插入换行
+        .replace(
+            /([^\n\s])[ \t]*((?:A\s*[.．:：]|[(（]A[)）]))(?=[\s\S]*(?:[\s)）:：]B\s*[.．、:：]|[(（]B[)）]))/g,
+            `$1${lineBreak}$2`,
+        )
+        // 题干与 A、在同一行（前有双空格或右括号/冒号/问号）时，在 A、前插入换行
+        .replace(
+            /([^\n\s])(?:\s{2,}|(?<=[)）:：。？?])[ \t]*)(A\s*、)(?=[\s\S]*(?:\sB\s*、|[\s)）]B\s*[.．:：]))/g,
+            `$1${lineBreak}$2`,
+        );
+
+    if (lineBreak === '\n\n') {
+        // 选项行前的单换行转为段落换行，避免 ReactMarkdown 将单换行合并回题干同一行
+        result = result.replace(
+            /(?<!\n)\n[ \t]*(?=(?:[A-D]\s*[.．、:：]|[(（][A-D][)）]))/g,
+            '\n\n',
+        );
+    }
+    return result;
+}
+
 /** 统一公式定界符：\[…\] → $$…$$，\(…\) → $…$，并还原被二次转义的命令 */
 function normalizeMathSegment(segment: string): string {
     let math = segment;
@@ -24,11 +64,10 @@ function normalizeMathSegment(segment: string): string {
     return math.replace(DOUBLE_ESCAPED_COMMAND, '\\');
 }
 
-/** 公式以外文字的整理：字面 "\n" 转为换行，句末换行转为分段 */
+/** 公式以外文字的整理：字面 "\n" 转为换行，选择题选项与题干分行，句末换行转为分段 */
 function normalizeText(text: string): string {
-    return text
-        // AI 回复中字面的 \n 转为真正的换行
-        .replace(/\\n/g, '\n')
+    const withNewlines = text.replace(/\\n/g, '\n');
+    return separateChoiceOptions(withNewlines, '\n\n')
         // 保留已有的空行
         .replace(/\n\n/g, '\n\n###PRESERVE_BREAK###\n\n')
         // 句末标点后的单个换行转为分段

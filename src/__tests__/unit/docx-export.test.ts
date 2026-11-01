@@ -22,12 +22,16 @@ describe("formatMathAndMarkdownForDocx", () => {
             .toBe("a × b ÷ c ≤ d ≥ e ≠ 0 ± 1");
     });
 
-    it("还原填空横线并剥离配图注释及 Markdown 标记", () => {
+    it("还原填空横线并剥离配图注释及 Markdown 标记，选择题选项另起一行", () => {
         expect(
             formatMathAndMarkdownForDocx(
                 "<!-- figure: 直角三角形 -->\n### 标题\n**重点**：当 $x = \\underline{\\quad}$ 时，结果为 \\_\\_\\_，或 $\\rule{2cm}{0.4pt}$。",
             ),
         ).toBe("标题\n重点：当 x = ______ 时，结果为 ___，或 ______。");
+
+        expect(
+            formatMathAndMarkdownForDocx("计算 $2+3$ 的值（ ） A. 4  B. 5  C. 6  D. 7"),
+        ).toBe("计算 2+3 的值（ ）\nA. 4  B. 5  C. 6  D. 7");
     });
 });
 

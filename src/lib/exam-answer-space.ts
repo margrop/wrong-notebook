@@ -46,9 +46,9 @@ export function clampAnswerSpacePx(px: number): number {
     return Math.min(MAX_CUSTOM_ANSWER_SPACE_PX, Math.max(MIN_CUSTOM_ANSWER_SPACE_PX, Math.round(px)));
 }
 
-// 选项标记：行首或空白后的 A. / B．/ C: / D：，行首或两个以上空白后的 A、，或括号包住的 (A) / （B）；
-// 不认单个空格后的“A、B 两地”，避免把几何点名、地名当作选项
-const CHOICE_MARK = /(?:(?:^|[\s*+-])([A-D])\s*[.．:：]|(?:^|\s{2,})([A-D])\s*、|[(（]([A-D])[)）])/gm;
+// 选项标记：行首、空白或括号/句读后的 A. / B．/ C: / D：，行首或两个以上空白/括号后的 A、，或括号包住的 (A) / （B）；
+// 不认普通文字中单个空格后的“A、B 两地”，避免把几何点名、地名当作选项
+const CHOICE_MARK = /(?:(?:^|[\s*+\-)）:：。？?；;，,_])([A-D])\s*[.．:：]|(?:^|\s{2,}|[)）:：。？?])([A-D])\s*、|[(（]([A-D])[)）])/gm;
 const JUDGMENT_HINT = /判断(?:下列|以下|正误|对错|题)|对的(?:打|画)|错的(?:打|画)|true\s*(?:or|\/)\s*false/i;
 // 填空标记：下划线（含 Markdown 转义）、LaTeX 横线/空白、全角/半角空括号、方括号或句末等号
 const FILL_MARK = /_{2,}|(?:\\_){2,}|\\underline|\\rule\b|\\hspace\b|（\s*）|【\s*】|\[\s+\]|(?<![A-Za-z0-9_])\(\s*\)|[=＝]\s*[。？?]?\s*$|填空/;

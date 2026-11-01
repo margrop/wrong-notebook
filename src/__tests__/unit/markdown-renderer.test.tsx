@@ -77,4 +77,27 @@ describe('代码渲染', () => {
         expect(html).toContain('<strong class="font-bold">重点</strong>');
         expect(html).not.toContain('text-foreground');
     });
+
+    it('选择题选项自动另起一行，不紧接在题干后面', () => {
+        const inlineHtml = renderToStaticMarkup(
+            <MarkdownRenderer content={'计算 $2+3$ 的值（ ） A. 4  B. 5  C. 6  D. 7'} />,
+        );
+        expect(inlineHtml).toMatch(/的值（ ）<\/p>\s*<p[^>]*>A\. 4/);
+
+        const noSpaceHtml = renderToStaticMarkup(
+            <MarkdownRenderer content={'下列正确的是（ ）A．1 B．2 C．3 D．4'} />,
+        );
+        expect(noSpaceHtml).toMatch(/正确的是（ ）<\/p>\s*<p[^>]*>A．1/);
+
+        const newlineHtml = renderToStaticMarkup(
+            <MarkdownRenderer content={'下列哪个数是质数？（ ）\nA. 4\nB. 6\nC. 7\nD. 9'} />,
+        );
+        expect(newlineHtml).toMatch(/是质数？（ ）<\/p>\s*<p[^>]*>A\. 4<\/p>\s*<p[^>]*>B\. 6/);
+
+        // 非选择题中的几何点名 A、B、C 不被错误断行
+        const geometryHtml = renderToStaticMarkup(
+            <MarkdownRenderer content={'已知 A、B、C 三点共线，求证：AB+BC=AC。'} />,
+        );
+        expect(geometryHtml).toMatch(/<p[^>]*>已知 A、B、C 三点共线，求证：AB\+BC=AC。<\/p>/);
+    });
 });

@@ -1,5 +1,6 @@
 import { normalizeFigureAlign, normalizeFigureScale, svgToDataUri } from "@/lib/figure-scale";
 import type { FigureAlign } from "@/lib/figure-scale";
+import { separateChoiceOptions } from "@/lib/markdown-math";
 
 /** DOCX 内嵌图片数据 */
 export interface DocxEmbeddedImage {
@@ -192,7 +193,7 @@ export function formatMathAndMarkdownForDocx(raw: string): string {
         .replace(/`([^`]+)`/g, "$1")
         .replace(/^#{1,6}\s+/gm, "");
 
-    return text.trim();
+    return separateChoiceOptions(text.trim(), "\n");
 }
 
 function escapeXml(value: string): string {
