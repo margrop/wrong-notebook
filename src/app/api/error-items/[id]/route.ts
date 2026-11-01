@@ -103,7 +103,7 @@ export async function PUT(
         }
 
         // 构建更新数据
-        const updateData: Prisma.ErrorItemUpdateInput = {};
+        const updateData: Prisma.ErrorItemUncheckedUpdateInput = {};
         if (figureScale !== undefined) updateData.figureScale = figureScale;
         if (gradeSemester !== undefined) updateData.gradeSemester = gradeSemester;
         if (paperLevel !== undefined) {
@@ -132,7 +132,7 @@ export async function PUT(
             if (!targetSubject || targetSubject.userId !== user.id) {
                 return forbidden("Not authorized to move to this notebook");
             }
-            updateData.subject = subjectId === "" ? { disconnect: true } : { connect: { id: subjectId } };
+            updateData.subjectId = subjectId === "" ? null : subjectId;
         }
         if (mistakeStatus !== undefined || wrongAnswerText !== undefined || mistakeAnalysis !== undefined) {
             const nextWrongAnswerText = wrongAnswerText !== undefined ? wrongAnswerText : errorItem.wrongAnswerText;

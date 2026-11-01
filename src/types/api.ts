@@ -50,6 +50,7 @@ export interface Notebook {
     name: string;
     stage?: string;              // 学段：primary / junior_high / senior_high
     subjectKey?: string | null;  // 学科：math / english 等
+    tagSet?: string | null;      // 标签体系：default / cn-math-taxonomy 等
     userId: string;
     createdAt: string;
     updatedAt: string;
