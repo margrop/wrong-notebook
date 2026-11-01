@@ -7,6 +7,7 @@ import type { Prisma, Subject, User } from '@prisma/client';
 import { test as base, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { MockState } from './mock-ai.mjs';
+import { parseLoopbackOrigin } from './local-origin';
 
 export { expect };
 export type { Page } from '@playwright/test';
@@ -18,6 +19,7 @@ interface RunState {
 const runFile = process.env.E2E_RUN_FILE;
 if (!runFile) throw new Error('请通过 npm run test:e2e 启动隔离测试环境');
 export const runState = JSON.parse(readFileSync(runFile, 'utf8')) as RunState;
+const mockOrigin = parseLoopbackOrigin(runState.mockOrigin);
 const { PrismaClient } = createRequire(join(runState.app, 'package.json'))('@prisma/client') as typeof import('@prisma/client');
 const studentPassword = 'e2e-student-pass';
 const passwordHash = hashSync(studentPassword, 10);
@@ -28,7 +30,7 @@ export class Scenario {
     readonly id = randomUUID().replaceAll('-', '').slice(0, 20);
     readonly db = new PrismaClient({ datasources: { db: { url: runState.url } } });
     readonly marker = `E2E_${this.id}_A`;
-    readonly mockBaseURL = `${runState.mockOrigin}/cases/${this.id}/v1`;
+    readonly mockBaseURL = `${mockOrigin}/cases/${this.id}/v1`;
     readonly violations: string[] = [];
     readonly pages = new Set<Page>();
     user!: User;
@@ -43,20 +45,20 @@ export class Scenario {
     private beforeRecords: string[] = [];
 
     async control(patch: Record<string, unknown> = {}): Promise<MockState> {
-        const response = await fetch(`${runState.mockOrigin}/control/${this.id}`, { method: 'POST', body: JSON.stringify(patch) });
+        const response = await fetch(`${mockOrigin}/control/${this.id}`, { method: 'POST', body: JSON.stringify(patch) });
         if (!response.ok) throw new Error('无法设置本地模型场景');
         return response.json() as Promise<MockState>;
     }
 
     async model(): Promise<MockState> {
-        return (await fetch(`${runState.mockOrigin}/control/${this.id}`)).json() as Promise<MockState>;
+        return (await fetch(`${mockOrigin}/control/${this.id}`)).json() as Promise<MockState>;
     }
 
     async guardPage(page: Page) {
         this.pages.add(page);
         await page.route('**/*', async (route) => {
             const url = new URL(route.request().url());
-            if (['data:', 'blob:', 'about:'].includes(url.protocol) || [runState.origin, runState.mockOrigin].includes(url.origin)) return route.continue();
+            if (['data:', 'blob:', 'about:'].includes(url.protocol) || [runState.origin, mockOrigin].includes(url.origin)) return route.continue();
             this.violations.push(url.origin + url.pathname);
             await route.abort('blockedbyclient');
         });
