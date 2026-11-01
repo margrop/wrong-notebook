@@ -6,8 +6,10 @@ import { getServerSession } from "next-auth";
 import { unauthorized, forbidden, notFound, badRequest, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
+import { resolveNotebookScope } from "@/lib/notebook-scope";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
 import { getDefaultPaperLevelGroupId } from "@/lib/paper-level";
+import { isValidFigureScale } from "@/lib/figure-scale";
 
 const logger = createLogger('api:error-items:id');
 
@@ -77,6 +79,10 @@ export async function PUT(
 
         const body = await req.json();
         const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands, difficultyStars } = body;
+        const { figureScale } = body;
+        if (figureScale !== undefined && !isValidFigureScale(figureScale)) {
+            return badRequest("figureScale must be an integer from 10 to 200");
+        }
         // 难度星级：1~5 的整数，null 表示清除
         if (difficultyStars !== undefined && difficultyStars !== null
             && !(Number.isInteger(difficultyStars) && difficultyStars >= 1 && difficultyStars <= 5)) {
@@ -97,7 +103,8 @@ export async function PUT(
         }
 
         // 构建更新数据
-        const updateData: Prisma.ErrorItemUpdateInput = {};
+        const updateData: Prisma.ErrorItemUncheckedUpdateInput = {};
+        if (figureScale !== undefined) updateData.figureScale = figureScale;
         if (gradeSemester !== undefined) updateData.gradeSemester = gradeSemester;
         if (paperLevel !== undefined) {
             if (paperLevel !== null) {
@@ -125,7 +132,7 @@ export async function PUT(
             if (!targetSubject || targetSubject.userId !== user.id) {
                 return forbidden("Not authorized to move to this notebook");
             }
-            updateData.subject = subjectId === "" ? { disconnect: true } : { connect: { id: subjectId } };
+            updateData.subjectId = subjectId === "" ? null : subjectId;
         }
         if (mistakeStatus !== undefined || wrongAnswerText !== undefined || mistakeAnalysis !== undefined) {
             const nextWrongAnswerText = wrongAnswerText !== undefined ? wrongAnswerText : errorItem.wrongAnswerText;
@@ -146,20 +153,17 @@ export async function PUT(
                     ? JSON.parse(knowledgePoints)
                     : [];
 
-            // 推断学科
-            const subjectKey = errorItem.subject?.name?.toLowerCase().includes('math') ||
-                errorItem.subject?.name?.includes('数学')
-                ? 'math'
-                : errorItem.subject?.name?.toLowerCase().includes('english') ||
-                    errorItem.subject?.name?.includes('英语')
-                    ? 'english'
-                    : 'other';
+            // 推断学科和标签体系
+            const notebookScope = errorItem.subject ? resolveNotebookScope(errorItem.subject) : null;
+            const subjectKey = notebookScope?.subject || 'other';
+            const notebookTagSet = errorItem.subject?.tagSet || 'default';
 
             const tagConnections: { id: string }[] = [];
             for (const tagName of tagNames) {
                 let tag = await prisma.knowledgeTag.findFirst({
                     where: {
                         name: tagName,
+                        tagSet: notebookTagSet,
                         OR: [
                             { isSystem: true },
                             { userId: user.id },
@@ -172,7 +176,7 @@ export async function PUT(
                     // Use the incoming gradeSemester (priority) or the existing one on the item
                     const contextGrade = gradeSemester !== undefined ? gradeSemester : errorItem.gradeSemester;
 
-                    const parentId = await findParentTagIdForGrade(contextGrade, subjectKey);
+                    const parentId = await findParentTagIdForGrade(contextGrade, subjectKey, prisma, notebookTagSet);
 
                     tag = await prisma.knowledgeTag.create({
                         data: {
@@ -180,7 +184,8 @@ export async function PUT(
                             subject: subjectKey,
                             isSystem: false,
                             userId: user.id,
-                            parentId: parentId, // Link to Grade node
+                            parentId: parentId,
+                            tagSet: notebookTagSet,
                         },
                     });
                 }

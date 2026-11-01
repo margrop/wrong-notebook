@@ -41,10 +41,11 @@ export function QuestionMetadata({ item, onChanged }: QuestionMetadataProps) {
             paperLevel: item.paperLevel || "",
         }),
         save: async (value) => {
-            // 只改年级时不重复提交错题本，未归类题目也能保存。
-            const { subjectId, ...metadata } = value;
+            // 只提交改动的关联字段，未分类题目及已停用分组中的题目也能单独修改年级。
+            const { subjectId, paperLevel, ...metadata } = value;
             await apiClient.put(`/api/error-items/${item.id}`, {
                 ...metadata,
+                ...(paperLevel !== (item.paperLevel || "") ? { paperLevel: paperLevel || null } : {}),
                 ...(subjectId !== (item.subjectId || null) ? { subjectId } : {}),
             });
             await onChanged();

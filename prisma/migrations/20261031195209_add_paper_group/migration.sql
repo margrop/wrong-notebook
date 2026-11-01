@@ -1,4 +1,4 @@
--- CreateTable
+-- 创建卷别分组表
 CREATE TABLE "PaperGroup" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "userId" TEXT NOT NULL,
@@ -11,50 +11,27 @@ CREATE TABLE "PaperGroup" (
     CONSTRAINT "PaperGroup_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
-CREATE TABLE "new_ErrorItem" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "shortId" TEXT,
-    "userId" TEXT NOT NULL,
-    "subjectId" TEXT,
-    "originalImageUrl" TEXT NOT NULL,
-    "ocrText" TEXT,
-    "questionText" TEXT,
-    "answerText" TEXT,
-    "analysis" TEXT,
-    "wrongAnswerText" TEXT,
-    "mistakeAnalysis" TEXT,
-    "mistakeStatus" TEXT,
-    "knowledgePoints" TEXT,
-    "geogebraCommands" TEXT,
-    "svgAnimation" TEXT,
-    "svgAnimationEn" TEXT,
-    "source" TEXT,
-    "errorType" TEXT,
-    "userNotes" TEXT,
-    "masteryLevel" INTEGER NOT NULL DEFAULT 0,
-    "gradeSemester" TEXT,
-    "paperLevel" TEXT,
-    "difficultyStars" INTEGER,
-    "hasFigure" BOOLEAN NOT NULL DEFAULT false,
-    "figureSvg" TEXT,
-    "lastPractice" TEXT,
-    "masteryProbability" REAL,
-    "masteryReason" TEXT,
-    "masterySource" TEXT,
-    "masteryEvaluatedAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "ErrorItem_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "ErrorItem_subjectId_fkey" FOREIGN KEY ("subjectId") REFERENCES "Subject" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "ErrorItem_paperLevel_fkey" FOREIGN KEY ("paperLevel") REFERENCES "PaperGroup" ("id") ON DELETE SET NULL ON UPDATE CASCADE
-);
-INSERT INTO "new_ErrorItem" ("analysis", "answerText", "createdAt", "difficultyStars", "errorType", "figureSvg", "geogebraCommands", "gradeSemester", "hasFigure", "id", "knowledgePoints", "lastPractice", "masteryEvaluatedAt", "masteryLevel", "masteryProbability", "masteryReason", "masterySource", "mistakeAnalysis", "mistakeStatus", "ocrText", "originalImageUrl", "paperLevel", "questionText", "shortId", "source", "subjectId", "svgAnimation", "svgAnimationEn", "updatedAt", "userId", "userNotes", "wrongAnswerText") SELECT "analysis", "answerText", "createdAt", "difficultyStars", "errorType", "figureSvg", "geogebraCommands", "gradeSemester", "hasFigure", "id", "knowledgePoints", "lastPractice", "masteryEvaluatedAt", "masteryLevel", "masteryProbability", "masteryReason", "masterySource", "mistakeAnalysis", "mistakeStatus", "ocrText", "originalImageUrl", "paperLevel", "questionText", "shortId", "source", "subjectId", "svgAnimation", "svgAnimationEn", "updatedAt", "userId", "userNotes", "wrongAnswerText" FROM "ErrorItem";
-CREATE INDEX "ErrorItem_subjectId_idx" ON "ErrorItem"("subjectId");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
+-- 先迁移卷别数据，保留原表及可能已存在的 figureScale 列。
+-- 外键在配图比例迁移完成后，由后续迁移统一补齐，兼容迁移发布时间与名称顺序不一致的旧库。
+-- 创建卷别分组索引
+CREATE INDEX "PaperGroup_userId_order_idx" ON "PaperGroup"("userId", "order");
+
+-- 创建卷别分组索引
+CREATE UNIQUE INDEX "PaperGroup_userId_key_key" ON "PaperGroup"("userId", "key");
+
+-- 创建卷别分组索引
+CREATE UNIQUE INDEX "PaperGroup_userId_name_key" ON "PaperGroup"("userId", "name");
+
+-- 根据每位用户的旧卷别创建对应的系统分组，保留原有分类。
+INSERT INTO "PaperGroup" ("id", "userId", "key", "name", "order", "isActive", "createdAt", "updatedAt")
+SELECT
+    lower(hex(randomblob(16))),
+    "userId",
+    "key",
+    CASE "key" WHEN 'a' THEN 'A卷' WHEN 'b' THEN 'B卷' ELSE '其他' END,
+    CASE "key" WHEN 'a' THEN 0 WHEN 'b' THEN 1 ELSE 2 END,
+    true,
+    CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 FROM (
     SELECT DISTINCT "userId", 'a' AS "key" FROM "ErrorItem" WHERE "paperLevel" = 'a'
@@ -67,14 +44,14 @@ WHERE NOT EXISTS (
     SELECT 1 FROM "PaperGroup" pg WHERE pg."userId" = t."userId" AND pg."key" = t."key"
 );
 
--- 2. Translate ErrorItem.paperLevel from 'a'/'b'/'other' to PaperGroup.id
+-- 将旧的 a/b/other 值映射到当前用户的分组 ID。
 UPDATE "ErrorItem" SET "paperLevel" = (
     SELECT pg."id" FROM "PaperGroup" pg
     WHERE pg."userId" = "ErrorItem"."userId" AND pg."key" = "ErrorItem"."paperLevel"
 )
 WHERE "paperLevel" IN ('a', 'b', 'other');
 
--- 3. Defensive: set any remaining unrecognized paperLevel to NULL
+-- 无法识别的旧卷别清空为未分类，保留题目及全部关联数据。
 UPDATE "ErrorItem" SET "paperLevel" = NULL
 WHERE "paperLevel" IS NOT NULL
 AND "paperLevel" NOT IN (SELECT "id" FROM "PaperGroup");

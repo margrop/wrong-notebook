@@ -220,6 +220,23 @@ describe('/api/error-items', () => {
     });
 
     describe('POST /api/error-items (创建错题)', () => {
+        it.each([undefined, 10, 65, 100, 200])('创建错题保留配图比例 %s，缺省为 100%%', async (figureScale) => {
+            mocks.mockPrismaErrorItem.create.mockResolvedValue({ id: 'new-item', userId: 'user-123' });
+            const response = await POST(new Request('http://localhost/api/error-items', {
+                method: 'POST', body: JSON.stringify({ questionText: '新题', figureScale }),
+            }));
+            expect(response.status).toBe(201);
+            expect(mocks.mockPrismaErrorItem.create.mock.calls[0][0].data.figureScale).toBe(figureScale ?? 100);
+        });
+
+        it.each([null, 0, 9, 201, 50.5, '80', true])('创建时拒绝非法配图比例 %s', async (figureScale) => {
+            const response = await POST(new Request('http://localhost/api/error-items', {
+                method: 'POST', body: JSON.stringify({ questionText: '新题', figureScale }),
+            }));
+            expect(response.status).toBe(400);
+            expect(mocks.mockPrismaErrorItem.create).not.toHaveBeenCalled();
+        });
+
         it.each([[1, 'group-a'], [2, 'group-a'], [3, 'group-a'], [4, 'group-b'], [5, 'group-b']] as const)('%i 星的新题保存默认 %s 分组', async (difficultyStars, paperLevel) => {
             mocks.mockPrismaErrorItem.create.mockResolvedValue({ id: 'new-item', userId: 'user-123' });
             const response = await POST(new Request('http://localhost/api/error-items', {
@@ -524,6 +541,35 @@ describe('/api/error-items', () => {
     });
 
     describe('PUT /api/error-items/[id] (更新错题)', () => {
+        it.each([10, 65, 100, 200])('可保存配图比例 %s%%', async (figureScale) => {
+            const item = { id: 'e1', userId: 'user-123', figureScale: 100 };
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(item);
+            mocks.mockPrismaErrorItem.update.mockResolvedValue({ ...item, figureScale });
+            const response = await PUT(new Request('http://localhost/api/error-items/e1', {
+                method: 'PUT', body: JSON.stringify({ figureScale }),
+            }), { params: Promise.resolve({ id: 'e1' }) });
+            expect(response.status).toBe(200);
+            expect((await response.json()).figureScale).toBe(figureScale);
+            expect(mocks.mockPrismaErrorItem.update.mock.calls[0][0].data).toEqual({ figureScale });
+        });
+
+        it.each([null, 0, 9, 201, 50.5, '80', true])('更新时拒绝非法配图比例 %s', async (figureScale) => {
+            const response = await PUT(new Request('http://localhost/api/error-items/e1', {
+                method: 'PUT', body: JSON.stringify({ figureScale }),
+            }), { params: Promise.resolve({ id: 'e1' }) });
+            expect(response.status).toBe(400);
+            expect(mocks.mockPrismaErrorItem.update).not.toHaveBeenCalled();
+        });
+
+        it('拒绝修改其他用户题目的配图比例', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({ id: 'e1', userId: 'other-user' });
+            const response = await PUT(new Request('http://localhost/api/error-items/e1', {
+                method: 'PUT', body: JSON.stringify({ figureScale: 50 }),
+            }), { params: Promise.resolve({ id: 'e1' }) });
+            expect(response.status).toBe(403);
+            expect(mocks.mockPrismaErrorItem.update).not.toHaveBeenCalled();
+        });
+
         it('未设置卷别的题目补评为 4 星时默认归 B 卷分组', async () => {
             mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({ id: 'e1', userId: 'user-123', paperLevel: null });
             mocks.mockPrismaErrorItem.update.mockResolvedValue({ id: 'e1' });

@@ -1,9 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from '@/lib/paper-level';
-import { prisma } from '@/lib/prisma';
 
-vi.mock('@/lib/prisma', () => ({
-    prisma: {
+const mocks = vi.hoisted(() => ({
+    mockPrisma: {
         paperGroup: {
             findFirst: vi.fn(),
             findMany: vi.fn(),
@@ -12,7 +11,11 @@ vi.mock('@/lib/prisma', () => ({
     },
 }));
 
-const mockPrisma = vi.mocked(prisma);
+vi.mock('@/lib/prisma', () => ({
+    prisma: mocks.mockPrisma,
+}));
+
+const mockPrisma = mocks.mockPrisma;
 
 describe('星级对应的默认卷别分组', () => {
     beforeEach(() => {

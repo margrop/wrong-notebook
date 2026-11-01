@@ -16,6 +16,7 @@ import { scheduleMasteryEvaluation } from "@/lib/mastery";
 import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from "@/lib/question-deduplication";
 import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
+import { DEFAULT_FIGURE_SCALE, MAX_FIGURE_SCALE, MIN_FIGURE_SCALE } from "@/lib/figure-scale";
 
 const logger = createLogger('api:error-items');
 
@@ -39,6 +40,7 @@ const importSchema = z.object({
     difficultyStars: z.number().int().min(1).max(5).nullish(),
     hasFigure: z.boolean().optional(),
     figureSvg: z.string().max(MAX_FIGURE_SVG_LENGTH).nullish(),
+    figureScale: z.number().int().min(MIN_FIGURE_SCALE).max(MAX_FIGURE_SCALE).default(DEFAULT_FIGURE_SCALE),
     geogebraCommands: z.string().nullish(),
 });
 
@@ -151,12 +153,14 @@ export async function POST(req: Request) {
             const subjectKey = inferSubjectFromName(subject?.name ?? null) || 'other';
             logger.debug({ subjectId, subjectName: subject?.name, subjectKey }, 'Subject inferred');
 
-            // 处理每个标签
+            // 处理每个标签（限定在当前错题本的标签体系内）
+            const notebookTagSet = subject?.tagSet || 'default';
             for (const tagName of tagNames) {
                 try {
                     let tag = await tx.knowledgeTag.findFirst({
                         where: {
                             name: tagName,
+                            tagSet: notebookTagSet,
                             OR: [
                                 { isSystem: true },
                                 { userId: user.id },
@@ -165,8 +169,8 @@ export async function POST(req: Request) {
                     });
 
                     if (!tag) {
-                        const parentId = await findParentTagIdForGrade(finalGradeSemester, subjectKey, tx);
-                        logger.debug({ tagName, parentId, subjectKey }, 'Creating new custom tag');
+                        const parentId = await findParentTagIdForGrade(finalGradeSemester, subjectKey, tx, notebookTagSet);
+                        logger.debug({ tagName, parentId, subjectKey, tagSet: notebookTagSet }, 'Creating new custom tag');
 
                         tag = await tx.knowledgeTag.create({
                             data: {
@@ -175,6 +179,7 @@ export async function POST(req: Request) {
                                 isSystem: false,
                                 userId: user.id,
                                 parentId: parentId,
+                                tagSet: notebookTagSet,
                             },
                         });
                         logger.debug({ tagId: tag.id, tagName }, 'Custom tag created');
@@ -211,6 +216,7 @@ export async function POST(req: Request) {
                         difficultyStars: difficultyStars ?? null,
                         hasFigure,
                         figureSvg,
+                        figureScale: body.figureScale,
                         geogebraCommands: geogebraCommands || null,
                         masteryLevel: 0,
                         tags: {

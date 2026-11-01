@@ -59,8 +59,8 @@ async function click(label: string) {
 }
 
 describe('题目年级编辑入口', () => {
-    it('独立入口可修改未归类题目的年级并保存', async () => {
-        await render();
+    it.each([undefined, 'group-a', 'inactive-group'])('修改年级时不重复提交未改变的卷别 %s', async (paperLevel) => {
+        await render('初一，上期', paperLevel);
         await click('编辑年级/学期');
         const select = container.querySelector<HTMLSelectElement>('#detail-grade-semester')!;
         expect(select.value).toBe('初一，上期');
@@ -69,7 +69,20 @@ describe('题目年级编辑入口', () => {
             select.dispatchEvent(new Event('change', { bubbles: true }));
         });
         await click('保存');
-        expect(apiClient.put).toHaveBeenCalledWith('/api/error-items/e1', { gradeSemester: '高二下', paperLevel: '' });
+        expect(apiClient.put).toHaveBeenCalledWith('/api/error-items/e1', { gradeSemester: '高二下' });
+        expect(onChanged).toHaveBeenCalledOnce();
+    });
+
+    it('手工改组时提交选中的卷别分组 ID', async () => {
+        await render('初二上', 'group-a');
+        await click('编辑年级/学期');
+        const select = [...container.querySelectorAll('select')].find((element) => element.value === 'group-a')!;
+        await act(async () => {
+            select.value = 'group-b';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await click('保存');
+        expect(apiClient.put).toHaveBeenCalledWith('/api/error-items/e1', { gradeSemester: '初二上', paperLevel: 'group-b' });
         expect(onChanged).toHaveBeenCalledOnce();
     });
 
