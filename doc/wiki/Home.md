@@ -41,4 +41,4 @@ Smart Wrong Notebook（智能错题本）把拍照或文字录入的错题整理
 
 ## 项目入口
 
-[源码](https://github.com/margrop/wrong-notebook) · [版本发布](https://github.com/margrop/wrong-notebook/releases) · [问题反馈](https://github.com/margrop/wrong-notebook/issues) · [项目介绍](https://blog.margrop.net/wrong-notebook-github-pages/)
+[源码](https://github.com/margrop/wrong-notebook) · [版本发布](https://github.com/margrop/wrong-notebook/releases) · [问题反馈](https://github.com/margrop/wrong-notebook/issues) · [项目介绍](https://wrong-notebook.margrop.net/)

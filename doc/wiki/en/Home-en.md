@@ -41,4 +41,4 @@ This Wiki covers [margrop/wrong-notebook](https://github.com/margrop/wrong-noteb
 
 ## Project links
 
-[Source code](https://github.com/margrop/wrong-notebook) · [Releases](https://github.com/margrop/wrong-notebook/releases) · [Issues](https://github.com/margrop/wrong-notebook/issues) · [Project page](https://blog.margrop.net/wrong-notebook-github-pages/en/)
+[Source code](https://github.com/margrop/wrong-notebook) · [Releases](https://github.com/margrop/wrong-notebook/releases) · [Issues](https://github.com/margrop/wrong-notebook/issues) · [Project page](https://wrong-notebook.margrop.net/en/)
