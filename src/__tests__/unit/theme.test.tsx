@@ -100,6 +100,17 @@ describe('主题工具函数', () => {
         expect(resolveTheme('dark', false)).toBe('dark');
     });
 
+    it('本地缓存中的代码片段不会作为首屏脚本执行', () => {
+        const injected = vi.fn();
+        vi.stubGlobal('themeInitAttack', injected);
+        localStorage.setItem(THEME_STORAGE_KEY, 'dark");themeInitAttack();//</script><script>themeInitAttack()</script>');
+        systemDark = true;
+        new Function(THEME_INIT_SCRIPT)();
+        expect(injected).not.toHaveBeenCalled();
+        expect(htmlIsDark()).toBe(true);
+        expect(document.documentElement.style.colorScheme).toBe('dark');
+    });
+
     it('首屏脚本按本地缓存的偏好设置 dark 类，没有缓存时跟随系统', () => {
         const run = () => new Function(THEME_INIT_SCRIPT)();
 

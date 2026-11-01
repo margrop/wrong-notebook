@@ -26,4 +26,5 @@ export function resolveTheme(preference: ThemePreference, systemDark: boolean): 
  * 在 <head> 中内联执行的脚本：首屏绘制前读取本地缓存的偏好并设置 html 的 dark 类，
  * 读取失败（如隐私模式禁用存储）时按系统设置处理
  */
-export const THEME_INIT_SCRIPT = `(function(){try{var p=null;try{p=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)})}catch(e){}var d=p==="dark"||(p!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var r=document.documentElement;r.classList.toggle("dark",d);r.style.colorScheme=d?"dark":"light"}catch(e){}})();`;
+// 首屏脚本保持静态文本，不向可执行代码中插入序列化值；缓存键的一致性由执行测试验证。
+export const THEME_INIT_SCRIPT = `(function(){try{var p=null;try{p=localStorage.getItem("app-theme")}catch(e){}var d=p==="dark"||(p!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var r=document.documentElement;r.classList.toggle("dark",d);r.style.colorScheme=d?"dark":"light"}catch(e){}})();`;
