@@ -67,8 +67,11 @@ test('[E2E-M07] 拒绝跨邮箱导入并在同邮箱空账号恢复备份', asyn
     await settings.locator('input[type="file"]').setInputFiles(file);
     await settings.getByRole('button', { name: '导入数据', exact: true }).click();
     const imported = receiver.waitForResponse((response) => response.url().endsWith('/api/import') && response.request().method() === 'POST');
+    // 导入成功后页面会自动刷新，等待本次刷新完成再进行后续导航。
+    const reloaded = receiver.waitForEvent('load');
     await acceptConfirmDialog(receiver);
     expect((await imported).ok()).toBeTruthy();
+    await reloaded;
         await expect.poll(() => scenario.db.errorItem.count({ where: { userId: scenario.user.id } })).toBe(2);
         const restored = await scenario.db.errorItem.findMany({ where: { userId: scenario.user.id }, include: { tags: { include: { parent: true } }, subject: true } });
         const restoredA = restored.find((item) => item.questionText === a.questionText)!;
