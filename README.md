@@ -503,6 +503,8 @@ npm run test:e2e            # 隔离应用、正式迁移测试库与本地模�
 bash scripts/ci.sh          # 完整 CI（Node.js 22+、Python 3，含生产构建）
 ```
 
+GitHub 的 `main` 与 PR CI 还会使用正式 Dockerfile，在原生 amd64、arm64 环境中验证镜像内的测试和生产构建，检查通过后不推送镜像。`.dockerignore` 保留单元测试复用的 `e2e/support` 模块；浏览器用例和测试产物仍排除在构建上下文外。
+
 E2E 启动器会在系统临时目录复制应用和依赖、执行正式迁移、生成测试账号并完成生产构建，随后使用本地固定模型响应运行浏览器用例。不会读取现有应用配置、复用开发服务器或访问外部模型。报告路径在命令结束时输出；可用 `npm run test:e2e -- --grep E2E-M01` 筛选用例。用例与运行边界见 [E2E 设计与验收](doc/E2E_MOCK_AI_TEST_DESIGN.md)。
 
 修改 `prisma/schema.prisma` 后使用 `npx prisma migrate dev --name <名称>` 生成正式迁移并提交；迁移须兼容已有数据。更多开发约定见 [AGENTS.md](AGENTS.md)。

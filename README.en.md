@@ -505,6 +505,8 @@ npm run test:e2e            # Isolated app, migrated test database and local AI 
 bash scripts/ci.sh          # Full CI (Node.js 22+, Python 3, includes production build)
 ```
 
+GitHub CI for `main` and pull requests also uses the production Dockerfile to run tests and production builds on native amd64 and arm64 runners, without publishing images. `.dockerignore` keeps the `e2e/support` modules reused by unit tests while excluding browser test cases and test output from the build context.
+
 The E2E launcher copies the app and dependencies into a system temporary directory, applies migrations, creates test accounts and builds the production app. Browser tests use fixed responses from a local AI service, with separate configuration and a temporary SQLite database. Reports are printed at the end. Filter cases with `npm run test:e2e -- --grep E2E-M01`. See the [E2E design and acceptance criteria](doc/E2E_MOCK_AI_TEST_DESIGN.md).
 
 After changing `prisma/schema.prisma`, create a migration with `npx prisma migrate dev --name <name>` and commit it; migrations must be compatible with existing data. See [AGENTS.md](AGENTS.md) for more development conventions.

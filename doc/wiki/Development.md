@@ -43,6 +43,8 @@ npm run test:e2e
 
 CI 会运行 `npm run lint`，出现任何 ESLint 错误或警告都会失败。
 
+`main` 与 PR CI 还会在原生 amd64、arm64 环境中使用正式 Dockerfile 完整构建镜像，验证 Alpine 内的 Vitest、脚本语法检查、数据库初始化与生产构建，检查过程不推送镜像。`.dockerignore` 须保留单元测试复用的 `e2e/support` 模块，浏览器用例及测试产物仍排除在构建上下文外。
+
 `npm run test:coverage` 统计 `src/lib` 与 `src/app/api` 的测试覆盖率，低于 `vitest.config.mts` 中的阈值时失败；CI 会在任务摘要中显示覆盖率并上传报告。
 
 `npm test` 运行全部 Vitest 测试。E2E 的环境要求与启动方式以仓库中的 [`playwright.config.ts`](https://github.com/margrop/wrong-notebook/blob/main/playwright.config.ts) 为准。

@@ -40,8 +40,9 @@ config/tts-cache/
 # 构建阶段运行单元/集成测试；最终 standalone 镜像不复制测试目录
 coverage
 
-# E2E 与外部测试、性能脚本
-e2e
+# 保留单元测试复用的 E2E 支持模块，排除浏览器用例与测试产物
+e2e/*
+!e2e/support
 playwright.config.ts
 playwright-report
 test-results

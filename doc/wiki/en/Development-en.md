@@ -43,6 +43,8 @@ Run `npm run test:e2e` to prepare an isolated production app, a migrated tempora
 
 CI runs `npm run lint` and fails on any ESLint error or warning.
 
+CI for `main` and pull requests also builds the complete image with the production Dockerfile on native amd64 and arm64 runners, covering Vitest in Alpine, script syntax checks, database initialization and the production build without publishing images. `.dockerignore` must keep the `e2e/support` modules reused by unit tests while excluding browser test cases and test output from the build context.
+
 `npm run test:coverage` measures test coverage of `src/lib` and `src/app/api` and fails below the thresholds in `vitest.config.mts`; CI shows the coverage in the job summary and uploads the report.
 
 `npm test` runs all Vitest tests. The E2E environment and startup are defined in the repository's [`playwright.config.ts`](https://github.com/margrop/wrong-notebook/blob/main/playwright.config.ts).
