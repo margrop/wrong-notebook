@@ -11,6 +11,8 @@ import { apiClient } from "@/lib/api-client";
 import type { PaginatedResponse, PrintableErrorItem } from "@/types/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
+import { useSavedAnswerSpaces } from "@/lib/use-saved-answer-spaces";
+import type { AnswerSpaceChange } from "@/lib/use-saved-answer-spaces";
 import { PRINT_PREVIEW_PAGE_SIZE } from "@/lib/constants/pagination";
 import { frontendLogger } from "@/lib/frontend-logger";
 import {
@@ -19,6 +21,11 @@ import {
     getSelectedPrintItems,
     shouldReserveAnswerSpace,
 } from "@/lib/print-preview";
+
+/** 保存错题打印时手动调整的单题留白 */
+async function saveAnswerSpaces(changes: AnswerSpaceChange[]): Promise<void> {
+    await apiClient.put("/api/error-items/answer-space", { items: changes });
+}
 
 function PrintPreviewContent() {
     const searchParams = useSearchParams();
@@ -36,18 +43,12 @@ function PrintPreviewContent() {
     });
     const updateOptions = (patch: Partial<PrintDisplayOptions>) => setOptions((prev) => ({ ...prev, ...patch }));
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-    const [customSpaces, setCustomSpaces] = useState<Record<string, number>>({});
-
-    const setQuestionCustomSpace = (id: string, px: number | null) => {
-        setCustomSpaces((prev) => {
-            if (px === null) {
-                const next = { ...prev };
-                delete next[id];
-                return next;
-            }
-            return { ...prev, [id]: px };
-        });
-    };
+    const {
+        customSpaces,
+        setSpace: setQuestionCustomSpace,
+        resetAll: resetAllCustomSpaces,
+        saveFailed: answerSpaceSaveFailed,
+    } = useSavedAnswerSpaces(items, saveAnswerSpaces);
 
     const fetchItems = useCallback(async () => {
         try {
@@ -126,8 +127,11 @@ function PrintPreviewContent() {
                         options={options}
                         onChange={updateOptions}
                         hasCustomSpaces={Object.keys(customSpaces).length > 0}
-                        onResetCustomSpaces={() => setCustomSpaces({})}
+                        onResetCustomSpaces={resetAllCustomSpaces}
                     />
+                    {answerSpaceSaveFailed && (
+                        <p className="text-xs text-destructive">{t.exam.answerSpaceSaveFailed}</p>
+                    )}
                     <PrintItemPicker
                         items={items}
                         selectedIds={selectedIds}

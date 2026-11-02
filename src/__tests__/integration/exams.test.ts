@@ -237,6 +237,23 @@ describe('/api/exams', () => {
             });
         });
 
+        it('保存与清除单题留白，统一清除时更新整卷', async () => {
+            mocks.examPaper.findUnique.mockResolvedValue({ userId: 'user-1' });
+            mocks.examQuestion.updateMany.mockResolvedValue({ count: 1 });
+
+            const saveResponse = await UPDATE_SCALE(json('http://localhost', 'PATCH', { questionId: 'q1', answerSpacePx: 240 }), params('p1'));
+            expect(saveResponse.status).toBe(200);
+            expect(mocks.examQuestion.updateMany).toHaveBeenLastCalledWith({ where: { id: 'q1', paperId: 'p1' }, data: { answerSpacePx: 240 } });
+
+            const resetResponse = await UPDATE_SCALE(json('http://localhost', 'PATCH', { answerSpacePx: null }), params('p1'));
+            expect(resetResponse.status).toBe(200);
+            expect(mocks.examQuestion.updateMany).toHaveBeenLastCalledWith({ where: { paperId: 'p1' }, data: { answerSpacePx: null } });
+
+            for (const answerSpacePx of [-1, 601, 50.5, '120']) {
+                expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { questionId: 'q1', answerSpacePx }), params('p1'))).status).toBe(400);
+            }
+        });
+
         it('校验比例范围、显示位置、试卷归属与题目归属', async () => {
             expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', {}), params('p1'))).status).toBe(400);
             expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { figureScale: 9 }), params('p1'))).status).toBe(400);

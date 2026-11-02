@@ -7,6 +7,7 @@ import { createLogger } from "@/lib/logger";
 import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
 import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
+import { normalizeCustomAnswerSpacePx } from "@/lib/exam-answer-space";
 import { exportSpeeches } from "@/lib/tts/speech-cache";
 import { sortTagsByParent } from "@/lib/tag-hierarchy";
 
@@ -90,7 +91,7 @@ export async function GET(req: Request) {
         ]));
 
         const exportData = {
-            version: 3,
+            version: 4,
             exportedAt: new Date().toISOString(),
             scope: exportAll ? 'all' : 'user',
             user: {
@@ -116,6 +117,7 @@ export async function GET(req: Request) {
                 ...item,
                 figureScale: normalizeFigureScale(item.figureScale),
                 figureAlign: normalizeFigureAlign(item.figureAlign),
+                answerSpacePx: normalizeCustomAnswerSpacePx(item.answerSpacePx),
             })),
             reviewSchedules,
             practiceRecords,
@@ -125,6 +127,7 @@ export async function GET(req: Request) {
                     ...question,
                     figureScale: normalizeFigureScale(question.figureScale),
                     figureAlign: normalizeFigureAlign(question.figureAlign),
+                    answerSpacePx: normalizeCustomAnswerSpacePx(question.answerSpacePx),
                 })),
             })),
             paperGroups,

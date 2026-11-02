@@ -7,15 +7,18 @@ import { createLogger } from "@/lib/logger";
 import { generateExamPaper, isPaperGenerating } from "@/lib/exam";
 import { FIGURE_ALIGNS, MAX_FIGURE_SCALE, MIN_FIGURE_SCALE, normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import type { FigureAlign } from "@/lib/figure-scale";
+import { MAX_CUSTOM_ANSWER_SPACE_PX, MIN_CUSTOM_ANSWER_SPACE_PX, normalizeCustomAnswerSpacePx } from "@/lib/exam-answer-space";
 
 const logger = createLogger('api:exams:id');
 
 const updateFigureSchema = z.object({
     figureScale: z.number().int().min(MIN_FIGURE_SCALE).max(MAX_FIGURE_SCALE).optional(),
     figureAlign: z.enum(FIGURE_ALIGNS).optional(),
+    // 题下留白手动值；null 表示恢复按全局留白档位
+    answerSpacePx: z.number().int().min(MIN_CUSTOM_ANSWER_SPACE_PX).max(MAX_CUSTOM_ANSWER_SPACE_PX).nullable().optional(),
     questionId: z.string().min(1).optional(),
-}).refine((data) => data.figureScale !== undefined || data.figureAlign !== undefined, {
-    message: "figureScale or figureAlign is required",
+}).refine((data) => data.figureScale !== undefined || data.figureAlign !== undefined || data.answerSpacePx !== undefined, {
+    message: "figureScale, figureAlign or answerSpacePx is required",
 });
 
 /**
@@ -62,6 +65,7 @@ export async function GET(
                 ...question,
                 figureScale: normalizeFigureScale(question.figureScale),
                 figureAlign: normalizeFigureAlign(question.figureAlign),
+                answerSpacePx: normalizeCustomAnswerSpacePx(question.answerSpacePx),
                 notebookName: errorItem?.subject?.name ?? null,
                 attempts: practiceRecords,
             })),
@@ -74,7 +78,7 @@ export async function GET(
 
 /**
  * PATCH /api/exams/:id
- * 保存试卷配图显示与打印比例、位置：指定 questionId 时只改单题，未指定时统一修改本卷全部题目
+ * 保存试卷配图显示与打印比例、位置及题下留白：指定 questionId 时只改单题，未指定时统一修改本卷全部题目
  */
 export async function PATCH(
     req: Request,
@@ -98,10 +102,11 @@ export async function PATCH(
             return notFound("Exam paper not found");
         }
 
-        const { figureScale, figureAlign, questionId } = parsed.data;
-        const data: { figureScale?: number; figureAlign?: FigureAlign } = {};
+        const { figureScale, figureAlign, answerSpacePx, questionId } = parsed.data;
+        const data: { figureScale?: number; figureAlign?: FigureAlign; answerSpacePx?: number | null } = {};
         if (figureScale !== undefined) data.figureScale = figureScale;
         if (figureAlign !== undefined) data.figureAlign = figureAlign;
+        if (answerSpacePx !== undefined) data.answerSpacePx = answerSpacePx;
 
         if (questionId) {
             const { count } = await prisma.examQuestion.updateMany({

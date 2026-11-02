@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,12 @@ import {
     resolveQuestionAnswerSpacePx,
 } from "@/lib/exam-answer-space";
 import type { AnswerSpaceMode } from "@/lib/exam-answer-space";
+import { useSavedAnswerSpaces } from "@/lib/use-saved-answer-spaces";
+import type { AnswerSpaceChange } from "@/lib/use-saved-answer-spaces";
 import type { FigureAlign } from "@/lib/figure-scale";
 import type { ExamPaperDetail } from "@/types/api";
+
+const EMPTY_QUESTIONS: ExamPaperDetail["questions"] = [];
 
 export default function ExamPrintPage() {
     const params = useParams();
@@ -32,20 +36,26 @@ export default function ExamPrintPage() {
     usePageTitle(t.exam.title, paper?.title, t.pageTitle.examPrint);
     const [includeAnswers, setIncludeAnswers] = useState(true);
     const [answerSpace, setAnswerSpace] = useState<AnswerSpaceMode>(DEFAULT_ANSWER_SPACE_MODE);
-    const [customSpaces, setCustomSpaces] = useState<Record<string, number>>({});
     const [uniformPreview, setUniformPreview] = useState<{ scale: number | null; align: FigureAlign | null }>({ scale: null, align: null });
     const sheetRef = useRef<HTMLDivElement>(null);
 
-    const setQuestionCustomSpace = (questionId: string, px: number | null) => {
-        setCustomSpaces((prev) => {
-            if (px === null) {
-                const next = { ...prev };
-                delete next[questionId];
-                return next;
-            }
-            return { ...prev, [questionId]: px };
-        });
-    };
+    const paperId = paper?.id;
+    const saveAnswerSpaces = useCallback(async (changes: AnswerSpaceChange[]) => {
+        if (!paperId) return;
+        // 全部恢复默认时一次清除整卷，否则逐题保存
+        if (changes.length > 1 && changes.every((change) => change.answerSpacePx === null)) {
+            await apiClient.patch(`/api/exams/${paperId}`, { answerSpacePx: null });
+            return;
+        }
+        await Promise.all(changes.map(({ id, answerSpacePx }) =>
+            apiClient.patch(`/api/exams/${paperId}`, { questionId: id, answerSpacePx })));
+    }, [paperId]);
+    const {
+        customSpaces,
+        setSpace: setQuestionCustomSpace,
+        resetAll: resetAllCustomSpaces,
+        saveFailed: answerSpaceSaveFailed,
+    } = useSavedAnswerSpaces(paper?.questions ?? EMPTY_QUESTIONS, saveAnswerSpaces);
 
     useEffect(() => {
         let saved: string | null = null;
@@ -134,7 +144,7 @@ export default function ExamPrintPage() {
                             </SelectContent>
                         </Select>
                         {Object.keys(customSpaces).length > 0 && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => setCustomSpaces({})}>
+                            <Button type="button" variant="ghost" size="sm" onClick={resetAllCustomSpaces}>
                                 {t.exam.resetAllQuestionAnswerSpaces}
                             </Button>
                         )}
@@ -151,6 +161,9 @@ export default function ExamPrintPage() {
                     </div>
                     {answerSpace === "auto" && (
                         <p className="w-full text-xs text-muted-foreground">{t.exam.answerSpaceAutoHint}</p>
+                    )}
+                    {answerSpaceSaveFailed && (
+                        <p className="w-full text-xs text-destructive">{t.exam.answerSpaceSaveFailed}</p>
                     )}
                     {questions.length < paper.questions.length && (
                         <p className="w-full text-xs text-muted-foreground">{t.exam.notReadyHint}</p>

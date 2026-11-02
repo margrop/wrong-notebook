@@ -92,7 +92,7 @@ bash scripts/ci.sh          # 完整 CI（要求 Node.js 22 及以上，含生�
 - `src/__tests__/integration/data-backup.test.ts` — 数据备份测试，验证导出后导入能完整还原
 
 **导入导出格式约定：**
-- 导出文件 `version` 字段：新增字段时版本号 +1（当前 version 3）
+- 导出文件 `version` 字段：新增字段时版本号 +1（当前 version 4）
 - 旧版导出文件没有的新字段，导入时必须有默认值或跳过逻辑
 - 多标签体系数据（`tagSet`）需按体系分组导出和导入，避免混淆
 

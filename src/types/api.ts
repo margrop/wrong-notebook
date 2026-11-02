@@ -94,6 +94,7 @@ export interface ErrorItem {
     figureSvg?: string | null;       // AI 重绘的 SVG 配图
     figureScale?: number;            // 配图显示与打印比例，默认 100%
     figureAlign?: 'left' | 'center' | 'right' | string; // 配图显示与打印位置，默认 center
+    answerSpacePx?: number | null;   // 打印时手动设置的题下留白（px），为空时按全局档位
 
     createdAt: string;
     updatedAt: string;
@@ -107,7 +108,7 @@ export type ErrorItemSummary = Pick<ErrorItem,
 
 /** 打印所需内容，独立于完整详情与列表卡片的数据类型。 */
 export type PrintableErrorItem = ErrorItemSummary & Pick<ErrorItem,
-    'originalImageUrl' | 'answerText' | 'analysis' | 'figureSvg' | 'figureScale' | 'figureAlign' | 'gradeSemester' | 'paperLevel'
+    'originalImageUrl' | 'answerText' | 'analysis' | 'figureSvg' | 'figureScale' | 'figureAlign' | 'answerSpacePx' | 'gradeSemester' | 'paperLevel'
 > & { subject?: Pick<Notebook, 'name'> | null };
 
 // For creation/updates
@@ -389,6 +390,8 @@ export interface ExamQuestionDetail {
     figureSvg?: string | null;
     figureScale?: number;
     figureAlign?: 'left' | 'center' | 'right' | string;
+    /** 打印时手动设置的题下留白（px），为空时按全局档位 */
+    answerSpacePx?: number | null;
     error: string | null;
     notebookName: string | null;
     /** 历次录入的结果，按时间正序 */

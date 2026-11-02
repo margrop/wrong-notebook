@@ -46,6 +46,13 @@ export function clampAnswerSpacePx(px: number): number {
     return Math.min(MAX_CUSTOM_ANSWER_SPACE_PX, Math.max(MIN_CUSTOM_ANSWER_SPACE_PX, Math.round(px)));
 }
 
+/** 校验保存的单题留白：0～600 的整数原样返回，其余（含旧数据缺省）返回 null 表示按全局档位 */
+export function normalizeCustomAnswerSpacePx(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isInteger(value)) return null;
+    if (value < MIN_CUSTOM_ANSWER_SPACE_PX || value > MAX_CUSTOM_ANSWER_SPACE_PX) return null;
+    return value;
+}
+
 // 选项标记：行首、空白或括号/句读后的 A. / B．/ C: / D：，行首或两个以上空白/括号后的 A、，或括号包住的 (A) / （B）；
 // 不认普通文字中单个空格后的“A、B 两地”，避免把几何点名、地名当作选项
 const CHOICE_MARK = /(?:(?:^|[\s*+\-)）:：。？?；;，,_])([A-D])\s*[.．:：]|(?:^|\s{2,}|[)）:：。？?])([A-D])\s*、|[(（]([A-D])[)）])/gm;

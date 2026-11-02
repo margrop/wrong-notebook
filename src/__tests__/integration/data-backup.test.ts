@@ -103,7 +103,7 @@ beforeEach(async () => {
             id: 'item-1', shortId: 'AbC234', userId: 'user-1', subjectId: 'math', originalImageUrl: 'data:image/png;base64,dGVzdA==',
             questionText: '求解 x + 2 = 5', answerText: 'x = 3', analysis: '移项', wrongAnswerText: 'x = 7', mistakeAnalysis: '符号错误',
             mistakeStatus: 'wrong_attempt', source: '期中考试', errorType: '计算', userNotes: '注意符号', gradeSemester: '初二上',
-            paperLevel: 'group-b', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65, figureAlign: 'left',
+            paperLevel: 'group-b', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65, figureAlign: 'left', answerSpacePx: 240,
             geogebraCommands: 'A=(0,0)\nB=(1,1)', svgAnimation: animation('中文'), svgAnimationEn: animation('English'), lastPractice,
             masteryLevel: 2, masteryProbability: 0.8, masteryReason: '连续答对', masterySource: 'ai', masteryEvaluatedAt: new Date('2026-10-21T00:00:00Z'),
             createdAt: new Date('2026-10-01T00:00:00Z'), updatedAt: new Date('2026-10-21T00:00:00Z'),
@@ -182,7 +182,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
 
     it('导出文件使用第 3 版格式，包含 tagSet 字段', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(3);
+        expect(backup.version).toBe(4);
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
         expect(backup.subjects).toEqual(
@@ -213,7 +213,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
 
         const item = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1', shortId: 'AbC234' }, include: { tags: true, subject: true, paperGroup: true } });
         expect(item).toMatchObject({
-            shortId: 'AbC234', questionText: '求解 x + 2 = 5', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65, figureAlign: 'left',
+            shortId: 'AbC234', questionText: '求解 x + 2 = 5', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65, figureAlign: 'left', answerSpacePx: 240,
             geogebraCommands: 'A=(0,0)\nB=(1,1)', svgAnimation: animation('中文'), svgAnimationEn: animation('English'), lastPractice,
             masteryProbability: 0.8, masteryReason: '连续答对', masterySource: 'ai', masteryEvaluatedAt: new Date('2026-10-21T00:00:00Z'),
             createdAt: new Date('2026-10-01T00:00:00Z'), updatedAt: new Date('2026-10-21T00:00:00Z'),
@@ -246,6 +246,17 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(item.figureScale).toBe(100);
         expect(item.figureAlign).toBe('center');
         expect(item.figureSvg).toBe(figure);
+    });
+
+    it.each([undefined, null, -1, 601, 50.5, '120'])('旧备份或非法单题留白 %s 导入为空，按全局留白档位', async (answerSpacePx) => {
+        const backup = await exportBackup();
+        expect(backup.errorItems.find((item: { id: string }) => item.id === 'item-1').answerSpacePx).toBe(240);
+        backup.errorItems[0].answerSpacePx = answerSpacePx;
+        backup.errorItems[1].answerSpacePx = answerSpacePx;
+        await clearUserData();
+        await importBackup(backup);
+        const items = await database.errorItem.findMany({ where: { userId: 'user-1' } });
+        expect(items.map((item) => item.answerSpacePx)).toEqual([null, null]);
     });
 
     it('旧版备份（version 2，无 tagSet 字段）导入时按 default tagSet 处理', async () => {
@@ -287,7 +298,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
                 subjectIds: JSON.stringify(['math']), tagNames: JSON.stringify(['自定义标签']), resultsRecordedAt: new Date('2026-10-22T00:00:00Z'),
                 createdAt: new Date('2026-10-21T00:00:00Z'),
                 questions: { create: [
-                    { id: 'question-1', order: 0, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', answerText: '答', analysis: '析', figureSvg: figure, figureScale: 75, figureAlign: 'right' },
+                    { id: 'question-1', order: 0, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', answerText: '答', analysis: '析', figureSvg: figure, figureScale: 75, figureAlign: 'right', answerSpacePx: 180 },
                     { id: 'question-2', order: 1, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'pending' },
                 ] },
             },
@@ -298,6 +309,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         const backup = await exportBackup();
         expect(backup.examPapers[0].questions[0].figureScale).toBe(75);
         expect(backup.examPapers[0].questions[0].figureAlign).toBe('right');
+        expect(backup.examPapers[0].questions[0].answerSpacePx).toBe(180);
         await clearUserData();
         const { stats } = await importBackup(backup);
         expect(stats.examPapersCreated).toBe(1);
@@ -311,9 +323,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             resultsRecordedAt: new Date('2026-10-22T00:00:00Z'), createdAt: new Date('2026-10-21T00:00:00Z'),
         });
         expect(paper.questions).toMatchObject([
-            { order: 0, errorItemId: item.id, sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', figureSvg: figure, figureScale: 75, figureAlign: 'right' },
-            // 导出时仍在生成的题目按失败导入，缺省配图比例为 100、位置为居中
-            { order: 1, errorItemId: item.id, status: 'failed', figureScale: 100, figureAlign: 'center' },
+            { order: 0, errorItemId: item.id, sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', figureSvg: figure, figureScale: 75, figureAlign: 'right', answerSpacePx: 180 },
+            // 导出时仍在生成的题目按失败导入，缺省配图比例为 100、位置为居中，留白按全局档位
+            { order: 1, errorItemId: item.id, status: 'failed', figureScale: 100, figureAlign: 'center', answerSpacePx: null },
         ]);
         expect(await database.practiceRecord.findFirstOrThrow({ where: { source: 'exam' } })).toMatchObject({ examQuestionId: paper.questions[0].id, errorItemId: item.id });
 

@@ -107,11 +107,13 @@ describe('真实 Prisma 数据库迁移', () => {
             .toEqual(expect.arrayContaining([
                 expect.objectContaining({ name: 'figureScale', dflt_value: '100' }),
                 expect.objectContaining({ name: 'figureAlign', dflt_value: "'center'" }),
+                expect.objectContaining({ name: 'answerSpacePx', notnull: 0, dflt_value: null }),
             ]));
         expect(database!.prepare('PRAGMA table_info("ExamQuestion")').all())
             .toEqual(expect.arrayContaining([
                 expect.objectContaining({ name: 'figureScale', dflt_value: '100' }),
                 expect.objectContaining({ name: 'figureAlign', dflt_value: "'center'" }),
+                expect.objectContaining({ name: 'answerSpacePx', notnull: 0, dflt_value: null }),
             ]));
         closeDatabase();
 
@@ -129,7 +131,7 @@ describe('真实 Prisma 数据库迁移', () => {
         const beforeItems = rows('ErrorItem');
         const beforeRelated = relatedTables.map((table) => rows(table).map((row) => {
             if (table === 'Subject' || table === 'KnowledgeTag') return { ...row, tagSet: row.tagSet ?? 'default' };
-            if (table === 'ExamQuestion') return { ...row, figureScale: row.figureScale ?? 100, figureAlign: row.figureAlign ?? 'center' };
+            if (table === 'ExamQuestion') return { ...row, figureScale: row.figureScale ?? 100, figureAlign: row.figureAlign ?? 'center', answerSpacePx: null };
             return row;
         }));
         closeDatabase();
@@ -142,7 +144,7 @@ describe('真实 Prisma 数据库迁移', () => {
         for (const item of beforeItems) {
             const group = groups.find((entry) => entry.userId === item.userId && entry.key === item.paperLevel);
             expect(rows('ErrorItem').find((entry) => entry.id === item.id)).toEqual({
-                ...item, paperLevel: group?.id ?? null, figureScale: hasScale ? 65 : 100, figureAlign: 'center',
+                ...item, paperLevel: group?.id ?? null, figureScale: hasScale ? 65 : 100, figureAlign: 'center', answerSpacePx: null,
             });
         }
         expect(relatedTables.map(rows)).toEqual(beforeRelated);
@@ -166,7 +168,7 @@ describe('真实 Prisma 数据库迁移', () => {
             INSERT INTO "ErrorItem" (id, userId, originalImageUrl, paperLevel, figureScale, updatedAt)
                 VALUES ('existing-item', 'existing-user', 'original', 'custom-group', 175, '2026-10-01');
         `);
-        const beforeItems = rows('ErrorItem').map((item) => ({ ...item, figureAlign: 'center' }));
+        const beforeItems = rows('ErrorItem').map((item) => ({ ...item, figureAlign: 'center', answerSpacePx: null }));
         const beforeGroups = rows('PaperGroup');
         closeDatabase();
 

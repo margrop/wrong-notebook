@@ -7,6 +7,7 @@ import {
     SOLUTION_EXTRA_PER_PART_PX,
     SOLUTION_MAX_PX,
     clampAnswerSpacePx,
+    normalizeCustomAnswerSpacePx,
     countQuestionParts,
     detectQuestionKind,
     getAnswerSpacePx,
@@ -99,5 +100,17 @@ describe('clampAnswerSpacePx & resolveQuestionAnswerSpacePx', () => {
         expect(resolveQuestionAnswerSpacePx('large', '求解。', 0)).toBe(0);
         expect(resolveQuestionAnswerSpacePx('auto', '1 + 1 = ____', null)).toBe(AUTO_ANSWER_SPACE_PX.fill);
         expect(resolveQuestionAnswerSpacePx('small', '求解。', undefined)).toBe(FIXED_ANSWER_SPACE_PX.small);
+    });
+});
+
+describe('normalizeCustomAnswerSpacePx', () => {
+    it('0～600 的整数原样保留', () => {
+        expect(normalizeCustomAnswerSpacePx(0)).toBe(0);
+        expect(normalizeCustomAnswerSpacePx(240)).toBe(240);
+        expect(normalizeCustomAnswerSpacePx(600)).toBe(600);
+    });
+
+    it.each([undefined, null, -1, 601, 50.5, Number.NaN, '120'])('缺省或非法值 %s 视为未设置', (value) => {
+        expect(normalizeCustomAnswerSpacePx(value)).toBeNull();
     });
 });
