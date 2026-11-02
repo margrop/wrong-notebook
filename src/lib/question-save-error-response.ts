@@ -9,7 +9,7 @@ const AI_REASONS = new Set([
     'AI_OUTPUT_TRUNCATED', 'AI_UNKNOWN_ERROR',
 ]);
 
-/** 只返回可公开的错误分类，原始 SQL、路径、凭据和服务商响应留在服务端日志中。 */
+/** 只返回可公开的错误分类，响应不包含原始 SQL、路径、凭据或服务商原文。 */
 export function questionSaveErrorResponse(error: unknown, stage: QuestionSaveFailureStage = 'save') {
     const message = getErrorMessage(error);
     if (stage === 'grade') {
