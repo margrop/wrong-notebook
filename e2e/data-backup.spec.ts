@@ -31,7 +31,7 @@ test('[E2E-M07] 拒绝跨邮箱导入并在同邮箱空账号恢复备份', asyn
     await download.saveAs(file);
     const contents = readFileSync(file, 'utf8');
     const backup = JSON.parse(contents) as { version: number; user: Record<string, unknown>; errorItems: unknown[] };
-    expect(backup.version).toBe(3);
+    expect(backup.version).toBe(4);
     expect(backup.errorItems).toHaveLength(2);
     expect(backup.user).not.toHaveProperty('password');
     expect(contents).not.toContain('e2e-dummy-key');
