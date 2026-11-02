@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { prepareImportGrade } from "@/lib/import-question-grade";
 import { needsQuestionGradeRecognition } from "@/lib/question-grade";
-import { unauthorized, internalError, validationError } from "@/lib/api-errors";
+import { unauthorized, validationError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
@@ -17,6 +17,8 @@ import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransa
 import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
 import { DEFAULT_FIGURE_ALIGN, DEFAULT_FIGURE_SCALE, FIGURE_ALIGNS, MAX_FIGURE_SCALE, MIN_FIGURE_SCALE } from "@/lib/figure-scale";
+import { questionSaveErrorResponse } from "@/lib/question-save-error-response";
+import type { QuestionSaveFailureStage } from "@/lib/question-save-error-response";
 
 const logger = createLogger('api:error-items');
 
@@ -48,11 +50,11 @@ const importSchema = z.object({
 export async function POST(req: Request) {
     logger.info('POST /api/error-items called');
 
-    const session = await getServerSession(authOptions);
-
+    let failureStage: QuestionSaveFailureStage = 'save';
     try {
+        const session = await getServerSession(authOptions);
         const parsed = importSchema.safeParse(await req.json());
-        if (!parsed.success) return validationError('Invalid question import', parsed.error.issues);
+        if (!parsed.success) return validationError('QUESTION_SAVE_INVALID_INPUT', parsed.error.issues);
         const body = parsed.data;
         const {
             questionText,
@@ -117,14 +119,16 @@ export async function POST(req: Request) {
                 select: { id: true },
             });
             if (!group) {
-                return validationError('Invalid paperLevel', [{ code: 'invalid_paper_level', path: ['paperLevel'], message: 'Invalid paper level' }]);
+                return validationError('QUESTION_SAVE_INVALID_PAPER_LEVEL');
             }
             resolvedPaperLevel = group.id;
         }
 
         const duplicateBeforeRecognition = needsQuestionGradeRecognition(user, body)
             ? await findDuplicateQuestion(prisma, user.id, body) : null;
+        failureStage = needsQuestionGradeRecognition(user, body) && !duplicateBeforeRecognition ? 'grade' : 'save';
         const gradeResult = await prepareImportGrade(user, body, duplicateBeforeRecognition !== null);
+        failureStage = 'save';
         if (gradeResult.response) return gradeResult.response;
 
         const result = await runQuestionImportTransaction(async (tx) => {
@@ -252,6 +256,6 @@ export async function POST(req: Request) {
             errorMessage: error instanceof Error ? error.message : String(error),
             errorStack: error instanceof Error ? error.stack : undefined
         }, 'Error saving item');
-        return internalError("Failed to save error item");
+        return questionSaveErrorResponse(error, failureStage);
     }
 }

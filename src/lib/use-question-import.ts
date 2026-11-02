@@ -14,6 +14,7 @@ import { processImageFile } from "@/lib/image-utils";
 import { normalizeMistakeStatus } from "@/lib/mistake-status";
 import { fetchConfirmBeforeImport, saveParsedQuestion } from "@/lib/question-import";
 import type { ImportedQuestion } from "@/lib/question-import";
+import { getQuestionSaveErrorMessage } from "@/lib/question-save-error";
 import type { AnalyzeResponse, AppConfig } from "@/types/api";
 
 /** 未配置时 AI 识别的超时（毫秒） */
@@ -65,6 +66,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     // 免确认导入：偏好、最近一次导入结果、批量框选的题目图片
     const [confirmBeforeImport, setConfirmBeforeImport] = useState(false);
     const [lastImported, setLastImported] = useState<ImportedQuestion | null>(null);
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [batchBlobs, setBatchBlobs] = useState<Blob[] | null>(null);
 
     const aiTimeout = config?.timeouts?.analyze || DEFAULT_AI_TIMEOUT;
@@ -96,6 +98,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
 
     const selectImage = (file: File) => {
         setLastImported(null);
+        setSaveError(null);
         setCroppingImage(URL.createObjectURL(file));
         setIsCropperOpen(true);
     };
@@ -103,6 +106,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     const startBatch = (blobs: Blob[]) => {
         setIsCropperOpen(false);
         setLastImported(null);
+        setSaveError(null);
         setBatchBlobs(blobs);
     };
 
@@ -157,6 +161,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
 
     /** 文字题目由 AI 解答后导入 */
     const submitText = async (questionText: string) => {
+        setSaveError(null);
         const startTime = Date.now();
         frontendLogger.info(logPrefix, 'Starting text-based analysis', { textLength: questionText.length });
         try {
@@ -194,6 +199,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
 
     /** 保存题目；重复题跳到原题，否则跳到所在错题本 */
     const saveQuestion = async (payload: Record<string, unknown> & { subjectId?: string | null }) => {
+        setSaveError(null);
         try {
             const result = await apiClient.post<{ id: string; duplicate?: boolean }>("/api/error-items", payload);
             toast.success(result.duplicate ? t.importFlow.duplicate : t.common.messages.saveSuccess);
@@ -205,7 +211,10 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
             return true;
         } catch (error) {
             frontendLogger.error(logPrefix, 'Save failed', { errorMessage: getApiErrorMessage(error) ?? getErrorMessage(error) });
-            toast.error(t.common?.messages?.saveFailed || 'Failed to save');
+            const message = getQuestionSaveErrorMessage(error, t);
+            setSaveError(message);
+            // 每日额度由 apiClient 统一弹窗提示，此处仍在表单中保留原因。
+            if (getApiErrorMessage(error) !== 'AI_DAILY_LIMIT_EXCEEDED') toast.error(message);
             return false;
         }
     };
@@ -225,7 +234,8 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     };
 
     return {
-        step, cancelReview: () => setStep("upload"),
+        step, cancelReview: () => { setStep("upload"); setSaveError(null); },
+        saveError, dismissSaveError: () => setSaveError(null),
         analysisStep, setAnalysisStep, isBusy: analysisStep !== 'idle',
         parsedData, currentImage, aiTimeout,
         croppingImage, isCropperOpen, closeCropper: () => setIsCropperOpen(false),

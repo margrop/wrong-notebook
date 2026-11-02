@@ -7,6 +7,7 @@ import { BatchImportPanel } from "@/components/batch-import-panel";
 import { CorrectionEditor } from "@/components/correction-editor";
 import { ImageCropper } from "@/components/image-cropper";
 import { ImportResultBanner } from "@/components/import-result-banner";
+import { QuestionSaveError } from "@/components/question-save-error";
 import { TextInputZone } from "@/components/text-input-zone";
 import { UploadZone } from "@/components/upload-zone";
 import { PageHeader } from "@/components/ui/page-header";
@@ -60,6 +61,7 @@ export default function AddErrorPage() {
             <ProgressFeedback status={flow.analysisStep} />
 
             <div className={`mx-auto space-y-6 px-4 py-6 md:px-8 md:py-8 ${flow.step === "review" ? "max-w-6xl" : "max-w-4xl"}`}>
+                <QuestionSaveError message={flow.saveError} onDismiss={flow.dismissSaveError} />
                 <PageHeader
                     backHref={`/notebooks/${notebookId}`}
                     title={t.app.addError}

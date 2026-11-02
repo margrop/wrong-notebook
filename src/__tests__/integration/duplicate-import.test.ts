@@ -164,12 +164,16 @@ describe('账户级录入年级规则（真实 SQLite）', () => {
         expect(await database.aiUsage.count({ where: { userId: 'user-1' } })).toBe(1);
     });
 
-    it('年级识别失败时不创建题目，也不覆盖已有题目', async () => {
-        await UPDATE_PROFILE(request({ gradeRecognitionMode: 'ai' }, '/api/user'));
-        mocks.recognizeGrade.mockRejectedValue(new Error('模拟识别服务失败'));
-        expect((await save()).status).toBe(500);
-        expect(await database.errorItem.count()).toBe(0);
-    });
+    it.each(['AI_AUTH_ERROR', 'AI_CONNECTION_FAILED', 'AI_TIMEOUT_ERROR', 'AI_QUOTA_EXCEEDED', 'AI_UNKNOWN_ERROR'])(
+        '年级识别失败 %s 时返回安全原因且不创建题目', async (reason) => {
+            await UPDATE_PROFILE(request({ gradeRecognitionMode: 'ai' }, '/api/user'));
+            mocks.recognizeGrade.mockRejectedValue(new Error(`${reason}: secret-provider-response`));
+            const response = await save();
+            expect(response.status).toBe(502);
+            expect(await response.json()).toEqual({ message: 'QUESTION_SAVE_GRADE_FAILED', code: 'AI_ERROR', details: { reason } });
+            expect(await database.errorItem.count()).toBe(0);
+        },
+    );
 
     it('直接录入需要补充识别时遵守每日额度，超限不写入题目', async () => {
         await database.user.update({ where: { id: 'user-1' }, data: { gradeRecognitionMode: 'ai', role: 'user' } });

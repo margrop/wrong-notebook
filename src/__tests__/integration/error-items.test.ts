@@ -149,6 +149,23 @@ describe('/api/error-items', () => {
             headers: { 'Content-Type': 'application/json' },
         }));
 
+        it('字段缺失的数据库返回迁移建议的错误码，不向前端泄漏 SQL 和路径', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.create.mockRejectedValueOnce(Object.assign(new Error('SELECT private_column FROM /private/database.db'), { code: 'P2022' }));
+            const response = await post(baseData);
+            expect(response.status).toBe(500);
+            expect(await response.json()).toEqual({
+                message: 'QUESTION_SAVE_SCHEMA_MISMATCH', code: 'DATABASE_ERROR', details: { databaseCode: 'P2022' },
+            });
+        });
+
+        it('非法 JSON 返回明确的请求校验失败', async () => {
+            const response = await POST(new Request('http://localhost/api/error-items', { method: 'POST', body: '{' }));
+            expect(response.status).toBe(400);
+            expect(await response.json()).toEqual({ message: 'QUESTION_SAVE_INVALID_JSON', code: 'VALIDATION_ERROR' });
+            expect(mocks.mockPrismaErrorItem.create).not.toHaveBeenCalled();
+        });
+
         it('创建时应生成 6 位 base58 短 ID', async () => {
             mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(null);
             mocks.mockPrismaErrorItem.create.mockImplementation(async (args: { data: Record<string, unknown> }) => ({ id: 'e1', ...args.data }));

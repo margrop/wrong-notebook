@@ -111,10 +111,12 @@ async function request<T>(url: string, options: RequestOptions = {}): Promise<T>
 
         if (!res.ok) {
             let errorData;
+            const errorText = await res.text();
             try {
-                errorData = await res.json();
+                errorData = JSON.parse(errorText) as unknown;
             } catch {
-                errorData = await res.text();
+                // 响应体只能读取一次，代理返回 HTML 时也保留 HTTP 状态码。
+                errorData = errorText;
             }
             if (res.status === 429) notifyAiDailyLimit(errorData);
             throw new ApiError(res.status, res.statusText, errorData);

@@ -84,4 +84,12 @@ describe('apiClient recoverable', () => {
         await expect(apiClient.post('/api/x', {})).rejects.toBeInstanceOf(TypeError);
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    it('代理返回 HTML 错误页时保留状态码，不重复读取响应体', async () => {
+        fetchMock.mockResolvedValueOnce(new Response('<html>Bad Gateway</html>', { status: 502 }));
+        await expect(apiClient.post('/api/error-items', {})).rejects.toMatchObject({
+            status: 502, data: '<html>Bad Gateway</html>',
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
 });

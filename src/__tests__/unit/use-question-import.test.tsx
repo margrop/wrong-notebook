@@ -7,6 +7,7 @@ import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { useQuestionImport } from '@/lib/use-question-import';
+import { translations } from '@/lib/translations';
 
 const mocks = vi.hoisted(() => ({
     get: vi.fn(),
@@ -109,6 +110,33 @@ describe('题目导入流程', () => {
         mocks.post.mockResolvedValueOnce({ id: 'existing', duplicate: true });
         await act(async () => { await flow.saveQuestion({ questionText: 'q', subjectId: 'nb-1' }); });
         expect(mocks.push).toHaveBeenCalledWith('/error-items/existing');
+    });
+
+    it('直接保存失败保留具体原因，不跳转，重试成功后清除原因', async () => {
+        await render();
+        mocks.post.mockRejectedValueOnce({ status: 502, data: {
+            message: 'QUESTION_SAVE_GRADE_FAILED', code: 'AI_ERROR', details: { reason: 'AI_AUTH_ERROR' },
+        } });
+        await act(async () => { expect(await flow.saveQuestion({ questionText: 'q', subjectId: 'nb-1' })).toBe(false); });
+        expect(flow.saveError).toContain(translations.zh.errors.QUESTION_SAVE_GRADE_FAILED);
+        expect(flow.saveError).toContain(translations.zh.errors.AI_AUTH_ERROR);
+        expect(mocks.toastError).toHaveBeenCalledWith(flow.saveError);
+        expect(mocks.push).not.toHaveBeenCalled();
+
+        mocks.post.mockResolvedValueOnce({ id: 'saved' });
+        await act(async () => { expect(await flow.saveQuestion({ questionText: 'q', subjectId: 'nb-1' })).toBe(true); });
+        expect(flow.saveError).toBeNull();
+        expect(mocks.push).toHaveBeenCalledWith('/notebooks/nb-1');
+    });
+
+    it('每日额度失败保留提示，由 apiClient 统一弹窗，避免重复弹窗', async () => {
+        await render();
+        mocks.post.mockRejectedValueOnce({ status: 429, data: { message: 'AI_DAILY_LIMIT_EXCEEDED' } });
+        await act(async () => { await flow.saveQuestion({ questionText: 'q' }); });
+        expect(flow.saveError).toContain(translations.zh.errors.AI_DAILY_LIMIT_EXCEEDED);
+        expect(mocks.toastError).not.toHaveBeenCalled();
+        await act(async () => flow.dismissSaveError());
+        expect(flow.saveError).toBeNull();
     });
 
     it('文字解题带上错题本，并规范化作答状态', async () => {

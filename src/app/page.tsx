@@ -9,6 +9,7 @@ import { DirectTextEditor } from "@/components/direct-text-editor";
 import { HomeHero } from "@/components/home-hero";
 import { ImageCropper } from "@/components/image-cropper";
 import { ImportResultBanner } from "@/components/import-result-banner";
+import { QuestionSaveError } from "@/components/question-save-error";
 import { TextInputZone } from "@/components/text-input-zone";
 import { UploadZone } from "@/components/upload-zone";
 import { PageLoading } from "@/components/ui/page-loading";
@@ -95,6 +96,7 @@ function HomeContent() {
             <ProgressFeedback status={flow.analysisStep} />
 
             <div className={`mx-auto space-y-6 px-4 py-6 md:px-8 md:py-8 ${flow.step === "review" ? "max-w-6xl" : "max-w-4xl"}`}>
+                <QuestionSaveError message={flow.saveError} onDismiss={flow.dismissSaveError} />
                 {flow.step === "upload" && (
                     <>
                         <HomeHero
