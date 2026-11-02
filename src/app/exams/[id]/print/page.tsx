@@ -14,7 +14,6 @@ import { AnswerSpaceControl } from "@/components/print-preview/answer-space-cont
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
 import { apiClient } from "@/lib/api-client";
-import { createDocxArchive, rasterizeSvgFigureForDocx, triggerDocxDownload } from "@/lib/docx-export";
 import { EXAM_PRINT_CSS, buildExamHtmlDocument, examFileName } from "@/lib/exam-print";
 import {
     ANSWER_SPACE_STORAGE_KEY,
@@ -34,7 +33,6 @@ export default function ExamPrintPage() {
     const [includeAnswers, setIncludeAnswers] = useState(true);
     const [answerSpace, setAnswerSpace] = useState<AnswerSpaceMode>(DEFAULT_ANSWER_SPACE_MODE);
     const [customSpaces, setCustomSpaces] = useState<Record<string, number>>({});
-    const [exportingDocx, setExportingDocx] = useState(false);
     const [uniformPreview, setUniformPreview] = useState<{ scale: number | null; align: FigureAlign | null }>({ scale: null, align: null });
     const sheetRef = useRef<HTMLDivElement>(null);
 
@@ -110,56 +108,6 @@ export default function ExamPrintPage() {
         URL.revokeObjectURL(url);
     };
 
-    const downloadDocx = async () => {
-        if (exportingDocx) return;
-        setExportingDocx(true);
-        try {
-            const questionBlocks = await Promise.all(
-                questions.map(async (question, index) => {
-                    const image = await rasterizeSvgFigureForDocx(
-                        question.figureSvg,
-                        uniformPreview.scale ?? question.figureScale,
-                        uniformPreview.align ?? question.figureAlign,
-                    );
-                    return {
-                        heading: `${index + 1}.`,
-                        meta: `${t.exam.sourceLabel}: ${question.sourceShortId}`,
-                        questionText: question.questionText ?? "",
-                        image,
-                        answerSpacePx: resolveQuestionAnswerSpacePx(
-                            answerSpace,
-                            question.questionText!,
-                            customSpaces[question.id],
-                        ),
-                    };
-                }),
-            );
-            const bytes = createDocxArchive({
-                title: paper.title,
-                metaItems: [
-                    `${t.exam.nameLine}${t.common.colon}________`,
-                    `${t.exam.dateLine}${t.common.colon}________`,
-                    `${t.exam.scoreLine}${t.common.colon}________`,
-                ],
-                questions: questionBlocks,
-                answerKeyTitle: t.exam.answerKey,
-                answerKey: includeAnswers
-                    ? questions.map((question, index) => ({
-                        heading: `${index + 1}.`,
-                        meta: `${t.exam.sourceLabel}: ${question.sourceShortId}`,
-                        answerLabel: t.exam.answerLabel,
-                        answerText: question.answerText ?? undefined,
-                        analysisLabel: t.exam.analysisLabel,
-                        analysisText: question.analysis ?? undefined,
-                    }))
-                    : undefined,
-            });
-            triggerDocxDownload(bytes, paper.title);
-        } finally {
-            setExportingDocx(false);
-        }
-    };
-
     return (
         <main className="min-h-screen bg-white">
             <style>{EXAM_PRINT_CSS}</style>
@@ -195,10 +143,6 @@ export default function ExamPrintPage() {
                         <Button variant="outline" size="sm" onClick={downloadHtml}>
                             <Download className="mr-2 h-4 w-4" />
                             {t.exam.downloadHtml}
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={downloadDocx} disabled={exportingDocx}>
-                            <Download className="mr-2 h-4 w-4" />
-                            {exportingDocx ? t.exam.exportingDocx : t.exam.downloadDocx}
                         </Button>
                         <Button size="sm" onClick={() => window.print()}>
                             <Printer className="mr-2 h-4 w-4" />

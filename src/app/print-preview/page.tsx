@@ -2,7 +2,6 @@
 
 import { useEffect, useState, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/ui/back-button";
 import { PrintItemPicker } from "@/components/print-preview/print-item-picker";
@@ -11,24 +10,15 @@ import { PrintableQuestion } from "@/components/print-preview/printable-question
 import { apiClient } from "@/lib/api-client";
 import type { PaginatedResponse, PrintableErrorItem } from "@/types/api";
 import { useLanguage } from "@/contexts/LanguageContext";
-import {
-    createDocxArchive,
-    rasterizeImageForDocx,
-    rasterizeSvgFigureForDocx,
-    triggerDocxDownload,
-} from "@/lib/docx-export";
-import { resolveQuestionAnswerSpacePx } from "@/lib/exam-answer-space";
 import { usePageTitle } from "@/lib/page-title";
 import { PRINT_PREVIEW_PAGE_SIZE } from "@/lib/constants/pagination";
 import { frontendLogger } from "@/lib/frontend-logger";
 import {
-    getPrintableItemTagNames,
     getPrintPreviewCountLabel,
     getPrintPreviewEmptyState,
     getSelectedPrintItems,
     shouldReserveAnswerSpace,
 } from "@/lib/print-preview";
-import { usePaperGroups } from "@/lib/use-paper-groups";
 
 function PrintPreviewContent() {
     const searchParams = useSearchParams();
@@ -47,8 +37,6 @@ function PrintPreviewContent() {
     const updateOptions = (patch: Partial<PrintDisplayOptions>) => setOptions((prev) => ({ ...prev, ...patch }));
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [customSpaces, setCustomSpaces] = useState<Record<string, number>>({});
-    const [exportingDocx, setExportingDocx] = useState(false);
-    const { groups: paperGroups } = usePaperGroups();
 
     const setQuestionCustomSpace = (id: string, px: number | null) => {
         setCustomSpaces((prev) => {
@@ -90,64 +78,6 @@ function PrintPreviewContent() {
     const countLabel = getPrintPreviewCountLabel(items.length, selectedItems.length);
     const emptyState = getPrintPreviewEmptyState(items.length, selectedItems.length);
 
-    const handleExportDocx = async () => {
-        if (exportingDocx || selectedItems.length === 0) return;
-        setExportingDocx(true);
-        try {
-            const questionBlocks = await Promise.all(
-                selectedItems.map(async (item, index) => {
-                    const tags = getPrintableItemTagNames(item);
-                    const paperGroupName = item.paperLevel
-                        ? paperGroups.find((g) => g.id === item.paperLevel)?.name || item.paperLevel
-                        : null;
-                    const metaParts = [
-                        item.shortId ? t.printPreview.source.replace("{id}", item.shortId) : null,
-                        item.subject?.name ?? null,
-                        item.gradeSemester ?? null,
-                        paperGroupName ? `${t.printPreview.paperLevel}: ${paperGroupName}` : null,
-                        options.showTags && tags.length > 0 ? `${t.printPreview.knowledgePoints}: ${tags.join("、")}` : null,
-                    ].filter((part): part is string => Boolean(part));
-
-                    const useTextMode = Boolean(options.showQuestionText && item.questionText);
-                    const image = useTextMode
-                        ? await rasterizeSvgFigureForDocx(item.figureSvg, item.figureScale, item.figureAlign)
-                        : (item.originalImageUrl
-                            ? await rasterizeImageForDocx(item.originalImageUrl, {
-                                scalePercent: options.imageScale,
-                                maxBaseWidthPx: 560,
-                                align: "left",
-                            })
-                            : null);
-
-                    return {
-                        heading: t.printPreview.questionNumber.replace("{num}", String(index + 1)),
-                        meta: metaParts.join(" · "),
-                        questionText: useTextMode ? (item.questionText ?? "") : undefined,
-                        image,
-                        inlineAnswerLabel: options.showAnswers && item.answerText ? t.printPreview.referenceAnswer : undefined,
-                        inlineAnswerText: options.showAnswers && item.answerText ? item.answerText : undefined,
-                        inlineAnalysisLabel: options.showAnalysis && item.analysis ? t.printPreview.analysis : undefined,
-                        inlineAnalysisText: options.showAnalysis && item.analysis ? item.analysis : undefined,
-                        answerSpacePx: reserveAnswerSpace
-                            ? resolveQuestionAnswerSpacePx(
-                                options.answerSpace ?? "auto",
-                                item.questionText || "",
-                                customSpaces[item.id],
-                            )
-                            : 0,
-                    };
-                }),
-            );
-            const bytes = createDocxArchive({
-                title: t.printPreview.title,
-                questions: questionBlocks,
-            });
-            triggerDocxDownload(bytes, t.printPreview.title);
-        } finally {
-            setExportingDocx(false);
-        }
-    };
-
     const toggleSelectedItem = (id: string) => {
         setSelectedIds((prev) => {
             const next = new Set(prev);
@@ -187,16 +117,6 @@ function PrintPreviewContent() {
                         <h1 className="text-lg sm:text-xl font-bold flex-1">
                             {t.printPreview?.title || 'Print Preview'} ({countLabel} {t.notebooks?.items || 'items'})
                         </h1>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="whitespace-nowrap"
-                            onClick={handleExportDocx}
-                            disabled={selectedItems.length === 0 || exportingDocx}
-                        >
-                            <Download className="mr-1.5 h-4 w-4" />
-                            {exportingDocx ? t.printPreview.exportingDocx : t.printPreview.downloadDocx}
-                        </Button>
                         <Button onClick={handlePrint} size="sm" className="whitespace-nowrap" disabled={selectedItems.length === 0}>
                             {t.printPreview?.printButton || 'Print / Save PDF'}
                         </Button>
