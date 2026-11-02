@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import { getQuestionSaveErrorMessage } from '@/lib/question-save-error';
@@ -5,6 +6,15 @@ import { questionSaveErrorResponse } from '@/lib/question-save-error-response';
 import { translations } from '@/lib/translations';
 
 describe('保存失败的安全响应与界面提示', () => {
+    it.each([
+        ['P1003', 'QUESTION_SAVE_DATABASE_UNAVAILABLE', 503],
+        ['P1010', 'QUESTION_SAVE_READ_ONLY', 500],
+    ] as const)('Prisma 初始化异常 %s 从 errorCode 读取原因', async (code, key, status) => {
+        const response = questionSaveErrorResponse(new Prisma.PrismaClientInitializationError('private connection details', '5.22.0', code));
+        expect(response.status).toBe(status);
+        expect(await response.json()).toEqual({ message: key, code: 'DATABASE_ERROR', details: { databaseCode: code } });
+    });
+
     it.each([
         ['P2021', 'QUESTION_SAVE_SCHEMA_MISMATCH', 500],
         ['P2022', 'QUESTION_SAVE_SCHEMA_MISMATCH', 500],
@@ -39,6 +49,7 @@ describe('保存失败的安全响应与界面提示', () => {
         ['database or disk is full', 'QUESTION_SAVE_STORAGE_FULL', 500],
         ['ENOSPC /private/database.db', 'QUESTION_SAVE_STORAGE_FULL', 500],
         ['unable to open database file', 'QUESTION_SAVE_DATABASE_UNAVAILABLE', 503],
+        ['Unable to open the database file', 'QUESTION_SAVE_DATABASE_UNAVAILABLE', 503],
     ] as const)('识别 SQLite 运行错误 %s', async (cause, key, status) => {
         const response = questionSaveErrorResponse(new Error(cause));
         expect(response.status).toBe(status);

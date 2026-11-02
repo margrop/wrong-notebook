@@ -21,8 +21,10 @@ export function questionSaveErrorResponse(error: unknown, stage: QuestionSaveFai
     }
     if (error instanceof SyntaxError) return validationError('QUESTION_SAVE_INVALID_JSON');
 
-    const code = typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
-        && /^P\d{4}$/.test(error.code) ? error.code : undefined;
+    // Prisma 查询异常使用 code，初始化异常使用 errorCode。
+    const errorCodes = typeof error === 'object' && error !== null
+        ? ['code' in error ? error.code : undefined, 'errorCode' in error ? error.errorCode : undefined] : [];
+    const code = errorCodes.find((value): value is string => typeof value === 'string' && /^P\d{4}$/.test(value));
     const details = code ? { databaseCode: code } : undefined;
     const databaseError = (key: string, status = 500) => createErrorResponse(key, status, ErrorCode.DATABASE_ERROR, details);
 
@@ -34,7 +36,7 @@ export function questionSaveErrorResponse(error: unknown, stage: QuestionSaveFai
     if (['P1008', 'P2028', 'P2034'].includes(code ?? '') || /database is locked|SQLITE_BUSY/i.test(message)) {
         return databaseError('QUESTION_SAVE_DATABASE_BUSY', 503);
     }
-    if (['P1001', 'P1002', 'P1003', 'P1017'].includes(code ?? '') || /unable to open database file|SQLITE_CANTOPEN/i.test(message)) {
+    if (['P1001', 'P1002', 'P1003', 'P1017'].includes(code ?? '') || /unable to open (?:the )?database file|SQLITE_CANTOPEN/i.test(message)) {
         return databaseError('QUESTION_SAVE_DATABASE_UNAVAILABLE', 503);
     }
     if (code === 'P2003' || code === 'P2025') return databaseError('QUESTION_SAVE_REFERENCE_INVALID', 409);
