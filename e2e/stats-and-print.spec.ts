@@ -9,7 +9,7 @@ async function login(page: Page) {
     await page.waitForURL('**/', { timeout: 15000 });
 }
 
-test('知识点统计按标签计数，打印预览显示所选错题本的题目和答案', async ({ page }) => {
+test('知识点页签按标签计数，打印预览显示所选错题本的题目和答案', async ({ page }) => {
     test.setTimeout(90000);
     await login(page);
 
@@ -42,11 +42,15 @@ test('知识点统计按标签计数，打印预览显示所选错题本的题�
             ids.push(created.id);
         }
 
-        // 知识点统计：同一标签的 3 道题合计为 3 次
-        await page.goto('/stats?tab=tag-stats');
-        await expect(page.getByRole('tab', { name: '知识点统计' })).toHaveAttribute('aria-selected', 'true');
+        // 知识点页签：同一标签的 3 道题合计为 3 次
+        await page.goto('/stats?tab=tags');
+        await expect(page.getByRole('tab', { name: '知识点' })).toHaveAttribute('aria-selected', 'true');
         const row = page.locator('div.space-y-1').filter({ hasText: tag });
         await expect(row.getByText('3 次', { exact: true })).toBeVisible({ timeout: 15000 });
+
+        // 旧链接 ?tab=tag-stats 自动映射到知识点页签
+        await page.goto('/stats?tab=tag-stats');
+        await expect(page.getByRole('tab', { name: '知识点' })).toHaveAttribute('aria-selected', 'true');
 
         // 切换标签页会记录在地址中，刷新后保持
         await page.getByRole('tab', { name: '练习统计' }).click();

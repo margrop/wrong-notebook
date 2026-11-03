@@ -110,7 +110,7 @@ The print preview can include an answer page and sets the answer space below eac
 <details>
 <summary><strong>Knowledge library: browse by subject, grade and chapter</strong></summary>
 
-The tag library organizes knowledge points by curriculum level. Knowledge points now live under the **Stats** section: the "Knowledge Points" tab browses the standard library and manages custom tags (once another tag system is imported, a switcher at the top shows and adds tags for the selected system), and the "Knowledge Point Stats" tab shows usage frequency, counted separately per tag system and subject (identically named knowledge points in different systems or subjects are not merged). This demo uses English sample tags for algebra and geometry.
+The tag library organizes knowledge points by curriculum level. Knowledge points now live under the **Stats** section: the "Knowledge Points" tab shows a tag system switcher at the top (visible once another tag system is imported), a usage frequency Top 20 card below (counted separately per tag system and subject; identically named knowledge points in different systems or subjects are not merged), and the standard tag library with custom tag management at the bottom (all shown and added per the selected system). This demo uses English sample tags for algebra and geometry.
 
 ![English grade 4 tags expanded to show linear equations, adding fractions, angles, and area and perimeter](doc/screenshots/en/knowledge-tags.png)
 

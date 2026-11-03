@@ -65,7 +65,7 @@ Before printing, check page breaks, formulas and figures. Paper size, scaling an
 
 Mistake statistics show total questions, mastered count, mastery rate, subject distribution and monthly trends. Practice statistics separately show practice count, accuracy, active months, and distribution by difficulty and subject.
 
-Knowledge points also live in the stats center: **Knowledge Point Stats** summarizes mistakes by knowledge point, counting identically named points in different tag systems or subjects separately, and **Knowledge Points** lets you browse the standard knowledge points for each stage and subject and add custom tags; once another tag system is imported, a switcher at the top shows and adds standard knowledge points and custom tags for the selected system. Old `/tags` links redirect here.
+Knowledge points also live in the stats center: the **Knowledge Points** tab shows a tag system switcher at the top (visible once another tag system is imported), a usage frequency Top 20 card below (counting identically named points in different tag systems or subjects separately), and the standard knowledge points for each stage and subject with custom tag management at the bottom, all shown and added per the selected system. Old `/tags` links redirect here.
 
 Dates and statistics boundaries use the [app time zone](Settings-and-Users-en). Changing the time zone affects daily and monthly grouping but does not shift the times stored in the database.
 

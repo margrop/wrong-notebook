@@ -7,15 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTagStats } from "@/lib/use-tag-stats";
 import { DEFAULT_TAG_SET, getTagSetName, useTagSets } from "@/lib/use-tag-sets";
+import { TagUsageStats } from "./tag-usage-stats";
 import { StandardTags } from "./standard-tags";
 import { CustomTags } from "./custom-tags";
 
-/** 知识点管理：按标签体系查看标准标签库与自定义标签 */
+/** 知识点页签：按标签体系查看使用频率、标准标签库与自定义标签 */
 export function TagManagement() {
     const { t } = useLanguage();
     const tagSets = useTagSets();
     const [tagSet, setTagSet] = useState(DEFAULT_TAG_SET);
-    const { stats } = useTagStats(tagSet);
+    const { stats, loading } = useTagStats(tagSet);
 
     return (
         <div className="space-y-4">
@@ -32,6 +33,7 @@ export function TagManagement() {
                     </Select>
                 </div>
             )}
+            <TagUsageStats stats={stats} loading={loading} />
             <Tabs defaultValue="standard" className="w-full">
                 <TabsList className="mb-4">
                     <TabsTrigger value="standard">{t.tags?.tabs?.standard || "Standard Tags"}</TabsTrigger>
