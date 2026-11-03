@@ -796,9 +796,10 @@ export class OpenAIProvider implements AIService {
                     { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), 16384, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
 
-            const text = response.choices[0]?.message?.content || '';
+            // 部分网关在上游超时等情况下返回 200 但 choices 为空
+            const text = response.choices?.[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Text fix AI raw response');
             if (!text) throw new Error("Empty response from AI");
             return parseTextFix(text, input);

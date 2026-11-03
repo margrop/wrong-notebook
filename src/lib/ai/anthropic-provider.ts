@@ -455,7 +455,7 @@ export class AnthropicProvider implements AIService {
         logger.info({ provider: 'Anthropic', model: this.model, questions: input.length }, 'Text Fix Request');
 
         try {
-            const text = await this.complete(prompt.system, prompt.user, 8192);
+            const text = await this.complete(prompt.system, prompt.user, 16384);
             logger.debug({ rawResponse: text }, 'Text fix AI raw response');
             return parseTextFix(text, input);
         } catch (error) {

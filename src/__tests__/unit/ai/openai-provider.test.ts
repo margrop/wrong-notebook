@@ -470,6 +470,15 @@ describe('OpenAI Provider 修正题目文字', () => {
         const request = mockCompletionCreate.mock.calls.at(-1)?.[0];
         expect(request.messages[0].content).toContain('【文字修正输出协议】');
         expect(JSON.parse(request.messages[1].content).data.questions).toEqual([{ id: 'q1', text: '100公项' }]);
+        expect(request.max_tokens).toBe(16384);
+    });
+
+    it('网关返回 200 但 choices 为空时按空响应报错，不抛类型错误', async () => {
+        mockCompletionCreate.mockResolvedValue({ choices: null });
+        const provider = new OpenAIProvider({ apiKey: 'test-key', model: 'gpt-4o' });
+
+        await expect(provider.fixQuestionText([{ id: 'q1', text: '100公项' }])).rejects.toThrow('AI_UNKNOWN_ERROR');
+        expect(mockCompletionCreate.mock.calls.at(-1)?.[0].messages).toBeDefined();
     });
 });
 

@@ -473,8 +473,9 @@ describe('分题预览中的 AI 修正文字', () => {
         expect(result.fixes[0]).toEqual({ key: items[0].key, original: items[0].text, text: '第 1 题，共100公顷。', uncertain: [] });
         expect(result.unchanged).toEqual([items[13].key]);
         expect(result.failed).toEqual([items[12].key]);
-        // 14 题分两组调用模型，额度只计一次
-        expect(mocks.fixQuestionText).toHaveBeenCalledTimes(2);
+        // 14 题按每组 3 题分 5 次调用模型，额度只计一次
+        expect(mocks.fixQuestionText).toHaveBeenCalledTimes(5);
+        expect(mocks.fixQuestionText.mock.calls.map(([input]) => input.length)).toEqual([3, 3, 3, 3, 2]);
         expect(await database.aiUsage.count({ where: { userId: 'user-1', kind: 'split' } })).toBe(1);
         expect((await getBatch(batch.id)).batch.draft.items[0].text).toBe(batch.draft.items[0].text);
 
@@ -489,10 +490,11 @@ describe('分题预览中的 AI 修正文字', () => {
         const text = Array.from({ length: 11 }, (_, index) => `${index + 1}．第 ${index + 1} 题公项。`).join('\n');
         const { batch } = await create({ source: 'text', text });
         const items = batch.draft.items.map((item: { key: string; text: string }) => ({ key: item.key, text: item.text }));
-        mocks.fixQuestionText.mockImplementationOnce(fakeFix).mockRejectedValueOnce(new Error('AI_TIMEOUT_ERROR'));
+        // 第 2 组（第 4～6 题）失败，其余组正常
+        mocks.fixQuestionText.mockImplementation(fakeFix).mockImplementationOnce(fakeFix).mockRejectedValueOnce(new Error('AI_TIMEOUT_ERROR'));
         const partial = await (await fixText(batch.id, items)).json();
-        expect(partial.fixes).toHaveLength(10);
-        expect(partial.failed).toEqual([items[10].key]);
+        expect(partial.fixes).toHaveLength(8);
+        expect(partial.failed).toEqual(items.slice(3, 6).map((item: { key: string }) => item.key));
 
         mocks.fixQuestionText.mockRejectedValue(new Error('AI_TIMEOUT_ERROR'));
         const failed = await fixText(batch.id, items.slice(0, 2));

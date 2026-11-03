@@ -6,8 +6,12 @@
 
 /** 一次请求最多修正的题数（与每批题数上限一致） */
 export const MAX_TEXT_FIX_ITEMS = 60;
-/** 每次 AI 调用处理的题数：题多时分几次调用，避免输出过长被截断 */
-export const TEXT_FIX_CHUNK_SIZE = 10;
+/**
+ * 每次 AI 调用处理的题数：题多时分组并行调用。
+ * 推理型模型逐题斟酌草稿与题干，实测 MiniMax-M3.1-Flash 一次 7 题的推理就超过 8192 token，
+ * 改为小组后单次耗时和输出长度都可控
+ */
+export const TEXT_FIX_CHUNK_SIZE = 3;
 
 const FULL_WIDTH_DIGIT = /[０-９．]/g;
 
