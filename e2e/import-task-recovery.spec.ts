@@ -124,7 +124,7 @@ test('[E2E-T04] 框选 5 题先全部落库，模型排队时关闭页面后仍�
     await scenario.login(page);
     await page.goto(`/notebooks/${scenario.book.id}/add`);
     await page.locator('input[type="file"]').first().setInputFiles(resolve('e2e/fixtures/math_test.png'));
-    await page.getByRole('button', { name: '多题框选' }).click();
+    await page.getByRole('button', { name: '手工框选' }).click();
     const overlay = page.locator('.cursor-crosshair').first();
     await expect(overlay).toBeVisible();
     const box = (await overlay.boundingBox())!;

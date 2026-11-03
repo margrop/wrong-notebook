@@ -1317,7 +1317,10 @@ export const translations = {
         },
         batchImport: {
             singleMode: "Single question",
-            multiMode: "Multiple questions",
+            multiMode: "Draw boxes",
+            autoMode: "Auto split",
+            autoHint: "Optionally crop to the worksheet area (whole photo by default). AI finds each question and its position; nothing is solved until you confirm.",
+            autoStart: "Find questions",
             hint: "Drag on the image to draw a box around each question. One box = one question.",
             regionCount: "{count} boxes",
             noRegions: "Draw at least one box",
@@ -2958,7 +2961,10 @@ export const translations = {
         },
         batchImport: {
             singleMode: "单题裁剪",
-            multiMode: "多题框选",
+            multiMode: "手工框选",
+            autoMode: "自动分题",
+            autoHint: "可先框出试卷区域（默认整张图）。AI 自动找出每道题及其位置，确认后才逐题解析。",
+            autoStart: "自动识别题目",
             hint: "在图片上拖动，为每道题画一个框；一个框对应一道题。",
             regionCount: "已框选 {count} 题",
             noRegions: "请至少框选一道题",

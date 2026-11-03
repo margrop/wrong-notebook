@@ -259,6 +259,36 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
         }
     };
 
+    /** 照片自动分题：按所选区域从原图裁剪压缩，上传整页图并在后台由模型分题，进入批次页等待结果 */
+    const autoSplitImage = async (region: ImageRegion) => {
+        const prepared = preparedRef.current;
+        if (!prepared) return;
+        setIsCropperOpen(false);
+        setCompletedStages(stageList(prepared.timings));
+        setAnalysisStep('compressing');
+        try {
+            const rendered = await renderRegion(prepared, region);
+            setCompletedStages(stageList({ ...prepared.timings, ...rendered.timings }));
+            setAnalysisStep('uploading');
+            const batch = await createImportBatch({
+                source: "image",
+                imageBase64: rendered.dataUrl,
+                imageInfo: describeImage(prepared, rendered),
+                language,
+                subjectId: analyzeSubjectId,
+                targetSubjectId: batchTarget(),
+            });
+            frontendLogger.info(logPrefix, 'Image batch created', { batchId: batch.id, ...describeImage(prepared, rendered) });
+            router.push(`/import-batches/${batch.id}`);
+        } catch (error) {
+            frontendLogger.error(logPrefix, 'Image batch failed', { error: getErrorMessage(error) });
+            toast.error(getAnalysisErrorMessage(error, t));
+        } finally {
+            setAnalysisStep('idle');
+            setCompletedStages([]);
+        }
+    };
+
     /** 文字题目由 AI 解答后导入 */
     const submitText = async (questionText: string) => {
         saver.setSaveError(null);
@@ -323,6 +353,6 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
         refreshPendingTask: pending.refresh,
         dismissPendingTask: () => setPendingTaskId(null),
         selectImage, cropRegions, submitText, saveQuestion, saveReviewed,
-        createTextBatch, creatingBatch,
+        createTextBatch, autoSplitImage, creatingBatch,
     };
 }

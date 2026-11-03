@@ -125,6 +125,7 @@ export default function AddErrorPage() {
                 open={flow.isCropperOpen}
                 onClose={flow.closeCropper}
                 onRegionsSelected={flow.cropRegions}
+                onAutoSplit={flow.autoSplitImage}
             />
         </main>
     );

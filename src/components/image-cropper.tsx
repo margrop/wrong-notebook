@@ -15,9 +15,12 @@ import type { ImageRegion } from "@/lib/image-crop";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { useImageZoom } from "@/lib/use-image-zoom";
 
+type CropMode = "single" | "auto" | "multi";
+
 // 未缩放时图片适应弹窗的尺寸
-const FIT_STYLE: Record<"single" | "multi", CSSProperties> = {
+const FIT_STYLE: Record<CropMode, CSSProperties> = {
     single: { maxHeight: "70vh", maxWidth: "100%", objectFit: "contain" },
+    auto: { maxHeight: "65vh", maxWidth: "100%", objectFit: "contain" },
     multi: { maxHeight: "65vh", maxWidth: "100%", objectFit: "contain" },
 };
 
@@ -36,21 +39,23 @@ interface ImageCropperProps {
     onRegionsSelected?: (regions: ImageRegion[], multi: boolean) => void;
     /** 与 onRegionsSelected 一起使用时是否提供多题框选，默认提供 */
     allowMulti?: boolean;
+    /** 提供时显示「自动分题」模式：返回所框的试卷区域（相对坐标），由 AI 识别其中的每道题 */
+    onAutoSplit?: (region: ImageRegion) => void;
 }
 
-export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiCropComplete, onRegionsSelected, allowMulti = true }: ImageCropperProps) {
+export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiCropComplete, onRegionsSelected, allowMulti = true, onAutoSplit }: ImageCropperProps) {
     const { t } = useLanguage();
     const safeImageSrc = toSafeImageSrc(imageSrc);
     // 始终保存百分比坐标，缩放改变图片显示尺寸后仍然准确
     const [crop, setCrop] = useState<Crop>();
     const imgRef = useRef<HTMLImageElement>(null);
-    const [mode, setModeState] = useState<"single" | "multi">("single");
+    const [mode, setModeState] = useState<CropMode>("single");
     const { containerRef, zoom, imageStyle, measureImage, zoomIn, zoomOut, reset: resetZoom } = useImageZoom(FIT_STYLE[mode]);
     // 换图后回到 100%
     useEffect(() => {
         resetZoom();
     }, [imageSrc, resetZoom]);
-    const setMode = (next: "single" | "multi") => {
+    const setMode = (next: CropMode) => {
         resetZoom();
         setModeState(next);
     };
@@ -61,6 +66,8 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
     const multiImgRef = useRef<HTMLImageElement>(null);
 
     const multiEnabled = !!onMultiCropComplete || (!!onRegionsSelected && allowMulti);
+    const modes: CropMode[] = ["single", ...(onAutoSplit ? ["auto" as const] : []), ...(multiEnabled ? ["multi" as const] : [])];
+    const modeLabel: Record<CropMode, string> = { single: t.batchImport.singleMode, auto: t.batchImport.autoMode, multi: t.batchImport.multiMode };
     const handleMultiConfirm = async () => {
         if (regions.length === 0) return;
         if (onRegionsSelected) {
@@ -88,6 +95,10 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
         const region: ImageRegion = crop && crop.width > 0 && crop.height > 0
             ? { x: crop.x / 100, y: crop.y / 100, width: crop.width / 100, height: crop.height / 100 }
             : { x: 0, y: 0, width: 1, height: 1 };
+        if (mode === "auto" && onAutoSplit) {
+            onAutoSplit(region);
+            return;
+        }
         if (onRegionsSelected) {
             onRegionsSelected([region], false);
             return;
@@ -140,16 +151,17 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
                 </div>
 
                 <div className="p-4 border-t bg-background shrink-0 space-y-3">
-                    {multiEnabled && (
-                        <div className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1 sm:w-80">
-                            {(["single", "multi"] as const).map((value) => (
+                    {modes.length > 1 && (
+                        <div className={`grid gap-1 rounded-md bg-muted p-1 ${modes.length === 3 ? "grid-cols-3 sm:w-[28rem]" : "grid-cols-2 sm:w-80"}`}>
+                            {modes.map((value) => (
                                 <button
                                     key={value}
                                     type="button"
+                                    aria-pressed={mode === value}
                                     onClick={() => setMode(value)}
-                                    className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${mode === value ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+                                    className={`rounded px-2 py-1.5 text-sm font-medium transition-colors ${mode === value ? "bg-background shadow-sm" : "text-muted-foreground"}`}
                                 >
-                                    {value === "single" ? t.batchImport.singleMode : t.batchImport.multiMode}
+                                    {modeLabel[value]}
                                 </button>
                             ))}
                         </div>
@@ -158,6 +170,7 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
                         <p className="text-sm text-muted-foreground">
                             {mode === "multi"
                                 ? `${t.batchImport.hint} ${t.batchImport.regionCount.replace("{count}", String(regions.length))}`
+                                : mode === "auto" ? t.batchImport.autoHint
                                 : (t.common.cropper?.hint || "💡 Drag to adjust crop area")}
                         </p>
                         <div className="flex gap-2 justify-end">
@@ -175,7 +188,7 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
                                 </Button>
                             ) : (
                                 <Button onClick={handleConfirm}>
-                                    {t.common.confirm || "Confirm"}
+                                    {mode === "auto" ? t.batchImport.autoStart : (t.common.confirm || "Confirm")}
                                 </Button>
                             )}
                         </div>
