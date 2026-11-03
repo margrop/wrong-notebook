@@ -8,6 +8,7 @@ import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.net.http.SslError;
+import android.os.Build;
 import android.os.Bundle;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
@@ -309,19 +310,6 @@ public class MainActivity extends Activity {
 
     // ---------- 选择图片 / 拍照上传 ----------
 
-    private boolean acceptsImages(WebChromeClient.FileChooserParams params) {
-        String[] types = params.getAcceptTypes();
-        if (types == null || types.length == 0) return true;
-        for (String type : types) {
-            String t = type == null ? "" : type.trim().toLowerCase();
-            if (t.isEmpty() || t.startsWith("image/") || t.equals("*/*")
-                    || t.matches("\\.(jpe?g|png|gif|webp|heic|heif|bmp)")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private Intent createCameraIntent() {
         File dir = new File(getCacheDir(), "camera");
         if (!dir.isDirectory() && !dir.mkdirs()) return null;
@@ -339,37 +327,86 @@ public class MainActivity extends Activity {
         return intent;
     }
 
+    /** 相册：Android 13 起使用系统照片选择器（无需存储权限），更早版本打开图库应用 */
+    private Intent createAlbumIntent(boolean multiple) {
+        Intent intent;
+        if (Build.VERSION.SDK_INT >= 33) {
+            intent = new Intent(MediaStore.ACTION_PICK_IMAGES);
+            intent.setType("image/*");
+            if (multiple) intent.putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, MediaStore.getPickImagesMaxLimit());
+        } else {
+            intent = new Intent(Intent.ACTION_PICK);
+            intent.setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/*");
+            if (multiple) intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        }
+        return intent;
+    }
+
+    /** 文件：系统文件选择器；不限类型时列出全部文件，接受图片时附带 HEIC/HEIF 类型 */
+    private Intent createFileIntent(String[] acceptTypes, boolean multiple) {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        String[] mimes = FileChooserMode.fileMimeTypes(acceptTypes);
+        intent.setType(mimes.length == 1 ? mimes[0] : "*/*");
+        if (mimes.length > 1) intent.putExtra(Intent.EXTRA_MIME_TYPES, mimes);
+        if (multiple) intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        return Intent.createChooser(intent, null);
+    }
+
+    private void cancelChooser(int message) {
+        if (fileCallback != null) fileCallback.onReceiveValue(null);
+        fileCallback = null;
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+    }
+
+    /**
+     * 网页的拍照、相册、从文件选择三个入口分别打开相机、照片选择器和文件选择器。
+     * 拍照只调用系统相机应用（ACTION_IMAGE_CAPTURE），不需要相机权限；相机不可用时提示改用相册或文件。
+     */
     private boolean openFileChooser(ValueCallback<Uri[]> callback, WebChromeClient.FileChooserParams params) {
         if (fileCallback != null) fileCallback.onReceiveValue(null);
         fileCallback = callback;
         cameraFile = null;
         cameraUri = null;
 
-        Intent content = params.createIntent();
-        if (params.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
-            content.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-        }
-        Intent camera = acceptsImages(params) ? createCameraIntent() : null;
+        String[] acceptTypes = params.getAcceptTypes();
+        boolean multiple = params.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE;
+        FileChooserMode.Mode mode = FileChooserMode.resolve(acceptTypes, params.isCaptureEnabled());
 
-        Intent chooser;
-        if (camera != null && params.isCaptureEnabled()) {
-            chooser = camera;
-        } else {
-            chooser = Intent.createChooser(content, null);
-            if (camera != null) chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{camera});
+        if (mode == FileChooserMode.Mode.CAMERA) {
+            Intent camera = createCameraIntent();
+            if (camera == null) {
+                cancelChooser(R.string.camera_unavailable);
+                return true;
+            }
+            try {
+                startActivityForResult(camera, REQUEST_FILE_CHOOSER);
+            } catch (ActivityNotFoundException | SecurityException e) {
+                cameraFile = null;
+                cameraUri = null;
+                cancelChooser(R.string.camera_unavailable);
+            }
+            return true;
         }
+
+        Intent intent = mode == FileChooserMode.Mode.ALBUM ? createAlbumIntent(multiple) : createFileIntent(acceptTypes, multiple);
         try {
-            startActivityForResult(chooser, REQUEST_FILE_CHOOSER);
+            startActivityForResult(intent, REQUEST_FILE_CHOOSER);
         } catch (ActivityNotFoundException e) {
-            fileCallback.onReceiveValue(null);
-            fileCallback = null;
-            Toast.makeText(this, R.string.no_app_for_action, Toast.LENGTH_SHORT).show();
+            // 没有照片选择器或图库应用时退回文件选择器
+            try {
+                startActivityForResult(createFileIntent(acceptTypes, multiple), REQUEST_FILE_CHOOSER);
+            } catch (ActivityNotFoundException fallback) {
+                cancelChooser(R.string.no_app_for_action);
+            }
         }
         return true;
     }
 
     private Uri[] parseChooserResult(int resultCode, Intent data) {
         if (resultCode != RESULT_OK) return null;
+        // 拍照：相机直接写入 EXTRA_OUTPUT 指定的文件；取消或未写入时文件为空，不返回空文件
+        if (cameraFile != null) return cameraFile.length() > 0 ? new Uri[]{cameraUri} : null;
         ClipData clip = data == null ? null : data.getClipData();
         if (clip != null && clip.getItemCount() > 0) {
             List<Uri> uris = new ArrayList<>();
@@ -380,8 +417,6 @@ public class MainActivity extends Activity {
             if (!uris.isEmpty()) return uris.toArray(new Uri[0]);
         }
         if (data != null && data.getData() != null) return new Uri[]{data.getData()};
-        // 相机直接写入 EXTRA_OUTPUT，返回的 Intent 不带数据
-        if (cameraFile != null && cameraFile.length() > 0) return new Uri[]{cameraUri};
         return null;
     }
 

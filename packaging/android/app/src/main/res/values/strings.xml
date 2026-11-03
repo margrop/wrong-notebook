@@ -20,6 +20,7 @@
     <string name="ssl_continue">Continue</string>
     <string name="file_saved">Saved</string>
     <string name="file_save_failed">Failed to save file</string>
+    <string name="camera_unavailable">Camera is unavailable. Choose a photo from the album or a file instead.</string>
     <string name="no_app_for_action">No app can handle this action</string>
     <string name="app_name_client">Wrong Notebook Client</string>
     <string name="error_local_title">Wrong Notebook failed to start</string>

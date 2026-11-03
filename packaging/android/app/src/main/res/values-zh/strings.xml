@@ -20,6 +20,7 @@
     <string name="ssl_continue">继续</string>
     <string name="file_saved">已保存</string>
     <string name="file_save_failed">保存文件失败</string>
+    <string name="camera_unavailable">无法打开相机，请从相册或文件中选择照片。</string>
     <string name="no_app_for_action">没有可以处理此操作的应用</string>
     <string name="app_name_client">错题本客户端</string>
     <string name="error_local_title">错题本启动失败</string>
