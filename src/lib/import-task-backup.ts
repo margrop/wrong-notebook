@@ -1,6 +1,9 @@
 /**
  * 备份导入：还原未处理的识别导入任务（待校对草稿与失败可重试的任务）。
  * 只写入记录，不会安排后台执行；导出时仍在执行的任务按中断处理，需用户在任务列表中重试。
+ *
+ * 导入沿用备份中的任务编号作为来源标识：同一任务重复导入时跳过，再次导出时编号不变；
+ * 同一时间、同一图片的不同任务编号不同，全部还原。编号已被其他账户占用时改用新编号。
  */
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -9,7 +12,10 @@ import { IMPORT_TASK_INTERRUPTED_ERROR } from "@/lib/import-task-types";
 
 const IMAGE_DATA_PATTERN = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/;
 
+const TASK_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+
 const backupTaskSchema = z.object({
+    id: z.string().regex(TASK_ID_PATTERN).optional(),
     userId: z.string().max(100).optional(),
     mode: z.string().optional(),
     status: z.string().optional(),
@@ -50,7 +56,7 @@ interface ImportTaskBackupContext {
     paperGroupIdMap: Map<string, string>;
 }
 
-/** 返回新建的任务数；已导入过的（同一用户、创建时间与图片相同）跳过 */
+/** 返回新建的任务数；同一来源任务已导入过时跳过 */
 export async function importImportTasks(tx: Prisma.TransactionClient, raw: unknown, context: ImportTaskBackupContext): Promise<number> {
     if (!Array.isArray(raw)) return 0;
     let created = 0;
@@ -69,7 +75,13 @@ export async function importImportTasks(tx: Prisma.TransactionClient, raw: unkno
         if (!result && !imageData) continue;
 
         const createdAt = parseDate(task.createdAt);
-        if (createdAt && await tx.importTask.count({ where: { userId, createdAt, imageData } }) > 0) continue;
+        let id: string | undefined;
+        if (task.id) {
+            const existing = await tx.importTask.findUnique({ where: { id: task.id }, select: { userId: true } });
+            if (existing?.userId === userId) continue;
+            // 编号被其他账户占用（伪造或跨账户的备份）时改用新编号，不覆盖、不泄露他人任务
+            if (!existing) id = task.id;
+        }
 
         const mapId = (id: string | null | undefined, map: Map<string, string>) => (id && map.has(id) ? map.get(id)! : null);
         const mode = task.mode === 'auto' ? 'auto' : 'review';
@@ -81,6 +93,7 @@ export async function importImportTasks(tx: Prisma.TransactionClient, raw: unkno
 
         await tx.importTask.create({
             data: {
+                id,
                 userId,
                 mode,
                 status,

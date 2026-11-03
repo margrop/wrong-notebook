@@ -46,28 +46,47 @@ async function waitForTask(id: string, onStatus: (task: ImportTaskDetail) => voi
     }
 }
 
-// 同时识别的题目数，避免一次性压垮 AI 服务
-const CONCURRENCY = 3;
+// 同时上传的题目数；识别的并发由服务端按「同一模型 AI 并发上限」排队控制
+const UPLOAD_CONCURRENCY = 2;
 
-/** 一图多题：逐框识别并直接导入错题本 */
+/** 按并发上限依次执行 */
+async function runWithConcurrency(indexes: number[], limit: number, run: (index: number) => Promise<void>) {
+    const queue = [...indexes];
+    const worker = async () => {
+        while (queue.length > 0) await run(queue.shift()!);
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, queue.length) }, worker));
+}
+
+/**
+ * 一图多题：先把所有框上传为服务端识别任务（落库后锁屏或关闭页面也会继续），再等待各题的识别与入库结果。
+ */
 export function BatchImportPanel({ blobs, subjectId, onClose }: BatchImportPanelProps) {
     const { t, language } = useLanguage();
     const [items, setItems] = useState<BatchItem[]>(() => blobs.map(() => ({ status: "pending" })));
     const startedRef = useRef(false);
+    const taskIds = useRef<Array<string | undefined>>([]);
 
     const updateItem = useCallback((index: number, patch: Partial<BatchItem>) => {
         setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
     }, []);
 
-    const taskIds = useRef<Array<string | undefined>>([]);
+    const fail = useCallback((index: number, error: unknown) => {
+        const data = (error as { data?: { message?: string } })?.data;
+        const backendError = data?.message || (error instanceof Error ? error.message : String(error));
+        const mapped = (t.errors as Record<string, unknown>)[backendError];
+        updateItem(index, { status: "failed", error: typeof mapped === "string" ? mapped : backendError });
+        frontendLogger.error('[BatchImport]', 'Question import failed', { index, error: backendError });
+    }, [t.errors, updateItem]);
 
-    const runOne = useCallback(async (index: number) => {
+    /** 第一步：上传并创建任务（已上传过的改为重试服务端任务）；返回是否已落库 */
+    const submit = useCallback(async (index: number): Promise<boolean> => {
         updateItem(index, { status: "uploading", error: undefined });
         try {
-            let taskId = taskIds.current[index];
-            if (taskId) {
+            const existing = taskIds.current[index];
+            if (existing) {
                 // 已上传过：重试服务端任务（有识别结果时只重试保存，不重新识别）
-                await retryImportTask(taskId);
+                await retryImportTask(existing);
             } else {
                 const blob = blobs[index];
                 const compressStarted = Date.now();
@@ -81,10 +100,22 @@ export function BatchImportPanel({ blobs, subjectId, onClose }: BatchImportPanel
                     clientTimings: { compress: Date.now() - compressStarted },
                     imageInfo: { sourceBytes: blob.size, outputBytes: Math.round(imageBase64.length * 3 / 4) },
                 });
-                taskId = task.id;
-                taskIds.current[index] = taskId;
-                updateItem(index, { taskId });
+                taskIds.current[index] = task.id;
+                updateItem(index, { taskId: task.id });
             }
+            updateItem(index, { status: "analyzing" });
+            return true;
+        } catch (error) {
+            fail(index, error);
+            return false;
+        }
+    }, [blobs, language, subjectId, updateItem, fail]);
+
+    /** 第二步：等待服务端识别与入库结果 */
+    const watch = useCallback(async (index: number) => {
+        const taskId = taskIds.current[index];
+        if (!taskId) return;
+        try {
             const task = await waitForTask(taskId, (current) => updateItem(index, { status: current.status === "saving" ? "saving" : "analyzing" }));
             if (task.status !== "saved" || !task.errorItemId) throw { data: { message: task.error || "QUESTION_SAVE_FAILED" } };
             markImportTaskRead(taskId).catch(() => undefined);
@@ -93,23 +124,21 @@ export function BatchImportPanel({ blobs, subjectId, onClose }: BatchImportPanel
                 imported: { id: task.errorItemId, shortId: task.errorItemShortId, subjectId: subjectId ?? null, notebookName: task.notebookName, duplicate: task.duplicate },
             });
         } catch (error) {
-            const data = (error as { data?: { message?: string } })?.data;
-            const backendError = data?.message || (error instanceof Error ? error.message : String(error));
-            const mapped = (t.errors as Record<string, unknown>)[backendError];
-            updateItem(index, { status: "failed", error: typeof mapped === "string" ? mapped : backendError });
-            frontendLogger.error('[BatchImport]', 'Question import failed', { index, error: backendError });
+            fail(index, error);
         }
-    }, [blobs, language, subjectId, t.errors, updateItem]);
+    }, [subjectId, updateItem, fail]);
 
     const runAll = useCallback(async (indexes: number[]) => {
-        const queue = [...indexes];
-        const worker = async () => {
-            while (queue.length > 0) {
-                await runOne(queue.shift()!);
-            }
-        };
-        await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));
-    }, [runOne]);
+        const submitted: number[] = [];
+        await runWithConcurrency(indexes, UPLOAD_CONCURRENCY, async (index) => {
+            if (await submit(index)) submitted.push(index);
+        });
+        await Promise.all(submitted.map(watch));
+    }, [submit, watch]);
+
+    const runOne = useCallback(async (index: number) => {
+        if (await submit(index)) await watch(index);
+    }, [submit, watch]);
 
     useEffect(() => {
         if (startedRef.current) return;
@@ -122,6 +151,7 @@ export function BatchImportPanel({ blobs, subjectId, onClose }: BatchImportPanel
     const running = items.some((item) => item.status === "pending" || item.status === "uploading" || item.status === "analyzing" || item.status === "saving");
     // 全部上传后即可离开：识别与入库在服务端继续，结果在「识别任务」中查看
     const uploading = items.some((item) => item.status === "pending" || item.status === "uploading");
+    const uploadedCount = items.filter((item) => item.taskId && item.status !== "uploading").length;
 
     return (
         <Card>
@@ -135,7 +165,11 @@ export function BatchImportPanel({ blobs, subjectId, onClose }: BatchImportPanel
                 </span>
             </CardHeader>
             <CardContent className="space-y-4">
-                {running && !uploading && <p className="text-xs text-muted-foreground">{t.importTasks.uploadedHint}</p>}
+                <p className="text-xs text-muted-foreground" data-testid="batch-upload-progress">
+                    {uploading
+                        ? t.batchImport.uploaded.replace("{done}", String(uploadedCount)).replace("{total}", String(items.length))
+                        : running ? t.importTasks.uploadedHint : null}
+                </p>
                 <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {items.map((item, index) => (
                         <li key={index} className="flex gap-3 rounded-lg border p-3">

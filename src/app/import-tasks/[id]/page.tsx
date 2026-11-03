@@ -34,7 +34,8 @@ export default function ImportTaskPage() {
     const actions = useImportTaskActions(refresh);
     const saver = useQuestionSaver('[ImportTask]');
     const now = useNow(task?.status === "analyzing" || task?.status === "saving");
-    const markedRead = useRef(false);
+    // 记录已标记已读的任务编号，切换到另一个任务时重新标记
+    const markedRead = useRef<string | null>(null);
     // 未指定错题本时与首页一致：按识别出的学科自动选择名称相近的错题本
     const [notebooks, setNotebooks] = useState<Notebook[] | null>(null);
     useEffect(() => {
@@ -48,8 +49,8 @@ export default function ImportTaskPage() {
 
     // 打开结果即视为已查看
     useEffect(() => {
-        if (!task || markedRead.current || !task.unread) return;
-        markedRead.current = true;
+        if (!task || markedRead.current === task.id || !task.unread) return;
+        markedRead.current = task.id;
         actions.markRead(task);
     }, [task, actions]);
 

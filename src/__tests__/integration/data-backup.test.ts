@@ -181,7 +181,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 3 版格式，包含 tagSet 字段', async () => {
+    it('导出文件使用第 5 版格式，包含 tagSet 字段', async () => {
         const backup = await exportBackup();
         expect(backup.version).toBe(5);
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
@@ -460,5 +460,44 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         const { stats } = await importBackup(backup);
         expect(stats.importTasksCreated).toBe(0);
         expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBeGreaterThan(0);
+    });
+
+    it('同一时间同一图片的不同任务全部还原；按来源任务编号判断重复导入，再次导出保留编号', async () => {
+        const image = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+        const createdAt = new Date('2026-10-05T00:00:00Z');
+        const draft = (questionText: string) => JSON.stringify({ questionText, answerText: '答', analysis: '析', knowledgePoints: [], subject: '数学' });
+        await database.importTask.createMany({ data: [
+            { id: 'source-task-aaaaaaaa', userId: 'user-1', mode: 'review', status: 'review', imageData: image, result: draft('第一份草稿'), createdAt },
+            { id: 'source-task-bbbbbbbb', userId: 'user-1', mode: 'review', status: 'review', imageData: image, result: draft('第二份草稿'), createdAt },
+        ] });
+        const backup = await exportBackup();
+        expect(backup.importTasks.map((task: { id: string }) => task.id).sort()).toEqual(['source-task-aaaaaaaa', 'source-task-bbbbbbbb']);
+
+        await clearUserData();
+        expect((await importBackup(backup)).stats.importTasksCreated).toBe(2);
+        const drafts = await database.importTask.findMany({ where: { userId: 'user-1' }, orderBy: { id: 'asc' } });
+        expect(drafts.map((task) => JSON.parse(task.result!).questionText)).toEqual(['第一份草稿', '第二份草稿']);
+        expect(drafts.map((task) => task.id)).toEqual(['source-task-aaaaaaaa', 'source-task-bbbbbbbb']);
+
+        // 重复导入同一备份不重复创建；再次导出后编号不变，导入仍按同一来源判断
+        expect((await importBackup(backup)).stats.importTasksCreated).toBe(0);
+        const again = await exportBackup();
+        expect(again.importTasks.map((task: { id: string }) => task.id).sort()).toEqual(['source-task-aaaaaaaa', 'source-task-bbbbbbbb']);
+        expect((await importBackup(again)).stats.importTasksCreated).toBe(0);
+        expect(await database.importTask.count({ where: { userId: 'user-1' } })).toBe(2);
+    });
+
+    it('备份中的任务编号属于其他账户时改用新编号，不覆盖他人任务', async () => {
+        const image = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+        const result = JSON.stringify({ questionText: '他人的草稿', answerText: '答', analysis: '析', knowledgePoints: [], subject: '数学' });
+        await database.user.upsert({ where: { email: 'backup-other@example.com' }, update: {}, create: { id: 'backup-other', email: 'backup-other@example.com', password: 'test-only' } });
+        await database.importTask.create({ data: { id: 'shared-task-id-1', userId: 'backup-other', mode: 'review', status: 'review', imageData: image, result } });
+        const backup = await exportBackup();
+        backup.importTasks = [{ id: 'shared-task-id-1', userId: 'user-1', mode: 'review', status: 'review', imageData: image, result: result.replace('他人的草稿', '我的草稿') }];
+        expect((await importBackup(backup)).stats.importTasksCreated).toBe(1);
+        expect(JSON.parse((await database.importTask.findUniqueOrThrow({ where: { id: 'shared-task-id-1' } })).result!).questionText).toBe('他人的草稿');
+        const mine = await database.importTask.findFirstOrThrow({ where: { userId: 'user-1' } });
+        expect(mine.id).not.toBe('shared-task-id-1');
+        await database.user.delete({ where: { id: 'backup-other' } });
     });
 });

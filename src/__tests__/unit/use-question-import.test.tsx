@@ -19,7 +19,6 @@ const mocks = vi.hoisted(() => ({
     toastSuccess: vi.fn(),
     createImportTask: vi.fn(),
     fetchImportTask: vi.fn(),
-    confirmImportTask: vi.fn(),
     markImportTaskRead: vi.fn(async () => undefined),
 }));
 
@@ -34,7 +33,6 @@ vi.mock('@/lib/feedback', () => ({ toast: { error: mocks.toastError, success: mo
 vi.mock('@/lib/import-task-client', () => ({
     createImportTask: mocks.createImportTask,
     fetchImportTask: mocks.fetchImportTask,
-    confirmImportTask: mocks.confirmImportTask,
     markImportTaskRead: mocks.markImportTaskRead,
     onReturnToForeground: () => () => undefined,
 }));
@@ -89,11 +87,10 @@ afterEach(async () => {
 });
 
 describe('题目导入流程', () => {
-    it('未开启人工确认时上传后创建服务端任务，不再遮挡页面；服务端入库后显示结果条', async () => {
-        const onParsed = vi.fn();
+    it('未开启人工确认时上传后创建服务端任务，不再遮挡页面；服务端入库后状态卡显示已保存，不自动标记已读', async () => {
         mocks.createImportTask.mockResolvedValueOnce(task());
         mocks.fetchImportTask.mockResolvedValue(task({ status: 'saved', errorItemId: 'saved', errorItemShortId: 'AbC234', notebookName: '数学', unread: true }));
-        await render({ analyzeSubjectId: 'nb-1', importSubjectId: 'nb-1', onParsed });
+        await render({ analyzeSubjectId: 'nb-1', importSubjectId: 'nb-1' });
 
         await act(async () => flow.cropComplete(new Blob(['x'])));
         expect(mocks.createImportTask).toHaveBeenCalledWith(expect.objectContaining({
@@ -102,11 +99,9 @@ describe('题目导入流程', () => {
         expect(flow.analysisStep).toBe('idle');
         await flushTimers();
 
-        expect(flow.lastImported).toEqual({ id: 'saved', shortId: 'AbC234', subjectId: null, notebookName: '数学', duplicate: false });
-        expect(flow.pendingTask).toBeNull();
-        expect(mocks.markImportTaskRead).toHaveBeenCalledWith('task-1');
+        expect(flow.pendingTask).toMatchObject({ id: 'task-1', status: 'saved', errorItemId: 'saved', unread: true });
+        expect(mocks.markImportTaskRead).not.toHaveBeenCalled();
         expect(flow.step).toBe('upload');
-        expect(onParsed).not.toHaveBeenCalled();
         expect(mocks.post).not.toHaveBeenCalledWith('/api/analyze', expect.anything(), expect.anything());
     });
 
@@ -122,28 +117,44 @@ describe('题目导入流程', () => {
         expect(flow.pendingTask).toBeNull();
     });
 
-    it('开启人工确认时任务待校对即进入校对页，确认通过任务入库到固定错题本后跳转', async () => {
+    it('开启人工确认时任务待校对只更新状态卡，由用户主动进入校对页；固定错题本随任务提交', async () => {
         mocks.confirmBeforeImport = true;
-        const onParsed = vi.fn();
         mocks.createImportTask.mockResolvedValueOnce(task({ mode: 'review' }));
-        mocks.fetchImportTask.mockResolvedValue(task({ mode: 'review', status: 'review', result: parsed, hasResult: true }));
-        await render({ fixedSubjectId: 'nb-2', onParsed });
+        mocks.fetchImportTask.mockResolvedValue(task({ mode: 'review', status: 'review', result: parsed, hasResult: true, unread: true }));
+        await render({ fixedSubjectId: 'nb-2' });
         await act(async () => {});
 
         await act(async () => flow.cropComplete(new Blob(['x'])));
         expect(mocks.createImportTask).toHaveBeenCalledWith(expect.objectContaining({ targetSubjectId: 'nb-2' }));
         await flushTimers();
-        expect(flow.step).toBe('review');
-        expect(flow.parsedData).toEqual(parsed);
-        expect(flow.currentImage).toBe(IMAGE);
-        expect(onParsed).toHaveBeenCalledWith(parsed);
-
-        mocks.confirmImportTask.mockResolvedValueOnce({ id: 'item-1' });
-        await act(async () => flow.saveReviewed({ ...parsed, subjectId: 'other' } as never));
-        expect(mocks.confirmImportTask).toHaveBeenCalledWith('task-1', expect.objectContaining({ subjectId: 'nb-2' }));
-        expect(mocks.post).not.toHaveBeenCalledWith('/api/error-items', expect.anything());
-        expect(mocks.push).toHaveBeenCalledWith('/notebooks/nb-2');
+        expect(flow.pendingTask).toMatchObject({ status: 'review', unread: true });
         expect(flow.step).toBe('upload');
+        expect(flow.parsedData).toBeNull();
+        expect(mocks.markImportTaskRead).not.toHaveBeenCalled();
+    });
+
+    it('旧任务完成时用户正在录入新题，不打断当前输入', async () => {
+        mocks.confirmBeforeImport = true;
+        mocks.createImportTask.mockResolvedValueOnce(task({ mode: 'review' }));
+        mocks.fetchImportTask.mockResolvedValue(task({ mode: 'review' }));
+        await render();
+        await act(async () => {});
+        await act(async () => flow.cropComplete(new Blob(['x'])));
+        await flushTimers();
+        expect(flow.pendingTask?.status).toBe('analyzing');
+
+        // 用户开始裁剪下一张图片时，上一题识别完成
+        vi.stubGlobal('URL', { ...URL, createObjectURL: () => 'blob:next', revokeObjectURL: () => undefined });
+        await act(async () => flow.selectImage(new File(['y'], 'next.jpg', { type: 'image/jpeg' })));
+        mocks.fetchImportTask.mockResolvedValue(task({ mode: 'review', status: 'review', result: parsed, hasResult: true, unread: true }));
+        await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+        await act(async () => { await flow.refreshPendingTask(); });
+        expect(flow.pendingTask?.status).toBe('review');
+        expect(flow.isCropperOpen).toBe(true);
+        expect(flow.croppingImage).toBe('blob:next');
+        expect(flow.step).toBe('upload');
+        expect(flow.parsedData).toBeNull();
+        expect(mocks.markImportTaskRead).not.toHaveBeenCalled();
     });
 
     it('保存时识别为重复题则跳到原题', async () => {

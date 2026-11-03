@@ -19,6 +19,8 @@ export async function importImage(page: Page, scenario: Scenario, confirm: boole
     await expect(page.getByRole('progressbar')).toBeVisible();
     await scenario.control({ hold: false });
     if (confirm) {
+        // 识别完成后状态卡提示待校对，由用户主动进入校对页
+        await page.getByTestId('pending-import-task').getByRole('button', { name: '继续校对' }).click();
         await expect(page.getByRole('heading', { level: 2 })).toContainText(/校对|Review|Correct/);
         const question = page.locator('textarea').first();
         await expect(question).toHaveValue(`求解方程 x + 2 = 5。${scenario.marker}`);

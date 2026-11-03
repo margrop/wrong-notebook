@@ -43,12 +43,11 @@ function HomeContent() {
     const searchParams = useSearchParams();
     const initialNotebookId = searchParams.get("notebook");
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
-    const [autoSelectedNotebookId, setAutoSelectedNotebookId] = useState<string | null>(null);
     const [dueCount, setDueCount] = useState<number | null>(null);
     // Input mode: "image" for photo upload, "text" for AI solve, "direct" for manual entry
     const [inputMode, setInputMode] = useState<"image" | "text" | "direct">("image");
 
-    const targetNotebookId = initialNotebookId || autoSelectedNotebookId;
+    const targetNotebookId = initialNotebookId;
     const targetNotebook = targetNotebookId ? notebooks.find(n => n.id === targetNotebookId) : undefined;
 
     const flow = useQuestionImport({
@@ -56,11 +55,6 @@ function HomeContent() {
         analyzeSubjectId: targetNotebookId,
         importSubjectId: initialNotebookId,
         textNotebook: targetNotebook && { id: targetNotebook.id, name: targetNotebook.name },
-        // 按识别出的学科自动选择名称相近的错题本
-        onParsed: (data) => {
-            const matched = data.subject && notebooks.find(n => n.name.includes(data.subject!) || data.subject!.includes(n.name));
-            if (matched) setAutoSelectedNotebookId(matched.id);
-        },
     });
 
     useEffect(() => {

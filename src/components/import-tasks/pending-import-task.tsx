@@ -32,6 +32,8 @@ export function PendingImportTask({ task, onRefresh, onDismiss }: PendingImportT
             <ImportTaskCard
                 task={task}
                 now={now}
+                onReview={() => actions.openReview(task)}
+                onViewItem={() => actions.viewItem(task)}
                 onRetry={() => actions.retry(task)}
                 onDiscard={async () => {
                     if (await actions.discard(task)) onDismiss();

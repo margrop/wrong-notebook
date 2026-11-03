@@ -249,7 +249,10 @@ describe('识别导入任务', () => {
         // 其他用户使用相同请求编号不会拿到别人的任务
         const own = await CREATE(json({ clientRequestId: (await database.importTask.findUniqueOrThrow({ where: { id: task.id } })).clientRequestId, imageBase64: IMAGE }));
         expect(own.status).toBe(202);
-        expect((await own.json()).task.id).not.toBe(task.id);
+        const ownTask = (await own.json()).task;
+        expect(ownTask.id).not.toBe(task.id);
+        // 等待该任务的后台识别结束，避免调用计入下一个用例
+        await waitForImportTaskForTest(ownTask.id);
         asUser('user-1');
         expect((await getTask(task.id)).task.status).toBe('review');
     });

@@ -96,5 +96,63 @@ for (const profile of viewports) {
             await expect.poll(async () => (await scenario.db.importTask.findFirstOrThrow({ where: { userId: scenario.user.id } })).readAt).not.toBeNull();
             expect(await analysisCalls(scenario)).toBe(1);
         });
+
+        test('[E2E-T03] 旧任务完成时正在录入新题不被打断，由用户主动继续校对', async ({ page, scenario }) => {
+            await scenario.db.user.update({ where: { id: scenario.user.id }, data: { confirmBeforeImport: true } });
+            await upload(page, scenario);
+            await page.getByRole('tab', { name: '手动输入', exact: true }).click();
+            const draft = page.locator('#question-text');
+            await draft.fill(`正在输入的新题目 ${scenario.marker}`);
+            await scenario.control({ hold: false });
+            const pending = page.getByTestId('pending-import-task');
+            await expect(pending.getByTestId('import-task-card')).toHaveAttribute('data-status', 'review');
+            // 仍停留在当前输入，内容未被清空，也没有被自动标记为已读
+            await expect(draft).toHaveValue(`正在输入的新题目 ${scenario.marker}`);
+            await expect(page.getByRole('heading', { name: /校对与保存/ })).toHaveCount(0);
+            expect((await scenario.db.importTask.findFirstOrThrow({ where: { userId: scenario.user.id } })).readAt).toBeNull();
+            await pending.getByRole('button', { name: '继续校对' }).click();
+            await expect(page).toHaveURL(/\/import-tasks\/[a-f0-9]+$/);
+            await expect(page.locator('textarea').first()).toHaveValue(`求解方程 x + 2 = 5。${scenario.marker}`);
+            await expect.poll(async () => (await scenario.db.importTask.findFirstOrThrow({ where: { userId: scenario.user.id } })).readAt).not.toBeNull();
+        });
     });
 }
+
+test('[E2E-T04] 框选 5 题先全部落库，模型排队时关闭页面后仍全部完成且不超过服务端并发上限', async ({ page, scenario }, testInfo) => {
+    await scenario.db.user.update({ where: { id: scenario.user.id }, data: { confirmBeforeImport: true } });
+    await scenario.control({ hold: true });
+    await scenario.login(page);
+    await page.goto(`/notebooks/${scenario.book.id}/add`);
+    await page.locator('input[type="file"]').first().setInputFiles(resolve('e2e/fixtures/math_test.png'));
+    await page.getByRole('button', { name: '多题框选' }).click();
+    const overlay = page.locator('.cursor-crosshair').first();
+    await expect(overlay).toBeVisible();
+    const box = (await overlay.boundingBox())!;
+    for (let i = 0; i < 5; i++) {
+        const top = box.y + box.height * (0.05 + i * 0.18);
+        await page.mouse.move(box.x + box.width * 0.1, top);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width * 0.9, top + box.height * 0.12, { steps: 4 });
+        await page.mouse.up();
+    }
+    await page.getByRole('button', { name: '导入 5 道题' }).click();
+    // 模型被挂起时 5 题已全部上传为服务端任务
+    await expect.poll(() => scenario.db.importTask.count({ where: { userId: scenario.user.id } })).toBe(5);
+    await expect(page.getByTestId('batch-upload-progress')).toContainText('可以离开此页面');
+    await testInfo.attach('batch-uploaded', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+    const limit = (await scenario.model()).calls.length;
+    expect(limit).toBeLessThanOrEqual(2);
+    expect((await scenario.model()).inflight).toBeLessThanOrEqual(2);
+    await page.close();
+
+    let maxInflight = 0;
+    await scenario.control({ hold: false });
+    await expect.poll(async () => {
+        maxInflight = Math.max(maxInflight, (await scenario.model()).inflight);
+        return scenario.db.importTask.count({ where: { userId: scenario.user.id, status: 'saved' } });
+    }, { timeout: 30000 }).toBe(5);
+    expect(maxInflight).toBeLessThanOrEqual(2);
+    expect((await scenario.model()).calls.filter((call) => call.operation === 'analysis')).toHaveLength(5);
+    const tasks = await scenario.db.importTask.findMany({ where: { userId: scenario.user.id } });
+    expect(tasks.every((task) => task.mode === 'auto' && task.targetSubjectId === scenario.book.id)).toBe(true);
+});

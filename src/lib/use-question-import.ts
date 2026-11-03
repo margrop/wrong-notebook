@@ -9,12 +9,11 @@ import { apiClient } from "@/lib/api-client";
 import { getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { confirmImportTask, createImportTask, markImportTaskRead } from "@/lib/import-task-client";
+import { createImportTask } from "@/lib/import-task-client";
 import { processImageFile } from "@/lib/image-utils";
 import { normalizeMistakeStatus } from "@/lib/mistake-status";
 import { fetchConfirmBeforeImport, saveParsedQuestion } from "@/lib/question-import";
 import type { ImportedQuestion } from "@/lib/question-import";
-import type { ImportTaskDetail } from "@/lib/import-task-types";
 import { useImportTask } from "@/lib/use-import-tasks";
 import { useQuestionSaver } from "@/lib/use-question-saver";
 import type { AppConfig } from "@/types/api";
@@ -47,16 +46,14 @@ interface QuestionImportOptions {
     textNotebook?: { id: string; name: string };
     /** 校对后保存时固定放入的错题本，不传则使用校对页中选择的错题本 */
     fixedSubjectId?: string;
-    /** 图片识别完成、进入校对页之前调用（如按学科自动选择错题本） */
-    onParsed?: (data: ParsedQuestion) => void;
 }
 
 /**
- * 题目导入流程：裁剪图片 → 压缩 → 上传并创建服务端识别任务 → 免确认时服务端直接入库，否则进入校对页后确认入库。
- * 上传完成后不再遮挡页面：识别在服务端继续，可离开页面，结果在「识别任务」中取回。
+ * 题目导入流程：裁剪图片 → 压缩 → 上传并创建服务端识别任务 → 免确认时服务端直接入库，否则在识别任务的校对页确认入库。
+ * 上传完成后不再遮挡页面：识别在服务端继续，可离开页面，结果在状态卡和「识别任务」中取回。
  * 文字解题仍在请求内完成。首页与错题本的添加错题页共用。
  */
-export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId, textNotebook, fixedSubjectId, onParsed }: QuestionImportOptions) {
+export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId, textNotebook, fixedSubjectId }: QuestionImportOptions) {
     const { t, language } = useLanguage();
     const saver = useQuestionSaver(logPrefix);
     const [step, setStep] = useState<"upload" | "review">("upload");
@@ -70,33 +67,11 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     const [confirmBeforeImport, setConfirmBeforeImport] = useState(false);
     const [lastImported, setLastImported] = useState<ImportedQuestion | null>(null);
     const [batchBlobs, setBatchBlobs] = useState<Blob[] | null>(null);
-    // 本页发起、尚未处理的识别任务；校对页对应的任务
+    // 本页最近发起的识别任务
     const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
-    const [reviewTaskId, setReviewTaskId] = useState<string | null>(null);
-    // 本页发起的任务有结果时：待校对直接进入校对页，已保存显示结果条；失败保留在状态卡中供重试
-    const handlePendingUpdate = (task: ImportTaskDetail) => {
-        if (task.status === 'review' && task.result) {
-            onParsed?.(task.result);
-            setParsedData(task.result);
-            setCurrentImage(task.imageData);
-            setReviewTaskId(task.id);
-            setStep("review");
-            setPendingTaskId(null);
-            markImportTaskRead(task.id).catch(() => undefined);
-        } else if (task.status === 'saved' && task.errorItemId) {
-            setLastImported({
-                id: task.errorItemId,
-                shortId: task.errorItemShortId,
-                subjectId: null,
-                notebookName: task.notebookName,
-                duplicate: task.duplicate,
-            });
-            setPendingTaskId(null);
-            markImportTaskRead(task.id).catch(() => undefined);
-            frontendLogger.info(logPrefix, 'Imported without review', { id: task.errorItemId, timings: task.timings });
-        }
-    };
-    const pending = useImportTask(pendingTaskId, handlePendingUpdate);
+    // 本页发起的任务只在状态卡中更新（含完成后的「继续校对」「查看错题」），不切换页面、不自动标记已读，
+    // 用户正在录入下一题时不会被打断
+    const pending = useImportTask(pendingTaskId);
 
     const aiTimeout = config?.timeouts?.analyze || DEFAULT_AI_TIMEOUT;
     const safetyTimeout = aiTimeout + 10000;
@@ -149,7 +124,6 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
             frontendLogger.info(logPrefix, 'Imported without review', { id: imported.id });
             return;
         }
-        setReviewTaskId(null);
         setCurrentImage(null);
         setParsedData(data);
         setStep("review");
@@ -179,6 +153,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
             frontendLogger.info(logPrefix, 'Import task created', { taskId: task.id, compressMs, uploadMs: Date.now() - uploadStarted, totalMs: Date.now() - startTime });
             setPendingTaskId(task.id);
             pending.setTask(task);
+            setStep("upload");
         } catch (error) {
             frontendLogger.error(logPrefix, 'Upload failed', { errorDuration: Date.now() - startTime, error: getErrorMessage(error) });
             toast.error(getAnalysisErrorMessage(error, t));
@@ -234,18 +209,13 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     const saveQuestion = (payload: Record<string, unknown> & { subjectId?: string | null }) =>
         saver.run(() => apiClient.post<{ id: string; duplicate?: boolean }>("/api/error-items", payload), payload.subjectId);
 
-    /** 校对页保存：图片识别的结果通过任务确认入库（同一任务只会入库一次），文字解题直接保存 */
+    /** 文字解题的校对页保存（图片识别的结果在识别任务的校对页确认入库） */
     const saveReviewed = async (finalData: ReviewedQuestion) => {
-        const subjectId = fixedSubjectId ?? finalData.subjectId;
-        const taskId = reviewTaskId;
-        const saved = taskId
-            ? await saver.run(() => confirmImportTask(taskId, { ...finalData, subjectId }), subjectId)
-            : await saveQuestion({ ...finalData, originalImageUrl: currentImage || "", ...(fixedSubjectId ? { subjectId: fixedSubjectId } : {}) });
+        const saved = await saveQuestion({ ...finalData, originalImageUrl: currentImage || "", ...(fixedSubjectId ? { subjectId: fixedSubjectId } : {}) });
         if (saved) {
             setStep("upload");
             setParsedData(null);
             setCurrentImage(null);
-            setReviewTaskId(null);
         }
     };
 
