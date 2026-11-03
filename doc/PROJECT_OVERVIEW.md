@@ -71,8 +71,13 @@ wrongNotebook/
 │   │   ├── markdown-renderer.tsx # Markdown/LaTeX 渲染
 │   │   ├── tag-input.tsx         # 标签输入组件
 │   │   ├── knowledge-filter.tsx  # 知识点筛选
-│   │   ├── practice-stats.tsx    # 练习统计
-│   │   ├── wrong-answer-stats.tsx# 错题统计
+│   │   ├── stats/                # 统计中心公共组件
+│   │   │   ├── chart-colors.ts   # 图表配色
+│   │   │   ├── stat-card.tsx     # 概览数字卡片
+│   │   │   ├── chart-tooltip.tsx # 通用图表提示框
+│   │   │   ├── subject-pie-chart.tsx # 学科分布饼图
+│   │   │   ├── practice-stats.tsx    # 练习统计
+│   │   │   └── wrong-answer-stats.tsx# 错题统计
 │   │   ├── user-welcome.tsx      # 欢迎信息
 │   │   ├── broadcast-notification.tsx # 广播通知
 │   │   ├── create-notebook-dialog.tsx  # 创建错题本
