@@ -576,6 +576,13 @@ export const translations = {
             correct: "Correct",
             attempted: "Attempted",
         },
+        repeatedMistakes: {
+            title: "Repeated Mistakes",
+            subtitle: "Questions answered wrong 2 or more times in the selected range — review them carefully.",
+            empty: "No questions answered wrong 2 or more times in the selected range.",
+            wrongTimes: "Wrong {count}×",
+            noPreview: "(No question text)",
+        },
         activityHeatmap: {
             title: "Learning Calendar",
             currentStreak: "Current Streak",
@@ -2315,6 +2322,13 @@ export const translations = {
             total: "总题数",
             correct: "正确",
             attempted: "已作答",
+        },
+        repeatedMistakes: {
+            title: "反复错题目",
+            subtitle: "所选范围内做错 2 次以上的题目，建议重点复习。",
+            empty: "所选范围内没有错两次以上的题目。",
+            wrongTimes: "错 {count} 次",
+            noPreview: "（无文字题干）",
         },
         activityHeatmap: {
             title: "学习日历",

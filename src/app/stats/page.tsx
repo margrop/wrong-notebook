@@ -7,6 +7,7 @@ import { usePageTitle } from "@/lib/page-title";
 import { WrongAnswerStats } from "@/components/stats/wrong-answer-stats";
 import { PracticeStats } from "@/components/stats/practice-stats";
 import { ActivityHeatmap } from "@/components/stats/activity-heatmap";
+import { RepeatedMistakesCard } from "@/components/stats/repeated-mistakes-card";
 import { TagManagement } from "@/components/tags/tag-management";
 import { StatsFilterBar } from "@/components/stats/stats-filter-bar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -81,6 +82,8 @@ function StatsTabs() {
                 {/* 学习日历只受学科筛选影响；与练习统计并列，练习统计为空时也显示（录入错题也算活动） */}
                 <ActivityHeatmap url={subjectParam ? `/api/stats/activity?subjectId=${encodeURIComponent(subjectParam)}` : "/api/stats/activity"} />
                 <PracticeStats url={buildUrl("/api/stats/practice")} />
+                {/* 反复错题目榜：练习统计为空时也照常显示 */}
+                <RepeatedMistakesCard url={buildUrl("/api/stats/repeated-mistakes")} />
             </TabsContent>
             <TabsContent value="tags" className="space-y-4">
                 <TagManagement />
