@@ -557,6 +557,16 @@ export const translations = {
             correct: "Correct",
             attempted: "Attempted",
         },
+        activityHeatmap: {
+            title: "Learning Calendar",
+            currentStreak: "Current Streak",
+            longestStreak: "Longest Streak",
+            totalActiveDays: "Total Active Days",
+            less: "Less",
+            more: "More",
+            levels: ["None", "Low", "Medium", "High", "Very High"],
+            dayTooltip: "{date}: {errors} questions, {practices} practices",
+        },
         statsState: {
             errorTitle: "Failed to load statistics",
             errorDesc: "Please check your network and try again.",
@@ -2266,6 +2276,16 @@ export const translations = {
             total: "总题数",
             correct: "正确",
             attempted: "已作答",
+        },
+        activityHeatmap: {
+            title: "学习日历",
+            currentStreak: "当前连续",
+            longestStreak: "最长连续",
+            totalActiveDays: "累计活跃",
+            less: "少",
+            more: "多",
+            levels: ["无", "较少", "中等", "较多", "很多"],
+            dayTooltip: "{date}：录入 {errors} 题，练习 {practices} 次",
         },
         statsState: {
             errorTitle: "统计数据加载失败",

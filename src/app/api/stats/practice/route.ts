@@ -8,12 +8,9 @@ import { formatDateTime } from "@/lib/date-time";
 import { unauthorized, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { parseStatsRange, resolveStatsRange } from "@/lib/stats-range";
-import { resolveStatsSubjectId, practiceSubjectWhere } from "@/lib/stats-filter";
+import { resolveStatsSubjectId, practiceSubjectWhere, EXCLUDE_DUPLICATE_IMPORT } from "@/lib/stats-filter";
 
 const logger = createLogger('api:stats:practice');
-
-/** 重复导入产生的记录不计入练习统计 */
-const EXCLUDE_DUPLICATE_IMPORT = { source: { not: 'duplicate_import' } } satisfies Prisma.PracticeRecordWhereInput;
 
 /** 已作答：result 为 correct 或 wrong；result 为 null 的旧记录以 isCorrect 是否非 null 判断 */
 const ATTEMPTED_CONDITION = {

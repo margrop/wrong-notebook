@@ -241,6 +241,16 @@ export interface PracticeStatsData {
     granularity: 'day' | 'month';
 }
 
+/** 学习活动热力图数据 */
+export interface ActivityStatsData {
+    days: { date: string; errors: number; practices: number }[];
+    currentStreak: number;
+    longestStreak: number;
+    totalActiveDays: number;
+    subjectId?: string;
+    subjectName?: string;
+}
+
 export interface TagStats {
     tag: string;
     count: number;

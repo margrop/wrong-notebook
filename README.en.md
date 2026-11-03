@@ -123,7 +123,7 @@ Mistake statistics show total mistakes, to-review count, reviewing count, master
 
 ![Mistake count, mastery rate, subject distribution and monthly trend charts](doc/screenshots/en/error-stats.png)
 
-Practice statistics show total practice, accuracy (correct / attempted) and active days, with distribution and trends by subject and difficulty; time-range and subject filters are also supported. When there is no data, a prompt guides you to practice, and a retry button appears when loading fails.
+Practice statistics show total practice, accuracy (correct / attempted) and active days, with distribution and trends by subject and difficulty; time-range and subject filters are also supported. When there is no data, a prompt guides you to practice, and a retry button appears when loading fails. The practice stats tab also includes a "Learning Calendar" heatmap at the top: a GitHub-style grid showing daily learning activity (recorded mistakes + practice count) for the last 26 weeks, along with current streak, longest streak and total active days. Recording mistakes counts as activity, so the heatmap is visible even when there are no practice records yet.
 
 ![Practice count, accuracy, active months and practice trend charts](doc/screenshots/en/practice-stats.png)
 

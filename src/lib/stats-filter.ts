@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 
+/** 重复导入产生的记录不计入练习统计 */
+export const EXCLUDE_DUPLICATE_IMPORT = { source: { not: 'duplicate_import' } } satisfies Prisma.PracticeRecordWhereInput;
+
 /**
  * 校验 subjectId 是否属于当前用户；不属于时返回 null（当作未筛选）。
  */
