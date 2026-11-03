@@ -7,7 +7,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { toast, confirmDialog } from "@/lib/feedback";
-import type { ExamQuestionDetail } from "@/types/api";
+import type { ExamMode, ExamQuestionDetail } from "@/types/api";
 
 /** 生成题目或完整解答较长，等待上限与重新解答一致 */
 const REGENERATE_TIMEOUT_MS = 10 * 60 * 1000;
@@ -17,15 +17,16 @@ type RegeneratedFields = Pick<ExamQuestionDetail, "status" | "questionText" | "a
 
 interface ExamQuestionRegenerateProps {
     paperId: string;
+    paperMode?: ExamMode;
     question: ExamQuestionDetail;
     onDone: (updated: RegeneratedFields) => void;
 }
 
-/** 单题重新生成：未录入结果时可重新生成题目和解答，录入后只能重新生成解答 */
-export function ExamQuestionRegenerate({ paperId, question, onDone }: ExamQuestionRegenerateProps) {
+/** 单题重新生成：未录入结果时可重新生成题目和解答，录入后只能重新生成解答。原题直出模式隐藏「换一道题」。 */
+export function ExamQuestionRegenerate({ paperId, paperMode, question, onDone }: ExamQuestionRegenerateProps) {
     const { t, language } = useLanguage();
     const [running, setRunning] = useState<RegenerateMode | null>(null);
-    const canRegenerateQuestion = question.attempts.length === 0 && !!question.errorItemId && question.status !== "pending";
+    const canRegenerateQuestion = paperMode !== 'original' && question.attempts.length === 0 && !!question.errorItemId && question.status !== "pending";
     const canRegenerateAnswer = question.status === "ready" && !!question.questionText?.trim();
     if (!canRegenerateQuestion && !canRegenerateAnswer) return null;
 

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import type { KnowledgeTag } from '@prisma/client';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
     prisma: undefined as PrismaClient | undefined,
@@ -185,9 +185,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 7 版格式，包含 tagSet 字段与空的 extensions', async () => {
+    it('导出文件使用第 8 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(7);
+        expect(backup.version).toBe(8);
         expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
@@ -324,7 +324,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         const subject = await database.subject.findFirstOrThrow({ where: { userId: 'user-1' } });
         const paper = await database.examPaper.findFirstOrThrow({ where: { userId: 'user-1' }, include: { questions: { orderBy: { order: 'asc' } } } });
         expect(paper).toMatchObject({
-            title: '周测', status: 'partial', scope: 'unmastered', difficulty: 'hard', requestedCount: 2,
+            title: '周测', status: 'partial', scope: 'unmastered', difficulty: 'hard', mode: 'generate', requestedCount: 2,
             subjectIds: JSON.stringify([subject.id]), tagNames: JSON.stringify(['自定义标签']),
             resultsRecordedAt: new Date('2026-10-22T00:00:00Z'), createdAt: new Date('2026-10-21T00:00:00Z'),
         });
@@ -341,6 +341,37 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.examPaper.count({ where: { userId: 'user-1' } })).toBe(1);
         const examRecords = await database.practiceRecord.findMany({ where: { source: 'exam' } });
         expect(examRecords.map((record) => record.examQuestionId)).toEqual([paper.questions[0].id, paper.questions[0].id]);
+    });
+
+    it('原题直出试卷的 mode 与 original 难度随备份往返，旧文件缺省 generate', async () => {
+        await database.examPaper.create({
+            data: {
+                id: 'paper-orig', userId: 'user-1', title: '原题卷', status: 'ready', scope: 'all', difficulty: 'original', mode: 'original', requestedCount: 1,
+                subjectIds: JSON.stringify(['math']), createdAt: new Date('2026-10-23T00:00:00Z'),
+                questions: { create: [
+                    { id: 'q-orig', order: 0, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'ready', questionText: '原题', answerText: '答', analysis: '析' },
+                ] },
+            },
+        });
+        const backup = await exportBackup();
+        const origPaper = backup.examPapers.find((p: { id: string }) => p.id === 'paper-orig');
+        expect(origPaper.mode).toBe('original');
+        await clearUserData();
+        await importBackup(backup);
+        const paper = await database.examPaper.findFirstOrThrow({ where: { userId: 'user-1', title: '原题卷' } });
+        expect(paper.mode).toBe('original');
+        expect(paper.difficulty).toBe('original');
+
+        // 模拟旧版文件（无 mode 字段）：缺省 generate
+        const legacyBackup = await exportBackup();
+        delete legacyBackup.examPapers[0].mode;
+        legacyBackup.examPapers[0].difficulty = 'hard';
+        legacyBackup.version = 7;
+        await clearUserData();
+        await importBackup(legacyBackup);
+        const legacyPaper = await database.examPaper.findFirstOrThrow({ where: { userId: 'user-1' } });
+        expect(legacyPaper.mode).toBe('generate');
+        expect(legacyPaper.difficulty).toBe('hard');
     });
 
     it('云端语音随备份导入、导出：只导出与动画讲解一致的语音，不合法的跳过，已有的不重复写入', async () => {
@@ -666,7 +697,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             await importBackup(backup);
 
             expect(testExt.import).toHaveBeenCalledTimes(1);
-            const [ctx, payload] = testExt.import.mock.calls[0];
+            const [ctx, payload] = vi.mocked(testExt.import).mock.calls[0];
             expect(payload).toEqual({ version: 1, data: { bankItems: ['a', 'b'] } });
             // errorItemIdMap 把旧 ID 映射到数据库中真实存在的新 ID
             const newItem = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1' } });

@@ -14,6 +14,9 @@ const logger = createLogger('exam');
 export const EXAM_SCOPES = ['unmastered', 'mastered', 'all'] as const;
 export type ExamScope = typeof EXAM_SCOPES[number];
 export const EXAM_DIFFICULTIES = ['easy', 'medium', 'hard', 'harder'] as const;
+/** 组卷模式：generate 举一反三新题（默认）/ original 原题直出 */
+export const EXAM_MODES = ['generate', 'original'] as const;
+export type ExamMode = typeof EXAM_MODES[number];
 /** 抽题规则：优先练习较少的题目（默认）/ 完全随机 */
 export const EXAM_PICK_RULES = ['least_practiced', 'random'] as const;
 export type ExamPickRule = typeof EXAM_PICK_RULES[number];
@@ -30,6 +33,8 @@ export interface ExamSelection {
     scope: ExamScope;
     count: number;
     pickRule?: ExamPickRule;
+    /** 原题直出模式要求题目必须有题干文字 */
+    requireQuestionText?: boolean;
 }
 
 /** 构造抽题条件：限定错题本、掌握范围（按用户的已掌握阈值），可选按知识点标签和卷别分组 */
@@ -50,6 +55,10 @@ export function buildSourceWhere(userId: string, selection: ExamSelection, maste
     }
     if (selection.paperLevelIds && selection.paperLevelIds.length > 0) {
         where.paperLevel = { in: selection.paperLevelIds };
+    }
+    // 原题直出模式要求有题干；纯空白无法用 where 判断，在 selectSourceItems 中再过滤
+    if (selection.requireQuestionText) {
+        where.questionText = { not: null };
     }
     return where;
 }
@@ -81,13 +90,18 @@ export function pickLeastPracticed<T extends { practiceCount: number; inExam?: b
 export async function selectSourceItems(userId: string, selection: ExamSelection) {
     const candidates = await prisma.errorItem.findMany({
         where: buildSourceWhere(userId, selection, await getMasteryThreshold(userId)),
-        select: { id: true, shortId: true, _count: { select: { practiceRecords: true, examQuestions: true } } },
+        // 只有原题直出需要判断题干，其他模式不读取题干全文
+        select: { id: true, shortId: true, questionText: selection.requireQuestionText === true, _count: { select: { practiceRecords: true, examQuestions: true } } },
     });
-    const items = candidates.map(({ _count, ...item }) => ({
+    let items = candidates.map(({ _count, ...item }) => ({
         ...item,
         practiceCount: _count.practiceRecords,
         inExam: (_count.examQuestions ?? 0) > 0,
     }));
+    // 原题直出模式排除没有题干文字（空或纯空白）的题目
+    if (selection.requireQuestionText) {
+        items = items.filter((item) => !!item.questionText?.trim());
+    }
     return (selection.pickRule ?? DEFAULT_EXAM_PICK_RULE) === 'random'
         ? sampleItems(items, selection.count)
         : pickLeastPracticed(items, selection.count);
@@ -158,6 +172,7 @@ const runningPapers = new Set<string>();
 
 /**
  * 生成试卷中尚未成功的题目（新建试卷、重试失败题目、服务重启后续生成均调用此函数）
+ * 原题直出（mode=original）的试卷不需要 AI 生成，直接跳过
  */
 export async function generateExamPaper(paperId: string, language: 'zh' | 'en' = 'zh'): Promise<void> {
     if (runningPapers.has(paperId)) return;
@@ -166,9 +181,11 @@ export async function generateExamPaper(paperId: string, language: 'zh' | 'en' =
     try {
         const paper = await prisma.examPaper.findUnique({
             where: { id: paperId },
-            select: { userId: true, title: true, difficulty: true, questions: { where: { status: { not: 'ready' } }, select: { id: true } } },
+            select: { userId: true, title: true, difficulty: true, mode: true, questions: { where: { status: { not: 'ready' } }, select: { id: true } } },
         });
         if (!paper) return;
+        // 原题直出：题目创建时即为 ready，无需 AI 生成
+        if (paper.mode === 'original') return;
 
         const queue = paper.questions.map((question) => question.id);
         const total = queue.length;
@@ -238,7 +255,7 @@ export async function regenerateExamQuestion(
             paperId: true,
             status: true,
             questionText: true,
-            paper: { select: { userId: true, title: true, difficulty: true } },
+            paper: { select: { userId: true, title: true, difficulty: true, mode: true } },
             errorItem: {
                 select: {
                     questionText: true,
@@ -261,6 +278,8 @@ export async function regenerateExamQuestion(
     const task = { userId, subject: question.paper.title, link: `/exams/${paperId}` };
 
     if (mode === 'question') {
+        // 原题直出模式不允许换一道题
+        if (question.paper.mode === 'original') throw new Error('ORIGINAL_MODE');
         if (question._count.practiceRecords > 0) throw new Error('HAS_RESULTS');
         const source = question.errorItem;
         if (!source) throw new Error('SOURCE_DELETED');
@@ -331,6 +350,7 @@ export async function recordExamResults(paperId: string, userId: string, takenAt
         select: {
             userId: true,
             difficulty: true,
+            mode: true,
             questions: {
                 select: {
                     id: true,
@@ -347,6 +367,9 @@ export async function recordExamResults(paperId: string, userId: string, takenAt
     if (!paper || paper.userId !== userId) {
         throw new Error('EXAM_NOT_FOUND');
     }
+
+    // 原题直出模式没有 AI 生成难度，练习记录的难度写 null
+    const recordDifficulty = paper.mode === 'original' ? null : paper.difficulty;
 
     const questionMap = new Map(paper.questions.map((question) => [question.id, question]));
     const affected = new Set<string>();
@@ -366,7 +389,7 @@ export async function recordExamResults(paperId: string, userId: string, takenAt
                     result,
                     isCorrect: result === 'correct',
                     createdAt: takenAt,
-                    difficulty: paper.difficulty,
+                    difficulty: recordDifficulty,
                     subject: question.errorItem?.subject?.name ?? null,
                     questionText: question.questionText,
                     answerText: question.answerText,
@@ -382,4 +405,26 @@ export async function recordExamResults(paperId: string, userId: string, takenAt
     });
 
     return [...affected];
+}
+
+/** 从原题快照复制组卷所需字段，用于原题直出模式（不调用 AI） */
+export function snapshotOriginalQuestion(item: {
+    questionText: string | null;
+    answerText: string | null;
+    analysis: string | null;
+    figureSvg: string | null;
+    figureScale: number;
+    figureAlign: string;
+    answerSpacePx: number | null;
+}) {
+    return {
+        questionText: item.questionText,
+        answerText: item.answerText,
+        analysis: item.analysis,
+        figureSvg: item.figureSvg,
+        figureScale: item.figureScale,
+        figureAlign: item.figureAlign,
+        answerSpacePx: item.answerSpacePx,
+        status: 'ready' as const,
+    };
 }

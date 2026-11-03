@@ -27,9 +27,13 @@ export async function POST(
             return unauthorized("Authentication required");
         }
 
-        const paper = await prisma.examPaper.findUnique({ where: { id }, select: { userId: true } });
+        const paper = await prisma.examPaper.findUnique({ where: { id }, select: { userId: true, mode: true } });
         if (!paper || paper.userId !== user.id) {
             return notFound("Exam paper not found");
+        }
+        // 原题直出模式没有失败的题目，无需重试
+        if (paper.mode === 'original') {
+            return NextResponse.json({ success: true });
         }
 
         const body = retrySchema.safeParse(await req.json().catch(() => ({})));

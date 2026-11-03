@@ -9,10 +9,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TagInput } from "@/components/tag-input";
+import { ExamModeToggle } from "@/components/exam/exam-mode-toggle";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
 import { usePaperGroups } from "@/lib/use-paper-groups";
-import type { ExamPickRule, ExamScope, Notebook } from "@/types/api";
+import type { ExamMode, ExamPickRule, ExamScope, Notebook } from "@/types/api";
 
 const SCOPES: ExamScope[] = ["unmastered", "mastered", "all"];
 const PICK_RULES: ExamPickRule[] = ["least_practiced", "random"];
@@ -30,6 +31,7 @@ export function ExamCreateForm() {
     const [pickRule, setPickRule] = useState<ExamPickRule>("least_practiced");
     const [count, setCount] = useState(10);
     const [difficulty, setDifficulty] = useState<typeof DIFFICULTIES[number]>("medium");
+    const [mode, setMode] = useState<ExamMode>("generate");
     const [title, setTitle] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -68,7 +70,8 @@ export function ExamCreateForm() {
                 scope,
                 pickRule,
                 count,
-                difficulty,
+                difficulty: mode === "original" ? undefined : difficulty,
+                mode,
                 title: title.trim() || undefined,
                 language,
             });
@@ -140,7 +143,9 @@ export function ExamCreateForm() {
                         </div>
                     )}
 
-                    <div className="grid gap-4 sm:grid-cols-3">
+                    <ExamModeToggle value={mode} onChange={setMode} />
+
+                    <div className={`grid gap-4 ${mode === "generate" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
                         <div className="space-y-2">
                             <Label>{t.exam.scope}</Label>
                             <div className="grid grid-cols-3 gap-1 rounded-md bg-muted p-1">
@@ -167,19 +172,21 @@ export function ExamCreateForm() {
                                 onChange={(e) => setCount(Math.min(50, Math.max(1, parseInt(e.target.value, 10) || 1)))}
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="exam-difficulty">{t.exam.difficulty}</Label>
-                            <select
-                                id="exam-difficulty"
-                                value={difficulty}
-                                onChange={(e) => setDifficulty(e.target.value as typeof DIFFICULTIES[number])}
-                                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                            >
-                                {DIFFICULTIES.map((value) => (
-                                    <option key={value} value={value}>{difficultyLabels[value]}</option>
-                                ))}
-                            </select>
-                        </div>
+                        {mode === "generate" && (
+                            <div className="space-y-2">
+                                <Label htmlFor="exam-difficulty">{t.exam.difficulty}</Label>
+                                <select
+                                    id="exam-difficulty"
+                                    value={difficulty}
+                                    onChange={(e) => setDifficulty(e.target.value as typeof DIFFICULTIES[number])}
+                                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                >
+                                    {DIFFICULTIES.map((value) => (
+                                        <option key={value} value={value}>{difficultyLabels[value]}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -208,7 +215,7 @@ export function ExamCreateForm() {
 
                     <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
                         {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                        {submitting ? t.exam.creating : t.exam.generate}
+                        {submitting ? t.exam.creating : mode === "original" ? t.exam.createOriginal : t.exam.generate}
                     </Button>
                 </form>
             </CardContent>

@@ -15,10 +15,11 @@ import { FigureScaleEditor } from "@/components/error-detail/figure-scale-editor
 import { ExamQuestionRegenerate } from "@/components/exam/exam-question-regenerate";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { FigureAlign } from "@/lib/figure-scale";
-import type { ExamQuestionDetail, PracticeResult } from "@/types/api";
+import type { ExamMode, ExamQuestionDetail, PracticeResult } from "@/types/api";
 
 interface ExamQuestionCardProps {
     paperId: string;
+    paperMode?: ExamMode;
     question: ExamQuestionDetail;
     /** 录入模式下的待保存结果；undefined 表示非录入模式 */
     editingResult?: PracticeResult | null;
@@ -37,6 +38,7 @@ interface ExamQuestionCardProps {
 
 export function ExamQuestionCard({
     paperId,
+    paperMode,
     question,
     editingResult,
     onResultChange,
@@ -145,7 +147,7 @@ export function ExamQuestionCard({
                 )}
 
                 {!isEditing && onRegenerated && (
-                    <ExamQuestionRegenerate paperId={paperId} question={question} onDone={onRegenerated} />
+                    <ExamQuestionRegenerate paperId={paperId} paperMode={paperMode} question={question} onDone={onRegenerated} />
                 )}
 
                 {isEditing && question.status === "ready" && question.errorItemId && onResultChange && (

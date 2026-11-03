@@ -24,7 +24,7 @@ import { sanitizeSvgAnimation } from "@/lib/svg-animation";
 import { importSpeeches } from "@/lib/tts/speech-cache";
 import { parseLastPractice } from "@/lib/last-practice";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
-import { EXAM_DIFFICULTIES, EXAM_SCOPES, summarizePaperStatus } from "@/lib/exam";
+import { EXAM_DIFFICULTIES, EXAM_MODES, EXAM_SCOPES, summarizePaperStatus } from "@/lib/exam";
 import type { Prisma } from "@prisma/client";
 import { importImportBatches, importImportTasks } from "@/lib/import-task-backup";
 import { importExtensions } from "@/lib/backup-extensions";
@@ -160,6 +160,7 @@ interface ImportData {
         status: string;
         scope: string;
         difficulty: string;
+        mode?: string;              // version 8 起导出，旧版缺省 generate
         requestedCount: number;
         subjectIds: string;
         tagNames: string | null;
@@ -670,7 +671,7 @@ export async function POST(req: Request) {
                 const createdAt = safeParseDate(paper.createdAt);
                 const existing = createdAt && await tx.examPaper.findFirst({
                     where: { userId: targetUserId, title: paper.title, createdAt },
-                    select: { questions: { select: { id: true, order: true } } },
+                    select: { id: true, questions: { select: { id: true, order: true } } },
                 });
                 if (existing) {
                     examPaperIdMap.set(paper.id, existing.id);
@@ -692,7 +693,11 @@ export async function POST(req: Request) {
                         title: String(paper.title || ''),
                         status: statuses.length > 0 ? summarizePaperStatus(statuses) : 'failed',
                         scope: (EXAM_SCOPES as readonly string[]).includes(paper.scope) ? paper.scope : 'all',
-                        difficulty: (EXAM_DIFFICULTIES as readonly string[]).includes(paper.difficulty) ? paper.difficulty : 'medium',
+                        // 原题直出模式没有 AI 生成难度；旧版文件缺省 generate
+                        mode: (EXAM_MODES as readonly string[]).includes(paper.mode || '') ? paper.mode! : 'generate',
+                        difficulty: (EXAM_MODES as readonly string[]).includes(paper.mode || '') && paper.mode === 'original'
+                            ? 'original'
+                            : (EXAM_DIFFICULTIES as readonly string[]).includes(paper.difficulty) ? paper.difficulty : 'medium',
                         requestedCount: Number.isInteger(paper.requestedCount) && paper.requestedCount > 0 ? paper.requestedCount : questions.length,
                         subjectIds: mapSubjectIds(paper.subjectIds, subjectIdMap),
                         tagNames: typeof paper.tagNames === 'string' ? paper.tagNames : null,

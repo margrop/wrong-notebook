@@ -77,7 +77,7 @@ describe('/api/exams', () => {
             vi.setSystemTime(new Date('2026-10-19T03:27:00Z'));
             vi.mocked(getAppTimeZone).mockReturnValueOnce(timeZone);
             mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
-            mocks.errorItem.findMany.mockResolvedValue([{ id: 'e1', shortId: 'AAAAAA', _count: { practiceRecords: 0 } }]);
+            mocks.errorItem.findMany.mockResolvedValue([{ id: 'e1', shortId: 'AAAAAA', questionText: '题1', _count: { practiceRecords: 0 } }]);
             mocks.examPaper.create.mockResolvedValue({ id: 'p1', title: '数学', requestedCount: 2, _count: { questions: 1 } });
             try {
                 expect((await CREATE(json('http://localhost/api/exams', 'POST', options))).status).toBe(201);
@@ -88,9 +88,9 @@ describe('/api/exams', () => {
         });
 
         const practicedItems = [
-            { id: 'e1', shortId: 'AAAAAA', _count: { practiceRecords: 5 } },
-            { id: 'e2', shortId: 'BBBBBB', _count: { practiceRecords: 0 } },
-            { id: 'e3', shortId: 'CCCCCC', _count: { practiceRecords: 1 } },
+            { id: 'e1', shortId: 'AAAAAA', questionText: '题1', _count: { practiceRecords: 5 } },
+            { id: 'e2', shortId: 'BBBBBB', questionText: '题2', _count: { practiceRecords: 0 } },
+            { id: 'e3', shortId: 'CCCCCC', questionText: '题3', _count: { practiceRecords: 1 } },
         ];
 
         it('完全随机抽题并记录来源短 ID', async () => {
@@ -127,10 +127,10 @@ describe('/api/exams', () => {
         it('优先练习较少时，同练习次数下优先抽取未出现在已有试卷中的题目', async () => {
             mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
             mocks.errorItem.findMany.mockResolvedValue([
-                { id: 'e1', shortId: 'AAAAAA', _count: { practiceRecords: 1, examQuestions: 2 } },
-                { id: 'e2', shortId: 'BBBBBB', _count: { practiceRecords: 0, examQuestions: 1 } },
-                { id: 'e3', shortId: 'CCCCCC', _count: { practiceRecords: 0, examQuestions: 0 } },
-                { id: 'e4', shortId: 'DDDDDD', _count: { practiceRecords: 1, examQuestions: 0 } },
+                { id: 'e1', shortId: 'AAAAAA', questionText: '题1', _count: { practiceRecords: 1, examQuestions: 2 } },
+                { id: 'e2', shortId: 'BBBBBB', questionText: '题2', _count: { practiceRecords: 0, examQuestions: 1 } },
+                { id: 'e3', shortId: 'CCCCCC', questionText: '题3', _count: { practiceRecords: 0, examQuestions: 0 } },
+                { id: 'e4', shortId: 'DDDDDD', questionText: '题4', _count: { practiceRecords: 1, examQuestions: 0 } },
             ]);
             mocks.examPaper.create.mockResolvedValue({ id: 'p1', title: '数学', requestedCount: 3, _count: { questions: 3 } });
 
@@ -168,6 +168,84 @@ describe('/api/exams', () => {
             expect(tooMany.status).toBe(400);
             expect(badScope.status).toBe(400);
             expect(badRule.status).toBe(400);
+        });
+
+        it('原题直出模式：不调用 AI 与额度，题目创建即 ready，difficulty 可省略', async () => {
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            mocks.errorItem.findMany
+                .mockResolvedValueOnce([{ id: 'e1', shortId: 'AAAAAA', questionText: '原题', _count: { practiceRecords: 0 } }])
+                .mockResolvedValueOnce([{
+                    id: 'e1', shortId: 'AAAAAA',
+                    questionText: '原题', answerText: '答', analysis: '析', figureSvg: '<svg/>',
+                    figureScale: 65, figureAlign: 'left', answerSpacePx: 240,
+                }]);
+            mocks.examPaper.create.mockResolvedValue({ id: 'p1', title: '数学', requestedCount: 1, _count: { questions: 1 } });
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', {
+                subjectIds: ['s1'], scope: 'all', count: 1, mode: 'original',
+            }));
+
+            expect(response.status).toBe(201);
+            const created = mocks.examPaper.create.mock.calls[0][0].data;
+            expect(created.mode).toBe('original');
+            expect(created.status).toBe('ready');
+            expect(created.difficulty).toBe('original');
+            expect(created.questions.create[0]).toMatchObject({
+                questionText: '原题', answerText: '答', analysis: '析', figureSvg: '<svg/>',
+                figureScale: 65, figureAlign: 'left', answerSpacePx: 240, status: 'ready',
+            });
+            expect(mocks.generateSimilarQuestion).not.toHaveBeenCalled();
+        });
+
+        it('原题直出：findMany 返回乱序时题目 order 仍按 sources 抽题顺序', async () => {
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            // selectSourceItems 返回顺序：e3 先被抽中（练习次数最少）
+            mocks.errorItem.findMany
+                .mockResolvedValueOnce([
+                    { id: 'e3', shortId: 'CCCCCC', questionText: '题3', _count: { practiceRecords: 0 } },
+                    { id: 'e1', shortId: 'AAAAAA', questionText: '题1', _count: { practiceRecords: 5 } },
+                ])
+                // 第二次 findMany 返回乱序（数据库默认顺序可能与 sources 不同）
+                .mockResolvedValueOnce([
+                    { id: 'e1', shortId: 'AAAAAA', questionText: '题1', answerText: '答1', analysis: '析1', figureSvg: null, figureScale: 100, figureAlign: 'center', answerSpacePx: null },
+                    { id: 'e3', shortId: 'CCCCCC', questionText: '题3', answerText: '答3', analysis: '析3', figureSvg: null, figureScale: 100, figureAlign: 'center', answerSpacePx: null },
+                ]);
+            mocks.examPaper.create.mockResolvedValue({ id: 'p1', title: '数学', requestedCount: 2, _count: { questions: 2 } });
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', {
+                subjectIds: ['s1'], scope: 'all', count: 2, mode: 'original',
+            }));
+
+            expect(response.status).toBe(201);
+            const created = mocks.examPaper.create.mock.calls[0][0].data;
+            // order 应跟随 sources 顺序：e3 在前（练习次数少），e1 在后
+            expect(created.questions.create.map((q: { errorItemId: string; order: number }) => [q.errorItemId, q.order]))
+                .toEqual([['e3', 1], ['e1', 2]]);
+        });
+
+        it('原题直出模式排除无题干文字（含纯空白）的题目，全部被排除时返回 NO_SOURCE_ITEMS', async () => {
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            // 只有无题干的题目
+            mocks.errorItem.findMany.mockResolvedValue([
+                { id: 'e1', shortId: 'AAAAAA', questionText: null, _count: { practiceRecords: 0 } },
+                { id: 'e2', shortId: 'BBBBBB', questionText: '   ', _count: { practiceRecords: 0 } },
+                { id: 'e3', shortId: 'CCCCCC', questionText: '', _count: { practiceRecords: 0 } },
+            ]);
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', {
+                subjectIds: ['s1'], scope: 'all', count: 2, mode: 'original',
+            }));
+
+            expect(response.status).toBe(400);
+            expect((await response.json()).message).toBe('NO_SOURCE_ITEMS');
+        });
+
+        it('generate 模式缺少 difficulty 时返回 400', async () => {
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', {
+                subjectIds: ['s1'], scope: 'all', count: 1,
+            }));
+
+            expect(response.status).toBe(400);
         });
     });
 
@@ -436,6 +514,28 @@ describe('/api/exams', () => {
         it('校验重新生成方式', async () => {
             expect((await regenerate({ mode: 'all' })).status).toBe(400);
             expect(mocks.examQuestion.findUnique).not.toHaveBeenCalled();
+        });
+
+        it('原题直出试卷 mode=question 返回 ORIGINAL_MODE 400，mode=answer 仍允许', async () => {
+            const originalQuestion = {
+                ...question(0),
+                paper: { userId: 'user-1', title: '试卷', difficulty: 'original', mode: 'original' },
+            };
+            mocks.examQuestion.findUnique.mockResolvedValueOnce(originalQuestion);
+
+            const questionResponse = await regenerate({ mode: 'question' });
+            expect(questionResponse.status).toBe(400);
+            expect((await questionResponse.json()).message).toBe('ORIGINAL_MODE');
+            expect(mocks.generateSimilarQuestion).not.toHaveBeenCalled();
+
+            // answer 模式不受原题限制
+            mocks.examQuestion.findUnique
+                .mockResolvedValueOnce(originalQuestion)
+                .mockResolvedValueOnce({ ...regenerated, questionText: '原题' });
+            mocks.reanswerQuestion.mockResolvedValue({ answerText: '新答', analysis: '新析' });
+
+            const answerResponse = await regenerate({ mode: 'answer', language: 'zh' });
+            expect(answerResponse.status).toBe(200);
         });
     });
 

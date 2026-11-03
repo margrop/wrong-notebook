@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { answeredDateToISOString, formatDateTime } from "@/lib/date-time";
 import { ClipboardCheck, Loader2, Printer, RotateCcw, Save, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BackButton } from "@/components/ui/back-button";
@@ -143,6 +144,7 @@ export default function ExamDetailPage() {
                         <h1 className="text-xl sm:text-2xl font-bold tracking-tight break-words">{paper.title}</h1>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                             <ExamStatusBadge status={paper.status} recorded={recorded} />
+                            {paper.mode === 'original' && <Badge variant="secondary">{t.exam.modes.original}</Badge>}
                             <span>{t.exam.progress.replace("{ready}", String(readyCount)).replace("{total}", String(paper.questions.length))}</span>
                             <span>{formatDateTime(paper.createdAt, "yyyy-MM-dd HH:mm", timeZone)}</span>
                         </div>
@@ -205,6 +207,7 @@ export default function ExamDetailPage() {
                         <ExamQuestionCard
                             key={question.id}
                             paperId={paper.id}
+                            paperMode={paper.mode}
                             question={question}
                             editingResult={draft ? draft[question.id] ?? null : undefined}
                             onResultChange={(result) => setDraft((prev) => (prev ? { ...prev, [question.id]: result } : prev))}

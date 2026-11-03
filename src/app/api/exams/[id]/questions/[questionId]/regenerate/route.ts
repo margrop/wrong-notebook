@@ -44,6 +44,7 @@ async function handlePost(
         const message = error instanceof Error ? error.message : String(error);
         if (message === 'EXAM_QUESTION_NOT_FOUND') return notFound("Exam question not found");
         if (message === 'HAS_RESULTS' || message === 'QUESTION_GENERATING') return conflict(message);
+        if (message === 'ORIGINAL_MODE') return badRequest("ORIGINAL_MODE");
         if (message === 'SOURCE_DELETED' || message === 'NO_QUESTION_TEXT' || message === 'EMPTY_ANSWER') return badRequest(message);
         logger.error({ error: message }, 'Error regenerating exam question');
         return internalError(message.startsWith('AI_') ? message.split(':')[0] : "Failed to regenerate exam question");

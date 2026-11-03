@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageLoading } from "@/components/ui/page-loading";
 import { ExamCreateForm } from "@/components/exam/exam-create-form";
 import { ExamStatusBadge } from "@/components/exam/exam-status-badge";
+import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
 import { apiClient } from "@/lib/api-client";
@@ -74,7 +75,11 @@ export default function ExamsPage() {
                                                 <span>{formatDateTime(paper.createdAt, "yyyy-MM-dd HH:mm", timeZone)}</span>
                                                 <span>{t.exam.questionCount.replace("{count}", String(paper.questionCount))}</span>
                                                 <span>{t.exam.scopes[paper.scope]}</span>
-                                                <span>{difficultyLabels[paper.difficulty] || paper.difficulty}</span>
+                                                {paper.mode === 'original' ? (
+                                                    <Badge variant="secondary">{t.exam.modes.original}</Badge>
+                                                ) : (
+                                                    <span>{difficultyLabels[paper.difficulty] || paper.difficulty}</span>
+                                                )}
                                                 <span>{paper.recordedCount > 0 ? t.exam.recorded : t.exam.notRecorded}</span>
                                             </div>
                                         </CardContent>

@@ -39,10 +39,13 @@ The **Review** page in the navigation lists questions due today, and the home pa
 
 ## Generate an exam paper
 
-1. Open the exam entry and choose the scope: notebooks, knowledge points, mastery and so on.
-2. The system picks questions from that scope (by default **Least practiced first**: questions with fewer practice records come first; for ties, questions that have never appeared in an existing exam paper come first, then random; **Fully random** is also available) and generates a variant for each.
-3. Check the progress in background tasks; when it finishes, open the paper and check the questions, figures and answers.
-4. Print or export it, and afterwards record the result for each question.
+1. Open the exam entry and choose the scope: notebooks, knowledge points, mastery and so on, plus the mode (Similar Questions / Original).
+2. The system picks questions from that scope (by default **Least practiced first**: questions with fewer practice records come first; for ties, questions that have never appeared in an existing exam paper come first, then random; **Fully random** is also available).
+3. **Similar Questions** (default): the AI generates a variant for each question. Check the progress in background tasks; when it finishes, open the paper and check the questions, figures and answers. You can choose the difficulty (Easy / Medium / Hard / Challenge).
+4. **Original**: uses the original question text, answer, analysis and figure directly. No AI is called and no AI quota is consumed; the paper is ready to print immediately. No difficulty selection needed.
+5. Print or export it, and afterwards record the result for each question.
+
+Original-mode papers do not show the "Regenerate question" button (the original question cannot be replaced), but "Regenerate solution" is still available; recorded results store no difficulty.
 
 In the exam list a paper shows Generating, then Generated (or Partly failed / Failed), and Completed once results have been entered.
 

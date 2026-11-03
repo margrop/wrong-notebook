@@ -415,6 +415,7 @@ export interface PracticeHistoryResponse {
 export type ExamScope = 'unmastered' | 'mastered' | 'all';
 export type ExamPickRule = 'least_practiced' | 'random';
 export type ExamStatus = 'generating' | 'ready' | 'partial' | 'failed';
+export type ExamMode = 'generate' | 'original';
 
 export interface ExamPaperSummary {
     id: string;
@@ -422,6 +423,7 @@ export interface ExamPaperSummary {
     status: ExamStatus;
     scope: ExamScope;
     difficulty: string;
+    mode: ExamMode;
     requestedCount: number;
     questionCount: number;
     readyCount: number;
@@ -462,6 +464,7 @@ export interface ExamPaperDetail {
     status: ExamStatus;
     scope: ExamScope;
     difficulty: string;
+    mode: ExamMode;
     requestedCount: number;
     resultsRecordedAt: string | null;
     createdAt: string;

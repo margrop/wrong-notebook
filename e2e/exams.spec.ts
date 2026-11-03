@@ -79,3 +79,46 @@ test('[E2E-M04] 试卷部分失败后仅重试未成功题目', async ({ page, s
     await page.reload();
     await expect(page.getByRole('button', { name: '重新生成失败的题', exact: true })).toHaveCount(0);
 });
+
+test('[E2E-M05] 原题直出：创建原题试卷、列表显示原题标签、详情页无换一道题按钮', async ({ page, scenario }) => {
+    const a = await scenario.item('A');
+    await scenario.item('B');
+    await scenario.login(page);
+    await scenario.control({ hold: true, masteryProbability: 70 });
+    await page.goto('/exams');
+
+    // 选择原题模式
+    await page.getByRole('checkbox', { name: /数学/ }).check();
+    await page.getByRole('button', { name: '原题', exact: true }).click();
+    // 选原题模式后难度被隐藏
+    await expect(page.locator('#exam-difficulty')).toHaveCount(0);
+    await page.locator('#exam-count').fill('2');
+    await page.getByRole('button', { name: '创建原题试卷', exact: true }).click();
+    await page.waitForURL(/\/exams\/[^/]+$/);
+    const id = new URL(page.url()).pathname.split('/').pop()!;
+
+    // 试卷立即 ready，无 AI 调用
+    const paper = await scenario.db.examPaper.findUniqueOrThrow({ where: { id } });
+    expect(paper.status).toBe('ready');
+    expect(paper.mode).toBe('original');
+    expect((await scenario.model()).calls.filter((call) => call.operation === 'variant')).toHaveLength(0);
+
+    // 详情页：题目内容等于原题
+    const questions = await scenario.db.examQuestion.findMany({ where: { paperId: id }, orderBy: { order: 'asc' } });
+    expect(questions).toHaveLength(2);
+    for (const question of questions) {
+        expect(question.status).toBe('ready');
+        const item = await scenario.db.errorItem.findUniqueOrThrow({ where: { id: question.errorItemId! } });
+        expect(question.questionText).toBe(item.questionText);
+    }
+
+    // 详情页：显示「原题」标签，无「换一道题」按钮
+    await expect(page.getByText('原题', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: '换一道题', exact: true })).toHaveCount(0);
+
+    // 返回列表页：显示「原题」标签
+    await page.goto('/exams');
+    await expect(page.getByText('原题', { exact: true }).first()).toBeVisible();
+
+    await scenario.control({ hold: false });
+});

@@ -6,7 +6,7 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('@/lib/prisma', () => ({ prisma: {} }));
 vi.mock('@/lib/ai', () => ({ getAIService: vi.fn() }));
 
-import { buildSourceWhere, pickLeastPracticed, sampleItems, summarizePaperStatus } from '@/lib/exam';
+import { buildSourceWhere, pickLeastPracticed, sampleItems, snapshotOriginalQuestion, summarizePaperStatus, EXAM_MODES } from '@/lib/exam';
 import { buildExamHtmlDocument, examFileName, KATEX_CSS_URL } from '@/lib/exam-print';
 import { regionFromPoints } from '@/lib/image-crop';
 
@@ -16,6 +16,11 @@ describe('buildSourceWhere', () => {
     it('未掌握范围选待复习和复习中的题', () => {
         const where = buildSourceWhere('u1', { subjectIds: ['s1'], scope: 'unmastered', count: 5 });
         expect(where).toMatchObject({ userId: 'u1', subjectId: { in: ['s1'] }, NOT: MASTERED, shortId: { not: null } });
+    });
+
+    it('原题直出要求题干非空，其他模式不加该条件', () => {
+        expect(buildSourceWhere('u1', { subjectIds: ['s1'], scope: 'all', count: 5, requireQuestionText: true }).questionText).toEqual({ not: null });
+        expect(buildSourceWhere('u1', { subjectIds: ['s1'], scope: 'all', count: 5 }).questionText).toBeUndefined();
     });
 
     it('已掌握范围选已掌握的题，并可按知识点过滤', () => {
@@ -105,6 +110,36 @@ describe('summarizePaperStatus', () => {
         expect(summarizePaperStatus(['ready', 'ready'])).toBe('ready');
         expect(summarizePaperStatus(['ready', 'failed'])).toBe('partial');
         expect(summarizePaperStatus(['failed', 'failed'])).toBe('failed');
+    });
+});
+
+describe('EXAM_MODES', () => {
+    it('包含 generate 和 original', () => {
+        expect(EXAM_MODES).toEqual(['generate', 'original']);
+    });
+});
+
+describe('snapshotOriginalQuestion', () => {
+    it('复制原题全部快照字段并置为 ready', () => {
+        const item = {
+            questionText: '求解 x + 2 = 5',
+            answerText: 'x = 3',
+            analysis: '移项',
+            figureSvg: '<svg/>',
+            figureScale: 65,
+            figureAlign: 'left',
+            answerSpacePx: 240,
+        };
+        expect(snapshotOriginalQuestion(item)).toEqual({
+            questionText: '求解 x + 2 = 5',
+            answerText: 'x = 3',
+            analysis: '移项',
+            figureSvg: '<svg/>',
+            figureScale: 65,
+            figureAlign: 'left',
+            answerSpacePx: 240,
+            status: 'ready',
+        });
     });
 });
 

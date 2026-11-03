@@ -234,6 +234,7 @@ model ExamPaper {
   status     String   @default("generating") // generating | ready | partial | failed
   scope      String   // unmastered | mastered | all
   difficulty String   // easy | medium | hard | harder
+  mode       String   @default("generate") // generate 举一反三新题 | original 原题直出
   requestedCount Int
   subjectIds String   // JSON 数组
   tagNames   String?  // JSON 数组

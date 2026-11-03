@@ -119,7 +119,7 @@ export async function GET(req: Request) {
         const extensions = await collectExtensions({ userIds: exportAll ? null : [user.id] });
 
         const exportData = {
-            version: 7,
+            version: 8,
             exportedAt: new Date().toISOString(),
             scope: exportAll ? 'all' : 'user',
             user: {
