@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { X } from "lucide-react";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AnswerSpaceControl } from "@/components/print-preview/answer-space-control";
 import { QuestionFigure } from "@/components/question-figure";
@@ -22,6 +23,8 @@ interface PrintableQuestionProps {
     onCustomAnswerSpaceChange?: (id: string, px: number | null) => void;
     /** 卷别名称，由页面统一查好后传入 */
     paperGroupName?: string | null;
+    /** 从打印稿中移除本题（取消勾选）；需保持引用稳定 */
+    onRemove?: (id: string) => void;
 }
 
 /**
@@ -36,6 +39,7 @@ export const PrintableQuestion = memo(function PrintableQuestion({
     customAnswerSpacePx,
     onCustomAnswerSpaceChange,
     paperGroupName,
+    onRemove,
 }: PrintableQuestionProps) {
     const { t } = useLanguage();
     const tags = getPrintableItemTagNames(item);
@@ -70,6 +74,16 @@ export const PrintableQuestion = memo(function PrintableQuestion({
                             <span key={`${tag}-${tagIndex}`} className="px-2 py-1 bg-muted rounded text-sm">{tag}</span>
                         ))}
                     </>
+                )}
+                {onRemove && (
+                    <button
+                        type="button"
+                        className="print:hidden ml-auto flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-destructive"
+                        onClick={() => onRemove(item.id)}
+                    >
+                        <X className="h-3.5 w-3.5" />
+                        {t.printPreview.removeFromPrint}
+                    </button>
                 )}
             </div>
 

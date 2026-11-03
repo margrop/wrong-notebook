@@ -16,6 +16,7 @@ import type { AnswerSpaceChange } from "@/lib/use-saved-answer-spaces";
 import { PRINT_PREVIEW_PAGE_SIZE } from "@/lib/constants/pagination";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { loadAllImages } from "@/lib/print-images";
+import { DEFAULT_PRINT_OPTIONS, readStoredPrintOptions, writeStoredPrintOptions } from "@/lib/print-preview-options";
 import { usePaperGroups } from "@/lib/use-paper-groups";
 import {
     chunk,
@@ -39,15 +40,17 @@ function PrintPreviewContent() {
     const [items, setItems] = useState<PrintableErrorItem[]>([]);
     usePageTitle(t.printPreview.title);
     const [loading, setLoading] = useState(true);
-    const [options, setOptions] = useState<PrintDisplayOptions>({
-        showQuestionText: false,
-        showAnswers: false,
-        showAnalysis: false,
-        showTags: false,
-        imageScale: 70,
-        answerSpace: "auto",
+    const [options, setOptions] = useState<PrintDisplayOptions>(DEFAULT_PRINT_OPTIONS);
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- 本地存储只能在客户端挂载后读取，避免与服务端渲染结果不一致
+        setOptions(readStoredPrintOptions());
+    }, []);
+    /** 修改显示选项并记在本机浏览器，下次打开沿用 */
+    const updateOptions = (patch: Partial<PrintDisplayOptions>) => setOptions((prev) => {
+        const next = { ...prev, ...patch };
+        writeStoredPrintOptions(next);
+        return next;
     });
-    const updateOptions = (patch: Partial<PrintDisplayOptions>) => setOptions((prev) => ({ ...prev, ...patch }));
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const {
         customSpaces,
@@ -94,11 +97,12 @@ function PrintPreviewContent() {
     const { groups: paperGroups } = usePaperGroups();
     const paperGroupNames = useMemo(() => new Map(paperGroups.map((group) => [group.id, group.name])), [paperGroups]);
     const selectedItems = useMemo(() => getSelectedPrintItems(items, selectedIds), [items, selectedIds]);
+    const printNumbers = useMemo(() => new Map(selectedItems.map((item, index) => [item.id, index + 1])), [selectedItems]);
     const reserveAnswerSpace = shouldReserveAnswerSpace(options.showAnswers, options.showAnalysis);
     const countLabel = getPrintPreviewCountLabel(items.length, selectedItems.length);
     const emptyState = getPrintPreviewEmptyState(items.length, selectedItems.length);
 
-    const toggleSelectedItem = (id: string) => {
+    const toggleSelectedItem = useCallback((id: string) => {
         setSelectedIds((prev) => {
             const next = new Set(prev);
             if (next.has(id)) {
@@ -108,15 +112,15 @@ function PrintPreviewContent() {
             }
             return next;
         });
-    };
+    }, []);
 
-    const selectAllItems = () => {
-        setSelectedIds(new Set(items.map((item) => item.id)));
-    };
-
-    const clearSelectedItems = () => {
-        setSelectedIds(new Set());
-    };
+    const removeFromPrint = useCallback((id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+        });
+    }, []);
 
     if (loading) {
         return (
@@ -128,10 +132,9 @@ function PrintPreviewContent() {
 
     return (
         <>
-            {/* Print Controls - Hidden when printing */}
+            {/* 标题、打印按钮与显示选项常驻顶部（打印时隐藏）；选题列表随页面滚动，避免题目多时占满屏幕 */}
             <div className="print:hidden sticky top-0 z-10 bg-background border-b p-3 sm:p-4 shadow-sm">
                 <div className="max-w-6xl mx-auto space-y-3">
-                    {/* Header Row */}
                     <div className="flex items-center gap-3">
                         <BackButton fallbackUrl="/notebooks" />
                         <h1 className="text-lg sm:text-xl font-bold flex-1">
@@ -143,7 +146,6 @@ function PrintPreviewContent() {
                                 : (t.printPreview?.printButton || 'Print / Save PDF')}
                         </Button>
                     </div>
-
                     <PrintOptions
                         options={options}
                         onChange={updateOptions}
@@ -153,13 +155,17 @@ function PrintPreviewContent() {
                     {answerSpaceSaveFailed && (
                         <p className="text-xs text-destructive">{t.exam.answerSpaceSaveFailed}</p>
                     )}
+                </div>
+            </div>
+            <div className="print:hidden border-b p-3 sm:p-4">
+                <div className="max-w-6xl mx-auto">
                     <PrintItemPicker
                         items={items}
                         selectedIds={selectedIds}
                         selectedCount={selectedItems.length}
+                        printNumbers={printNumbers}
                         onToggle={toggleSelectedItem}
-                        onSelectAll={selectAllItems}
-                        onClear={clearSelectedItems}
+                        onSelectionChange={setSelectedIds}
                     />
                 </div>
             </div>
@@ -176,6 +182,7 @@ function PrintPreviewContent() {
                         customAnswerSpacePx={customSpaces[item.id]}
                         onCustomAnswerSpaceChange={setQuestionCustomSpace}
                         paperGroupName={item.paperLevel ? paperGroupNames.get(item.paperLevel) ?? item.paperLevel : null}
+                        onRemove={removeFromPrint}
                     />
                 ))}
 

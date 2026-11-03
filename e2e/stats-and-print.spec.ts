@@ -80,7 +80,23 @@ test('知识点页签按标签计数，打印预览显示所选错题本的题�
         await expect(firstQuestion).toBeChecked();
         await firstQuestion.uncheck();
         await expect(firstQuestion).not.toBeChecked();
-        await expect(page.getByRole('button', { name: /打印/ })).toBeEnabled();
+        await expect(page.getByRole('button', { name: '打印 / 保存 PDF' })).toBeEnabled();
+
+        // 搜索只列出匹配的题目，清空搜索后恢复全部
+        const search = page.getByRole('searchbox', { name: '搜索题目文字、编号或知识点' });
+        await search.fill(`细胞题 2-${suffix}`);
+        await expect(page.getByRole('checkbox', { name: new RegExp(`细胞题 2-${suffix}`) })).toBeVisible();
+        await expect(page.getByRole('checkbox', { name: new RegExp(`细胞题 3-${suffix}`) })).toHaveCount(0);
+        await search.fill('');
+        // 预览中点「不打印此题」即取消勾选
+        const thirdQuestion = page.getByRole('checkbox', { name: new RegExp(`细胞题 3-${suffix}`) });
+        await expect(thirdQuestion).toBeChecked();
+        const removeButtons = page.getByRole('button', { name: '不打印此题' });
+        await expect(removeButtons).toHaveCount(2);
+        await removeButtons.first().click();
+        await expect(removeButtons).toHaveCount(1);
+        // 列表按创建时间倒序，第一题为第 3 题
+        await expect(thirdQuestion).not.toBeChecked();
 
         // 深色系统下打印时仍保持白底深色文字，不出现浅白近透明字迹
         await page.emulateMedia({ colorScheme: 'dark', media: 'print' });

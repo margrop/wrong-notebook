@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+    applyPrintSelection,
     chunk,
+    matchesPrintSearch,
     fetchAllPages,
     getPrintableItemTagNames,
     getPrintPreviewCountLabel,
@@ -8,6 +10,7 @@ import {
     getSelectedPrintItems,
     shouldReserveAnswerSpace,
 } from '@/lib/print-preview';
+import { DEFAULT_PRINT_OPTIONS, parseStoredPrintOptions } from '@/lib/print-preview-options';
 
 describe('print preview helpers', () => {
     const items = [
@@ -78,5 +81,39 @@ describe('打印预览读取全部题目', () => {
     it('按上限分批', () => {
         expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
         expect(chunk([], 2)).toEqual([]);
+    });
+});
+
+describe('打印选题搜索与批量选择', () => {
+    const item = { questionText: '求解 Quadratic 方程', shortId: 'hA6PB9', tags: [{ name: '一元二次方程' }], knowledgePoints: null };
+
+    it('按题目文字、编号或知识点匹配，忽略大小写', () => {
+        expect(matchesPrintSearch(item, '  quadratic ')).toBe(true);
+        expect(matchesPrintSearch(item, 'ha6pb9')).toBe(true);
+        expect(matchesPrintSearch(item, '二次')).toBe(true);
+        expect(matchesPrintSearch(item, '几何')).toBe(false);
+        expect(matchesPrintSearch(item, '   ')).toBe(true);
+    });
+
+    it('全选、取消、反选只影响目标题目', () => {
+        const selected = new Set(['a', 'c']);
+        expect([...applyPrintSelection(selected, ['b'], 'select')].sort()).toEqual(['a', 'b', 'c']);
+        expect([...applyPrintSelection(selected, ['a', 'b'], 'clear')]).toEqual(['c']);
+        expect([...applyPrintSelection(selected, ['a', 'b'], 'invert')].sort()).toEqual(['b', 'c']);
+        expect([...selected].sort()).toEqual(['a', 'c']);
+    });
+});
+
+describe('打印显示选项本地保存', () => {
+    it('读取合法字段，缺失或非法字段回退默认值', () => {
+        expect(parseStoredPrintOptions(JSON.stringify({ showAnswers: true, imageScale: 55, answerSpace: 'large', showTags: 'yes' })))
+            .toEqual({ ...DEFAULT_PRINT_OPTIONS, showAnswers: true, imageScale: 55, answerSpace: 'large' });
+    });
+
+    it('图片比例限制在 30%～100%，损坏数据返回默认值', () => {
+        expect(parseStoredPrintOptions(JSON.stringify({ imageScale: 500 })).imageScale).toBe(100);
+        expect(parseStoredPrintOptions(JSON.stringify({ answerSpace: 'huge' })).answerSpace).toBe('auto');
+        expect(parseStoredPrintOptions('{broken')).toEqual(DEFAULT_PRINT_OPTIONS);
+        expect(parseStoredPrintOptions(null)).toEqual(DEFAULT_PRINT_OPTIONS);
     });
 });

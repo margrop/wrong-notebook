@@ -60,3 +60,29 @@ export function chunk<T>(items: readonly T[], size: number): T[][] {
     for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
     return result;
 }
+
+/** 打印题目列表的搜索：匹配题目文字、题目编号或知识点，忽略大小写与首尾空格 */
+export function matchesPrintSearch(
+    item: Pick<PrintableErrorItem, 'questionText' | 'shortId' | 'tags' | 'knowledgePoints'>,
+    query: string,
+): boolean {
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return true;
+    const fields = [item.questionText ?? '', item.shortId ?? '', ...getPrintableItemTagNames(item)];
+    return fields.some((field) => field.toLowerCase().includes(keyword));
+}
+
+/** 对一组题目执行全选、取消或反选，其余题目的选中状态保持不变 */
+export function applyPrintSelection(
+    selectedIds: ReadonlySet<string>,
+    targetIds: readonly string[],
+    action: 'select' | 'clear' | 'invert',
+): Set<string> {
+    const next = new Set(selectedIds);
+    for (const id of targetIds) {
+        const select = action === 'select' || (action === 'invert' && !selectedIds.has(id));
+        if (select) next.add(id);
+        else next.delete(id);
+    }
+    return next;
+}
