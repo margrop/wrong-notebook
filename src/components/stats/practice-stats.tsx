@@ -85,13 +85,13 @@ export function PracticeStats() {
                 />
 
                 {/* Monthly Activity with Difficulty Stack */}
-                <Card className="col-span-2 md:col-span-1">
+                <Card>
                     <CardHeader>
                         <CardTitle>{t.stats?.weeklyTrend || "Monthly Trend"}</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={stats.activityStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <BarChart data={stats.activityStats} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_GRID_COLOR} />
                                 <XAxis
                                     dataKey="date"

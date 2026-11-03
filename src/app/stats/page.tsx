@@ -39,20 +39,20 @@ function StatsTabs() {
     return (
         <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 sm:inline-flex sm:h-10 sm:w-auto">
-                <TabsTrigger value="wrong" className="flex items-center gap-2">
-                    <Activity className="h-4 w-4" />
+                <TabsTrigger value="wrong" className="flex items-center justify-center gap-1.5 whitespace-normal text-center leading-tight sm:gap-2 sm:whitespace-nowrap">
+                    <Activity className="h-4 w-4 shrink-0" />
                     {t.wrongAnswerStats?.title || "Wrong Answer Stats"}
                 </TabsTrigger>
-                <TabsTrigger value="practice" className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4" />
+                <TabsTrigger value="practice" className="flex items-center justify-center gap-1.5 whitespace-normal text-center leading-tight sm:gap-2 sm:whitespace-nowrap">
+                    <TrendingUp className="h-4 w-4 shrink-0" />
                     {t.stats?.title || "Practice Stats"}
                 </TabsTrigger>
-                <TabsTrigger value="tag-stats" className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" />
+                <TabsTrigger value="tag-stats" className="flex items-center justify-center gap-1.5 whitespace-normal text-center leading-tight sm:gap-2 sm:whitespace-nowrap">
+                    <BarChart3 className="h-4 w-4 shrink-0" />
                     {t.stats?.tagStats || "Knowledge Point Stats"}
                 </TabsTrigger>
-                <TabsTrigger value="tags" className="flex items-center gap-2">
-                    <Tags className="h-4 w-4" />
+                <TabsTrigger value="tags" className="flex items-center justify-center gap-1.5 whitespace-normal text-center leading-tight sm:gap-2 sm:whitespace-nowrap">
+                    <Tags className="h-4 w-4 shrink-0" />
                     {t.stats?.tagManagement || "Knowledge Points"}
                 </TabsTrigger>
             </TabsList>
