@@ -28,6 +28,8 @@ export type { FigureResult } from './schema';
 export type { LatexFixInput, LatexFixResult } from './latex-fix';
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
 import type { FigureResult } from './schema';
+export type { QuestionSplitInput, QuestionSplitResult, SplitQuestion } from './question-split';
+import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
 
 export interface GeogebraAnalysisResult {
     suitable: boolean;
@@ -115,6 +117,8 @@ export interface AIService {
     gradeAnswer(input: AnswerGradingInput): Promise<AnswerGradingResult>;
     /** 从标签库中选知识点，并评定难度星级 */
     suggestKnowledgeTags(input: TagSuggestionInput): Promise<TagSuggestionResult>;
+    /** 把多题文字（按行号）或一张多题图片分成独立的题目；图片分题必须把图片随请求发给模型 */
+    splitQuestions(input: QuestionSplitInput): Promise<QuestionSplitResult>;
 }
 
 export interface AIConfig {

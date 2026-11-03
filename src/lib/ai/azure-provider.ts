@@ -1,6 +1,6 @@
 import { AzureOpenAI } from "openai";
 import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateReanswerRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest } from './prompt-requests';
+import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateReanswerRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest } from './prompt-requests';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
@@ -14,6 +14,8 @@ import { normalizeMistakeStatusForSave } from '../mistake-status';
 import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
 import { normalizeAiQuestionTags } from './knowledge-points';
+import { AI_IMAGE_NOT_SUPPORTED, isImageUnsupportedError, parseQuestionSplit } from './question-split';
+import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
 
 const logger = createLogger('ai:azure');
 
@@ -642,6 +644,35 @@ export class AzureOpenAIProvider implements AIService {
             return parseNarration(this.extractTag(text, "narration") || text);
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG narration generation');
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async splitQuestions(input: QuestionSplitInput): Promise<QuestionSplitResult> {
+        const prompt = generateQuestionSplitRequest(input);
+        logger.info({ provider: 'Azure OpenAI', deployment: this.deployment, kind: input.kind }, 'Question Split Request');
+        const content: AzureUserContent = input.kind === 'image'
+            ? [{ type: "text", text: prompt.user }, { type: "image_url", image_url: { url: `data:${input.mimeType};base64,${input.imageBase64}` } }]
+            : prompt.user;
+
+        try {
+            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+                model: this.deployment,
+                messages: [
+                    { role: "system", content: prompt.system },
+                    { role: "user", content },
+                ],
+                max_tokens: maxTokens,
+            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+
+            const text = response.choices[0]?.message?.content || '';
+            logger.debug({ rawResponse: text }, 'Question split AI raw response');
+            if (!text) throw new Error("Empty response from AI");
+            return parseQuestionSplit(text, input);
+        } catch (error) {
+            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during question split');
+            if (input.kind === 'image' && isImageUnsupportedError(error)) throw new Error(AI_IMAGE_NOT_SUPPORTED, { cause: error });
             this.handleError(error);
             throw error;
         }

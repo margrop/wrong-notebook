@@ -61,6 +61,7 @@ async function clearUserData() {
     await database.knowledgeTag.deleteMany({ where: { isSystem: true } });
     await database.practiceRecord.deleteMany({ where: { userId: 'user-1' } });
     await database.importTask.deleteMany({ where: { userId: 'user-1' } });
+    await database.importBatch.deleteMany({ where: { userId: 'user-1' } });
     await database.reviewSchedule.deleteMany();
     await database.paperGroup.deleteMany({ where: { userId: 'user-1' } });
 }
@@ -182,9 +183,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 5 版格式，包含 tagSet 字段', async () => {
+    it('导出文件使用第 6 版格式，包含 tagSet 字段', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(5);
+        expect(backup.version).toBe(6);
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
         expect(backup.subjects).toEqual(
@@ -454,9 +455,54 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect((await importBackup(backup)).stats.importTasksCreated).toBe(0);
     });
 
+    it('未完成的多题批次随备份往返：草稿与调整保留，分题中的标记为中断，批次内任务仍关联本批，不会自动调用 AI', async () => {
+        const image = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+        const draft = JSON.stringify({
+            items: [
+                { key: 'qa', label: '1', text: '（已手工修改）计算 1 + 1。', material: null, section: null, selected: true, regions: [], hasFigure: false, flags: [] },
+                { key: 'qb', label: '2', text: '计算 2 + 2。', material: '公共材料', section: '一、计算题', selected: false, regions: [], hasFigure: false, flags: [] },
+            ],
+            ignored: ['姓名：____'], warnings: [],
+        });
+        const result = JSON.stringify({ questionText: '计算 3 + 3。', answerText: '6', analysis: '相加', knowledgePoints: [], subject: '数学' });
+        await database.importBatch.createMany({ data: [
+            { id: 'batch-draft-aaaaaaaa', userId: 'user-1', clientRequestId: 'batch-request-draft', source: 'text', splitter: 'local', status: 'draft', sourceText: '1．…\n2．…', draft, targetSubjectId: 'math', createdAt: new Date('2026-10-05T00:00:00Z') },
+            { id: 'batch-split-bbbbbbbb', userId: 'user-1', source: 'image', splitter: 'ai', status: 'splitting', imageData: image, createdAt: new Date('2026-10-06T00:00:00Z') },
+            { id: 'batch-start-cccccccc', userId: 'user-1', source: 'text', splitter: 'local', status: 'started', mode: 'review', draft, startedAt: new Date('2026-10-07T00:00:00Z'), createdAt: new Date('2026-10-07T00:00:00Z') },
+            { id: 'batch-done-dddddddd', userId: 'user-1', source: 'text', splitter: 'local', status: 'started', mode: 'auto', draft, createdAt: new Date('2026-10-08T00:00:00Z') },
+        ] });
+        await database.importTask.createMany({ data: [
+            { userId: 'user-1', mode: 'review', status: 'review', imageData: '', inputText: '计算 3 + 3。', result, batchId: 'batch-start-cccccccc', batchItemKey: 'qa', createdAt: new Date('2026-10-07T00:00:01Z') },
+            { userId: 'user-1', mode: 'review', status: 'analyzing', imageData: '', inputText: '计算 4 + 4。', batchId: 'batch-start-cccccccc', batchItemKey: 'qb', createdAt: new Date('2026-10-07T00:00:02Z') },
+            { userId: 'user-1', mode: 'auto', status: 'saved', imageData: '', result, batchId: 'batch-done-dddddddd', batchItemKey: 'qa', createdAt: new Date('2026-10-08T00:00:01Z') },
+        ] });
+        const backup = await exportBackup();
+        expect(backup.importBatches.map((batch: { id: string }) => batch.id)).toEqual(['batch-draft-aaaaaaaa', 'batch-split-bbbbbbbb', 'batch-start-cccccccc']);
+
+        await clearUserData();
+        const { stats } = await importBackup(backup);
+        expect(stats.importBatchesCreated).toBe(3);
+        const batches = await database.importBatch.findMany({ where: { userId: 'user-1' }, orderBy: { createdAt: 'asc' }, include: { tasks: { orderBy: { createdAt: 'asc' } } } });
+        const math = await database.subject.findFirstOrThrow({ where: { userId: 'user-1', name: '数学' } });
+        expect(batches.map((batch) => [batch.status, batch.error])).toEqual([['draft', null], ['failed', 'SERVER_RESTARTED'], ['started', null]]);
+        expect(batches[0]).toMatchObject({ targetSubjectId: math.id, sourceText: '1．…\n2．…', clientRequestId: 'batch-request-draft' });
+        expect(JSON.parse(batches[0].draft!)).toEqual(JSON.parse(draft));
+        expect(batches[1].imageData).toBe(image);
+        expect(batches[2].tasks.map((task) => [task.status, task.error, task.inputText, task.batchItemKey])).toEqual([
+            ['review', null, '计算 3 + 3。', 'qa'],
+            ['failed', 'SERVER_RESTARTED', '计算 4 + 4。', 'qb'],
+        ]);
+
+        // 再次导入不重复创建批次或任务
+        const again = await importBackup(backup);
+        expect(again.stats).toMatchObject({ importBatchesCreated: 0, importTasksCreated: 0 });
+        expect(await database.importBatch.count({ where: { userId: 'user-1' } })).toBe(3);
+    });
+
     it('旧版备份没有识别任务字段时正常导入', async () => {
         const backup = await exportBackup();
         delete backup.importTasks;
+        delete backup.importBatches;
         backup.version = 4;
         await clearUserData();
         const { stats } = await importBackup(backup);

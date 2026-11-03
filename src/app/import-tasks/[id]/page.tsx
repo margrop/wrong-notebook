@@ -84,23 +84,25 @@ export default function ImportTaskPage() {
     const subject = task.result?.subject;
     const matchedNotebook = subject ? notebooks?.find((notebook) => notebook.name.includes(subject) || subject.includes(notebook.name)) : undefined;
 
+    // 批次中的题：校对完成或返回时回到本批题目
+    const backHref = task.batchId ? `/import-batches/${task.batchId}` : "/import-tasks";
     const save = async (data: ReviewedQuestion) => {
         const subjectId = task.targetSubjectId ?? data.subjectId ?? null;
-        const saved = await saver.run(() => confirmImportTask(task.id, { ...data, subjectId }), subjectId);
-        if (saved && !subjectId) router.push("/import-tasks");
+        const saved = await saver.run(() => confirmImportTask(task.id, { ...data, subjectId }), subjectId, !task.batchId);
+        if (saved && (task.batchId || !subjectId)) router.push(backHref);
         if (!saved) refresh();
     };
 
     return (
         <main className={`mx-auto space-y-4 px-4 py-6 md:px-8 md:py-8 ${task.status === "review" ? "max-w-6xl" : "max-w-3xl"}`}>
-            <PageHeader backHref="/import-tasks" title={t.importTasks.title} description={t.importTasks.status[task.status]} />
+            <PageHeader backHref={backHref} title={task.batchId ? t.importBatch.title : t.importTasks.title} description={t.importTasks.status[task.status]} />
             <QuestionSaveError message={saver.saveError} onDismiss={saver.dismissSaveError} />
             {task.status === "review" && task.result ? (
                 <CorrectionEditor
                     initialData={task.result}
                     imagePreview={image?.data ?? null}
                     onSave={save}
-                    onCancel={() => router.push("/import-tasks")}
+                    onCancel={() => router.push(backHref)}
                     initialSubjectId={task.targetSubjectId || task.subjectId || matchedNotebook?.id}
                 />
             ) : (
@@ -110,7 +112,7 @@ export default function ImportTaskPage() {
                     onViewItem={() => actions.viewItem(task)}
                     onRetry={() => actions.retry(task)}
                     onDiscard={async () => {
-                        if (await actions.discard(task)) router.push("/import-tasks");
+                        if (await actions.discard(task)) router.push(backHref);
                     }}
                 />
             )}

@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 const logger = createLogger('ai-quota');
 
 /** 计入额度的用户操作；后台自动进行的掌握概率评估不计入 */
-export const AI_USAGE_KINDS = ['analyze', 'reanswer', 'practice', 'grade', 'figure', 'latex', 'geogebra', 'animation', 'exam', 'retag'] as const;
+export const AI_USAGE_KINDS = ['analyze', 'split', 'reanswer', 'practice', 'grade', 'figure', 'latex', 'geogebra', 'animation', 'exam', 'retag'] as const;
 export type AiUsageKind = typeof AI_USAGE_KINDS[number];
 
 interface QuotaUser {

@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { ChatCompletion } from "openai/resources/chat/completions";
 import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest } from './prompt-requests';
+import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest } from './prompt-requests';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
@@ -15,6 +15,8 @@ import { normalizeMistakeStatusForSave } from '../mistake-status';
 import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
 import { normalizeAiQuestionTags } from './knowledge-points';
+import { AI_IMAGE_NOT_SUPPORTED, isImageUnsupportedError, parseQuestionSplit } from './question-split';
+import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
 
 const logger = createLogger('ai:openai');
 
@@ -729,6 +731,53 @@ export class OpenAIProvider implements AIService {
             return parseNarration(this.extractTag(text, "narration") || text);
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG narration generation');
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async splitQuestions(input: QuestionSplitInput): Promise<QuestionSplitResult> {
+        const prompt = generateQuestionSplitRequest(input);
+        logger.info({ provider: 'OpenAI', model: this.model, kind: input.kind, size: input.kind === 'text' ? input.lines.length : input.imageBase64.length }, 'Question Split Request');
+        const imageUrl = input.kind === 'image' ? `data:${input.mimeType};base64,${input.imageBase64}` : null;
+
+        try {
+            let text: string;
+            if (imageUrl && this.isLongCat) {
+                // LongCat 使用不同的多模态格式，绕过 SDK 直接请求
+                const messages = this.adaptMessagesForLongCat([
+                    { role: "system", content: prompt.system },
+                    { role: "user", content: [{ type: "text", text: prompt.user }, { type: "image_url", image_url: { url: imageUrl } }] },
+                ]);
+                const res = await fetch(`${this.baseURL}/chat/completions`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: this.model, messages, max_tokens: 8192 }),
+                });
+                if (!res.ok) throw new Error(`${res.status} status code (${await res.text()})`);
+                text = ((await res.json()) as ChatCompletion).choices?.[0]?.message?.content || '';
+            } else {
+                const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+                    model: this.model,
+                    messages: [
+                        { role: "system", content: prompt.system },
+                        {
+                            role: "user",
+                            content: imageUrl
+                                ? [{ type: "text", text: prompt.user }, { type: "image_url", image_url: { url: imageUrl } }]
+                                : prompt.user,
+                        },
+                    ],
+                    max_tokens: maxTokens,
+                }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+                text = response.choices[0]?.message?.content || '';
+            }
+            logger.debug({ rawResponse: text }, 'Question split AI raw response');
+            if (!text) throw new Error("Empty response from AI");
+            return parseQuestionSplit(text, input);
+        } catch (error) {
+            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during question split');
+            if (input.kind === 'image' && isImageUnsupportedError(error)) throw new Error(AI_IMAGE_NOT_SUPPORTED, { cause: error });
             this.handleError(error);
             throw error;
         }

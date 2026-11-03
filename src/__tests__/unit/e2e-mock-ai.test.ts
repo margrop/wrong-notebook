@@ -38,3 +38,23 @@ describe('本地模型服务与真实适配器的协议', () => {
         expect(mock.violations).toEqual([]);
     });
 });
+
+describe('本地模型服务的分题协议', () => {
+    it('文字分题只返回行号范围，经真实适配器按原文拼回', async () => {
+        const result = await provider.splitQuestions({ kind: 'text', lines: ['计算 3 + 4。', '', '小明有 5 个苹果，', '又买了 3 个，现在有几个？'], language: 'zh' });
+        expect(result.questions.map((question) => question.text)).toEqual(['计算 3 + 4。', '小明有 5 个苹果，\n又买了 3 个，现在有几个？']);
+        expect(mock.cases.get('protocol')?.calls).toContainEqual(expect.objectContaining({ operation: 'split', hasImage: false }));
+    });
+    it('图片分题必须携带图片，返回题目与归一化区域', async () => {
+        const result = await provider.splitQuestions({ kind: 'image', imageBase64: 'dGVzdA==', mimeType: 'image/jpeg', language: 'zh' });
+        expect(result.questions).toHaveLength(3);
+        expect(result.questions[0]).toMatchObject({ label: '1', hasFigure: true, regions: [{ x: 0.048, y: 0.197, width: 0.905, height: 0.35 }] });
+        expect(mock.cases.get('protocol')?.calls).toContainEqual(expect.objectContaining({ operation: 'split', hasImage: true }));
+    });
+    it('文字题解析使用解题协议，题干由应用保留', async () => {
+        const result = await provider.reanswerQuestion('计算 3 + 4。', 'zh', '数学');
+        expect(result.answerText).toContain('E2E 答案：计算 3 + 4');
+        expect(mock.cases.get('protocol')?.calls).toContainEqual(expect.objectContaining({ operation: 'reanswer' }));
+        expect(mock.violations).toEqual([]);
+    });
+});

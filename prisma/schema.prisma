@@ -42,6 +42,7 @@ model User {
   aiUsages   AiUsage[]
   paperGroups PaperGroup[]
   importTasks ImportTask[]
+  importBatches ImportBatch[]
 }
 
 // 统一知识点标签表 (支持无限层级)
@@ -297,6 +298,10 @@ model ImportTask {
   result          String?   // 识别结果（JSON），即待校对草稿；入库失败可直接重试保存
   errorItemId     String?
   errorItem       ErrorItem? @relation(fields: [errorItemId], references: [id], onDelete: SetNull)
+  batchId         String?   // 所属多题批次；为空表示单独上传的任务
+  batch           ImportBatch? @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batchItemKey    String?   // 批次草稿中对应题目的标识
+  inputText       String?   // 文字任务的题目原文（含公共材料）；图片任务为空
   duplicate       Boolean   @default(false) // 入库时判为重复题，已记入原题的做错记录
   error           String?   // 失败原因的错误码
   timings         String?   // 各阶段耗时（JSON，毫秒）
@@ -311,4 +316,39 @@ model ImportTask {
   @@unique([userId, clientRequestId])
   @@index([userId, status])
   @@index([errorItemId])
+  @@index([batchId])
+}
+
+/// 多题录入批次：一段多题文字或一张多题照片。分题结果作为草稿保存，用户确认后为每道题建一个识别任务。
+model ImportBatch {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientRequestId String?   // 前端生成的幂等键
+  source          String    // text 文字 | image 照片
+  splitter        String    // local 本地规则 | ai 模型分题
+  status          String    @default("draft") // splitting 分题中 | draft 待确认 | started 已开始 | failed 分题失败
+  mode            String?   // 开始时按「导入前人工确认」决定：review 逐题校对 | auto 直接入库
+  language        String    @default("zh")
+  subjectId       String?
+  targetSubjectId String?
+  paperLevel      String?
+  sourceText      String?   // 原始文字
+  imageData       String    @default("") // 整页图片（data URL）
+  imageInfo       String?
+  draft           String?   // 分题草稿（JSON）
+  version         Int       @default(1) // 草稿版本，保存时校验，避免多处编辑互相覆盖
+  error           String?
+  attempts        Int       @default(1)
+  runnerId        String?
+  heartbeatAt     DateTime?
+  readAt          DateTime?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  tasks           ImportTask[]
+
+  @@unique([userId, clientRequestId])
+  @@index([userId, status])
 }

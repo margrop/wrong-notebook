@@ -14,6 +14,7 @@ const logger = createLogger('background-tasks');
 
 export type BackgroundTaskKind =
     | 'analyze'          // 识别题目图片
+    | 'split'            // 多题分题
     | 'batch_upload'     // Openclaw 批量上传识别
     | 'data_import'      // 导入备份数据
     | 'svg_animation'    // 生成 SVG 动画讲解

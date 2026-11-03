@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 import { badRequest, unauthorized } from "@/lib/api-errors";
 import { getCurrentUser } from "@/lib/current-user";
-import { createImportTask, listImportTasks } from "@/lib/import-tasks";
+import { listImportCenter } from "@/lib/import-batches";
+import { createImportTask } from "@/lib/import-tasks";
 
 /**
  * GET /api/import-tasks
- * 当前用户的识别导入任务：执行中、待校对、失败的全部返回，已保存的返回最近若干条
+ * 当前用户的识别导入任务：执行中、待校对、失败的全部返回，已保存的返回最近若干条；
+ * 多题批次汇总在 batches 中（批次内的任务不单独列出）
  */
 export async function GET() {
     const user = await getCurrentUser();
     if (!user) return unauthorized("Authentication required");
-    return NextResponse.json(await listImportTasks(user));
+    return NextResponse.json(await listImportCenter(user));
 }
 
 /**

@@ -29,7 +29,7 @@ import type {
 import { createLogger } from "@/lib/logger";
 import { parsedQuestionToSavePayload } from "@/lib/parsed-question-payload";
 import { prisma } from "@/lib/prisma";
-import { analyzeQuestionForUser, mapAnalysisError } from "@/lib/question-analysis";
+import { analyzeQuestionForUser, analyzeQuestionTextForUser, mapAnalysisError } from "@/lib/question-analysis";
 import { importSchema, saveQuestionForUser } from "@/lib/question-save";
 
 const logger = createLogger('import-tasks');
@@ -50,7 +50,7 @@ const runtime = globalThis as typeof globalThis & {
     __importTaskInflight?: Map<string, Promise<void>>;
 };
 /** 本进程的启动编号（测试中可更换以模拟重启） */
-function bootId(): string {
+export function bootId(): string {
     return runtime.__importTaskBootId ??= randomUUID();
 }
 /**
@@ -64,7 +64,7 @@ function isRunningHere(id: string): boolean {
 }
 
 /** 登记一次执行，返回释放函数（只释放本次登记，可重复调用） */
-function register(id: string): () => void {
+export function register(id: string): () => void {
     const token = Symbol(id);
     const tokens = running.get(id) ?? new Set<symbol>();
     tokens.add(token);
@@ -117,7 +117,7 @@ function parseJson<T>(raw: string | null, fallback: T): T {
     }
 }
 
-function parseResult(raw: string | null): ParsedQuestion | null {
+export function parseResult(raw: string | null): ParsedQuestion | null {
     const parsed = ParsedQuestionSchema.safeParse(parseJson<unknown>(raw, null));
     return parsed.success ? parsed.data : null;
 }
@@ -130,17 +130,17 @@ function mergeTimings(raw: string | null, patch: ImportTaskTimings): string {
     });
 }
 
-type TaskWithItem = ImportTask & { errorItem: { shortId: string | null; subject: { name: string } | null } | null };
-const withItem = { errorItem: { select: { shortId: true, subject: { select: { name: true } } } } } satisfies Prisma.ImportTaskInclude;
+export type TaskWithItem = ImportTask & { errorItem: { shortId: string | null; subject: { name: string } | null } | null };
+export const withItem = { errorItem: { select: { shortId: true, subject: { select: { name: true } } } } } satisfies Prisma.ImportTaskInclude;
 /** 列表轮询只读取元数据，不加载题目图片 */
-const summarySelect = {
-    id: true, status: true, mode: true, subjectId: true, targetSubjectId: true, result: true, error: true,
+export const summarySelect = {
+    id: true, status: true, mode: true, subjectId: true, targetSubjectId: true, result: true, error: true, batchId: true, batchItemKey: true,
     errorItemId: true, duplicate: true, readAt: true, attempts: true, timings: true, createdAt: true, finishedAt: true,
     ...withItem,
 } satisfies Prisma.ImportTaskSelect;
 type SummaryRow = Prisma.ImportTaskGetPayload<{ select: typeof summarySelect }>;
 
-function toSummary(task: SummaryRow): ImportTaskSummary {
+export function toSummary(task: SummaryRow): ImportTaskSummary {
     const result = parseResult(task.result);
     const status = task.status as ImportTaskStatus;
     return {
@@ -150,6 +150,8 @@ function toSummary(task: SummaryRow): ImportTaskSummary {
         subjectId: task.subjectId,
         targetSubjectId: task.targetSubjectId,
         excerpt: result ? describeQuestion({ questionText: result.questionText }) : null,
+        batchId: task.batchId,
+        batchItemKey: task.batchItemKey,
         error: task.error,
         errorItemId: task.errorItemId,
         errorItemShortId: task.errorItem?.shortId ?? null,
@@ -174,7 +176,7 @@ function toDetail(task: SummaryRow & { paperLevel: string | null; imageData?: st
     };
 }
 
-function isInterrupted(task: Pick<ImportTask, 'id' | 'runnerId' | 'heartbeatAt' | 'updatedAt'>, now: number): boolean {
+export function isInterrupted(task: { id: string; runnerId: string | null; heartbeatAt: Date | null; updatedAt: Date }, now: number): boolean {
     if (task.runnerId === bootId()) return !isRunningHere(task.id);
     // 多实例部署时其他实例可能仍在执行，按心跳判断；单进程部署时启动编号不同即已重启
     if (process.env.VERCEL) return now - (task.heartbeatAt ?? task.updatedAt).getTime() > STALE_HEARTBEAT_MS;
@@ -214,10 +216,12 @@ async function ownsNotebook(userId: string, subjectId: string | null | undefined
     return (await prisma.subject.count({ where: { id: subjectId, userId } })) > 0;
 }
 
-function startHeartbeat(id: string): () => void {
+export function startHeartbeat(id: string, model: 'task' | 'batch' = 'task'): () => void {
     const timer = setInterval(() => {
-        prisma.importTask.updateMany({ where: { id, runnerId: bootId() }, data: { heartbeatAt: new Date() } })
-            .catch((error: unknown) => logger.warn({ taskId: id, error: getErrorMessage(error) }, 'Import task heartbeat failed'));
+        const where = { id, runnerId: bootId() };
+        const data = { heartbeatAt: new Date() };
+        (model === 'batch' ? prisma.importBatch.updateMany({ where, data }) : prisma.importTask.updateMany({ where, data }))
+            .catch((error: unknown) => logger.warn({ id, model, error: getErrorMessage(error) }, 'Import heartbeat failed'));
     }, HEARTBEAT_MS);
     timer.unref?.();
     return () => clearInterval(timer);
@@ -229,6 +233,11 @@ function startHeartbeat(id: string): () => void {
  * 后台执行只使用任务中记录的用户编号从数据库读取用户，不读取请求的 Cookie 或会话。
  */
 function schedule(id: string, release: () => void, work: () => Promise<void>): void {
+    scheduleWork(id, release, work);
+}
+
+/** 在后台执行一项工作（任务或批次分题）；inflight 以 id 记录，供测试等待 */
+export function scheduleWork(id: string, release: () => void, work: () => Promise<void>): void {
     const run = () => {
         const promise = work()
             .catch((error: unknown) => logger.error({ taskId: id, error: getErrorMessage(error) }, 'Import task crashed'))
@@ -246,7 +255,7 @@ function schedule(id: string, release: () => void, work: () => Promise<void>): v
     }
 }
 
-async function markFailed(id: string, fromStatus: ImportTaskStatus, error: string): Promise<void> {
+export async function markFailed(id: string, fromStatus: ImportTaskStatus, error: string): Promise<void> {
     await prisma.importTask.updateMany({
         where: { id, status: fromStatus },
         data: { status: 'failed', error: error.slice(0, 200), finishedAt: new Date(), readAt: null },
@@ -311,8 +320,51 @@ function autoSavePayload(task: ImportTask, result: ParsedQuestion) {
     });
 }
 
+/** 批次中的任务结束后（含失败），批次重新显示为有新结果 */
+async function touchBatch(batchId: string | null): Promise<void> {
+    if (!batchId) return;
+    await prisma.importBatch.updateMany({ where: { id: batchId }, data: { readAt: null } })
+        .catch((error: unknown) => logger.warn({ batchId, error: getErrorMessage(error) }, 'Failed to mark import batch unread'));
+}
+
+/** 识别一项任务：文字任务解析题目原文，图片任务识别图片 */
+function analyzeTask(task: ImportTask & { user: User }): Promise<ParsedQuestion> {
+    const link = task.batchId ? `/import-batches/${task.batchId}` : `/import-tasks/${task.id}`;
+    const language = task.language === 'en' ? 'en' : 'zh';
+    if (task.inputText) {
+        return analyzeQuestionTextForUser({ userId: task.user.id, questionText: task.inputText, language, subjectId: task.subjectId, link });
+    }
+    return analyzeQuestionForUser({
+        email: task.user.email,
+        userId: task.user.id,
+        imageBase64: task.imageData,
+        language,
+        subjectId: task.subjectId,
+        link,
+    });
+}
+
+/** 任务消耗的额度类别：文字题与文字解题一致，图片与拍照识别一致 */
+export function quotaKindOf(task: Pick<ImportTask, 'inputText'>): 'reanswer' | 'analyze' {
+    return task.inputText ? 'reanswer' : 'analyze';
+}
+
+/** 安排批次中已创建、已登记执行的任务在后台识别 */
+export function scheduleImportTask(id: string, release: () => void): void {
+    schedule(id, release, () => execute(id));
+}
+
 /** 后台执行：识别（如尚无结果）→ 自动入库或等待校对 */
 async function execute(id: string): Promise<void> {
+    const batchId = (await prisma.importTask.findUnique({ where: { id }, select: { batchId: true } }))?.batchId ?? null;
+    try {
+        await executeTask(id);
+    } finally {
+        await touchBatch(batchId);
+    }
+}
+
+async function executeTask(id: string): Promise<void> {
     const stopHeartbeat = startHeartbeat(id);
     try {
         let task = await prisma.importTask.findUnique({ where: { id }, include: { user: true } });
@@ -323,14 +375,7 @@ async function execute(id: string): Promise<void> {
             const started = Date.now();
             let result: ParsedQuestion;
             try {
-                result = await analyzeQuestionForUser({
-                    email: user.email,
-                    userId: user.id,
-                    imageBase64: task.imageData,
-                    language: task.language === 'en' ? 'en' : 'zh',
-                    subjectId: task.subjectId,
-                    link: `/import-tasks/${id}`,
-                });
+                result = await analyzeTask(task);
             } catch (error) {
                 const message = getErrorMessage(error);
                 logger.error({ taskId: id, error: message, analyzeMs: Date.now() - started }, 'Import task analysis failed');
@@ -448,12 +493,12 @@ export async function listImportTasks(user: Pick<User, 'id'>): Promise<ImportTas
     await pruneSaved(user.id);
     const [pending, saved] = await Promise.all([
         prisma.importTask.findMany({
-            where: { userId: user.id, status: { not: 'saved' } },
+            where: { userId: user.id, batchId: null, status: { not: 'saved' } },
             select: summarySelect,
             orderBy: { createdAt: 'desc' },
         }),
         prisma.importTask.findMany({
-            where: { userId: user.id, status: 'saved' },
+            where: { userId: user.id, batchId: null, status: 'saved' },
             select: summarySelect,
             orderBy: { finishedAt: 'desc' },
             take: MAX_LISTED_SAVED,
@@ -550,7 +595,7 @@ export async function retryImportTask(user: User, id: string): Promise<NextRespo
         return createErrorResponse('IMPORT_TASK_NOT_RETRYABLE', 409, ErrorCode.CONFLICT, { status: task.status });
     }
     const hasResult = parseResult(task.result) !== null;
-    if (!hasResult && !task.imageData) return createErrorResponse('IMPORT_TASK_NOT_RETRYABLE', 409, ErrorCode.CONFLICT);
+    if (!hasResult && !task.imageData && !task.inputText) return createErrorResponse('IMPORT_TASK_NOT_RETRYABLE', 409, ErrorCode.CONFLICT);
 
     if (hasResult && task.mode === 'review') {
         await prisma.importTask.updateMany({
@@ -577,7 +622,7 @@ export async function retryImportTask(user: User, id: string): Promise<NextRespo
         }
         // 抢占成功后才计额度，并发重试只计一次；只重试保存时不调用 AI，不计额度
         if (!hasResult) {
-            const limited = await consumeAiQuota(user, 'analyze');
+            const limited = await consumeAiQuota(user, quotaKindOf(task));
             if (limited) {
                 release();
                 await markFailed(id, 'analyzing', 'AI_DAILY_LIMIT_EXCEEDED');

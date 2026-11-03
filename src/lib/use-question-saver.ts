@@ -22,12 +22,15 @@ export function useQuestionSaver(logPrefix: string) {
     const router = useRouter();
     const [saveError, setSaveError] = useState<string | null>(null);
 
-    const run = async (request: () => Promise<SavedQuestion>, subjectId?: string | null): Promise<boolean> => {
+    /** navigate 为 false 时只提示结果，由调用方决定去向（如多题批次回到批次页） */
+    const run = async (request: () => Promise<SavedQuestion>, subjectId?: string | null, navigate = true): Promise<boolean> => {
         setSaveError(null);
         try {
             const result = await request();
             toast.success(result.duplicate ? t.importFlow.duplicate : t.common.messages.saveSuccess);
-            if (result.duplicate) {
+            if (!navigate) {
+                return true;
+            } else if (result.duplicate) {
                 router.push(`/error-items/${result.id}`);
             } else if (subjectId) {
                 router.push(`/notebooks/${subjectId}`);

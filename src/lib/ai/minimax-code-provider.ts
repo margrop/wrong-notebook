@@ -71,4 +71,8 @@ export class MiniMaxCodeProvider implements AIService {
     suggestKnowledgeTags(...args: Parameters<AIService['suggestKnowledgeTags']>) {
         return this.run((p) => p.suggestKnowledgeTags(...args));
     }
+
+    splitQuestions(...args: Parameters<AIService['splitQuestions']>) {
+        return this.run((p) => p.splitQuestions(...args));
+    }
 }

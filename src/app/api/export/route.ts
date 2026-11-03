@@ -90,7 +90,18 @@ export async function GET(req: Request) {
             select: {
                 id: true, clientRequestId: true, userId: true, mode: true, status: true, language: true, subjectId: true, targetSubjectId: true,
                 paperLevel: true, imageData: true, imageInfo: true, result: true, error: true, timings: true,
-                attempts: true, createdAt: true, finishedAt: true,
+                attempts: true, createdAt: true, finishedAt: true, batchId: true, batchItemKey: true, inputText: true,
+            },
+            orderBy: { createdAt: 'asc' },
+        });
+
+        // 未完成的多题批次（分题草稿、分题失败、已开始但仍有题未入库），version 6 起导出
+        const importBatches = await prisma.importBatch.findMany({
+            where: { ...userFilter, OR: [{ status: { not: 'started' } }, { tasks: { some: { status: { not: 'saved' } } } }] },
+            select: {
+                id: true, clientRequestId: true, userId: true, source: true, splitter: true, status: true, mode: true, language: true,
+                subjectId: true, targetSubjectId: true, paperLevel: true, sourceText: true, imageData: true, imageInfo: true, draft: true,
+                error: true, attempts: true, createdAt: true, startedAt: true, finishedAt: true,
             },
             orderBy: { createdAt: 'asc' },
         });
@@ -102,7 +113,7 @@ export async function GET(req: Request) {
         ]));
 
         const exportData = {
-            version: 5,
+            version: 6,
             exportedAt: new Date().toISOString(),
             scope: exportAll ? 'all' : 'user',
             user: {
@@ -144,6 +155,7 @@ export async function GET(req: Request) {
             paperGroups,
             ttsSpeeches,
             importTasks,
+            importBatches,
         };
 
         logger.info({
@@ -157,6 +169,7 @@ export async function GET(req: Request) {
             practiceRecordsCount: practiceRecords.length,
             examPapersCount: examPapers.length,
             importTasksCount: importTasks.length,
+            importBatchesCount: importBatches.length,
             ttsSpeechesCount: ttsSpeeches.length,
         }, 'Data export completed');
 

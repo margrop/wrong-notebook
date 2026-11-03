@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest } from './prompt-requests';
+import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest } from './prompt-requests';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
@@ -14,6 +14,8 @@ import { normalizeMistakeStatusForSave } from '../mistake-status';
 import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
 import { normalizeAiQuestionTags } from './knowledge-points';
+import { AI_IMAGE_NOT_SUPPORTED, isImageUnsupportedError, parseQuestionSplit } from './question-split';
+import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
 
 const logger = createLogger('ai:gemini');
 
@@ -594,6 +596,32 @@ export class GeminiProvider implements AIService {
             return parseNarration(this.extractTag(text, "narration") || text);
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG narration generation');
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async splitQuestions(input: QuestionSplitInput): Promise<QuestionSplitResult> {
+        const prompt = generateQuestionSplitRequest(input);
+        logger.info({ provider: 'Gemini', model: this.modelName, kind: input.kind }, 'Question Split Request');
+        const contents: GeminiContent = input.kind === 'image'
+            ? [{ text: prompt.user }, { inlineData: { data: input.imageBase64, mimeType: input.mimeType } }]
+            : prompt.user;
+
+        try {
+            const response = await this.retryOperation(() => this.ai.models.generateContent({
+                model: this.modelName,
+                config: { systemInstruction: prompt.system },
+                contents,
+            }));
+
+            const text = response.text || '';
+            logger.debug({ rawResponse: text }, 'Question split AI raw response');
+            if (!text) throw new Error(response.candidates?.[0]?.finishReason === 'MAX_TOKENS' ? AI_OUTPUT_TRUNCATED : "Empty response from AI");
+            return parseQuestionSplit(text, input);
+        } catch (error) {
+            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during question split');
+            if (input.kind === 'image' && isImageUnsupportedError(error)) throw new Error(AI_IMAGE_NOT_SUPPORTED, { cause: error });
             this.handleError(error);
             throw error;
         }

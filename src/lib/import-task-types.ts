@@ -2,6 +2,7 @@
  * 识别导入任务的前后端共用类型与常量（不依赖数据库，可在浏览器中引用）
  */
 import type { ParsedQuestion } from "@/lib/ai";
+import type { ImportBatchSummary } from "@/lib/import-batch-types";
 
 export const IMPORT_TASK_STATUSES = ['analyzing', 'review', 'saving', 'saved', 'failed'] as const;
 export type ImportTaskStatus = typeof IMPORT_TASK_STATUSES[number];
@@ -48,6 +49,9 @@ export interface ImportTaskSummary {
     targetSubjectId: string | null;
     /** 题干开头，识别完成后才有 */
     excerpt: string | null;
+    /** 所属多题批次；单独上传的任务为空 */
+    batchId: string | null;
+    batchItemKey: string | null;
     error: string | null;
     errorItemId: string | null;
     errorItemShortId: string | null;
@@ -70,6 +74,8 @@ export interface ImportTaskDetail extends ImportTaskSummary {
 
 export interface ImportTaskListResponse {
     tasks: ImportTaskSummary[];
+    /** 多题批次（批次内的任务不在 tasks 中单独列出）；旧接口没有时视为空 */
+    batches?: ImportBatchSummary[];
     activeCount: number;
     unreadCount: number;
 }

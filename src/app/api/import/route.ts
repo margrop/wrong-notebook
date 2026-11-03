@@ -26,7 +26,7 @@ import { parseLastPractice } from "@/lib/last-practice";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
 import { EXAM_DIFFICULTIES, EXAM_SCOPES, summarizePaperStatus } from "@/lib/exam";
 import type { Prisma } from "@prisma/client";
-import { importImportTasks } from "@/lib/import-task-backup";
+import { importImportBatches, importImportTasks } from "@/lib/import-task-backup";
 
 const logger = createLogger('api:import');
 
@@ -196,6 +196,8 @@ interface ImportData {
     ttsSpeeches?: unknown;
     /** 未处理的识别导入任务（待校对草稿、失败可重试），version 5 起导出 */
     importTasks?: unknown;
+    /** 未完成的多题批次，version 6 起导出；任务通过 batchId 关联 */
+    importBatches?: unknown;
 }
 
 // 与用户设置接口的取值范围一致，单项不合法时只跳过该项
@@ -309,6 +311,7 @@ export async function POST(req: Request) {
             duplicateErrorItems: 0,
             ttsSpeechesImported: 0,
             importTasksCreated: 0,
+            importBatchesCreated: 0,
         };
         const masteryIds = new Set<string>();
         // 已带掌握概率导入的新题无需重新评估
@@ -752,12 +755,15 @@ export async function POST(req: Request) {
                 if (errorItemId && result && !evaluatedIds.has(errorItemId)) masteryIds.add(errorItemId);
             }
 
-            // 8. 导入未处理的识别导入任务：只还原草稿和失败记录，不会自动重新调用 AI
-            stats.importTasksCreated = await importImportTasks(tx, body.importTasks, {
-                resolveUserId: (raw) => importAll ? raw : user.id,
+            // 8. 导入未完成的多题批次与未处理的识别导入任务：只还原草稿和失败记录，不会自动重新调用 AI
+            const backupContext = {
+                resolveUserId: (raw: string) => importAll ? raw : user.id,
                 subjectIdMap,
                 paperGroupIdMap,
-            });
+            };
+            const batches = await importImportBatches(tx, body.importBatches, backupContext);
+            stats.importBatchesCreated = batches.created;
+            stats.importTasksCreated = await importImportTasks(tx, body.importTasks, { ...backupContext, batchIdMap: batches.idMap });
 
             // 9. 还原了已掌握阈值时，按新阈值同步该账户全部错题的 masteryLevel
             if (typeof preferences.masteryThreshold === 'number') {

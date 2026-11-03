@@ -8,6 +8,29 @@ function json(response, status, value) {
     response.end(JSON.stringify(value));
 }
 
+/** 多题照片样例（e2e/fixtures/multi-question-page.jpg）中各题的位置，按 0～1000 归一化 */
+export const PAGE_QUESTIONS = [
+    { label: '1', text: '如图，长方形 ABCD 的长和宽如图中所示，求它的面积是多少平方厘米？', regions: [{ x: 48, y: 197, w: 905, h: 350 }], hasFigure: true },
+    { label: '2', text: '下列分数中，与 3/4 相等的是（　　）。A．6/8 B．4/6 C．9/16 D．5/7', regions: [{ x: 48, y: 590, w: 905, h: 105 }], hasFigure: false },
+    { label: '3', text: '一根绳子长 24 米。（1）用去它的 1/4，用去多少米？（2）再用去 1/4 米，还剩多少米？', regions: [{ x: 48, y: 739, w: 905, h: 158 }], hasFigure: false },
+];
+
+/** 文字分题：按空行分段，每段是一题，只返回行号范围（与正式协议一致） */
+function splitLines(lines) {
+    const questions = [];
+    let start = null;
+    lines.forEach((line, index) => {
+        if (line.text.trim()) {
+            if (start === null) start = index + 1;
+        } else if (start !== null) {
+            questions.push({ label: null, lines: [start, index], material: null });
+            start = null;
+        }
+    });
+    if (start !== null) questions.push({ label: null, lines: [start, lines.length], material: null });
+    return questions;
+}
+
 function textOf(messages) {
     return messages.map((message) => typeof message.content === 'string' ? message.content :
         (message.content || []).filter((part) => part.type === 'text').map((part) => part.text).join('\n')).join('\n');
@@ -27,16 +50,17 @@ export async function startMockAI() {
                     const chunks = [];
                     for await (const chunk of request) chunks.push(chunk);
                     const patch = JSON.parse(Buffer.concat(chunks).toString() || '{}');
-                    const state = cases.get(id) || { id, calls: [], inflight: 0, held: [], partial: false, gradeError: false, hold: false, masteryProbability: 30 };
+                    const state = cases.get(id) || { id, calls: [], inflight: 0, held: [], partial: false, gradeError: false, hold: false, masteryProbability: 30, failNext: 0, distinctAnalysis: false };
                     // 控制接口只更新声明的标量字段，保持内部集合及对象原型不受请求体影响。
-                    const allowed = new Set(['partial', 'gradeError', 'hold', 'masteryProbability', 'title', 'retry']);
+                    const allowed = new Set(['partial', 'gradeError', 'hold', 'masteryProbability', 'title', 'retry', 'failNext', 'distinctAnalysis']);
                     if (!patch || typeof patch !== 'object' || Array.isArray(patch) || Object.keys(patch).some((key) => !allowed.has(key))) {
                         return json(response, 400, { error: '不支持的场景控制字段' });
                     }
-                    if (['partial', 'gradeError', 'hold'].some((key) => patch[key] !== undefined && typeof patch[key] !== 'boolean') ||
+                    if (['partial', 'gradeError', 'hold', 'distinctAnalysis'].some((key) => patch[key] !== undefined && typeof patch[key] !== 'boolean') ||
                         (patch.masteryProbability !== undefined && (!Number.isFinite(patch.masteryProbability) || patch.masteryProbability < 0 || patch.masteryProbability > 100)) ||
                         (patch.title !== undefined && (typeof patch.title !== 'string' || patch.title.length > 500)) ||
-                        (patch.retry !== undefined && (!Number.isInteger(patch.retry) || patch.retry < 0))) {
+                        (patch.retry !== undefined && (!Number.isInteger(patch.retry) || patch.retry < 0)) ||
+                        (patch.failNext !== undefined && (!Number.isInteger(patch.failNext) || patch.failNext < 0 || patch.failNext > 100))) {
                         return json(response, 400, { error: '场景控制字段类型无效' });
                     }
                     if (patch.partial !== undefined) state.partial = patch.partial;
@@ -45,6 +69,8 @@ export async function startMockAI() {
                     if (patch.masteryProbability !== undefined) state.masteryProbability = patch.masteryProbability;
                     if (patch.title !== undefined) state.title = patch.title;
                     if (patch.retry !== undefined) state.retry = patch.retry;
+                    if (patch.failNext !== undefined) state.failNext = patch.failNext;
+                    if (patch.distinctAnalysis !== undefined) state.distinctAnalysis = patch.distinctAnalysis;
                     if (!state.hold) state.held.splice(0).forEach((release) => release());
                     cases.set(id, state);
                 }
@@ -69,7 +95,8 @@ export async function startMockAI() {
             const text = textOf(messages);
             const system = typeof messages[0]?.content === 'string' ? messages[0].content : '';
             const image = messages.some((message) => Array.isArray(message.content) && message.content.some((part) => part.type === 'image_url'));
-            const operation = image ? 'analysis' : /"probability"/.test(system) ? 'mastery' : /"correct"/.test(system) ? 'grade' :
+            const operation = system.includes('【分题输出协议】') ? 'split' : image ? 'analysis' : /"probability"/.test(system) ? 'mastery' : /"correct"/.test(system) ? 'grade' :
+                system.includes('<mistake_status>内容') && !system.includes('<question_text>内容') ? 'reanswer' :
                 /"gradeSemester"/.test(system) && !/question_text|"questionText"/.test(system) ? 'grade-recognition' : /question_text|"questionText"/.test(system) ? 'variant' : 'unknown';
             const marker = text.match(/E2E_[a-zA-Z0-9]+_[ABC]/)?.[0] || `E2E_${match[1].replace(/[^a-zA-Z0-9]/g, '')}_A`;
             const state = cases.get(match[1]);
@@ -77,7 +104,33 @@ export async function startMockAI() {
             state.calls.push(call);
             state.inflight++;
             try {
-                if (state.hold && ['analysis', 'variant'].includes(operation)) await new Promise((resolve) => state.held.push(resolve));
+                if (state.hold && ['analysis', 'variant', 'split', 'reanswer'].includes(operation)) await new Promise((resolve) => state.held.push(resolve));
+                // 固定上游失败：用于验证部分失败只重试失败的题
+                if (state.failNext > 0 && ['analysis', 'reanswer'].includes(operation)) {
+                    state.failNext--;
+                    call.failed = true;
+                    // 使用不会被 SDK 自动重试的状态码，确保失败真正交给应用处理
+                    return json(response, 400, { error: { message: 'E2E 固定上游失败', type: 'invalid_request_error', code: 'e2e_failure' } });
+                }
+                if (operation === 'split') {
+                    const user = JSON.parse(messages.find((message) => message.role === 'user') ? textOf(messages.filter((message) => message.role === 'user')) : '{}');
+                    const content = image
+                        ? { quality: 'clear', questions: PAGE_QUESTIONS }
+                        : { questions: splitLines(user.data?.lines || []) };
+                    return json(response, 200, { id: `e2e-${state.id}-${state.calls.length}`, object: 'chat.completion', created: 0, model: 'e2e-mock-model',
+                        choices: [{ index: 0, message: { role: 'assistant', content: JSON.stringify(content) }, finish_reason: 'stop' }],
+                        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });
+                }
+                if (operation === 'reanswer') {
+                    const user = JSON.parse(textOf(messages.filter((message) => message.role === 'user')) || '{}');
+                    const question = String(user.data?.questionText || '');
+                    return json(response, 200, { id: `e2e-${state.id}-${state.calls.length}`, object: 'chat.completion', created: 0, model: 'e2e-mock-model',
+                        choices: [{ index: 0, message: { role: 'assistant', content:
+                            `<answer_text>E2E 答案：${question.slice(0, 12)}</answer_text><analysis>按题意逐步计算。</analysis><knowledge_points>一元一次方程</knowledge_points>` +
+                            '<wrong_answer_text></wrong_answer_text><mistake_status>unknown</mistake_status><mistake_analysis></mistake_analysis>' +
+                            '<subject>数学</subject><difficulty_stars>2</difficulty_stars><grade_semester>初二上</grade_semester>' }, finish_reason: 'stop' }],
+                        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });
+                }
                 if (operation === 'unknown') {
                     violations.push({ caseId: state.id, reason: '无法识别的模型操作' });
                     return json(response, 400, { error: { message: '未声明的模型操作', type: 'invalid_request_error' } });
@@ -91,7 +144,12 @@ export async function startMockAI() {
                 else if (operation === 'grade') payload = { correct: true, reason: '测试夹具判定：结论及论证完整' };
                 else if (operation === 'grade-recognition') payload = { gradeSemester: '初二上' };
                 else payload = {
-                    questionText: operation === 'analysis' ? `求解方程 x + 2 = 5。${marker}` : `证明两个连续整数之和为奇数，并说明理由。${marker}变式`,
+                    // distinctAnalysis：每次图片识别返回不同题干（多题照片的各题），避免被判为重复题
+                    questionText: operation === 'analysis'
+                        ? (state.distinctAnalysis
+                            ? `${PAGE_QUESTIONS[((state.analysisSeq = (state.analysisSeq || 0) + 1) - 1) % PAGE_QUESTIONS.length].text}${marker}`
+                            : `求解方程 x + 2 = 5。${marker}`)
+                        : `证明两个连续整数之和为奇数，并说明理由。${marker}变式`,
                     answerText: operation === 'analysis' ? 'x = 3' : '设整数为 n 与 n+1，其和为 2n+1，所以是奇数。',
                     analysis: '按定义列式并逐步推导。', subject: '数学', knowledgePoints: ['一元一次方程'],
                     difficultyStars: 3, gradeSemester: '初二上', requiresImage: false,

@@ -23,15 +23,23 @@ export function ImportTasksIndicator({ className }: ImportTasksIndicatorProps) {
 
     useEffect(() => {
         if (!data) return;
-        const nowActive = new Set(data.tasks.filter((task) => task.status === "analyzing" || task.status === "saving").map((task) => task.id));
+        // 单独的任务与多题批次（分题或逐题解析）结束时提示一次，不切换页面
+        const nowActive = new Set([
+            ...data.tasks.filter((task) => task.status === "analyzing" || task.status === "saving").map((task) => task.id),
+            ...(data.batches ?? []).filter((batch) => batch.phase === "splitting" || batch.phase === "processing").map((batch) => `batch:${batch.id}`),
+        ]);
+        const unread = new Set([
+            ...data.tasks.filter((task) => task.unread).map((task) => task.id),
+            ...(data.batches ?? []).filter((batch) => batch.unread).map((batch) => `batch:${batch.id}`),
+        ]);
         const previous = activeIds.current;
-        if (previous && [...previous].some((id) => !nowActive.has(id) && data.tasks.some((task) => task.id === id && task.unread))) {
+        if (previous && [...previous].some((id) => !nowActive.has(id) && unread.has(id))) {
             toast.info(t.importTasks.finishedToast);
         }
         activeIds.current = nowActive;
     }, [data, t.importTasks.finishedToast]);
 
-    if (!data || data.tasks.length === 0) return null;
+    if (!data || (data.tasks.length === 0 && !data.batches?.length)) return null;
     const { activeCount, unreadCount } = data;
     const label = activeCount > 0
         ? t.importTasks.entryActive.replace("{count}", String(activeCount))

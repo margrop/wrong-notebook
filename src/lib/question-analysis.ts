@@ -4,14 +4,16 @@
  */
 import { getAIService } from "@/lib/ai";
 import type { ParsedQuestion } from "@/lib/ai";
-import type { CandidateTags, GradeLevel } from "@/lib/ai/types";
+import { normalizeSubject, ParsedQuestionSchema } from "@/lib/ai/schema";
+import type { CandidateTags, GradeLevel, QuestionSplitInput, QuestionSplitResult } from "@/lib/ai/types";
 import { getNotebookCandidateTags } from "@/lib/ai/tag-service";
-import { trackBackgroundTask } from "@/lib/background-tasks";
+import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { getAppTimeZone } from "@/lib/config";
 import { createLogger } from "@/lib/logger";
 import { resolveNotebookScope, SUBJECT_DISPLAY_NAMES } from "@/lib/notebook-scope";
 import { prisma } from "@/lib/prisma";
-import { getQuestionGradeContext, resolveQuestionGrade } from "@/lib/question-grade";
+import { normalizeMistakeStatus } from "@/lib/mistake-status";
+import { getFixedQuestionGrade, getQuestionGradeContext, resolveQuestionGrade } from "@/lib/question-grade";
 import type { QuestionGradeProfile } from "@/lib/question-grade";
 
 const logger = createLogger('question-analysis');
@@ -112,13 +114,76 @@ export async function analyzeQuestionForUser(input: QuestionAnalysisInput): Prom
 
 const PASSTHROUGH_AI_ERRORS = new Set([
     'AI_CONNECTION_FAILED', 'AI_RESPONSE_ERROR', 'AI_TIMEOUT_ERROR', 'AI_QUOTA_EXCEEDED', 'AI_PERMISSION_DENIED',
-    'AI_NOT_FOUND', 'AI_SERVICE_UNAVAILABLE', 'AI_UNKNOWN_ERROR', 'AI_OUTPUT_TRUNCATED',
+    'AI_NOT_FOUND', 'AI_SERVICE_UNAVAILABLE', 'AI_UNKNOWN_ERROR', 'AI_OUTPUT_TRUNCATED', 'AI_IMAGE_NOT_SUPPORTED',
+    'AI_DAILY_LIMIT_EXCEEDED',
 ]);
 
 /** 把识别异常映射为前端可翻译的错误码 */
 export function mapAnalysisError(message: string): string {
     if (message.includes('AI_AUTH_ERROR')) return 'AI_AUTH_ERROR';
+    if (message.startsWith('AI_RESPONSE_ERROR')) return 'AI_RESPONSE_ERROR';
     if (PASSTHROUGH_AI_ERRORS.has(message)) return message;
     if (message.includes('Zod') || message.includes('validate')) return 'AI_RESPONSE_ERROR';
     return message || 'Failed to analyze image';
+}
+
+export interface QuestionTextAnalysisInput {
+    userId: string;
+    /** 题目原文（含公共材料），作为错题的题干保存 */
+    questionText: string;
+    language: 'zh' | 'en';
+    subjectId?: string | null;
+    link?: string | null;
+}
+
+/**
+ * 解析一道文字题（多题批次中的文字任务）：与「文字 AI 解题」相同，按错题本的候选知识点和账户年级规则调用 AI，
+ * 题干使用用户确认的原文，不由 AI 改写。
+ */
+export async function analyzeQuestionTextForUser(input: QuestionTextAnalysisInput): Promise<ParsedQuestion> {
+    const user = await prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { id: true, educationStage: true, enrollmentYear: true, gradeRecognitionMode: true, fixedGradeSemester: true },
+    });
+    let candidateTags: CandidateTags | undefined;
+    let notebookName: string | null = null;
+    if (input.subjectId) {
+        const notebook = await prisma.subject.findFirst({
+            where: { id: input.subjectId, userId: input.userId },
+            select: { name: true, stage: true, subjectKey: true, tagSet: true },
+        });
+        if (notebook) {
+            notebookName = notebook.name;
+            candidateTags = await getNotebookCandidateTags(resolveNotebookScope(notebook), notebook.tagSet || 'default');
+        }
+    }
+    const fixedGrade = user ? getFixedQuestionGrade(user, getAppTimeZone()) : null;
+    const result = await trackBackgroundTask(
+        { userId: input.userId, kind: 'reanswer', subject: notebookName ?? describeQuestion({ questionText: input.questionText }), link: input.link ?? null },
+        () => getAIService().reanswerQuestion(input.questionText, input.language, notebookName, undefined, fixedGrade ?? undefined, candidateTags),
+    );
+    const parsed: ParsedQuestion = {
+        questionText: input.questionText,
+        answerText: result.answerText,
+        analysis: result.analysis,
+        knowledgePoints: (result.knowledgePoints || []).slice(0, 5),
+        wrongAnswerText: result.wrongAnswerText || '',
+        mistakeAnalysis: result.mistakeAnalysis || '',
+        mistakeStatus: normalizeMistakeStatus(result.mistakeStatus),
+        subject: normalizeSubject(result.subject) || '其他',
+        requiresImage: false,
+        difficultyStars: result.difficultyStars ?? null,
+        gradeSemester: user ? resolveQuestionGrade(user, { recognizedGradeSemester: result.gradeSemester }, getAppTimeZone()) : result.gradeSemester ?? null,
+    };
+    const validation = ParsedQuestionSchema.safeParse(parsed);
+    if (!validation.success) throw new Error('AI_RESPONSE_ERROR');
+    return validation.data;
+}
+
+/** 调用 AI 分题（文字按行号，图片附带图片内容），记入后台任务 */
+export async function splitQuestionsForUser(userId: string, input: QuestionSplitInput, link?: string | null): Promise<QuestionSplitResult> {
+    return trackBackgroundTask(
+        { userId, kind: 'split', subject: null, link: link ?? null },
+        () => getAIService().splitQuestions(input),
+    );
 }
