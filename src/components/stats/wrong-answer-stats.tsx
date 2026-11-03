@@ -18,9 +18,11 @@ import { CHART_GRID_COLOR, CHART_AXIS_COLOR, CHART_ADDED_COLOR, CHART_MASTERED_C
 
 interface WrongAnswerStatsProps {
     url: string;
+    /** 当前选中的错题本 id；选中时待复习 / 复习中 / 已掌握卡片链接到对应筛选的错题列表 */
+    subjectId?: string;
 }
 
-export function WrongAnswerStats({ url }: WrongAnswerStatsProps) {
+export function WrongAnswerStats({ url, subjectId }: WrongAnswerStatsProps) {
     const { t } = useLanguage();
     const { data, loading, error, reload } = useStatsData<AnalyticsData>(url);
 
@@ -55,6 +57,9 @@ export function WrongAnswerStats({ url }: WrongAnswerStatsProps) {
         ? t.wrongAnswerStats.dailyTrend
         : t.wrongAnswerStats.monthlyTrend;
 
+    const masteryHref = (status: 'new' | 'reviewing' | 'mastered') =>
+        subjectId ? `/notebooks/${subjectId}?mastery=${status}` : undefined;
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <h2 className="text-2xl font-bold tracking-tight">
@@ -73,18 +78,24 @@ export function WrongAnswerStats({ url }: WrongAnswerStatsProps) {
                     value={data.newCount}
                     description={t.wrongAnswerStats.newDesc}
                     icon={Clock}
+                    href={masteryHref('new')}
+                    aria-label={t.wrongAnswerStats.viewNew}
                 />
                 <StatCard
                     title={t.wrongAnswerStats.reviewing}
                     value={data.reviewingCount}
                     description={t.wrongAnswerStats.reviewingDesc}
                     icon={RefreshCw}
+                    href={masteryHref('reviewing')}
+                    aria-label={t.wrongAnswerStats.viewReviewing}
                 />
                 <StatCard
                     title={t.wrongAnswerStats.mastered}
                     value={data.masteredCount}
                     description={`${t.wrongAnswerStats.masteryRate}: ${data.masteryRate}%`}
                     icon={CheckCircle}
+                    href={masteryHref('mastered')}
+                    aria-label={t.wrongAnswerStats.viewMastered}
                 />
             </div>
 

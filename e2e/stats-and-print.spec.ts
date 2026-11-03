@@ -56,6 +56,16 @@ test('知识点页签按标签计数，打印预览显示所选错题本的题�
         await page.getByRole('tab', { name: '练习统计' }).click();
         await expect(page).toHaveURL(/tab=practice/);
 
+        // 统计中心选择学科后，点击「待复习」卡片跳转到该错题本筛选后的列表
+        await page.goto(`/stats?subject=${notebook.id}`);
+        await expect(page.getByRole('link', { name: '查看待复习错题' })).toBeVisible({ timeout: 15000 });
+        await page.getByRole('link', { name: '查看待复习错题' }).click();
+        await expect(page).toHaveURL(new RegExp(`/notebooks/${notebook.id}\\?mastery=new`));
+        // 列表显示全部 3 道待复习题目
+        for (let i = 1; i <= 3; i++) {
+            await expect(page.getByText(`细胞题 ${i}-${suffix}`)).toBeVisible({ timeout: 15000 });
+        }
+
         // 打印预览只显示该错题本的题目，并显示答案
         await page.goto(`/print-preview?subjectId=${notebook.id}`);
         await expect(page.getByRole('heading', { name: '打印预览' }).or(page.getByText('打印预览').first())).toBeVisible({ timeout: 15000 });

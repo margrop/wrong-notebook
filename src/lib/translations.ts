@@ -180,6 +180,9 @@ export const translations = {
             added: "Added",
             newlyMastered: "Newly Mastered",
             trendSubtitle: "Newly added and newly mastered wrong answers",
+            viewNew: "View to-review wrong answers",
+            viewReviewing: "View reviewing wrong answers",
+            viewMastered: "View mastered wrong answers",
         },
         upload: {
             // dragDrop: "Click or drag image to upload", // Moved to app
@@ -1902,6 +1905,9 @@ export const translations = {
             added: "新增",
             newlyMastered: "新掌握",
             trendSubtitle: "新增与新掌握的错题数",
+            viewNew: "查看待复习错题",
+            viewReviewing: "查看复习中错题",
+            viewMastered: "查看已掌握错题",
         },
         upload: {
             // dragDrop: "点击或拖拽上传图片", // Moved to app

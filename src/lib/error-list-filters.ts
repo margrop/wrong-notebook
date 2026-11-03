@@ -1,3 +1,4 @@
+import { isMasteryStatus } from "@/lib/mastery-status";
 import type { MasteryStatus } from "@/lib/mastery-status";
 
 export type PaperLevelFilter = string;
@@ -27,4 +28,23 @@ export function buildErrorListParams(filters: ErrorListFilters): URLSearchParams
     if (filters.chapter) params.append("chapter", filters.chapter);
     if (filters.paperLevel !== "all") params.append("paperLevel", filters.paperLevel);
     return params;
+}
+
+/** 从地址参数解析错题列表的初始筛选（仅首次进入时作为 useState 初始值，之后改筛选不回写 URL） */
+export interface ErrorListSearchParamsFilters {
+    mastery?: MasteryStatus;
+    tag?: string;
+}
+
+export function parseErrorListSearchParams(params: URLSearchParams): ErrorListSearchParamsFilters {
+    const filters: ErrorListSearchParamsFilters = {};
+    const mastery = params.get("mastery");
+    if (isMasteryStatus(mastery)) {
+        filters.mastery = mastery;
+    }
+    const tag = params.get("tag");
+    if (tag) {
+        filters.tag = tag;
+    }
+    return filters;
 }

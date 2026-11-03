@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildErrorListParams } from '@/lib/error-list-filters';
+import { buildErrorListParams, parseErrorListSearchParams } from '@/lib/error-list-filters';
 import { getItemTags } from '@/lib/item-tags';
 
 const empty = { search: '', mastery: 'all', timeRange: 'all', tag: null, gradeSemester: '', chapter: '', paperLevel: 'all' } as const;
@@ -16,6 +16,31 @@ describe('错题列表筛选参数', () => {
         expect(Object.fromEntries(params)).toEqual({
             subjectId: 'nb', query: '方程', mastery: 'reviewing', timeRange: 'week', tag: '勾股定理', gradeSemester: '初二上', chapter: '第一章', paperLevel: 'b',
         });
+    });
+});
+
+describe('从地址参数解析错题列表初始筛选', () => {
+    it('空参数返回空筛选', () => {
+        expect(parseErrorListSearchParams(new URLSearchParams())).toEqual({});
+    });
+
+    it('合法的 mastery 状态被解析', () => {
+        expect(parseErrorListSearchParams(new URLSearchParams('mastery=new'))).toEqual({ mastery: 'new' });
+        expect(parseErrorListSearchParams(new URLSearchParams('mastery=reviewing'))).toEqual({ mastery: 'reviewing' });
+        expect(parseErrorListSearchParams(new URLSearchParams('mastery=mastered'))).toEqual({ mastery: 'mastered' });
+    });
+
+    it('非法的 mastery 值被忽略', () => {
+        expect(parseErrorListSearchParams(new URLSearchParams('mastery=all'))).toEqual({});
+        expect(parseErrorListSearchParams(new URLSearchParams('mastery=unknown'))).toEqual({});
+    });
+
+    it('tag 参数被解析', () => {
+        expect(parseErrorListSearchParams(new URLSearchParams('tag=勾股定理'))).toEqual({ tag: '勾股定理' });
+    });
+
+    it('同时存在 mastery 与 tag 时全部解析', () => {
+        expect(parseErrorListSearchParams(new URLSearchParams('mastery=mastered&tag=二次函数'))).toEqual({ mastery: 'mastered', tag: '二次函数' });
     });
 });
 
