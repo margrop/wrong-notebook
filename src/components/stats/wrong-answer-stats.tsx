@@ -1,37 +1,21 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
-import { Loader2, TrendingUp, CheckCircle, BookOpen } from "lucide-react";
+import { Loader2, TrendingUp, CheckCircle, BookOpen, Inbox } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { apiClient } from "@/lib/api-client";
-import { frontendLogger } from "@/lib/frontend-logger";
 import { AnalyticsData } from "@/types/api";
+import { useStatsData } from "@/lib/use-stats-data";
 import { StatCard } from "./stat-card";
 import { SubjectPieChart } from "./subject-pie-chart";
+import { StatsEmpty, StatsError } from "./stats-state";
 
 export function WrongAnswerStats() {
-    const [data, setData] = useState<AnalyticsData | null>(null);
-    const [loading, setLoading] = useState(true);
     const { t } = useLanguage();
-
-    const fetchAnalytics = useCallback(async () => {
-        try {
-            const data = await apiClient.get<AnalyticsData>("/api/analytics");
-            setData(data);
-        } catch (error) {
-            frontendLogger.error('[WrongAnswerStats]', 'Failed to fetch analytics', { error });
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- 数据请求：进入页面或条件变化时加载，请求前后更新加载状态和结果
-        fetchAnalytics();
-    }, [fetchAnalytics]);
+    const { data, loading, error, reload } = useStatsData<AnalyticsData>("/api/analytics");
 
     if (loading) {
         return (
@@ -41,7 +25,24 @@ export function WrongAnswerStats() {
         );
     }
 
-    if (!data) return null;
+    if (error) {
+        return <StatsError onRetry={reload} />;
+    }
+
+    if (!data || data.totalErrors === 0) {
+        return (
+            <StatsEmpty
+                icon={Inbox}
+                title={t.statsState?.wrongEmptyTitle || "No wrong answers yet"}
+                description={t.statsState?.wrongEmptyDesc || "Wrong answers you record will appear here."}
+                action={
+                    <Button asChild variant="outline" size="sm">
+                        <Link href="/">{t.statsState?.goToHome || "Go to Home"}</Link>
+                    </Button>
+                }
+            />
+        );
+    }
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">

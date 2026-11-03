@@ -1,34 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Loader2, TrendingUp, BookOpen, Target } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
-import { frontendLogger } from "@/lib/frontend-logger";
+import { Loader2, TrendingUp, BookOpen, Target, ClipboardList } from "lucide-react";
 import { PracticeStatsData } from "@/types/api";
+import { useStatsData } from "@/lib/use-stats-data";
 import { StatCard } from "./stat-card";
 import { ChartTooltip } from "./chart-tooltip";
 import { SubjectPieChart } from "./subject-pie-chart";
+import { StatsEmpty, StatsError } from "./stats-state";
 import { COLORS, DIFFICULTY_COLORS } from "./chart-colors";
 
 export function PracticeStats() {
     const { t } = useLanguage();
-    const [stats, setStats] = useState<PracticeStatsData | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        apiClient.get<PracticeStatsData>("/api/stats/practice")
-            .then(data => {
-                setStats(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                frontendLogger.error('[PracticeStats]', 'Failed to fetch stats', { error: err });
-                setLoading(false);
-            });
-    }, []);
+    const { data: stats, loading, error, reload } = useStatsData<PracticeStatsData>("/api/stats/practice");
 
     if (loading) {
         return (
@@ -38,8 +26,23 @@ export function PracticeStats() {
         );
     }
 
+    if (error) {
+        return <StatsError onRetry={reload} />;
+    }
+
     if (!stats || stats.overallStats.total === 0) {
-        return null; // Don't show if no data
+        return (
+            <StatsEmpty
+                icon={ClipboardList}
+                title={t.statsState?.practiceEmptyTitle || "No practice records yet"}
+                description={t.statsState?.practiceEmptyDesc || "Practice questions will appear here after you complete practice sessions."}
+                action={
+                    <Button asChild variant="outline" size="sm">
+                        <Link href="/review">{t.statsState?.goToReview || "Go to Review"}</Link>
+                    </Button>
+                }
+            />
+        );
     }
 
     // Helper to translate difficulty
