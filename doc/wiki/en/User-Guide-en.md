@@ -28,6 +28,16 @@ The crop preview uses a thumbnail; after you confirm, the crop is taken from the
 
 After enabling "Review before import" in "Settings → General", you can correct the recognition on the review page before saving. The AI may misread numbers, symbols and figure relationships, so check against the original before saving.
 
+### Multiple questions
+
+You do not need to paste questions one at a time:
+
+- **Text**: paste a whole worksheet into **AI solve**. Below the box you see "N numbered questions detected" as you type (local rules based on question numbers, no AI call). Tap **Preview N questions** to open the preview, or **Solve as one question** to keep a single question. Options (A–D) and sub-questions ((1)(2), ①②) stay with their question; reading passages become shared material placed before the related questions; titles, name/date lines and notes such as "9 questions in total" are left out and can be restored from **Not counted as questions**. Numbers right after a question stem, such as 1) 2) or "answer the following questions:", may be sub-questions of one question, so they are kept together by default; choose **Split into N questions anyway** if they really are separate. A batch holds up to 60 questions (extra ones are listed as not counted) and up to 20,000 characters of text. For several questions without numbers, use **Split with AI**: one AI call finds the boundaries, and the question text is always taken from what you pasted.
+
+The preview shows "N questions found · N selected". Each question starts collapsed; open it to edit, split at the cursor, merge with the previous question, move it or delete it, with select-all and undo at the top. Changes are saved to the server automatically, so refreshing, locking the phone or opening it on another device shows the same preview; if two pages edit at once, the later save is told and loads the latest version.
+
+Start with the button at the bottom: with **Review before import** off it reads **Solve and import N questions** and saves each question when solved; with it on it reads **Solve N questions, review later**, and you **Review** each one (saving returns to the batch) or choose **Import the other N as recognized**. The batch appears as "Batch of N questions" under Recognition tasks with counts of imported, duplicate, to-review and failed questions; percentages are stage estimates. Failed questions can be retried individually or together; finished questions are never solved or imported twice.
+
 ### Recognition tasks
 
 Once the upload finishes, recognition continues on the server. The page shows a status card instead of a full-screen overlay, so you can leave the page, lock your phone or keep adding questions. The **Recognition** entry in the header shows how many tasks are running and the number of unread results, and refreshes as soon as you return to the app.

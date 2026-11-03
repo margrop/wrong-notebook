@@ -101,6 +101,8 @@ export default function AddErrorPage() {
                                 onSubmit={flow.submitText}
                                 isAnalyzing={flow.isBusy}
                                 defaultNotebookName={notebook.name}
+                                onCreateBatch={flow.createTextBatch}
+                                creatingBatch={flow.creatingBatch}
                             />
                         )}
                     </div>

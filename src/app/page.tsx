@@ -125,6 +125,8 @@ function HomeContent() {
                                     onSubmit={flow.submitText}
                                     isAnalyzing={flow.isBusy}
                                     defaultNotebookName={targetNotebook?.name}
+                                    onCreateBatch={flow.createTextBatch}
+                                    creatingBatch={flow.creatingBatch}
                                 />
                             ) : (
                                 <DirectTextEditor

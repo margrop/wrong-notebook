@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { CompletedStage, ProgressStatus } from "@/components/ui/progress-feedback";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { ParsedQuestion } from "@/lib/ai";
@@ -9,6 +10,7 @@ import { apiClient } from "@/lib/api-client";
 import { getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { createImportBatch } from "@/lib/import-batch-client";
 import { createImportTask } from "@/lib/import-task-client";
 import type { ImageRegion } from "@/lib/image-crop";
 import { describeImage, ImageDecodeError, prepareImage, renderRegion } from "@/lib/image-pipeline";
@@ -65,7 +67,9 @@ interface QuestionImportOptions {
  */
 export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId, textNotebook, fixedSubjectId }: QuestionImportOptions) {
     const { t, language } = useLanguage();
+    const router = useRouter();
     const saver = useQuestionSaver(logPrefix);
+    const [creatingBatch, setCreatingBatch] = useState(false);
     const [step, setStep] = useState<"upload" | "review">("upload");
     const [analysisStep, setAnalysisStep] = useState<ProgressStatus>('idle');
     const [parsedData, setParsedData] = useState<ParsedQuestion | null>(null);
@@ -228,6 +232,33 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
         }
     };
 
+    /** 多题批次放入的错题本：与单题上传相同，添加页固定错题本，免确认时放入指定的错题本，校对时由用户选择 */
+    const batchTarget = () => fixedSubjectId ?? (confirmBeforeImport ? null : importSubjectId);
+
+    /** 多题文字：创建批次（本地规则分题不调用 AI；splitter 为 ai 时由模型分题），进入分题预览 */
+    const createTextBatch = async (text: string, splitter: "local" | "ai", forceNumbered = false) => {
+        saver.setSaveError(null);
+        setCreatingBatch(true);
+        try {
+            const batch = await createImportBatch({
+                source: "text",
+                splitter,
+                forceNumbered: forceNumbered || undefined,
+                text,
+                language,
+                subjectId: analyzeSubjectId ?? textNotebook?.id,
+                targetSubjectId: batchTarget(),
+            });
+            frontendLogger.info(logPrefix, 'Text batch created', { batchId: batch.id, splitter, questions: batch.itemCount });
+            router.push(`/import-batches/${batch.id}`);
+        } catch (error) {
+            frontendLogger.error(logPrefix, 'Text batch failed', { error: getErrorMessage(error) });
+            toast.error(getAnalysisErrorMessage(error, t));
+        } finally {
+            setCreatingBatch(false);
+        }
+    };
+
     /** 文字题目由 AI 解答后导入 */
     const submitText = async (questionText: string) => {
         saver.setSaveError(null);
@@ -292,5 +323,6 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
         refreshPendingTask: pending.refresh,
         dismissPendingTask: () => setPendingTaskId(null),
         selectImage, cropRegions, submitText, saveQuestion, saveReviewed,
+        createTextBatch, creatingBatch,
     };
 }
