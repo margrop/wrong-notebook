@@ -55,7 +55,7 @@ The screenshots below were captured from the running app on 2026-10-22 using Eng
 <details>
 <summary><strong>Input and preferences: photo upload, text input, review before import and configurable duplicate detection</strong></summary>
 
-The home page offers photo upload, manual input and direct entry, with drag-and-drop and clipboard paste.
+The home page offers photo upload, manual input and direct entry, with drag-and-drop and clipboard paste. On phones there are three separate entries: **Take photo** opens the camera directly, **Photo album** picks from your photos, and **Choose file** covers photos that do not show up in the album.
 
 When saving direct entries or reviewed questions fails, the page keeps the specific reason and suggested next steps, distinguishing AI grade recognition, field-length or paper-group validation, sign-in status, database migrations and write permissions, and network or proxy errors. If AI grade recognition fails, enter a grade manually or switch to a fixed grade before saving again. After a timeout or disconnection, check whether the question was saved before retrying to avoid duplicate submissions.
 

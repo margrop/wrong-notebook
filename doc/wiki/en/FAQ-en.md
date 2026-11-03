@@ -69,6 +69,10 @@ Difficulty and paper level are separate fields. When the paper level is not set,
 
 Paper groups can be customized in **Settings → General → Paper Groups**: rename the default groups (Paper A / Paper B / Other), add custom groups (e.g. Unit Test, Midterm, Final), deactivate or delete custom groups. When deleting a group with questions, you can clear or migrate the affected questions.
 
+## A photo does not show up in the album, or cannot be decoded after selection?
+
+These have different causes. If the photo is missing from the album or file picker, the system usually does not treat that file (for example some HEIC/HEIF photos) as an image; use **Choose file**, which accepts any file type. If the photo is selected but cannot be decoded, the file is damaged or the format is truly unsupported. HEIC/HEIF is converted automatically; if decoding still fails, export the photo as JPG in your photo app (or forward it through a chat app) and try again. The web app and Android app were verified with real HEIC files in a test environment, but not yet with original photos from every phone model; please report the model and OS version if you hit a problem.
+
 ## The AI analysis percentage is stuck for a long time?
 
 The percentage is an estimate for the current stage; AI services usually do not report real progress. Use the stage description, elapsed time and background task status, read the error after a timeout, and avoid submitting the same task repeatedly.

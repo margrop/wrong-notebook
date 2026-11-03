@@ -169,6 +169,13 @@ export const translations = {
         upload: {
             // dragDrop: "Click or drag image to upload", // Moved to app
             support: "JPG, PNG, WebP and HEIC/HEIF photos",
+            camera: "Take photo",
+            cameraDesc: "Opens the camera directly",
+            album: "Photo album",
+            albumDesc: "Choose from your photos",
+            file: "Choose file",
+            fileDesc: "Use this if a photo does not show up in the album",
+            noCamera: "No camera found on this device. Choose from the album or a file instead.",
             decodeErrors: {
                 HEIC_DECODE_FAILED: "This HEIC/HEIF photo could not be decoded. Export it as JPG in your photo app (or forward it through a chat app) and try again.",
                 IMAGE_DECODE_FAILED: "This image ({format}) could not be read. It may be damaged or unsupported by this browser.",
@@ -1665,6 +1672,13 @@ export const translations = {
         upload: {
             // dragDrop: "点击或拖拽上传图片", // Moved to app
             support: "支持 JPG、PNG、WebP 和 HEIC/HEIF 照片",
+            camera: "拍照",
+            cameraDesc: "直接打开相机拍摄",
+            album: "相册",
+            albumDesc: "从手机相册选择照片",
+            file: "从文件选择",
+            fileDesc: "相册中找不到照片时使用",
+            noCamera: "未检测到可用的相机，请从相册或文件中选择。",
             decodeErrors: {
                 HEIC_DECODE_FAILED: "无法解码这张 HEIC/HEIF 照片。可在相册中将其导出为 JPG（或经微信等转存）后重试。",
                 IMAGE_DECODE_FAILED: "无法读取这张图片（{format}），可能已损坏或当前浏览器不支持该格式。",

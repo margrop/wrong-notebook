@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
+import type { ChangeEvent } from "react";
 import { useDropzone } from "react-dropzone";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UploadCloud, Loader2, Monitor, ClipboardPaste } from "lucide-react";
+import { Camera, ClipboardPaste, FolderOpen, Images, Loader2, Monitor, UploadCloud } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { toast } from "@/lib/feedback";
@@ -24,10 +25,31 @@ declare global {
 }
 
 /**
- * 拖拽区接受的类型：image/* 加常见扩展名。部分系统不认识 HEIC/HEIF 的 MIME（报告为空或 octet-stream），
+ * 拖拽区与「从文件选择」接受的类型：image/* 加常见扩展名。部分系统不认识 HEIC/HEIF 的 MIME（报告为空或 octet-stream），
  * 按扩展名放行，选择后再按文件头识别真实格式。
  */
 const IMAGE_ACCEPT = { "image/*": [".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".heic", ".heif"] };
+
+/**
+ * 检测是否有摄像头：只在浏览器提供 mediaDevices 时判断（HTTP 页面和部分 WebView 不提供，此时不阻止拍照）。
+ * 不请求权限，只读取设备种类。
+ */
+function useCameraAvailability(): boolean | null {
+    const [available, setAvailable] = useState<boolean | null>(null);
+    useEffect(() => {
+        if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) return;
+        let cancelled = false;
+        navigator.mediaDevices.enumerateDevices()
+            .then((devices) => {
+                if (!cancelled) setAvailable(devices.some((device) => device.kind === "videoinput"));
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+    return available;
+}
 
 interface UploadZoneProps {
     onImageSelect: (file: File) => void;  // 改为传递 File 对象
@@ -64,6 +86,25 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
         maxFiles: 1,
         disabled: isAnalyzing,
     });
+
+    // 拍照、相册、文件三个独立入口：拍照用 capture 直接打开相机；相册只限图片；文件不限类型，作为相册中找不到照片时的兜底
+    const hasCamera = useCameraAvailability();
+    const cameraInput = useRef<HTMLInputElement>(null);
+    const albumInput = useRef<HTMLInputElement>(null);
+    const fileInput = useRef<HTMLInputElement>(null);
+    const handlePicked = (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        // 清空以便再次选择同一文件（如重拍后选同名照片）也能触发
+        event.target.value = "";
+        if (file) onImageSelect(file);
+    };
+    const openSource = (key: "camera" | "album" | "file") => {
+        if (key === "camera" && hasCamera === false) {
+            toast.warning(t.upload.noCamera);
+            return;
+        }
+        ({ camera: cameraInput, album: albumInput, file: fileInput })[key].current?.click();
+    };
     // 将剪贴板中的图片 Blob 转为 File 并交给父组件
     const selectClipboardImage = useCallback(
         (blob: Blob) => {
@@ -260,8 +301,37 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
             setIsScreenshotting(false);
         }
     };
+    const sources = [
+        { key: "camera" as const, icon: Camera, label: t.upload.camera, desc: t.upload.cameraDesc },
+        { key: "album" as const, icon: Images, label: t.upload.album, desc: t.upload.albumDesc },
+        { key: "file" as const, icon: FolderOpen, label: t.upload.file, desc: t.upload.fileDesc },
+    ];
+
     return (
         <div className="space-y-4">
+            {/* 隐藏的选择器始终存在，桌面端「从文件选择」也可用 */}
+            <input ref={cameraInput} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePicked} data-testid="camera-input" />
+            <input ref={albumInput} type="file" accept="image/*" className="hidden" onChange={handlePicked} data-testid="album-input" />
+            <input ref={fileInput} type="file" className="hidden" onChange={handlePicked} data-testid="file-input" />
+            {/* 触屏设备（手机、平板）显示拍照、相册、文件三个独立入口；用 CSS 媒体查询判断，不依赖渲染时的状态 */}
+            {isClient && (
+                <div className="hidden grid-cols-3 gap-2 pointer-coarse:grid" data-testid="image-sources">
+                    {sources.map((source) => (
+                        <Button
+                            key={source.key}
+                            type="button"
+                            variant="outline"
+                            onClick={() => openSource(source.key)}
+                            disabled={isAnalyzing}
+                            className="flex h-auto flex-col gap-1 py-3"
+                            aria-description={source.desc}
+                        >
+                            <source.icon className="h-6 w-6" />
+                            <span className="text-sm font-medium">{source.label}</span>
+                        </Button>
+                    ))}
+                </div>
+            )}
             <Card
                 {...getRootProps()}
                 className={`group cursor-pointer rounded-2xl border-2 border-dashed shadow-none transition-all hover:border-primary/60 hover:bg-accent/40 ${isDragActive ? "border-primary bg-accent/60" : "border-border bg-card"
