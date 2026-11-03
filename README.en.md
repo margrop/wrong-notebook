@@ -196,7 +196,7 @@ Download the package for your platform from the [download page](https://wrong-no
 | Android phone / tablet (standalone) | `WrongNotebook-Android-Phone-<version>.apk` (portrait), `WrongNotebook-Android-Tablet-<version>.apk` (rotates between portrait and landscape) |
 | Android phone / tablet (client) | `WrongNotebook-Android-Client-Phone-<version>.apk`, `WrongNotebook-Android-Client-Tablet-<version>.apk` |
 
-See the Windows [Code signing policy](doc/CODE_SIGNING.en.md) and [privacy policy](doc/PRIVACY.en.md). The project is applying to SignPath Foundation; currently published Windows installers remain unsigned. The maintainer's [setup guide](doc/WINDOWS_SIGNING.md) describes activation after approval.
+See the Windows [Code signing policy](doc/CODE_SIGNING.en.md) and [privacy policy](doc/PRIVACY.en.md). The project has been accepted by SignPath Foundation and is testing the integration with a test certificate; Windows installers released before the production certificate is enabled remain unsigned. The maintainer's [setup guide](doc/WINDOWS_SIGNING.md) describes the activation steps.
 
 > **macOS says the app is damaged or can't be opened**: the package is not signed by Apple. After dragging the app into Applications, run these commands in Terminal to remove the quarantine flag and re-sign it locally, then open it:
 >

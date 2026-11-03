@@ -135,7 +135,7 @@ Dockerfile 在镜像内执行 Vitest、脚本语法检查和生产构建，并�
 | 安卓手机 / 平板（单机版） | 安装 `WrongNotebook-Android-Phone-<版本>.apk` 或 `WrongNotebook-Android-Tablet-<版本>.apk` | App 私有目录，卸载时删除 |
 | 安卓手机 / 平板（客户端） | 安装 `WrongNotebook-Android-Client-Phone-<版本>.apk` 或 `-Client-Tablet-<版本>.apk`，首次打开填写服务器地址 | 不保存数据，连接已部署的服务器 |
 
-Windows 安装包当前仍未签名，项目正在申请 SignPath Foundation。签名范围、职责和状态见 [Code signing policy](https://github.com/margrop/wrong-notebook/blob/main/doc/CODE_SIGNING.md)，数据处理见[隐私说明](https://github.com/margrop/wrong-notebook/blob/main/doc/PRIVACY.md)。维护者可在获批后按 [Windows 签名配置](https://github.com/margrop/wrong-notebook/blob/main/doc/WINDOWS_SIGNING.md)启用签名。
+Windows 安装包当前仍未签名；项目已通过 SignPath Foundation 审核，正在用测试证书接入，取得生产证书后启用签名。签名范围、职责和状态见 [Code signing policy](https://github.com/margrop/wrong-notebook/blob/main/doc/CODE_SIGNING.md)，数据处理见[隐私说明](https://github.com/margrop/wrong-notebook/blob/main/doc/PRIVACY.md)。维护者可按 [Windows 签名配置](https://github.com/margrop/wrong-notebook/blob/main/doc/WINDOWS_SIGNING.md)启用签名。
 
 桌面版只监听本机，默认端口 39300；飞牛OS 版监听 39300 端口，局域网内可访问。数据库、AI 配置和会话密钥都在数据目录中，备份时整体复制该目录。
 

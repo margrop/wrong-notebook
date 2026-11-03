@@ -4,9 +4,9 @@
 
 ## 当前状态
 
-项目正在申请 SignPath Foundation 的开源代码签名服务，尚未获批。`v2026.10.30` 及此前发布的 Windows 安装包仍未签名；本页不表示已获得证书或签名授权。是否已签名应以具体文件的 Windows「属性 → 数字签名」及签名验证结果为准。
+项目已于 2026 年 10 月通过 SignPath Foundation 开源代码签名计划的审核，目前正用 SignPath 提供的自签名测试证书调试签名流程；基金会复核接入配置后才会签发生产证书。在此之前发布的 Windows 安装包（含 `v2026.10.30` 及更早版本）仍未签名，测试证书签名的文件不作为发布附件。是否已签名应以具体文件的 Windows「属性 → 数字签名」及签名验证结果为准。
 
-获批并启用后的签名致谢为：
+启用生产证书后的签名致谢为：
 
 > Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 

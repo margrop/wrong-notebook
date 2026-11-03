@@ -73,7 +73,7 @@ git push origin v2026.10.19-1
 
 ## Windows 签名
 
-Packages 工作流支持在 Windows 构建后、原有附件上传前接入 SignPath，配置步骤见 [WINDOWS_SIGNING.md](WINDOWS_SIGNING.md)。项目正在申请基金会授权，默认不启用；获批、配置完成并验证后才设置 `SIGNPATH_ENABLED=true`。
+Packages 工作流支持在 Windows 构建后、原有附件上传前接入 SignPath，配置步骤见 [WINDOWS_SIGNING.md](WINDOWS_SIGNING.md)。项目已通过基金会审核，当前仅用测试证书试签，默认不启用生产签名；取得生产证书、配置完成并验证后才设置 `SIGNPATH_ENABLED=true`。
 
 启用后每次签名都需维护者在 SignPath 人工批准。工作流等待并验证签名，成功后继续原有 Release 附件和校验和步骤；失败时停止，不回退到未签名包。不得为测试接入而重打已发布的正式标签或替换旧版附件。
 

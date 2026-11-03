@@ -4,9 +4,9 @@
 
 ## Current status
 
-The project is applying for the SignPath Foundation open-source code signing service and has not yet been approved. Windows installers from `v2026.10.30` and earlier remain unsigned. This page does not claim that a certificate or signing authorization has already been granted. Check a specific file's Windows Properties → Digital Signatures and its signature validation result.
+The project was accepted into the SignPath Foundation open-source code signing program in October 2026 and is currently testing the signing pipeline with the self-signed test certificate provided by SignPath. The Foundation issues the production certificate only after reviewing the setup. Windows installers released before then (including `v2026.10.30` and earlier) remain unsigned, and files signed with the test certificate are never published as release assets. Check a specific file's Windows Properties → Digital Signatures and its signature validation result.
 
-Once approved and enabled, the signing acknowledgement will be:
+Once the production certificate is enabled, the signing acknowledgement will be:
 
 > Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 
