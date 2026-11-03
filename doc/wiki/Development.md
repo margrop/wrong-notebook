@@ -61,6 +61,10 @@ bash scripts/ci.sh
 
 逻辑修改后至少运行单元和集成测试。仅修改文档、样式或注释时可按仓库约定跳过逻辑测试；除非明确要求或运行完整 CI，不主动执行生产构建。
 
+## Fork 扩展点
+
+fork 项目（例如「AI 题库」）可通过上游预留的扩展点定制功能而尽量少改上游文件，详见 [doc/FORK_EXTENSION_POINTS.md](https://github.com/margrop/wrong-notebook/blob/main/doc/FORK_EXTENSION_POINTS.md)。
+
 ## 实现约定
 
 - 回复、代码注释和提交说明使用简体中文，提交格式为 `type: 中文描述`。

@@ -61,6 +61,10 @@ bash scripts/ci.sh
 
 After changing logic, run at least the unit and integration tests. Changes to documentation, styles or comments alone may skip the logic tests per the repository rules; do not run the production build unless asked or as part of the full CI.
 
+## Fork extension points
+
+Fork projects (for example an "AI question bank") can customize features through extension points reserved upstream with minimal changes to upstream files; see [doc/FORK_EXTENSION_POINTS.md](https://github.com/margrop/wrong-notebook/blob/main/doc/FORK_EXTENSION_POINTS.md).
+
 ## Conventions
 
 - Replies, code comments and commit messages are written in Simplified Chinese; commits follow `type: description`.
