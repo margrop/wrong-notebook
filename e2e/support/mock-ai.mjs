@@ -8,7 +8,7 @@ function json(response, status, value) {
     response.end(JSON.stringify(value));
 }
 
-/** 多题照片样例（e2e/fixtures/multi-question-page.jpg）中各题的位置，按 0～1000 归一化 */
+/** 多题照片样例（src/__tests__/fixtures/images/multi-question-page.jpg）中各题的位置，按 0～1000 归一化 */
 export const PAGE_QUESTIONS = [
     { label: '1', text: '如图，长方形 ABCD 的长和宽如图中所示，求它的面积是多少平方厘米？', regions: [{ x: 48, y: 197, w: 905, h: 350 }], hasFigure: true },
     { label: '2', text: '下列分数中，与 3/4 相等的是（　　）。A．6/8 B．4/6 C．9/16 D．5/7', regions: [{ x: 48, y: 590, w: 905, h: 105 }], hasFigure: false },

@@ -12,7 +12,7 @@ export async function importImage(page: Page, scenario: Scenario, confirm: boole
     await scenario.control({ hold: true });
     await scenario.login(page);
     await page.goto(confirm ? '/' : `/?notebook=${scenario.book.id}`);
-    await page.locator('input[type="file"]').first().setInputFiles(resolve('e2e/fixtures/math_test.png'));
+    await page.locator('input[type="file"]').first().setInputFiles(resolve('src/__tests__/fixtures/images/math_test.png'));
     await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible();
     await page.getByRole('button', { name: /确认|Confirm/ }).click();
     await expect.poll(async () => (await scenario.model()).calls.filter((call) => call.operation === 'analysis').length).toBe(1);

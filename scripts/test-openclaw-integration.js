@@ -107,7 +107,7 @@ echo "-----------------------------------------"
 echo ""
 
 # 准备测试图片 (base64)
-TEST_IMAGE=$(base64 -i e2e/fixtures/math_test.png 2>/dev/null || echo "")
+TEST_IMAGE=$(base64 -i src/__tests__/fixtures/images/math_test.png 2>/dev/null || echo "")
 if [ -z "$TEST_IMAGE" ]; then
     echo "使用内置测试图片..."
     # 创建一个简单的1x1像素PNG图片的base64

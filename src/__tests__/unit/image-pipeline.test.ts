@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { computeOutputSize, DEFAULT_IMAGE_LIMITS, sniffImageFormat } from '@/lib/image-pipeline';
 
-const fixture = (name: string) => new Uint8Array(readFileSync(resolve('e2e/fixtures', name)));
+const fixture = (name: string) => new Uint8Array(readFileSync(resolve('src/__tests__/fixtures/images', name)));
 const brandFile = (major: string, ...compatible: string[]) => {
     const brands = [major, '\0\0\0\0', ...compatible].join('');
     const size = 8 + brands.length;
@@ -142,7 +142,7 @@ describe('renderRegion', () => {
 });
 
 describe('prepareImage', () => {
-    const file = (name: string, type = '') => new File([readFileSync(resolve('e2e/fixtures', name))], name, { type });
+    const file = (name: string, type = '') => new File([readFileSync(resolve('src/__tests__/fixtures/images', name))], name, { type });
 
     it('系统可以解码时不加载 HEIC 解码库（如 Safari 解码 HEIC）', async () => {
         const createImageBitmap = vi.fn(async () => ({ width: 1024, height: 1024, close: vi.fn() }));

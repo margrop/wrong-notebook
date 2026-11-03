@@ -5,7 +5,7 @@ import type { Page, TestInfo } from '@playwright/test';
 import { test } from './support/fixtures';
 import type { Scenario } from './support/fixtures';
 
-const fixture = (name: string) => resolve('e2e/fixtures', name);
+const fixture = (name: string) => resolve('src/__tests__/fixtures/images', name);
 
 /** 生成灰度 PNG（每行一种灰度），用于构造「文件很小但像素很多」的图片 */
 function grayPng(width: number, height: number): Buffer {
