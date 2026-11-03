@@ -341,7 +341,9 @@ describe('/api/analytics', () => {
             mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
             mocks.mockPrismaErrorItem.count.mockResolvedValue(5);
             mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
-            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaErrorItem.findMany
+                .mockResolvedValueOnce([])   // rangeItems（createdAt）
+                .mockResolvedValueOnce([]);  // masteredItems（masteryEvaluatedAt）
             mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
 
             const response = await GET(makeRequest('http://localhost/api/analytics?range=7d'));
@@ -351,6 +353,8 @@ describe('/api/analytics', () => {
             expect(data.activityData).toHaveLength(7);
             expect(data.activityData[0]).toHaveProperty('date');
             expect(data.activityData[0]).toHaveProperty('count');
+            expect(data.activityData[0]).toHaveProperty('added');
+            expect(data.activityData[0]).toHaveProperty('mastered');
         });
 
         it('活动数据应按应用时区分组到正确的日期', async () => {
@@ -361,9 +365,11 @@ describe('/api/analytics', () => {
             mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
             mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
             // 北京时间 2026-10-19 凌晨 1 点（UTC 2026-10-18T17:00:00Z）
-            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([
-                { createdAt: new Date('2026-10-18T17:00:00Z') },
-            ]);
+            mocks.mockPrismaErrorItem.findMany
+                .mockResolvedValueOnce([
+                    { createdAt: new Date('2026-10-18T17:00:00Z') },
+                ])
+                .mockResolvedValueOnce([]); // masteredItems
             try {
                 const response = await GET(makeRequest('http://localhost/api/analytics?range=7d'));
                 const data = await response.json();
@@ -373,8 +379,12 @@ describe('/api/analytics', () => {
                 const day18 = data.activityData.find((d: { date: string }) => d.date === '10-18');
                 expect(day19).toBeDefined();
                 expect(day19.count).toBe(1);
+                expect(day19.added).toBe(1);
+                expect(day19.mastered).toBe(0);
                 expect(day18).toBeDefined();
                 expect(day18.count).toBe(0);
+                expect(day18.added).toBe(0);
+                expect(day18.mastered).toBe(0);
             } finally {
                 vi.useRealTimers();
             }
@@ -527,6 +537,121 @@ describe('/api/analytics', () => {
 
             expect(response.status).toBe(200);
             expect(data.masteryRate).toBe('0.0');
+        });
+
+        it('新掌握错题按 masteryEvaluatedAt 分桶且不套用 createdAt 范围', async () => {
+            vi.useFakeTimers();
+            vi.setSystemTime(new Date('2026-10-18T20:00:00Z'));
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaErrorItem.findMany
+                .mockResolvedValueOnce([
+                    // 范围内创建的错题
+                    { createdAt: new Date('2026-10-17T10:00:00Z') },
+                    { createdAt: new Date('2026-10-18T10:00:00Z') },
+                ])
+                .mockResolvedValueOnce([
+                    // 一道创建于范围之前但在范围内被掌握的错题
+                    { masteryEvaluatedAt: new Date('2026-10-17T08:00:00Z') },
+                    // 一道在范围之前被掌握的错题（不应计入任何桶）
+                    { masteryEvaluatedAt: new Date('2026-10-10T08:00:00Z') },
+                ]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+            try {
+                const response = await GET(makeRequest('http://localhost/api/analytics?range=7d'));
+                const data = await response.json();
+                expect(response.status).toBe(200);
+
+                const day17 = data.activityData.find((d: { date: string }) => d.date === '10-17');
+                const day18 = data.activityData.find((d: { date: string }) => d.date === '10-18');
+                expect(day17).toBeDefined();
+                expect(day17.added).toBe(1);
+                expect(day17.mastered).toBe(1);
+                expect(day18).toBeDefined();
+                expect(day18.added).toBe(1);
+                expect(day18.mastered).toBe(0);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('新掌握错题查询应使用 masteryStatusWhere 且带学科筛选', async () => {
+            mocks.mockPrismaSubject.findFirst.mockResolvedValue({ id: 'sub-1', name: '数学' });
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            await GET(makeRequest('http://localhost/api/analytics?subjectId=sub-1'));
+
+            // 第二次 findMany 是新掌握查询，应包含学科筛选与 mastered 条件
+            expect(mocks.mockPrismaErrorItem.findMany).toHaveBeenCalledTimes(2);
+            expect(mocks.mockPrismaErrorItem.findMany).toHaveBeenNthCalledWith(2, {
+                where: {
+                    userId: 'user-123',
+                    subjectId: 'sub-1',
+                    masteryEvaluatedAt: { gte: expect.any(Date) },
+                    AND: [{
+                        practiceRecords: { some: { result: { not: null } } },
+                        masteryProbability: { gte: 0.5 },
+                    }],
+                },
+                select: { masteryEvaluatedAt: true },
+            });
+        });
+
+        it('all 范围的分桶起点取最早创建与最早掌握评估时间中较早者', async () => {
+            // 最早创建时间为 2026-08，最早掌握评估时间为 2026-06，应取 2026-06 作为起点
+            mocks.mockPrismaErrorItem.findFirst
+                .mockResolvedValueOnce({ createdAt: new Date('2026-08-15T00:00:00Z') })
+                .mockResolvedValueOnce({ masteryEvaluatedAt: new Date('2026-06-10T00:00:00Z') });
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            const response = await GET(makeRequest('http://localhost/api/analytics?range=all'));
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.range).toBe('all');
+            expect(data.granularity).toBe('month');
+            // 分桶起点应为 2026-06
+            expect(data.activityData[0].date).toBe('2026-06');
+        });
+
+        it('all 范围无掌握评估记录时使用最早创建时间作为分桶起点', async () => {
+            mocks.mockPrismaErrorItem.findFirst
+                .mockResolvedValueOnce({ createdAt: new Date('2026-08-15T00:00:00Z') })
+                .mockResolvedValueOnce(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            const response = await GET(makeRequest('http://localhost/api/analytics?range=all'));
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.activityData[0].date).toBe('2026-08');
+        });
+
+        it('all 范围仅有掌握评估记录时使用最早掌握评估时间作为分桶起点', async () => {
+            mocks.mockPrismaErrorItem.findFirst
+                .mockResolvedValueOnce(null)
+                .mockResolvedValueOnce({ masteryEvaluatedAt: new Date('2026-05-01T00:00:00Z') });
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            const response = await GET(makeRequest('http://localhost/api/analytics?range=all'));
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.activityData[0].date).toBe('2026-05');
         });
     });
 });

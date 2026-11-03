@@ -226,7 +226,7 @@ export interface AnalyticsData {
     masteredCount: number;
     masteryRate: number;
     subjectStats: { name: string; value: number }[];
-    activityData: { date: string; count: number }[];
+    activityData: { date: string; count: number; added: number; mastered: number }[];
     range: StatsRange;
     granularity: 'day' | 'month';
 }

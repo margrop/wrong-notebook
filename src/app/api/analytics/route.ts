@@ -41,13 +41,24 @@ export async function GET(req: Request) {
 
         let earliest: Date | null = null;
         if (range === 'all') {
-            // 仅 all 范围需要查最早错题作为分桶起点
-            const earliestItem = await prisma.errorItem.findFirst({
-                where: baseWhere,
-                select: { createdAt: true },
-                orderBy: { createdAt: 'asc' },
-            });
-            earliest = earliestItem?.createdAt ?? null;
+            // 仅 all 范围需要查最早错题与最早掌握评估时间作为分桶起点
+            const [earliestCreated, earliestEvaluated] = await Promise.all([
+                prisma.errorItem.findFirst({
+                    where: baseWhere,
+                    select: { createdAt: true },
+                    orderBy: { createdAt: 'asc' },
+                }),
+                prisma.errorItem.findFirst({
+                    where: { ...baseWhere, masteryEvaluatedAt: { not: null } },
+                    select: { masteryEvaluatedAt: true },
+                    orderBy: { masteryEvaluatedAt: 'asc' },
+                }),
+            ]);
+            const createdAt = earliestCreated?.createdAt;
+            const evaluatedAt = earliestEvaluated?.masteryEvaluatedAt;
+            earliest = createdAt && evaluatedAt
+                ? (createdAt <= evaluatedAt ? createdAt : evaluatedAt)
+                : (createdAt ?? evaluatedAt ?? null);
         }
 
         const rangeInfo = resolveStatsRange(range, earliest, now, timeZone);
@@ -60,7 +71,7 @@ export async function GET(req: Request) {
             ...(rangeInfo.start ? { createdAt: { gte: rangeInfo.start } } : {}),
         };
 
-        const [totalErrors, newCount, reviewingCount, masteredCount, subjectGroups, rangeItems] = await Promise.all([
+        const [totalErrors, newCount, reviewingCount, masteredCount, subjectGroups, rangeItems, masteredItems] = await Promise.all([
             prisma.errorItem.count({ where: scopedWhere }),
             prisma.errorItem.count({
                 where: { AND: [scopedWhere, masteryStatusWhere('new', masteryThreshold)] }
@@ -79,6 +90,17 @@ export async function GET(req: Request) {
             prisma.errorItem.findMany({
                 where: scopedWhere,
                 select: { createdAt: true },
+            }),
+            prisma.errorItem.findMany({
+                // 近似口径：以最近一次掌握评估时间（masteryEvaluatedAt）作为「掌握时间」。
+                // 这类错题可能创建于范围之前，因此不套用 createdAt 范围条件，
+                // 只要 masteryEvaluatedAt 落在范围起点之后即计入。
+                where: {
+                    ...baseWhere,
+                    ...(rangeInfo.start ? { masteryEvaluatedAt: { gte: rangeInfo.start } } : {}),
+                    AND: [masteryStatusWhere('mastered', masteryThreshold)],
+                },
+                select: { masteryEvaluatedAt: true },
             }),
         ]);
 
@@ -100,13 +122,25 @@ export async function GET(req: Request) {
             value: g._count.id,
         }));
 
-        // 按分桶统计每日/每月新增
-        const activityData = rangeInfo.buckets.map(bucket => ({
-            date: bucket.label,
-            count: rangeItems.filter(
+        // 按分桶统计每日/每月新增与新掌握
+        // 近似口径：以最近一次掌握评估时间（masteryEvaluatedAt）作为「掌握时间」
+        const activityData = rangeInfo.buckets.map(bucket => {
+            const added = rangeItems.filter(
                 item => item.createdAt >= bucket.start && item.createdAt < bucket.end
-            ).length,
-        }));
+            ).length;
+            const mastered = masteredItems.filter(
+                item => item.masteryEvaluatedAt !== null
+                    && item.masteryEvaluatedAt >= bucket.start
+                    && item.masteryEvaluatedAt < bucket.end
+            ).length;
+            return {
+                date: bucket.label,
+                // count 为兼容旧版前端保留，与 added 相同
+                count: added,
+                added,
+                mastered,
+            };
+        });
 
         return NextResponse.json({
             totalErrors,

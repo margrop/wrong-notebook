@@ -174,11 +174,12 @@ export const translations = {
             reviewingDesc: "In progress",
             mastered: "Mastered",
             masteryRate: "Mastery Rate",
-            weeklyActivity: "Monthly Activity",
             dailyTrend: "Daily Trend",
             monthlyTrend: "Monthly Trend",
             SubjectDistribution: "Subject Distribution",
-            activity: "Activity",
+            added: "Added",
+            newlyMastered: "Newly Mastered",
+            trendSubtitle: "Newly added and newly mastered wrong answers",
         },
         upload: {
             // dragDrop: "Click or drag image to upload", // Moved to app
@@ -1895,11 +1896,12 @@ export const translations = {
             reviewingDesc: "正在进行",
             mastered: "已掌握",
             masteryRate: "掌握率",
-            weeklyActivity: "月度趋势",
             dailyTrend: "每日趋势",
             monthlyTrend: "月度趋势",
             SubjectDistribution: "科目分布",
-            activity: "活动",
+            added: "新增",
+            newlyMastered: "新掌握",
+            trendSubtitle: "新增与新掌握的错题数",
         },
         upload: {
             // dragDrop: "点击或拖拽上传图片", // Moved to app

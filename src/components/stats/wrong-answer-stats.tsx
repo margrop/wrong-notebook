@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 
 import { Loader2, CheckCircle, BookOpen, Clock, RefreshCw, Inbox, TrendingUp } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -13,7 +13,8 @@ import { StatCard } from "./stat-card";
 import { SubjectPieChart } from "./subject-pie-chart";
 import { StatsEmpty, StatsError } from "./stats-state";
 import { MasteryProgressBar } from "./mastery-progress-bar";
-import { CHART_GRID_COLOR, CHART_AXIS_COLOR, CHART_BAR_GRADIENT_START } from "./chart-colors";
+import { ChartTooltip } from "./chart-tooltip";
+import { CHART_GRID_COLOR, CHART_AXIS_COLOR, CHART_ADDED_COLOR, CHART_MASTERED_COLOR } from "./chart-colors";
 
 interface WrongAnswerStatsProps {
     url: string;
@@ -101,24 +102,20 @@ export function WrongAnswerStats({ url }: WrongAnswerStatsProps) {
                     data={data.subjectStats}
                 />
 
-                {/* 趋势图：按粒度显示每日或月度 */}
-                {/* 趋势图：按粒度显示每日或月度 */}
+                {/* 趋势图：新增 vs 新掌握双系列，按粒度显示每日或月度 */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4" />
                             {trendTitle}
                         </CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                            {t.wrongAnswerStats.trendSubtitle}
+                        </p>
                     </CardHeader>
                     <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={data.activityData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={CHART_BAR_GRADIENT_START} stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor={CHART_BAR_GRADIENT_START} stopOpacity={0.1} />
-                                    </linearGradient>
-                                </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_GRID_COLOR} />
                                 <XAxis
                                     dataKey="date"
@@ -137,15 +134,28 @@ export function WrongAnswerStats({ url }: WrongAnswerStatsProps) {
                                 />
                                 <Tooltip
                                     content={
-                                        <MonthlyTooltip activityLabel={t.wrongAnswerStats.activity} />
+                                        <ChartTooltip />
                                     }
                                     cursor={{ fill: 'transparent' }}
                                 />
+                                <Legend
+                                    iconType="circle"
+                                    iconSize={8}
+                                    wrapperStyle={{ paddingTop: '20px' }}
+                                />
                                 <Bar
-                                    dataKey="count"
-                                    fill="url(#colorCount)"
+                                    dataKey="added"
+                                    name={t.wrongAnswerStats.added}
+                                    fill={CHART_ADDED_COLOR}
                                     radius={[4, 4, 0, 0]}
-                                    barSize={40}
+                                    barSize={20}
+                                />
+                                <Bar
+                                    dataKey="mastered"
+                                    name={t.wrongAnswerStats.newlyMastered}
+                                    fill={CHART_MASTERED_COLOR}
+                                    radius={[4, 4, 0, 0]}
+                                    barSize={20}
                                 />
                             </BarChart>
                         </ResponsiveContainer>
@@ -154,30 +164,4 @@ export function WrongAnswerStats({ url }: WrongAnswerStatsProps) {
             </div>
         </div>
     );
-}
-
-interface MonthlyTooltipProps {
-    active?: boolean;
-    payload?: Array<{ name?: string | number; value?: string | number; color?: string }>;
-    label?: string | number;
-    activityLabel: string;
-}
-
-function MonthlyTooltip({ active, payload, label, activityLabel }: MonthlyTooltipProps) {
-    if (active && payload && payload.length) {
-        return (
-            <div className="bg-background border rounded-lg shadow-lg p-3 text-sm">
-                <p className="font-medium mb-1">{label}</p>
-                <div className="flex items-center gap-2">
-                    <div
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: CHART_BAR_GRADIENT_START }}
-                    />
-                    <span className="text-muted-foreground">{activityLabel}:</span>
-                    <span className="font-bold">{payload[0].value}</span>
-                </div>
-            </div>
-        );
-    }
-    return null;
 }

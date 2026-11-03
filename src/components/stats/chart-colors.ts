@@ -24,8 +24,10 @@ export const COLORS: string[] = [
     'var(--chart-6)',
 ];
 
-/** 柱状图渐变起始颜色（月度趋势等图表的 linearGradient 使用） */
-export const CHART_BAR_GRADIENT_START = 'var(--chart-1)';
+/** 错题趋势：新增与新掌握两个系列的颜色 */
+export const CHART_ADDED_COLOR = 'var(--chart-1)';
+export const CHART_MASTERED_COLOR = 'var(--success)';
+
 
 /** 难度配色（语义固定，深色模式下仍可辨识） */
 export const DIFFICULTY_COLORS: Record<string, string> = {
