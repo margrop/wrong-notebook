@@ -15,11 +15,12 @@ import { SUBJECTS, getSubjectName } from "./tag-subjects";
 import type { SubjectKey, TagTreeNode } from "./tag-subjects";
 
 interface CustomTagFormProps {
+    tagSet: string;
     onAdded: () => Promise<void>;
 }
 
-/** 添加自定义标签表单：选择学科、年级并输入名称 */
-export function CustomTagForm({ onAdded }: CustomTagFormProps) {
+/** 添加自定义标签表单：在当前标签体系下选择学科、年级并输入名称 */
+export function CustomTagForm({ tagSet, onAdded }: CustomTagFormProps) {
     const { t } = useLanguage();
     const [subject, setSubject] = useState<SubjectKey>("math");
     const [grade, setGrade] = useState<string>(""); // 年级ID
@@ -31,7 +32,7 @@ export function CustomTagForm({ onAdded }: CustomTagFormProps) {
     useEffect(() => {
         const fetchGrades = async () => {
             try {
-                const data = await apiClient.get<{ tags: TagTreeNode[] }>(`/api/tags?subject=${subject}`);
+                const data = await apiClient.get<{ tags: TagTreeNode[] }>(`/api/tags?subject=${subject}&tagSet=${encodeURIComponent(tagSet)}`);
                 // 顶级节点就是年级，只取系统标签
                 setGradeOptions(data.tags.filter(tag => tag.isSystem).map(tag => ({ id: tag.id, name: tag.name })));
                 setGrade("");
@@ -41,7 +42,7 @@ export function CustomTagForm({ onAdded }: CustomTagFormProps) {
             }
         };
         fetchGrades();
-    }, [subject]);
+    }, [subject, tagSet]);
 
     const handleAdd = async () => {
         if (!name.trim()) {
@@ -54,6 +55,7 @@ export function CustomTagForm({ onAdded }: CustomTagFormProps) {
             await apiClient.post('/api/tags', {
                 name: name.trim(),
                 subject,
+                tagSet,
                 parentId: (grade && grade !== 'none') ? grade : undefined,
             });
             setName("");

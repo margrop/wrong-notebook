@@ -19,11 +19,15 @@ interface CustomTag {
     parentName?: string;
 }
 
+interface CustomTagsProps {
+    tagSet: string;
+}
+
 // 没有所属年级的自定义标签归入此分组
 const GENERAL_GROUP = "通用";
 
-/** 自定义标签：添加表单 + 按学科、年级分组的列表 */
-export function CustomTags() {
+/** 自定义标签：当前标签体系下的添加表单 + 按学科、年级分组的列表 */
+export function CustomTags({ tagSet }: CustomTagsProps) {
     const { t } = useLanguage();
     const [customTags, setCustomTags] = useState<CustomTag[]>([]);
 
@@ -33,15 +37,15 @@ export function CustomTags() {
             const allCustom: CustomTag[] = [];
             for (const { key } of SUBJECTS) {
                 const data = await apiClient.get<{ tags: Array<{ id: string; name: string; isSystem: boolean; parentName?: string }> }>(
-                    `/api/tags?subject=${key}&flat=true`
+                    `/api/tags?subject=${key}&tagSet=${encodeURIComponent(tagSet)}&flat=true`
                 );
                 allCustom.push(...data.tags.filter(tag => !tag.isSystem).map(tag => ({ ...tag, subject: key })));
             }
             setCustomTags(allCustom);
         } catch (error) {
-            frontendLogger.error('[Tags]', 'Failed to fetch custom tags', { error });
+            frontendLogger.error('[Tags]', 'Failed to fetch custom tags', { tagSet, error });
         }
-    }, []);
+    }, [tagSet]);
 
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- 数据请求：进入页面时加载标签数据
@@ -64,7 +68,7 @@ export function CustomTags() {
 
     return (
         <div className="space-y-6">
-            <CustomTagForm onAdded={fetchCustomTags} />
+            <CustomTagForm tagSet={tagSet} onAdded={fetchCustomTags} />
 
             {customTags.length === 0 ? (
                 <Card><CardContent className="py-12 text-center text-muted-foreground">

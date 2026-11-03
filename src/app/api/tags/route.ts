@@ -145,7 +145,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/tags
- * Body: { name: string, subject: string, parentId?: string }
+ * Body: { name: string, subject: string, parentId?: string, tagSet?: string }
+ * tagSet 缺省为 'default'；父节点必须属于同一学科和同一标签体系
  */
 export async function POST(request: NextRequest) {
     try {
@@ -156,9 +157,29 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
         const { name, subject, parentId } = body;
+        const tagSet = typeof body.tagSet === 'string' && body.tagSet.trim() ? body.tagSet.trim() : 'default';
 
-        if (!name || !subject) {
+        if (typeof name !== 'string' || !name.trim() || typeof subject !== 'string' || !subject) {
             return NextResponse.json({ error: 'Name and subject are required' }, { status: 400 });
+        }
+        if (parentId !== undefined && parentId !== null && typeof parentId !== 'string') {
+            return NextResponse.json({ error: 'Invalid parentId' }, { status: 400 });
+        }
+
+        // 父节点须是同一学科、同一体系下当前用户可见的标签，避免挂到其他体系或别人的标签下
+        if (parentId) {
+            const parent = await prisma.knowledgeTag.findFirst({
+                where: {
+                    id: parentId,
+                    subject,
+                    tagSet,
+                    OR: [{ isSystem: true }, { userId: session.user.id }],
+                },
+                select: { id: true },
+            });
+            if (!parent) {
+                return NextResponse.json({ error: 'Parent tag not found in this tag set' }, { status: 400 });
+            }
         }
 
         // 检查是否已存在 (在同一父节点下)
@@ -169,6 +190,7 @@ export async function POST(request: NextRequest) {
                 subject,
                 userId: session.user.id,
                 parentId: parentId || null,
+                tagSet,
             },
         });
 
@@ -184,6 +206,7 @@ export async function POST(request: NextRequest) {
                 parentId: parentId || null,
                 isSystem: false,
                 userId: session.user.id,
+                tagSet,
             },
         });
 

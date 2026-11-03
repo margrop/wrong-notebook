@@ -242,6 +242,34 @@ describe('/api/tags 自定义标签', () => {
         expect((await CREATE_TAG(request('/api/tags', json({ subject: 'math' })))).status).toBe(400);
     });
 
+    it('自定义标签按标签体系创建和读取，不同体系可以同名', async () => {
+        const cnmGrade = await database.knowledgeTag.create({ data: { name: '七年级', subject: 'math', isSystem: true, tagSet: 'cnm' } });
+        const defaultGrade = await database.knowledgeTag.create({ data: { name: '七年级', subject: 'math', isSystem: true } });
+        signInAs(alice);
+
+        const inDefault = await CREATE_TAG(request('/api/tags', json({ name: '易错题', subject: 'math' })));
+        const inCnm = await CREATE_TAG(request('/api/tags', json({ name: '易错题', subject: 'math', tagSet: 'cnm', parentId: cnmGrade.id })));
+        const duplicate = await CREATE_TAG(request('/api/tags', json({ name: '易错题', subject: 'math', tagSet: 'cnm', parentId: cnmGrade.id })));
+
+        expect(inDefault.status).toBe(201);
+        expect(inCnm.status).toBe(201);
+        await expect(inCnm.json()).resolves.toMatchObject({ tag: { tagSet: 'cnm', parentId: cnmGrade.id } });
+        expect(duplicate.status).toBe(409);
+        // 父节点属于其他体系、其他学科或不存在时拒绝
+        expect((await CREATE_TAG(request('/api/tags', json({ name: 'x', subject: 'math', tagSet: 'cnm', parentId: defaultGrade.id })))).status).toBe(400);
+        expect((await CREATE_TAG(request('/api/tags', json({ name: 'x', subject: 'physics', tagSet: 'cnm', parentId: cnmGrade.id })))).status).toBe(400);
+        expect((await CREATE_TAG(request('/api/tags', json({ name: 'x', subject: 'math', parentId: 'missing' })))).status).toBe(400);
+
+        const cnmFlat = await (await GET_TAGS(request('/api/tags?subject=math&tagSet=cnm&flat=true'))).json();
+        const defaultFlat = await (await GET_TAGS(request('/api/tags?subject=math&flat=true'))).json();
+        expect(cnmFlat.tags.filter((t: { isSystem: boolean }) => !t.isSystem)).toEqual([
+            expect.objectContaining({ name: '易错题', parentName: '七年级' }),
+        ]);
+        expect(defaultFlat.tags.filter((t: { isSystem: boolean }) => !t.isSystem)).toEqual([
+            expect.objectContaining({ name: '易错题', parentName: null }),
+        ]);
+    });
+
     it('只能删除自己的自定义标签，不能删系统标签或别人的标签', async () => {
         const system = await database.knowledgeTag.create({ data: { name: '系统', subject: 'math', isSystem: true } });
         const bobs = await database.knowledgeTag.create({ data: { name: 'Bob', subject: 'math', userId: bob.id } });
