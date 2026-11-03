@@ -29,6 +29,8 @@ import { sanitizeFigureSvg } from '@/lib/figure-svg';
 import { embedNarration, sanitizeSvgAnimation } from '@/lib/svg-animation';
 import { encodeMp3 } from '@/lib/tts/mp3';
 import { seedChineseTags } from '@/lib/seed-chinese-tags';
+import { BACKUP_EXTENSIONS } from '@/lib/backup-extensions';
+import type { BackupExtension } from '@/lib/backup-extensions';
 
 let database: PrismaClient;
 let directory: string;
@@ -183,9 +185,10 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 6 版格式，包含 tagSet 字段', async () => {
+    it('导出文件使用第 7 版格式，包含 tagSet 字段与空的 extensions', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(6);
+        expect(backup.version).toBe(7);
+        expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
         expect(backup.subjects).toEqual(
@@ -551,6 +554,25 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBeGreaterThan(0);
     });
 
+    it('导入不含 extensions 的旧版备份成功，stats.extensionsImported 为空', async () => {
+        const backup = await exportBackup();
+        delete backup.extensions;
+        backup.version = 6;
+        await clearUserData();
+        const { stats } = await importBackup(backup);
+        expect(stats.extensionsImported).toEqual({});
+        expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBeGreaterThan(0);
+    });
+
+    it('导入含未知扩展的备份成功并跳过，stats.extensionsImported 不含未知 key', async () => {
+        const backup = await exportBackup();
+        backup.extensions = { 'unknown-ext': { version: 1, data: { foo: 'bar' } } };
+        await clearUserData();
+        const { stats } = await importBackup(backup);
+        expect(stats.extensionsImported).toEqual({});
+        expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBeGreaterThan(0);
+    });
+
     it('同一时间同一图片的不同任务全部还原；按来源标识判断重复导入，再次导出保留来源标识', async () => {
         const image = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
         const createdAt = new Date('2026-10-05T00:00:00Z');
@@ -607,5 +629,68 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.importTask.count({ where: { userId: 'user-1' } })).toBe(2);
         expect(JSON.parse((await database.importTask.findUniqueOrThrow({ where: { id: 'cross-task-aaaaaaaa' } })).result!).questionText).toBe('草稿 A');
         await database.user.delete({ where: { id: 'backup-other' } });
+    });
+
+    describe('备份扩展（BACKUP_EXTENSIONS）', () => {
+        const testExt: BackupExtension = {
+            key: 'test-bank',
+            version: 1,
+            export: vi.fn().mockResolvedValue({ bankItems: ['a', 'b'] }),
+            import: vi.fn().mockResolvedValue(3),
+        };
+        const failingExt: BackupExtension = {
+            key: 'test-fail',
+            version: 1,
+            export: vi.fn().mockResolvedValue(null),
+            import: vi.fn().mockRejectedValue(new Error('extension boom')),
+        };
+
+        afterEach(() => {
+            for (const ext of [testExt, failingExt]) {
+                const idx = BACKUP_EXTENSIONS.indexOf(ext);
+                if (idx >= 0) BACKUP_EXTENSIONS.splice(idx, 1);
+            }
+        });
+
+        it('导出时 extensions 带上已注册扩展的 version 和 data', async () => {
+            BACKUP_EXTENSIONS.push(testExt);
+            const backup = await exportBackup();
+            expect(backup.extensions['test-bank']).toEqual({ version: 1, data: { bankItems: ['a', 'b'] } });
+            expect(testExt.export).toHaveBeenCalledWith({ userIds: ['user-1'] });
+        });
+
+        it('导入时扩展收到正确的 ID 映射和 userIdMap', async () => {
+            BACKUP_EXTENSIONS.push(testExt);
+            const backup = await exportBackup();
+            await clearUserData();
+            await importBackup(backup);
+
+            expect(testExt.import).toHaveBeenCalledTimes(1);
+            const [ctx, payload] = testExt.import.mock.calls[0];
+            expect(payload).toEqual({ version: 1, data: { bankItems: ['a', 'b'] } });
+            // errorItemIdMap 把旧 ID 映射到数据库中真实存在的新 ID
+            const newItem = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1' } });
+            expect(ctx.errorItemIdMap.get('item-1')).toBe(newItem.id);
+            // userIdMap(旧 userId) 返回当前用户
+            expect(ctx.userIdMap('user-1')).toBe('user-1');
+        });
+
+        it('扩展 import 抛错时整个导入事务回滚', async () => {
+            BACKUP_EXTENSIONS.push(failingExt);
+            const backup = await exportBackup();
+            await clearUserData();
+            const itemsAfterClear = await database.errorItem.count({ where: { userId: 'user-1' } });
+            expect(itemsAfterClear).toBe(0);
+
+            // 导入应失败（扩展抛错导致事务回滚）
+            const response = await IMPORT(new Request('http://localhost/api/import', {
+                method: 'POST',
+                body: JSON.stringify(backup),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+            expect(response.status).toBe(500);
+            // 核心数据回滚到导入前（清空后）的状态
+            expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBe(itemsAfterClear);
+        });
     });
 });

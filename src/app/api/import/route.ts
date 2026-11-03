@@ -27,6 +27,7 @@ import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/pap
 import { EXAM_DIFFICULTIES, EXAM_SCOPES, summarizePaperStatus } from "@/lib/exam";
 import type { Prisma } from "@prisma/client";
 import { importImportBatches, importImportTasks } from "@/lib/import-task-backup";
+import { importExtensions } from "@/lib/backup-extensions";
 
 const logger = createLogger('api:import');
 
@@ -198,6 +199,8 @@ interface ImportData {
     importTasks?: unknown;
     /** 未完成的多题批次，version 6 起导出；任务通过 batchId 关联 */
     importBatches?: unknown;
+    /** fork 扩展数据，version 7 起导出；未注册 key 安全跳过 */
+    extensions?: unknown;
 }
 
 // 与用户设置接口的取值范围一致，单项不合法时只跳过该项
@@ -312,6 +315,7 @@ export async function POST(req: Request) {
             ttsSpeechesImported: 0,
             importTasksCreated: 0,
             importBatchesCreated: 0,
+            extensionsImported: {} as Record<string, number>,
         };
         const masteryIds = new Set<string>();
         // 已带掌握概率导入的新题无需重新评估
@@ -657,6 +661,7 @@ export async function POST(req: Request) {
             }
 
             // 6. 导入试卷：同一用户下标题和创建时间都相同视为已导入过，只建立题目映射
+            const examPaperIdMap = new Map<string, string>();
             const examQuestionIdMap = new Map<string, string>();
             const examQuestionOwnerMap = new Map<string, string>();
             for (const paper of (body.examPapers || [])) {
@@ -668,6 +673,7 @@ export async function POST(req: Request) {
                     select: { questions: { select: { id: true, order: true } } },
                 });
                 if (existing) {
+                    examPaperIdMap.set(paper.id, existing.id);
                     for (const question of questions) {
                         const matched = existing.questions.find((candidate) => candidate.order === question.order);
                         if (matched) {
@@ -718,6 +724,7 @@ export async function POST(req: Request) {
                     examQuestionIdMap.set(question.id, createdQuestion.id);
                     examQuestionOwnerMap.set(question.id, targetUserId);
                 }
+                examPaperIdMap.set(paper.id, created.id);
                 stats.examPapersCreated++;
             }
 
@@ -770,6 +777,17 @@ export async function POST(req: Request) {
             if (typeof preferences.masteryThreshold === 'number') {
                 await syncMasteryLevels(tx, user.id, preferences.masteryThreshold);
             }
+
+            // 10. 导入 fork 注册的扩展数据；未注册 key 或版本过新都安全跳过，扩展抛错回滚整个事务
+            stats.extensionsImported = await importExtensions({
+                tx,
+                userIdMap: (oldUserId) => (importAll ? oldUserId : user.id),
+                subjectIdMap,
+                errorItemIdMap,
+                tagIdMap,
+                examPaperIdMap,
+                examQuestionIdMap,
+            }, body.extensions);
         }, {
             timeout: 60000,
         });

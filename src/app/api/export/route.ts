@@ -10,6 +10,7 @@ import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import { normalizeCustomAnswerSpacePx } from "@/lib/exam-answer-space";
 import { exportSpeeches } from "@/lib/tts/speech-cache";
 import { sortTagsByParent } from "@/lib/tag-hierarchy";
+import { collectExtensions } from "@/lib/backup-extensions";
 
 const logger = createLogger('api:export');
 
@@ -114,8 +115,11 @@ export async function GET(req: Request) {
             ...(item.svgAnimationEn ? [{ language: 'en' as const, svg: item.svgAnimationEn }] : []),
         ]));
 
+        // fork 项目注册的扩展数据（上游为空对象），导出文件版本 7 起携带
+        const extensions = await collectExtensions({ userIds: exportAll ? null : [user.id] });
+
         const exportData = {
-            version: 6,
+            version: 7,
             exportedAt: new Date().toISOString(),
             scope: exportAll ? 'all' : 'user',
             user: {
@@ -158,6 +162,7 @@ export async function GET(req: Request) {
             ttsSpeeches,
             importTasks,
             importBatches,
+            extensions,
         };
 
         logger.info({
