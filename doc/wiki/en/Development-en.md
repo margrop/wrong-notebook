@@ -22,6 +22,8 @@ The project uses the Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4
 
 AI requests are dispatched to a provider on the server and call external services; business data is stored in SQLite through Prisma. The background task list lives in process memory and is mirrored to `background-tasks.json` in the config directory; after a restart only the records remain and nothing resumes, so it is not a substitute for a persistent job queue.
 
+Photo recognition uses the database-backed `ImportTask` (`/api/import-tasks`): the upload returns a task ID immediately, recognition and saving run after the response via `after()`, and the result, draft and final question ID are persisted. State changes are claimed with conditional `updateMany`, and writing the question and marking the task saved commit in the same transaction. Running tasks record the process boot ID, so a single-process deployment marks them interrupted right after a restart; multi-instance deployments (Vercel) use a heartbeat timeout. `/api/analyze` stays as the synchronous endpoint and shares `src/lib/question-analysis.ts` with tasks; saving shares `src/lib/question-save.ts` with the add-question endpoint.
+
 ## Common checks
 
 ### List API payloads

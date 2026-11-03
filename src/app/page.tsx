@@ -9,6 +9,7 @@ import { DirectTextEditor } from "@/components/direct-text-editor";
 import { HomeHero } from "@/components/home-hero";
 import { ImageCropper } from "@/components/image-cropper";
 import { ImportResultBanner } from "@/components/import-result-banner";
+import { PendingImportTask } from "@/components/import-tasks/pending-import-task";
 import { QuestionSaveError } from "@/components/question-save-error";
 import { TextInputZone } from "@/components/text-input-zone";
 import { UploadZone } from "@/components/upload-zone";
@@ -109,6 +110,10 @@ function HomeContent() {
                         <div className="space-y-4">
                             <SegmentedControl options={inputModes} value={inputMode} onChange={setInputMode} />
 
+                            {flow.pendingTask && (
+                                <PendingImportTask task={flow.pendingTask} onRefresh={flow.refreshPendingTask} onDismiss={flow.dismissPendingTask} />
+                            )}
+
                             {flow.lastImported && (
                                 <ImportResultBanner imported={flow.lastImported} onDismiss={flow.dismissImported} />
                             )}
@@ -117,7 +122,6 @@ function HomeContent() {
                                 <BatchImportPanel
                                     blobs={flow.batchBlobs}
                                     subjectId={initialNotebookId}
-                                    timeout={flow.aiTimeout}
                                     onClose={flow.closeBatch}
                                 />
                             ) : inputMode === "image" ? (

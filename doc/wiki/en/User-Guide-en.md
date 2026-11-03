@@ -24,6 +24,19 @@ Images can be cropped first. While cropping or selecting several questions, zoom
 
 After enabling "Review before import" in "Settings → General", you can correct the recognition on the review page before saving. The AI may misread numbers, symbols and figure relationships, so check against the original before saving.
 
+### Recognition tasks
+
+Once the upload finishes, recognition continues on the server. The page shows a status card instead of a full-screen overlay, so you can leave the page, lock your phone or keep adding questions. The **Recognition** entry in the header shows how many tasks are running and the number of unread results, and refreshes as soon as you return to the app.
+
+| Status | Meaning and actions |
+| --- | --- |
+| Recognizing | The server is calling the AI; the percentage is a per-stage estimate |
+| Ready for review | The result when review before import is on. **Continue review** opens the review page; reloading, another tab or another device opens the same result without recognizing again |
+| Saving / Saved | Saved tasks offer **View question**; duplicates are recorded in the existing question's practice history |
+| Failed | Shows the reason and offers **Retry**. If a recognition result already exists, only the save is retried without calling the AI again. Tasks interrupted by a server restart also show as failed |
+
+Drafts awaiting review and failed tasks are kept until you handle or discard them; saved tasks are kept for 7 days. Each task card lists the actual time spent reading, converting, cropping, compressing, receiving, recognizing and saving.
+
 ## Duplicate detection
 
 On import, the question text is compared with the current user's existing questions across all notebooks. The default threshold is 90% and can be changed in your general settings.

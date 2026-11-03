@@ -17,6 +17,10 @@ const mocks = vi.hoisted(() => ({
     saveParsedQuestion: vi.fn(),
     toastError: vi.fn(),
     toastSuccess: vi.fn(),
+    createImportTask: vi.fn(),
+    fetchImportTask: vi.fn(),
+    confirmImportTask: vi.fn(),
+    markImportTaskRead: vi.fn(async () => undefined),
 }));
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push }) }));
@@ -27,9 +31,25 @@ vi.mock('@/lib/question-import', () => ({
 }));
 vi.mock('@/lib/image-utils', () => ({ processImageFile: vi.fn(async () => 'data:image/jpeg;base64,AAAA') }));
 vi.mock('@/lib/feedback', () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
+vi.mock('@/lib/import-task-client', () => ({
+    createImportTask: mocks.createImportTask,
+    fetchImportTask: mocks.fetchImportTask,
+    confirmImportTask: mocks.confirmImportTask,
+    markImportTaskRead: mocks.markImportTaskRead,
+    onReturnToForeground: () => () => undefined,
+}));
 vi.mock('@/lib/frontend-logger', () => ({ frontendLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 
 const parsed = { questionText: '1 + 1 = ?', answerText: '2', analysis: '加法', knowledgePoints: ['加法'], subject: '数学', requiresImage: false };
+const IMAGE = 'data:image/jpeg;base64,AAAA';
+const task = (patch: object = {}) => ({
+    id: 'task-1', status: 'analyzing', mode: 'auto', subjectId: null, targetSubjectId: null, excerpt: null, error: null,
+    errorItemId: null, errorItemShortId: null, notebookName: null, duplicate: false, hasResult: false, unread: false,
+    attempts: 1, timings: {}, createdAt: '2026-11-03T00:00:00.000Z', finishedAt: null, result: null, imageData: IMAGE, paperLevel: null,
+    ...patch,
+});
+/** 等待任务查询（首次查询放在下一轮事件循环） */
+const flushTimers = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
 
 type Flow = ReturnType<typeof useQuestionImport>;
 type Options = Parameters<typeof useQuestionImport>[0];
@@ -69,38 +89,59 @@ afterEach(async () => {
 });
 
 describe('题目导入流程', () => {
-    it('未开启人工确认时识别后直接入库，不进入校对页', async () => {
+    it('未开启人工确认时上传后创建服务端任务，不再遮挡页面；服务端入库后显示结果条', async () => {
         const onParsed = vi.fn();
-        mocks.post.mockResolvedValueOnce(parsed);
+        mocks.createImportTask.mockResolvedValueOnce(task());
+        mocks.fetchImportTask.mockResolvedValue(task({ status: 'saved', errorItemId: 'saved', errorItemShortId: 'AbC234', notebookName: '数学', unread: true }));
         await render({ analyzeSubjectId: 'nb-1', importSubjectId: 'nb-1', onParsed });
 
         await act(async () => flow.cropComplete(new Blob(['x'])));
-        await act(async () => {});
+        expect(mocks.createImportTask).toHaveBeenCalledWith(expect.objectContaining({
+            imageBase64: IMAGE, subjectId: 'nb-1', targetSubjectId: 'nb-1', clientTimings: { compress: expect.any(Number) },
+        }));
+        expect(flow.analysisStep).toBe('idle');
+        await flushTimers();
 
-        expect(mocks.post).toHaveBeenCalledWith('/api/analyze', expect.objectContaining({ imageBase64: 'data:image/jpeg;base64,AAAA', subjectId: 'nb-1' }), { timeout: 120000, recoverable: true });
-        expect(mocks.saveParsedQuestion).toHaveBeenCalledWith(parsed, { subjectId: 'nb-1', imageUrl: 'data:image/jpeg;base64,AAAA' });
-        expect(flow.lastImported).toEqual({ id: 'saved', duplicate: false });
+        expect(flow.lastImported).toEqual({ id: 'saved', shortId: 'AbC234', subjectId: null, notebookName: '数学', duplicate: false });
+        expect(flow.pendingTask).toBeNull();
+        expect(mocks.markImportTaskRead).toHaveBeenCalledWith('task-1');
         expect(flow.step).toBe('upload');
         expect(onParsed).not.toHaveBeenCalled();
-        expect(flow.analysisStep).toBe('idle');
+        expect(mocks.post).not.toHaveBeenCalledWith('/api/analyze', expect.anything(), expect.anything());
     });
 
-    it('开启人工确认时进入校对页，保存到固定错题本后跳转', async () => {
+    it('识别中时页面显示任务状态卡，可继续操作', async () => {
+        mocks.createImportTask.mockResolvedValueOnce(task());
+        mocks.fetchImportTask.mockResolvedValue(task());
+        await render();
+        await act(async () => flow.cropComplete(new Blob(['x'])));
+        await flushTimers();
+        expect(flow.pendingTask).toMatchObject({ id: 'task-1', status: 'analyzing' });
+        expect(flow.isBusy).toBe(false);
+        await act(async () => flow.dismissPendingTask());
+        expect(flow.pendingTask).toBeNull();
+    });
+
+    it('开启人工确认时任务待校对即进入校对页，确认通过任务入库到固定错题本后跳转', async () => {
         mocks.confirmBeforeImport = true;
         const onParsed = vi.fn();
-        mocks.post.mockResolvedValueOnce(parsed);
+        mocks.createImportTask.mockResolvedValueOnce(task({ mode: 'review' }));
+        mocks.fetchImportTask.mockResolvedValue(task({ mode: 'review', status: 'review', result: parsed, hasResult: true }));
         await render({ fixedSubjectId: 'nb-2', onParsed });
+        await act(async () => {});
 
         await act(async () => flow.cropComplete(new Blob(['x'])));
-        await act(async () => {});
+        expect(mocks.createImportTask).toHaveBeenCalledWith(expect.objectContaining({ targetSubjectId: 'nb-2' }));
+        await flushTimers();
         expect(flow.step).toBe('review');
         expect(flow.parsedData).toEqual(parsed);
-        expect(flow.currentImage).toBe('data:image/jpeg;base64,AAAA');
+        expect(flow.currentImage).toBe(IMAGE);
         expect(onParsed).toHaveBeenCalledWith(parsed);
 
-        mocks.post.mockResolvedValueOnce({ id: 'item-1' });
+        mocks.confirmImportTask.mockResolvedValueOnce({ id: 'item-1' });
         await act(async () => flow.saveReviewed({ ...parsed, subjectId: 'other' } as never));
-        expect(mocks.post).toHaveBeenLastCalledWith('/api/error-items', expect.objectContaining({ subjectId: 'nb-2', originalImageUrl: 'data:image/jpeg;base64,AAAA' }));
+        expect(mocks.confirmImportTask).toHaveBeenCalledWith('task-1', expect.objectContaining({ subjectId: 'nb-2' }));
+        expect(mocks.post).not.toHaveBeenCalledWith('/api/error-items', expect.anything());
         expect(mocks.push).toHaveBeenCalledWith('/notebooks/nb-2');
         expect(flow.step).toBe('upload');
     });
@@ -150,8 +191,8 @@ describe('题目导入流程', () => {
         expect(flow.currentImage).toBeNull();
     });
 
-    it('识别失败时提示错误并恢复空闲状态', async () => {
-        mocks.post.mockRejectedValueOnce(new Error('boom'));
+    it('上传失败时提示错误并恢复空闲状态', async () => {
+        mocks.createImportTask.mockRejectedValueOnce(new Error('boom'));
         await render();
         await act(async () => flow.cropComplete(new Blob(['x'])));
         await act(async () => {});

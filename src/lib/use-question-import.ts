@@ -1,21 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { ProgressStatus } from "@/components/ui/progress-feedback";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { ParsedQuestion } from "@/lib/ai";
 import { getAnalysisErrorMessage } from "@/lib/analysis-error";
 import { apiClient } from "@/lib/api-client";
-import { getApiErrorMessage, getErrorMessage } from "@/lib/error-message";
+import { getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { confirmImportTask, createImportTask, markImportTaskRead } from "@/lib/import-task-client";
 import { processImageFile } from "@/lib/image-utils";
 import { normalizeMistakeStatus } from "@/lib/mistake-status";
 import { fetchConfirmBeforeImport, saveParsedQuestion } from "@/lib/question-import";
 import type { ImportedQuestion } from "@/lib/question-import";
-import { getQuestionSaveErrorMessage } from "@/lib/question-save-error";
-import type { AnalyzeResponse, AppConfig } from "@/types/api";
+import type { ImportTaskDetail } from "@/lib/import-task-types";
+import { useImportTask } from "@/lib/use-import-tasks";
+import { useQuestionSaver } from "@/lib/use-question-saver";
+import type { AppConfig } from "@/types/api";
 
 /** 未配置时 AI 识别的超时（毫秒） */
 const DEFAULT_AI_TIMEOUT = 180000;
@@ -50,12 +52,13 @@ interface QuestionImportOptions {
 }
 
 /**
- * 题目导入流程：裁剪图片 → 压缩 → AI 识别（或文字解题）→ 免确认直接入库，或进入校对页后保存。
- * 首页与错题本的添加错题页共用。
+ * 题目导入流程：裁剪图片 → 压缩 → 上传并创建服务端识别任务 → 免确认时服务端直接入库，否则进入校对页后确认入库。
+ * 上传完成后不再遮挡页面：识别在服务端继续，可离开页面，结果在「识别任务」中取回。
+ * 文字解题仍在请求内完成。首页与错题本的添加错题页共用。
  */
 export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId, textNotebook, fixedSubjectId, onParsed }: QuestionImportOptions) {
     const { t, language } = useLanguage();
-    const router = useRouter();
+    const saver = useQuestionSaver(logPrefix);
     const [step, setStep] = useState<"upload" | "review">("upload");
     const [analysisStep, setAnalysisStep] = useState<ProgressStatus>('idle');
     const [parsedData, setParsedData] = useState<ParsedQuestion | null>(null);
@@ -66,8 +69,34 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     // 免确认导入：偏好、最近一次导入结果、批量框选的题目图片
     const [confirmBeforeImport, setConfirmBeforeImport] = useState(false);
     const [lastImported, setLastImported] = useState<ImportedQuestion | null>(null);
-    const [saveError, setSaveError] = useState<string | null>(null);
     const [batchBlobs, setBatchBlobs] = useState<Blob[] | null>(null);
+    // 本页发起、尚未处理的识别任务；校对页对应的任务
+    const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
+    const [reviewTaskId, setReviewTaskId] = useState<string | null>(null);
+    // 本页发起的任务有结果时：待校对直接进入校对页，已保存显示结果条；失败保留在状态卡中供重试
+    const handlePendingUpdate = (task: ImportTaskDetail) => {
+        if (task.status === 'review' && task.result) {
+            onParsed?.(task.result);
+            setParsedData(task.result);
+            setCurrentImage(task.imageData);
+            setReviewTaskId(task.id);
+            setStep("review");
+            setPendingTaskId(null);
+            markImportTaskRead(task.id).catch(() => undefined);
+        } else if (task.status === 'saved' && task.errorItemId) {
+            setLastImported({
+                id: task.errorItemId,
+                shortId: task.errorItemShortId,
+                subjectId: null,
+                notebookName: task.notebookName,
+                duplicate: task.duplicate,
+            });
+            setPendingTaskId(null);
+            markImportTaskRead(task.id).catch(() => undefined);
+            frontendLogger.info(logPrefix, 'Imported without review', { id: task.errorItemId, timings: task.timings });
+        }
+    };
+    const pending = useImportTask(pendingTaskId, handlePendingUpdate);
 
     const aiTimeout = config?.timeouts?.analyze || DEFAULT_AI_TIMEOUT;
     const safetyTimeout = aiTimeout + 10000;
@@ -98,7 +127,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
 
     const selectImage = (file: File) => {
         setLastImported(null);
-        setSaveError(null);
+        saver.setSaveError(null);
         setCroppingImage(URL.createObjectURL(file));
         setIsCropperOpen(true);
     };
@@ -106,48 +135,52 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     const startBatch = (blobs: Blob[]) => {
         setIsCropperOpen(false);
         setLastImported(null);
-        setSaveError(null);
+        saver.setSaveError(null);
         setBatchBlobs(blobs);
     };
 
-    /** 识别结果：未开启人工确认时直接入库，否则进入校对页 */
-    const handleParsed = async (data: ParsedQuestion, imageUrl: string | null, paperLevel?: string) => {
+    /** 文字解题结果：未开启人工确认时直接入库，否则进入校对页 */
+    const handleTextParsed = async (data: ParsedQuestion) => {
         if (!confirmBeforeImport) {
             setAnalysisStep('saving');
-            const imported = await saveParsedQuestion(data, { subjectId: importSubjectId, imageUrl, paperLevel });
+            const imported = await saveParsedQuestion(data, { subjectId: importSubjectId, imageUrl: null });
             setLastImported(imported);
             setCurrentImage(null);
             frontendLogger.info(logPrefix, 'Imported without review', { id: imported.id });
             return;
         }
-        setCurrentImage(imageUrl);
+        setReviewTaskId(null);
+        setCurrentImage(null);
         setParsedData(data);
         setStep("review");
     };
 
+    /** 压缩并上传图片，创建服务端识别任务；上传完成即关闭遮罩 */
     const analyzeImage = async (file: File) => {
         const startTime = Date.now();
-        frontendLogger.info(logPrefix, 'Starting analysis flow', { apiTimeout: aiTimeout, safetyTimeout });
+        frontendLogger.info(logPrefix, 'Starting import task', { sourceType: file.type, sourceBytes: file.size });
         try {
             setAnalysisStep('compressing');
+            const compressStarted = Date.now();
             const base64Image = await processImageFile(file);
+            const compressMs = Date.now() - compressStarted;
 
-            setAnalysisStep('analyzing');
-            const data = await apiClient.post<AnalyzeResponse>("/api/analyze", {
+            setAnalysisStep('uploading');
+            const uploadStarted = Date.now();
+            const task = await createImportTask({
                 imageBase64: base64Image,
                 language,
-                subjectId: analyzeSubjectId || undefined,
-            }, { timeout: aiTimeout, recoverable: true });
-            if (!data || typeof data !== 'object') {
-                throw new Error('Invalid API response: data is null or not an object');
-            }
-
-            setAnalysisStep('processing');
-            if (confirmBeforeImport) onParsed?.(data);
-            await handleParsed(data, base64Image);
-            frontendLogger.info(logPrefix, 'Analysis completed', { totalDuration: Date.now() - startTime });
+                subjectId: analyzeSubjectId,
+                // 添加页固定错题本；首页指定了错题本时免确认入库放入该错题本，校对时由用户选择
+                targetSubjectId: fixedSubjectId ?? (confirmBeforeImport ? null : importSubjectId),
+                clientTimings: { compress: compressMs },
+                imageInfo: { sourceType: file.type || undefined, sourceBytes: file.size, outputBytes: Math.round(base64Image.length * 3 / 4) },
+            });
+            frontendLogger.info(logPrefix, 'Import task created', { taskId: task.id, compressMs, uploadMs: Date.now() - uploadStarted, totalMs: Date.now() - startTime });
+            setPendingTaskId(task.id);
+            pending.setTask(task);
         } catch (error) {
-            frontendLogger.error(logPrefix, 'Analysis failed', { errorDuration: Date.now() - startTime, error: getErrorMessage(error) });
+            frontendLogger.error(logPrefix, 'Upload failed', { errorDuration: Date.now() - startTime, error: getErrorMessage(error) });
             toast.error(getAnalysisErrorMessage(error, t));
         } finally {
             setAnalysisStep('idle');
@@ -161,7 +194,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
 
     /** 文字题目由 AI 解答后导入 */
     const submitText = async (questionText: string) => {
-        setSaveError(null);
+        saver.setSaveError(null);
         const startTime = Date.now();
         frontendLogger.info(logPrefix, 'Starting text-based analysis', { textLength: questionText.length });
         try {
@@ -175,7 +208,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
             }, { timeout: aiTimeout, recoverable: true });
 
             setAnalysisStep('processing');
-            await handleParsed({
+            await handleTextParsed({
                 questionText,
                 answerText: result.answerText,
                 analysis: result.analysis,
@@ -187,7 +220,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
                 requiresImage: false,
                 difficultyStars: result.difficultyStars ?? null,
                 gradeSemester: result.gradeSemester ?? null,
-            }, null);
+            });
             frontendLogger.info(logPrefix, 'Text analysis completed', { totalDuration: Date.now() - startTime });
         } catch (error) {
             frontendLogger.error(logPrefix, 'Text analysis failed', { errorDuration: Date.now() - startTime, error: getErrorMessage(error) });
@@ -198,49 +231,35 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     };
 
     /** 保存题目；重复题跳到原题，否则跳到所在错题本 */
-    const saveQuestion = async (payload: Record<string, unknown> & { subjectId?: string | null }) => {
-        setSaveError(null);
-        try {
-            const result = await apiClient.post<{ id: string; duplicate?: boolean }>("/api/error-items", payload);
-            toast.success(result.duplicate ? t.importFlow.duplicate : t.common.messages.saveSuccess);
-            if (result.duplicate) {
-                router.push(`/error-items/${result.id}`);
-            } else if (payload.subjectId) {
-                router.push(`/notebooks/${payload.subjectId}`);
-            }
-            return true;
-        } catch (error) {
-            frontendLogger.error(logPrefix, 'Save failed', { errorMessage: getApiErrorMessage(error) ?? getErrorMessage(error) });
-            const message = getQuestionSaveErrorMessage(error, t);
-            setSaveError(message);
-            // 每日额度由 apiClient 统一弹窗提示，此处仍在表单中保留原因。
-            if (getApiErrorMessage(error) !== 'AI_DAILY_LIMIT_EXCEEDED') toast.error(message);
-            return false;
-        }
-    };
+    const saveQuestion = (payload: Record<string, unknown> & { subjectId?: string | null }) =>
+        saver.run(() => apiClient.post<{ id: string; duplicate?: boolean }>("/api/error-items", payload), payload.subjectId);
 
-    /** 校对页保存 */
+    /** 校对页保存：图片识别的结果通过任务确认入库（同一任务只会入库一次），文字解题直接保存 */
     const saveReviewed = async (finalData: ReviewedQuestion) => {
-        const saved = await saveQuestion({
-            ...finalData,
-            originalImageUrl: currentImage || "",
-            ...(fixedSubjectId ? { subjectId: fixedSubjectId } : {}),
-        });
+        const subjectId = fixedSubjectId ?? finalData.subjectId;
+        const taskId = reviewTaskId;
+        const saved = taskId
+            ? await saver.run(() => confirmImportTask(taskId, { ...finalData, subjectId }), subjectId)
+            : await saveQuestion({ ...finalData, originalImageUrl: currentImage || "", ...(fixedSubjectId ? { subjectId: fixedSubjectId } : {}) });
         if (saved) {
             setStep("upload");
             setParsedData(null);
             setCurrentImage(null);
+            setReviewTaskId(null);
         }
     };
 
     return {
-        step, cancelReview: () => { setStep("upload"); setSaveError(null); },
-        saveError, dismissSaveError: () => setSaveError(null),
+        step, cancelReview: () => { setStep("upload"); saver.setSaveError(null); },
+        saveError: saver.saveError, dismissSaveError: saver.dismissSaveError,
         analysisStep, setAnalysisStep, isBusy: analysisStep !== 'idle',
         parsedData, currentImage, aiTimeout,
         croppingImage, isCropperOpen, closeCropper: () => setIsCropperOpen(false),
         lastImported, dismissImported: () => setLastImported(null),
         batchBlobs, closeBatch: () => setBatchBlobs(null),
+        pendingTask: pendingTaskId ? pending.task : null,
+        refreshPendingTask: pending.refresh,
+        dismissPendingTask: () => setPendingTaskId(null),
         selectImage, cropComplete, startBatch, submitText, saveQuestion, saveReviewed,
     };
 }

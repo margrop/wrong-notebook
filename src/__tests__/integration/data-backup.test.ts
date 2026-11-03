@@ -59,6 +59,7 @@ async function clearUserData() {
     await database.knowledgeTag.deleteMany({ where: { userId: 'user-1' } });
     await database.knowledgeTag.deleteMany({ where: { isSystem: true } });
     await database.practiceRecord.deleteMany({ where: { userId: 'user-1' } });
+    await database.importTask.deleteMany({ where: { userId: 'user-1' } });
     await database.reviewSchedule.deleteMany();
     await database.paperGroup.deleteMany({ where: { userId: 'user-1' } });
 }
@@ -182,7 +183,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
 
     it('导出文件使用第 3 版格式，包含 tagSet 字段', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(4);
+        expect(backup.version).toBe(5);
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
         expect(backup.subjects).toEqual(
@@ -419,5 +420,45 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(item.lastPractice).toBeNull();
         expect(item.masteryProbability).toBeNull();
         expect(mocks.scheduleMasteryEvaluation).toHaveBeenCalledWith([item.id]);
+    });
+
+    it('未处理的识别导入任务随备份往返：草稿保持待校对，执行中的标记为中断，不会自动调用 AI', async () => {
+        const image = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+        const result = JSON.stringify({ questionText: '备份中的草稿题目', answerText: '答', analysis: '析', knowledgePoints: [], subject: '数学' });
+        await database.importTask.createMany({ data: [
+            { userId: 'user-1', mode: 'review', status: 'review', subjectId: 'math', targetSubjectId: 'math', imageData: image, result, timings: '{"server":{"analyze":1200}}', createdAt: new Date('2026-10-01T00:00:00Z') },
+            { userId: 'user-1', mode: 'auto', status: 'analyzing', imageData: image, createdAt: new Date('2026-10-02T00:00:00Z') },
+            { userId: 'user-1', mode: 'auto', status: 'failed', error: 'AI_TIMEOUT_ERROR', imageData: image, createdAt: new Date('2026-10-03T00:00:00Z') },
+            { userId: 'user-1', mode: 'auto', status: 'saved', imageData: '', result, createdAt: new Date('2026-10-04T00:00:00Z') },
+        ] });
+        const backup = await exportBackup();
+        expect(backup.importTasks).toHaveLength(3);
+        expect(backup.importTasks.every((task: { status: string }) => task.status !== 'saved')).toBe(true);
+
+        await clearUserData();
+        const { stats } = await importBackup(backup);
+        expect(stats.importTasksCreated).toBe(3);
+        const tasks = await database.importTask.findMany({ where: { userId: 'user-1' }, orderBy: { createdAt: 'asc' } });
+        const math = await database.subject.findFirstOrThrow({ where: { userId: 'user-1', name: '数学' } });
+        expect(tasks.map((task) => [task.status, task.error])).toEqual([
+            ['review', null],
+            ['failed', 'SERVER_RESTARTED'],
+            ['failed', 'AI_TIMEOUT_ERROR'],
+        ]);
+        expect(tasks[0]).toMatchObject({ imageData: image, subjectId: math.id, targetSubjectId: math.id, clientRequestId: null });
+        expect(JSON.parse(tasks[0].result!).questionText).toBe('备份中的草稿题目');
+
+        // 再次导入同一文件不重复创建
+        expect((await importBackup(backup)).stats.importTasksCreated).toBe(0);
+    });
+
+    it('旧版备份没有识别任务字段时正常导入', async () => {
+        const backup = await exportBackup();
+        delete backup.importTasks;
+        backup.version = 4;
+        await clearUserData();
+        const { stats } = await importBackup(backup);
+        expect(stats.importTasksCreated).toBe(0);
+        expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBeGreaterThan(0);
     });
 });

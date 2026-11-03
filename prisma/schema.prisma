@@ -41,6 +41,7 @@ model User {
   examPapers ExamPaper[]
   aiUsages   AiUsage[]
   paperGroups PaperGroup[]
+  importTasks ImportTask[]
 }
 
 // 统一知识点标签表 (支持无限层级)
@@ -170,6 +171,7 @@ model ErrorItem {
   reviewSchedules ReviewSchedule[]
   practiceRecords PracticeRecord[]
   examQuestions   ExamQuestion[]
+  importTasks     ImportTask[]
   
   // 列表、统计都按用户取错题并按时间排序；SQLite 不会自动给外键建索引
   @@index([userId, createdAt])
@@ -276,4 +278,37 @@ model AiUsage {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// 拍照识别导入任务：上传后由服务端识别并保存结果，离开页面、锁屏或服务重启后仍可取回，不重复调用 AI
+model ImportTask {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientRequestId String?   // 前端生成的幂等键：同一用户重复提交时返回同一任务
+  mode            String    // review 待人工校对 | auto 识别后直接入库（创建时按「导入前人工确认」决定）
+  status          String    @default("analyzing") // analyzing 识别中 | review 待校对 | saving 保存中 | saved 已保存 | failed 失败
+  language        String    @default("zh")
+  subjectId       String?   // 识别时参考的错题本（决定候选知识点）
+  targetSubjectId String?   // 固定放入的错题本；为空时按识别学科匹配或在校对页选择
+  paperLevel      String?   // 指定的卷别分组
+  imageData       String    // 压缩后的题目图片（data URL），入库后清空，原图保存在错题中
+  imageInfo       String?   // 图片格式、像素与体积（JSON），不含图片内容
+  result          String?   // 识别结果（JSON），即待校对草稿；入库失败可直接重试保存
+  errorItemId     String?
+  errorItem       ErrorItem? @relation(fields: [errorItemId], references: [id], onDelete: SetNull)
+  duplicate       Boolean   @default(false) // 入库时判为重复题，已记入原题的做错记录
+  error           String?   // 失败原因的错误码
+  timings         String?   // 各阶段耗时（JSON，毫秒）
+  attempts        Int       @default(1)
+  runnerId        String?   // 执行识别或保存的服务进程，用于判断服务重启导致的中断
+  heartbeatAt     DateTime? // 执行中定时刷新，多实例部署时据此判断中断
+  readAt          DateTime? // 用户查看结果的时间，为空时显示未读提示
+  finishedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([userId, clientRequestId])
+  @@index([userId, status])
+  @@index([errorItemId])
 }

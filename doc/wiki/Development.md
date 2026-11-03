@@ -22,6 +22,8 @@
 
 AI 请求由服务端选择提供商并调用外部服务，业务数据经 Prisma 存入 SQLite。后台任务列表存于进程内存并同步写入配置目录的 `background-tasks.json`，重启后只保留记录、不会恢复执行，不能用它替代持久化任务队列。
 
+拍照识别使用数据库中的 `ImportTask`（`/api/import-tasks`）：上传后立即返回任务编号，识别与入库通过 `after()` 在响应后执行，结果、草稿与最终错题编号持久保存。状态迁移用带条件的 `updateMany` 抢占，错题写入与任务标记已保存在同一事务提交；执行中的任务记录进程启动编号，单进程部署重启后立即判为中断，多实例（Vercel）按心跳超时判断。`/api/analyze` 保留为同步接口，与任务共用 `src/lib/question-analysis.ts`；保存与「添加错题」共用 `src/lib/question-save.ts`。
+
 ## 常用检查
 
 ### 列表接口的数据范围

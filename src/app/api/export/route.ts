@@ -84,6 +84,17 @@ export async function GET(req: Request) {
             where: userFilter,
         });
 
+        // 尚未处理的识别导入任务（待校对草稿、失败可重试的任务）；已保存的任务只是记录，不导出
+        const importTasks = await prisma.importTask.findMany({
+            where: { ...userFilter, status: { not: 'saved' } },
+            select: {
+                id: true, userId: true, mode: true, status: true, language: true, subjectId: true, targetSubjectId: true,
+                paperLevel: true, imageData: true, imageInfo: true, result: true, error: true, timings: true,
+                attempts: true, createdAt: true, finishedAt: true,
+            },
+            orderBy: { createdAt: 'asc' },
+        });
+
         // 与动画讲解文字一致的云端语音（MP3），导入后无需重新合成
         const ttsSpeeches = await exportSpeeches(errorItems.flatMap((item) => [
             ...(item.svgAnimation ? [{ language: 'zh' as const, svg: item.svgAnimation }] : []),
@@ -91,7 +102,7 @@ export async function GET(req: Request) {
         ]));
 
         const exportData = {
-            version: 4,
+            version: 5,
             exportedAt: new Date().toISOString(),
             scope: exportAll ? 'all' : 'user',
             user: {
@@ -132,6 +143,7 @@ export async function GET(req: Request) {
             })),
             paperGroups,
             ttsSpeeches,
+            importTasks,
         };
 
         logger.info({
@@ -144,6 +156,7 @@ export async function GET(req: Request) {
             reviewSchedulesCount: reviewSchedules.length,
             practiceRecordsCount: practiceRecords.length,
             examPapersCount: examPapers.length,
+            importTasksCount: importTasks.length,
             ttsSpeechesCount: ttsSpeeches.length,
         }, 'Data export completed');
 

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { BarChart3, BookOpen, CalendarCheck, FileText, LogOut, PlusCircle, Shield } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { ImportTasksIndicator } from "@/components/import-tasks/import-tasks-indicator";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 md:h-16 md:px-8">
                     <Link href="/" className="flex shrink-0 items-center gap-2">
                         <Image src="/icons/icon.png" alt="" width={32} height={32} className="rounded-lg" priority unoptimized />
-                        <span className="text-base font-semibold tracking-tight">{t.pageTitle.base}</span>
+                        {/* 手机上只显示图标，给「识别任务」入口留出位置 */}
+                        <span className="hidden text-base font-semibold tracking-tight sm:inline">{t.pageTitle.base}</span>
                     </Link>
 
                     <nav className="ml-4 hidden items-center gap-1 md:flex">
@@ -102,6 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 </Button>
                             </Link>
                         )}
+                        <ImportTasksIndicator className="mr-1" />
                         <ThemeToggle />
                         <SettingsDialog />
                         <Button

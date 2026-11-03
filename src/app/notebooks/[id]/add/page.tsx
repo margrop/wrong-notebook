@@ -7,6 +7,7 @@ import { BatchImportPanel } from "@/components/batch-import-panel";
 import { CorrectionEditor } from "@/components/correction-editor";
 import { ImageCropper } from "@/components/image-cropper";
 import { ImportResultBanner } from "@/components/import-result-banner";
+import { PendingImportTask } from "@/components/import-tasks/pending-import-task";
 import { QuestionSaveError } from "@/components/question-save-error";
 import { TextInputZone } from "@/components/text-input-zone";
 import { UploadZone } from "@/components/upload-zone";
@@ -79,6 +80,10 @@ export default function AddErrorPage() {
                             onChange={setInputMode}
                         />
 
+                        {flow.pendingTask && (
+                            <PendingImportTask task={flow.pendingTask} onRefresh={flow.refreshPendingTask} onDismiss={flow.dismissPendingTask} />
+                        )}
+
                         {flow.lastImported && (
                             <ImportResultBanner imported={flow.lastImported} onDismiss={flow.dismissImported} />
                         )}
@@ -87,7 +92,6 @@ export default function AddErrorPage() {
                             <BatchImportPanel
                                 blobs={flow.batchBlobs}
                                 subjectId={notebookId}
-                                timeout={flow.aiTimeout}
                                 onClose={flow.closeBatch}
                             />
                         ) : inputMode === "image" ? (
