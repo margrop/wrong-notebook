@@ -7,6 +7,7 @@ import { unauthorized, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { getMasteryThreshold } from "@/lib/mastery";
 import { masteryStatusWhere } from "@/lib/mastery-status";
+import { normalizeMistakeStatus } from "@/lib/mistake-status";
 import { parseStatsRange, resolveStatsRange } from "@/lib/stats-range";
 import { resolveStatsSubjectId } from "@/lib/stats-filter";
 
@@ -71,7 +72,7 @@ export async function GET(req: Request) {
             ...(rangeInfo.start ? { createdAt: { gte: rangeInfo.start } } : {}),
         };
 
-        const [totalErrors, newCount, reviewingCount, masteredCount, subjectGroups, rangeItems, masteredItems] = await Promise.all([
+        const [totalErrors, newCount, reviewingCount, masteredCount, subjectGroups, rangeItems, masteredItems, mistakeStatusGroups, errorTypeGroups] = await Promise.all([
             prisma.errorItem.count({ where: scopedWhere }),
             prisma.errorItem.count({
                 where: { AND: [scopedWhere, masteryStatusWhere('new', masteryThreshold)] }
@@ -102,6 +103,16 @@ export async function GET(req: Request) {
                 },
                 select: { masteryEvaluatedAt: true },
             }),
+            prisma.errorItem.groupBy({
+                by: ['mistakeStatus'],
+                where: scopedWhere,
+                _count: { id: true },
+            }),
+            prisma.errorItem.groupBy({
+                by: ['errorType'],
+                where: scopedWhere,
+                _count: { id: true },
+            }),
         ]);
 
         // 掌握率
@@ -121,6 +132,36 @@ export async function GET(req: Request) {
             name: g.subjectId !== null ? (subjectNameMap.get(g.subjectId) ?? 'Unknown') : 'Unknown',
             value: g._count.id,
         }));
+
+        // 错因分布：按 mistakeStatus 分组，null 与未识别值归入 unknown
+        const mistakeStatusCountMap = new Map<string, number>();
+        for (const g of mistakeStatusGroups) {
+            const status = normalizeMistakeStatus(g.mistakeStatus);
+            mistakeStatusCountMap.set(status, (mistakeStatusCountMap.get(status) ?? 0) + g._count.id);
+        }
+        const mistakeStatusStats = (['not_attempted', 'wrong_attempt', 'unknown'] as const)
+            .filter(status => (mistakeStatusCountMap.get(status) ?? 0) > 0)
+            .map(status => ({ name: status, value: mistakeStatusCountMap.get(status) ?? 0 }));
+
+        // 错误类型分布：合并首尾空格并忽略空值，数量前 7 个，其余并入 __other__
+        const errorTypeCountMap = new Map<string, number>();
+        for (const g of errorTypeGroups) {
+            const name = (g.errorType ?? '').trim();
+            if (!name) continue;
+            errorTypeCountMap.set(name, (errorTypeCountMap.get(name) ?? 0) + g._count.id);
+        }
+        const ERROR_TYPE_TOP_LIMIT = 7;
+        const sortedErrorTypes = [...errorTypeCountMap.entries()]
+            .sort((a, b) => b[1] - a[1]);
+        const errorTypeStats = sortedErrorTypes
+            .slice(0, ERROR_TYPE_TOP_LIMIT)
+            .map(([name, value]) => ({ name, value }));
+        if (sortedErrorTypes.length > ERROR_TYPE_TOP_LIMIT) {
+            const otherValue = sortedErrorTypes
+                .slice(ERROR_TYPE_TOP_LIMIT)
+                .reduce((sum, [, value]) => sum + value, 0);
+            errorTypeStats.push({ name: '__other__', value: otherValue });
+        }
 
         // 按分桶统计每日/每月新增与新掌握
         // 近似口径：以最近一次掌握评估时间（masteryEvaluatedAt）作为「掌握时间」
@@ -149,6 +190,8 @@ export async function GET(req: Request) {
             masteredCount,
             masteryRate,
             subjectStats,
+            mistakeStatusStats,
+            errorTypeStats,
             activityData,
             range: rangeInfo.range,
             granularity: rangeInfo.granularity,

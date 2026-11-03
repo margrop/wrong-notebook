@@ -1,21 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
-
-import { Loader2, CheckCircle, BookOpen, Clock, RefreshCw, Inbox, TrendingUp } from "lucide-react";
+import { Loader2, CheckCircle, BookOpen, Clock, RefreshCw, Inbox } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AnalyticsData } from "@/types/api";
 import { useStatsData } from "@/lib/use-stats-data";
 import { StatCard } from "./stat-card";
-import { SubjectPieChart } from "./subject-pie-chart";
 import { StatsEmpty, StatsError } from "./stats-state";
-import { MasteryProgressBar } from "./mastery-progress-bar";
 import { WeakTagsCard } from "./weak-tags-card";
-import { ChartTooltip } from "./chart-tooltip";
-import { CHART_GRID_COLOR, CHART_AXIS_COLOR, CHART_ADDED_COLOR, CHART_MASTERED_COLOR } from "./chart-colors";
+import { MasteryProgressBar } from "./mastery-progress-bar";
+import { WrongAnswerCharts } from "./wrong-answer-charts";
 
 interface WrongAnswerStatsProps {
     url: string;
@@ -55,10 +50,6 @@ export function WrongAnswerStats({ url, weakTagsUrl, subjectId }: WrongAnswerSta
             />
         );
     }
-
-    const trendTitle = data.granularity === 'day'
-        ? t.wrongAnswerStats.dailyTrend
-        : t.wrongAnswerStats.monthlyTrend;
 
     const masteryHref = (status: 'new' | 'reviewing' | 'mastered') =>
         subjectId ? `/notebooks/${subjectId}?mastery=${status}` : undefined;
@@ -113,72 +104,8 @@ export function WrongAnswerStats({ url, weakTagsUrl, subjectId }: WrongAnswerSta
             {/* 薄弱知识点排行：概览与进度条下方、图表上方 */}
             <WeakTagsCard url={weakTagsUrl} />
 
-            <div className="grid gap-4 md:grid-cols-2">
-                <SubjectPieChart
-                    title={t.wrongAnswerStats.SubjectDistribution}
-                    data={data.subjectStats}
-                />
-
-                {/* 趋势图：新增 vs 新掌握双系列，按粒度显示每日或月度 */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4" />
-                            {trendTitle}
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                            {t.wrongAnswerStats.trendSubtitle}
-                        </p>
-                    </CardHeader>
-                    <CardContent className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={data.activityData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_GRID_COLOR} />
-                                <XAxis
-                                    dataKey="date"
-                                    stroke={CHART_AXIS_COLOR}
-                                    fontSize={12}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    dy={10}
-                                />
-                                <YAxis
-                                    stroke={CHART_AXIS_COLOR}
-                                    fontSize={12}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickFormatter={(value) => `${value}`}
-                                />
-                                <Tooltip
-                                    content={
-                                        <ChartTooltip />
-                                    }
-                                    cursor={{ fill: 'transparent' }}
-                                />
-                                <Legend
-                                    iconType="circle"
-                                    iconSize={8}
-                                    wrapperStyle={{ paddingTop: '20px' }}
-                                />
-                                <Bar
-                                    dataKey="added"
-                                    name={t.wrongAnswerStats.added}
-                                    fill={CHART_ADDED_COLOR}
-                                    radius={[4, 4, 0, 0]}
-                                    barSize={20}
-                                />
-                                <Bar
-                                    dataKey="mastered"
-                                    name={t.wrongAnswerStats.newlyMastered}
-                                    fill={CHART_MASTERED_COLOR}
-                                    radius={[4, 4, 0, 0]}
-                                    barSize={20}
-                                />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-            </div>
+            {/* 图表区：科目分布 / 趋势 / 错因分布 */}
+            <WrongAnswerCharts data={data} />
         </div>
     );
 }

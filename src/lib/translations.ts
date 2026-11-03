@@ -183,6 +183,10 @@ export const translations = {
             viewNew: "View to-review wrong answers",
             viewReviewing: "View reviewing wrong answers",
             viewMastered: "View mastered wrong answers",
+            mistakeCause: "Mistake Cause",
+            mistakeCauseSubtitle: "Attempt status and error type distribution",
+            errorTypeEmpty: "Fill in the error type when editing a wrong answer to see the distribution here.",
+            errorTypeOther: "Other",
         },
         weakTags: {
             title: "Weak Knowledge Points",
@@ -1917,6 +1921,10 @@ export const translations = {
             viewNew: "查看待复习错题",
             viewReviewing: "查看复习中错题",
             viewMastered: "查看已掌握错题",
+            mistakeCause: "错因分布",
+            mistakeCauseSubtitle: "作答状态与错误类型分布",
+            errorTypeEmpty: "编辑错题时填写错误类型后，这里会显示分布。",
+            errorTypeOther: "其他",
         },
         weakTags: {
             title: "薄弱知识点",

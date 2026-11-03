@@ -654,4 +654,129 @@ describe('/api/analytics', () => {
             expect(data.activityData[0].date).toBe('2026-05');
         });
     });
+
+    describe('错因分布（mistakeStatusStats / errorTypeStats）', () => {
+        function mockGroupByByField(field: 'subjectId' | 'mistakeStatus' | 'errorType', value: unknown) {
+            mocks.mockPrismaErrorItem.groupBy.mockImplementation(
+                (args: { by: string[] }) => (args.by[0] === field ? Promise.resolve(value) : Promise.resolve([]))
+            );
+        }
+
+        it('mistakeStatusStats 按 mistakeStatus 分组，null 归入 unknown', async () => {
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mockGroupByByField('mistakeStatus', [
+                { mistakeStatus: 'not_attempted', _count: { id: 3 } },
+                { mistakeStatus: 'wrong_attempt', _count: { id: 5 } },
+                { mistakeStatus: null, _count: { id: 2 } },
+                { mistakeStatus: 'unknown', _count: { id: 1 } },
+            ]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            const response = await GET(makeRequest('http://localhost/api/analytics'));
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.mistakeStatusStats).toBeDefined();
+            const byName = Object.fromEntries(
+                data.mistakeStatusStats.map((s: { name: string; value: number }) => [s.name, s.value])
+            );
+            expect(byName.not_attempted).toBe(3);
+            expect(byName.wrong_attempt).toBe(5);
+            expect(byName.unknown).toBe(3);
+        });
+
+        it('mistakeStatusStats 查询使用 scopedWhere 且不读取大字段', async () => {
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            await GET(makeRequest('http://localhost/api/analytics'));
+
+            expect(mocks.mockPrismaErrorItem.groupBy).toHaveBeenCalledWith({
+                by: ['mistakeStatus'],
+                where: { userId: 'user-123', createdAt: { gte: expect.any(Date) } },
+                _count: { id: true },
+            });
+        });
+
+        it('errorTypeStats 合并首尾空格并忽略空值，超过 7 个时其余并入 __other__', async () => {
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mockGroupByByField('errorType', [
+                { errorType: ' 计算 ', _count: { id: 5 } },
+                { errorType: '计算', _count: { id: 3 } },
+                { errorType: '', _count: { id: 2 } },
+                { errorType: '   ', _count: { id: 1 } },
+                { errorType: null, _count: { id: 4 } },
+                { errorType: '概念', _count: { id: 4 } },
+                { errorType: '审题', _count: { id: 3 } },
+                { errorType: '公式', _count: { id: 3 } },
+                { errorType: '步骤', _count: { id: 2 } },
+                { errorType: '单位', _count: { id: 2 } },
+                { errorType: '符号', _count: { id: 1 } },
+                { errorType: '笔误', _count: { id: 1 } },
+            ]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            const response = await GET(makeRequest('http://localhost/api/analytics'));
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            const stats = data.errorTypeStats as { name: string; value: number }[];
+            const byName = Object.fromEntries(stats.map(s => [s.name, s.value]));
+            // 首尾空格合并
+            expect(byName['计算']).toBe(8);
+            // 空值与 null 不计入
+            expect(byName['']).toBeUndefined();
+            // 仅保留前 7 个，其余合并为 __other__：第 7 名为 符号(1)，第 8 名为 笔误(1)
+            expect(stats).toHaveLength(8);
+            expect(stats[0]).toEqual({ name: '计算', value: 8 });
+            expect(byName['概念']).toBe(4);
+            expect(byName['审题']).toBe(3);
+            expect(byName['公式']).toBe(3);
+            expect(byName['步骤']).toBe(2);
+            expect(byName['单位']).toBe(2);
+            expect(byName['符号']).toBe(1);
+            expect(byName['__other__']).toBe(1);
+        });
+
+        it('errorTypeStats 不足 7 个时不生成 __other__', async () => {
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mockGroupByByField('errorType', [
+                { errorType: '计算', _count: { id: 5 } },
+                { errorType: '概念', _count: { id: 3 } },
+            ]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            const response = await GET(makeRequest('http://localhost/api/analytics'));
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.errorTypeStats).toHaveLength(2);
+            expect(data.errorTypeStats[0]).toEqual({ name: '计算', value: 5 });
+        });
+
+        it('errorTypeStats 查询使用 scopedWhere 且不读取大字段', async () => {
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            await GET(makeRequest('http://localhost/api/analytics'));
+
+            expect(mocks.mockPrismaErrorItem.groupBy).toHaveBeenCalledWith({
+                by: ['errorType'],
+                where: { userId: 'user-123', createdAt: { gte: expect.any(Date) } },
+                _count: { id: true },
+            });
+        });
+    });
 });

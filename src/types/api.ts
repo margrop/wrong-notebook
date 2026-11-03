@@ -226,6 +226,10 @@ export interface AnalyticsData {
     masteredCount: number;
     masteryRate: number;
     subjectStats: { name: string; value: number }[];
+    /** 错因分布：按 mistakeStatus 分组（not_attempted / wrong_attempt / unknown） */
+    mistakeStatusStats: { name: string; value: number }[];
+    /** 错误类型分布：按 errorType 分组，自由文本取前 7 个，其余合并为 __other__ */
+    errorTypeStats: { name: string; value: number }[];
     activityData: { date: string; count: number; added: number; mastered: number }[];
     range: StatsRange;
     granularity: 'day' | 'month';
