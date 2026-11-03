@@ -1165,6 +1165,7 @@ export const translations = {
             },
             savedTo: "Saved to \"{notebook}\" (ID: {id})",
             duplicateSaved: "Duplicate question: recorded in the existing question's practice history",
+            itemDeleted: "Saved, but the question has since been deleted",
             timings: {
                 read: "Read",
                 convert: "Convert",
@@ -2667,6 +2668,7 @@ export const translations = {
             },
             savedTo: "已保存到「{notebook}」，题目 ID：{id}",
             duplicateSaved: "重复题：已记入原题的做错记录",
+            itemDeleted: "已保存，但该错题之后已被删除",
             timings: {
                 read: "读取",
                 convert: "转换",

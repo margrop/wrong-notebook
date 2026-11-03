@@ -66,7 +66,10 @@ export function ImportTaskCard({ task, now, onReview, onViewItem, onRetry, onDis
                         />
                     )}
                     {task.excerpt && <p className="break-words text-muted-foreground">{task.excerpt}</p>}
-                    {task.status === "saved" && (
+                    {task.status === "saved" && !task.errorItemId && (
+                        <p className="text-xs text-muted-foreground">{t.importTasks.itemDeleted}</p>
+                    )}
+                    {task.status === "saved" && task.errorItemId && (
                         <p className="text-xs text-green-700 dark:text-green-300">
                             {task.duplicate
                                 ? t.importTasks.duplicateSaved

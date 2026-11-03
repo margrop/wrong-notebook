@@ -467,4 +467,16 @@ describe('识别导入任务', () => {
         expect((await database.errorItem.findUniqueOrThrow({ where: { id: task.errorItemId! } })).originalImageUrl).toBe(large);
         simulateRestartForTest();
     });
+
+    it('已保存任务的错题被删除后，任务仍可查询且不再指向错题，不能重试', async () => {
+        const { task } = await create();
+        await waitForImportTaskForTest(task.id);
+        const saved = await (await confirm(task.id)).json();
+        await database.errorItem.delete({ where: { id: saved.id } });
+        const { response, task: current } = await getTask(task.id);
+        expect(response.status).toBe(200);
+        expect(current).toMatchObject({ status: 'saved', errorItemId: null, errorItemShortId: null });
+        expect((await RETRY(json({}), params(task.id))).status).toBe(409);
+        expect((await confirm(task.id)).status).toBe(409);
+    });
 });
