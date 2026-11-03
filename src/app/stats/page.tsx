@@ -71,7 +71,11 @@ function StatsTabs() {
             {tab !== "tags" && <StatsFilterBar />}
 
             <TabsContent value="wrong" className="space-y-4">
-                <WrongAnswerStats url={buildUrl("/api/analytics")} subjectId={subjectParam || undefined} />
+                <WrongAnswerStats
+                    url={buildUrl("/api/analytics")}
+                    weakTagsUrl={buildUrl("/api/stats/weak-tags")}
+                    subjectId={subjectParam || undefined}
+                />
             </TabsContent>
             <TabsContent value="practice" className="space-y-4">
                 {/* 学习日历只受学科筛选影响；与练习统计并列，练习统计为空时也显示（录入错题也算活动） */}

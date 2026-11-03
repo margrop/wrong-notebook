@@ -184,6 +184,15 @@ export const translations = {
             viewReviewing: "View reviewing wrong answers",
             viewMastered: "View mastered wrong answers",
         },
+        weakTags: {
+            title: "Weak Knowledge Points",
+            subtitle: "Ranked by unmastered wrong answers and recent practice mistakes",
+            unmasteredOf: "Unmastered {unmastered} / Total {total}",
+            recentRate: "Recent accuracy {rate}%",
+            recentNoPractice: "Not practiced recently",
+            loadError: "Failed to load weak knowledge points",
+            empty: "No weak knowledge points in this range.",
+        },
         upload: {
             // dragDrop: "Click or drag image to upload", // Moved to app
             support: "JPG, PNG, WebP and HEIC/HEIF photos",
@@ -1908,6 +1917,15 @@ export const translations = {
             viewNew: "查看待复习错题",
             viewReviewing: "查看复习中错题",
             viewMastered: "查看已掌握错题",
+        },
+        weakTags: {
+            title: "薄弱知识点",
+            subtitle: "按未掌握错题多、近期练习错得多排序",
+            unmasteredOf: "未掌握 {unmastered} / 共 {total}",
+            recentRate: "近期正确率 {rate}%",
+            recentNoPractice: "近期未练习",
+            loadError: "薄弱知识点加载失败",
+            empty: "该范围内暂无薄弱知识点。",
         },
         upload: {
             // dragDrop: "点击或拖拽上传图片", // Moved to app

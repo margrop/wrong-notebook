@@ -13,16 +13,19 @@ import { StatCard } from "./stat-card";
 import { SubjectPieChart } from "./subject-pie-chart";
 import { StatsEmpty, StatsError } from "./stats-state";
 import { MasteryProgressBar } from "./mastery-progress-bar";
+import { WeakTagsCard } from "./weak-tags-card";
 import { ChartTooltip } from "./chart-tooltip";
 import { CHART_GRID_COLOR, CHART_AXIS_COLOR, CHART_ADDED_COLOR, CHART_MASTERED_COLOR } from "./chart-colors";
 
 interface WrongAnswerStatsProps {
     url: string;
+    /** 薄弱知识点排行接口地址 */
+    weakTagsUrl: string;
     /** 当前选中的错题本 id；选中时待复习 / 复习中 / 已掌握卡片链接到对应筛选的错题列表 */
     subjectId?: string;
 }
 
-export function WrongAnswerStats({ url, subjectId }: WrongAnswerStatsProps) {
+export function WrongAnswerStats({ url, weakTagsUrl, subjectId }: WrongAnswerStatsProps) {
     const { t } = useLanguage();
     const { data, loading, error, reload } = useStatsData<AnalyticsData>(url);
 
@@ -106,6 +109,9 @@ export function WrongAnswerStats({ url, subjectId }: WrongAnswerStatsProps) {
                 reviewingCount={data.reviewingCount}
                 masteredCount={data.masteredCount}
             />
+
+            {/* 薄弱知识点排行：概览与进度条下方、图表上方 */}
+            <WeakTagsCard url={weakTagsUrl} />
 
             <div className="grid gap-4 md:grid-cols-2">
                 <SubjectPieChart

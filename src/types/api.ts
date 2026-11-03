@@ -251,6 +251,27 @@ export interface ActivityStatsData {
     subjectName?: string;
 }
 
+/** 薄弱知识点排行中的一条 */
+export interface WeakTagItem {
+    tag: string;
+    tagSet: string;
+    subjectId: string | null;
+    subjectName: string;
+    total: number;
+    unmastered: number;
+    recentAttempted: number;
+    recentCorrect: number;
+    recentErrorRate: number;
+    unmasteredRatio: number;
+}
+
+export interface WeakTagsData {
+    weakTags: WeakTagItem[];
+    range: StatsRange;
+    subjectId?: string;
+    subjectName?: string;
+}
+
 export interface TagStats {
     tag: string;
     count: number;
