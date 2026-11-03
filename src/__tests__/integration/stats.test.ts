@@ -72,23 +72,22 @@ describe('/api/stats', () => {
             }
         });
         it('应该返回练习统计数据', async () => {
-            // Mock subject stats
-            mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValueOnce([
-                { subject: '数学', _count: { id: 10 } },
-                { subject: '英语', _count: { id: 5 } },
-            ]);
+            // groupBy 被调用两次（subject + difficulty），按调用顺序 mock
+            mocks.mockPrismaPracticeRecord.groupBy
+                .mockResolvedValueOnce([
+                    { subject: '数学', _count: { id: 10 } },
+                    { subject: '英语', _count: { id: 5 } },
+                ])
+                .mockResolvedValueOnce([
+                    { difficulty: 'easy', _count: { id: 3 } },
+                    { difficulty: 'medium', _count: { id: 7 } },
+                    { difficulty: 'hard', _count: { id: 5 } },
+                ]);
 
             // Mock activity stats
             mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([
                 { createdAt: new Date(), isCorrect: true, difficulty: 'medium' },
                 { createdAt: new Date(), isCorrect: false, difficulty: 'hard' },
-            ]);
-
-            // Mock difficulty stats
-            mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValueOnce([
-                { difficulty: 'easy', _count: { id: 3 } },
-                { difficulty: 'medium', _count: { id: 7 } },
-                { difficulty: 'hard', _count: { id: 5 } },
             ]);
 
             // Mock total and correct counts
@@ -107,11 +106,12 @@ describe('/api/stats', () => {
         });
 
         it('应该返回正确的学科分布', async () => {
-            mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValueOnce([
-                { subject: '数学', _count: { id: 20 } },
-            ]);
+            mocks.mockPrismaPracticeRecord.groupBy
+                .mockResolvedValueOnce([
+                    { subject: '数学', _count: { id: 20 } },
+                ])
+                .mockResolvedValueOnce([]);
             mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([]);
-            mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValueOnce([]);
             mocks.mockPrismaPracticeRecord.count.mockResolvedValue(0);
 
             const response = await GET_PRACTICE_STATS();

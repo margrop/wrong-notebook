@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
     mockPrismaErrorItem: {
         count: vi.fn(),
         findMany: vi.fn(),
+        groupBy: vi.fn(),
+    },
+    mockPrismaSubject: {
+        findMany: vi.fn(),
     },
     mockSession: {
         user: {
@@ -24,6 +28,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/prisma', () => ({
     prisma: {
         errorItem: mocks.mockPrismaErrorItem,
+        subject: mocks.mockPrismaSubject,
         user: { findUnique: vi.fn(async () => ({ masteryThreshold: 50 })) },
     },
 }));
@@ -54,35 +59,37 @@ describe('/api/analytics', () => {
             vi.useFakeTimers();
             vi.setSystemTime(new Date('2026-10-18T16:01:00Z'));
             mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
             try {
                 const response = await GET();
                 expect(response.status).toBe(200);
                 expect((await response.json()).activityData.at(-1).date).toBe('10-19');
-                expect(mocks.mockPrismaErrorItem.count.mock.calls.at(-1)?.[0].where.createdAt).toEqual({
-                    gte: new Date('2026-10-18T16:00:00Z'), lt: new Date('2026-10-19T16:00:00Z'),
+                // 验证 7 天范围的查询条件
+                expect(mocks.mockPrismaErrorItem.findMany).toHaveBeenCalledWith({
+                    where: {
+                        userId: 'user-123',
+                        createdAt: { gte: new Date('2026-10-12T16:00:00Z') },
+                    },
+                    select: { createdAt: true },
                 });
             } finally {
                 vi.useRealTimers();
             }
         });
+
         it('应该返回完整的统计数据', async () => {
-            // Mock total errors
             mocks.mockPrismaErrorItem.count
                 .mockResolvedValueOnce(100)  // totalErrors
                 .mockResolvedValueOnce(75);  // masteredCount
-
-            // Mock subject distribution
-            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([
-                { subject: { name: '数学' } },
-                { subject: { name: '数学' } },
-                { subject: { name: '英语' } },
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([
+                { subjectId: 'sub-1', _count: { id: 3 } },
             ]);
-
-            // Mock activity data (7 days)
-            for (let i = 0; i < 7; i++) {
-                mocks.mockPrismaErrorItem.count.mockResolvedValueOnce(i + 1);
-            }
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([
+                { id: 'sub-1', name: '数学' },
+            ]);
 
             const response = await GET();
             const data = await response.json();
@@ -97,12 +104,16 @@ describe('/api/analytics', () => {
 
         it('应该返回正确的学科分布', async () => {
             mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
-            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([
-                { subject: { name: '数学' } },
-                { subject: { name: '数学' } },
-                { subject: { name: '数学' } },
-                { subject: { name: '物理' } },
-                { subject: { name: '化学' } },
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([
+                { subjectId: 'sub-1', _count: { id: 3 } },
+                { subjectId: 'sub-2', _count: { id: 1 } },
+                { subjectId: 'sub-3', _count: { id: 1 } },
+            ]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([
+                { id: 'sub-1', name: '数学' },
+                { id: 'sub-2', name: '物理' },
+                { id: 'sub-3', name: '化学' },
             ]);
 
             const response = await GET();
@@ -119,22 +130,30 @@ describe('/api/analytics', () => {
             expect(physicsStat.value).toBe(1);
         });
 
-        it('统计学科分布时只读取科目名，不读取原图等大字段', async () => {
+        it('统计学科分布时使用 groupBy 而不是读取整行', async () => {
             mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
 
             await GET();
 
-            const args = mocks.mockPrismaErrorItem.findMany.mock.calls[0][0];
-            expect(args).not.toHaveProperty('include');
-            expect(args.select).toEqual({ subject: { select: { name: true } } });
+            expect(mocks.mockPrismaErrorItem.groupBy).toHaveBeenCalledWith({
+                by: ['subjectId'],
+                where: { userId: 'user-123' },
+                _count: { id: true },
+            });
         });
 
         it('应该处理没有学科的错题', async () => {
             mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
-            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([
-                { subject: null },
-                { subject: { name: '数学' } },
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([
+                { subjectId: null, _count: { id: 2 } },
+                { subjectId: 'sub-1', _count: { id: 1 } },
+            ]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([
+                { id: 'sub-1', name: '数学' },
             ]);
 
             const response = await GET();
@@ -144,12 +163,14 @@ describe('/api/analytics', () => {
 
             const unknownStat = data.subjectStats.find((s: { name: string }) => s.name === 'Unknown');
             expect(unknownStat).toBeDefined();
-            expect(unknownStat.value).toBe(1);
+            expect(unknownStat.value).toBe(2);
         });
 
         it('应该返回7天的活动数据', async () => {
             mocks.mockPrismaErrorItem.count.mockResolvedValue(5);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
 
             const response = await GET();
             const data = await response.json();
@@ -160,9 +181,37 @@ describe('/api/analytics', () => {
             expect(data.activityData[0]).toHaveProperty('count');
         });
 
+        it('活动数据应按应用时区分组到正确的日期', async () => {
+            vi.useFakeTimers();
+            vi.setSystemTime(new Date('2026-10-18T20:00:00Z'));
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+            // 北京时间 2026-10-19 凌晨 1 点（UTC 2026-10-18T17:00:00Z）
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([
+                { createdAt: new Date('2026-10-18T17:00:00Z') },
+            ]);
+            try {
+                const response = await GET();
+                const data = await response.json();
+                expect(response.status).toBe(200);
+                // 10-19 应该有 1 条，10-18 应该为 0
+                const day19 = data.activityData.find((d: { date: string }) => d.date === '10-19');
+                const day18 = data.activityData.find((d: { date: string }) => d.date === '10-18');
+                expect(day19).toBeDefined();
+                expect(day19.count).toBe(1);
+                expect(day18).toBeDefined();
+                expect(day18.count).toBe(0);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
         it('应该处理零错题情况', async () => {
             mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
 
             const response = await GET();
             const data = await response.json();
@@ -177,7 +226,9 @@ describe('/api/analytics', () => {
             mocks.mockPrismaErrorItem.count
                 .mockResolvedValueOnce(200)  // totalErrors
                 .mockResolvedValueOnce(50);  // masteredCount
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
 
             const response = await GET();
             const data = await response.json();
@@ -222,19 +273,15 @@ describe('/api/analytics', () => {
         });
 
         it('应该处理100%掌握率', async () => {
-            // 重置 mock
             vi.clearAllMocks();
             vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
 
             mocks.mockPrismaErrorItem.count
                 .mockResolvedValueOnce(50)   // totalErrors
                 .mockResolvedValueOnce(50);  // masteredCount (all mastered)
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
-
-            // Mock 活动数据
-            for (let i = 0; i < 7; i++) {
-                mocks.mockPrismaErrorItem.count.mockResolvedValueOnce(0);
-            }
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
 
             const response = await GET();
             const data = await response.json();
@@ -244,19 +291,15 @@ describe('/api/analytics', () => {
         });
 
         it('应该处理0%掌握率', async () => {
-            // 重置 mock
             vi.clearAllMocks();
             vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
 
             mocks.mockPrismaErrorItem.count
                 .mockResolvedValueOnce(50)  // totalErrors
                 .mockResolvedValueOnce(0);  // masteredCount (none mastered)
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
-
-            // Mock 活动数据
-            for (let i = 0; i < 7; i++) {
-                mocks.mockPrismaErrorItem.count.mockResolvedValueOnce(0);
-            }
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
 
             const response = await GET();
             const data = await response.json();

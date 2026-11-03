@@ -21,63 +21,61 @@ export async function GET() {
     const userId = session.user.id;
 
     try {
-        // 1. Total Errors
-        const totalErrors = await prisma.errorItem.count({
-            where: { userId }
-        });
-
-        // 2. Mastered Count
-        const masteredCount = await prisma.errorItem.count({
-            where: { AND: [{ userId }, masteryStatusWhere('mastered', await getMasteryThreshold(userId))] }
-        });
-
-        // 3. Mastery Rate
-        const masteryRate = totalErrors > 0 ? ((masteredCount / totalErrors) * 100).toFixed(1) : 0;
-
-        // 4. Subject Distribution - Get error items grouped by subject
-        // 只取科目名：错题行里有 base64 原图、解答和动画等大字段，不能整行读出
-        const errorItemsWithSubject = await prisma.errorItem.findMany({
-            where: { userId },
-            select: {
-                subject: { select: { name: true } },
-            },
-        });
-
-        const subjectMap = new Map<string, number>();
-        errorItemsWithSubject.forEach(item => {
-            const subjectName = item.subject?.name || 'Unknown';
-            subjectMap.set(subjectName, (subjectMap.get(subjectName) || 0) + 1);
-        });
-
-        const subjectStats = Array.from(subjectMap.entries()).map(([name, value]) => ({
-            name,
-            value
-        }));
-
-        // 5. Activity Data (Last 7 days) - Track ErrorItem creation (not practice)
-        const activityData = [];
         const timeZone = getAppTimeZone();
         const now = new Date();
-        for (let i = 6; i >= 0; i--) {
-            const { start, end } = getDayRange(now, timeZone, -i);
-            const dateStr = formatDateTime(start, 'MM-dd', timeZone);
+        const sevenDaysAgo = getDayRange(now, timeZone, -6).start;
+        const masteryThreshold = await getMasteryThreshold(userId);
 
-            // Count error items created on this day
-            const count = await prisma.errorItem.count({
+        const [totalErrors, masteredCount, subjectGroups, recentCreatedAt] = await Promise.all([
+            prisma.errorItem.count({ where: { userId } }),
+            prisma.errorItem.count({
+                where: { AND: [{ userId }, masteryStatusWhere('mastered', masteryThreshold)] }
+            }),
+            prisma.errorItem.groupBy({
+                by: ['subjectId'],
+                where: { userId },
+                _count: { id: true },
+            }),
+            prisma.errorItem.findMany({
                 where: {
                     userId,
-                    createdAt: {
-                        gte: start,
-                        lt: end,
-                    }
-                }
-            });
+                    createdAt: { gte: sevenDaysAgo },
+                },
+                select: { createdAt: true },
+            }),
+        ]);
 
-            activityData.push({
-                date: dateStr,
-                count
-            });
+        // 掌握率
+        const masteryRate = totalErrors > 0 ? ((masteredCount / totalErrors) * 100).toFixed(1) : 0;
+
+        // 学科分布：groupBy 结果一次性查学科名，subjectId 为空归为 Unknown
+        const subjectIds = subjectGroups
+            .map(g => g.subjectId)
+            .filter((id): id is string => id !== null);
+        const subjects = await prisma.subject.findMany({
+            where: { id: { in: subjectIds } },
+            select: { id: true, name: true },
+        });
+        const subjectNameMap = new Map(subjects.map(s => [s.id, s.name]));
+
+        const subjectStats = subjectGroups.map(g => ({
+            name: g.subjectId !== null ? (subjectNameMap.get(g.subjectId) ?? 'Unknown') : 'Unknown',
+            value: g._count.id,
+        }));
+
+        // 最近 7 天每日新增：一次查询后在内存里按应用时区分组
+        const dayBuckets: { start: Date; end: Date; date: string }[] = [];
+        for (let i = 6; i >= 0; i--) {
+            const { start, end } = getDayRange(now, timeZone, -i);
+            dayBuckets.push({ start, end, date: formatDateTime(start, 'MM-dd', timeZone) });
         }
+
+        const activityData = dayBuckets.map(({ start, end, date }) => ({
+            date,
+            count: recentCreatedAt.filter(
+                item => item.createdAt >= start && item.createdAt < end
+            ).length,
+        }));
 
         return NextResponse.json({
             totalErrors,
