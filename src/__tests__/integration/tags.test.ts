@@ -53,14 +53,18 @@ describe('/api/tags', () => {
         beforeEach(() => {
             mocks.mockGetServerSession.mockResolvedValue({ user: { email: 'user@example.com' }, expires: '2099-01-01' });
             mocks.mockPrismaUser.findUnique.mockResolvedValue({ id: 'user-1', email: 'user@example.com' });
+            nextId = 0;
         });
 
-        const tagRow = (name: string, count: number) => ({ name, _count: { errorItems: count } });
+        let nextId = 0;
+        const tagRow = (name: string, count: number, subject = 'math', tagSet = 'default') =>
+            ({ id: `tag-${++nextId}`, name, subject, tagSet, _count: { errorItems: count } });
+        const statsRequest = (query = '') => new Request(`http://localhost/api/tags/stats${query}`);
 
         it('未登录时返回 401，且不查询错题', async () => {
             mocks.mockGetServerSession.mockResolvedValue(null);
 
-            const response = await GET_STATS();
+            const response = await GET_STATS(statsRequest());
 
             expect(response.status).toBe(401);
             expect(mocks.mockPrismaKnowledgeTag.findMany).not.toHaveBeenCalled();
@@ -70,13 +74,16 @@ describe('/api/tags', () => {
             mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
             mocks.mockPrismaKnowledgeTag.findMany.mockResolvedValue([]);
 
-            await GET_STATS();
+            await GET_STATS(statsRequest());
 
             expect(mocks.mockPrismaErrorItem.count).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
             expect(mocks.mockPrismaKnowledgeTag.findMany).toHaveBeenCalledWith({
                 where: { errorItems: { some: { userId: 'user-1' } } },
                 select: {
+                    id: true,
                     name: true,
+                    subject: true,
+                    tagSet: true,
                     _count: { select: { errorItems: { where: { userId: 'user-1' } } } },
                 },
             });
@@ -89,7 +96,7 @@ describe('/api/tags', () => {
                 tagRow('移项', 1), tagRow('一元一次方程', 2), tagRow('函数', 2), tagRow('图像', 1),
             ]);
 
-            const response = await GET_STATS();
+            const response = await GET_STATS(statsRequest());
             const data = await response.json();
 
             expect(response.status).toBe(200);
@@ -99,22 +106,50 @@ describe('/api/tags', () => {
             expect(counts).toEqual([...counts].sort((a, b) => b - a));
         });
 
-        it('不同学科的同名标签合并计数', async () => {
+        it('同一体系、同一学科下的同名标签（不同年级）合并计数', async () => {
             mocks.mockPrismaErrorItem.count.mockResolvedValue(4);
             mocks.mockPrismaKnowledgeTag.findMany.mockResolvedValue([
                 tagRow('一元一次方程', 2), tagRow('一元一次方程', 1), tagRow('函数', 1),
             ]);
 
-            const data = await (await GET_STATS()).json();
+            const data = await (await GET_STATS(statsRequest())).json();
 
-            expect(data.stats).toEqual([{ tag: '一元一次方程', count: 3 }, { tag: '函数', count: 1 }]);
+            expect(data.stats).toEqual([
+                { tag: '一元一次方程', count: 3, subject: 'math', tagSet: 'default', tagIds: ['tag-1', 'tag-2'] },
+                { tag: '函数', count: 1, subject: 'math', tagSet: 'default', tagIds: ['tag-3'] },
+            ]);
+        });
+
+        it('不同体系或不同学科的同名标签分别计数', async () => {
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(6);
+            mocks.mockPrismaKnowledgeTag.findMany.mockResolvedValue([
+                tagRow('一元一次方程', 3), tagRow('一元一次方程', 2, 'math', 'cnm'), tagRow('一元一次方程', 1, 'physics'),
+            ]);
+
+            const data = await (await GET_STATS(statsRequest())).json();
+
+            expect(data.uniqueTags).toBe(3);
+            expect(data.stats.map((s: { tagSet: string; subject: string; count: number }) => [s.tagSet, s.subject, s.count])).toEqual([
+                ['default', 'math', 3], ['cnm', 'math', 2], ['default', 'physics', 1],
+            ]);
+        });
+
+        it('传入 tagSet 时只查询该体系的标签', async () => {
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaKnowledgeTag.findMany.mockResolvedValue([]);
+
+            await GET_STATS(statsRequest('?tagSet=cnm'));
+
+            expect(mocks.mockPrismaKnowledgeTag.findMany).toHaveBeenCalledWith(expect.objectContaining({
+                where: { errorItems: { some: { userId: 'user-1' } }, tagSet: 'cnm' },
+            }));
         });
 
         it('应该处理空的错题列表', async () => {
             mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
             mocks.mockPrismaKnowledgeTag.findMany.mockResolvedValue([]);
 
-            const response = await GET_STATS();
+            const response = await GET_STATS(statsRequest());
             const data = await response.json();
 
             expect(response.status).toBe(200);
@@ -127,7 +162,7 @@ describe('/api/tags', () => {
             mocks.mockPrismaErrorItem.count.mockResolvedValue(3);
             mocks.mockPrismaKnowledgeTag.findMany.mockResolvedValue([tagRow('有效标签', 1)]);
 
-            const data = await (await GET_STATS()).json();
+            const data = await (await GET_STATS(statsRequest())).json();
 
             expect(data.total).toBe(3);
             expect(data.uniqueTags).toBe(1);
@@ -139,7 +174,7 @@ describe('/api/tags', () => {
                 new Error('Database connection failed')
             );
 
-            const response = await GET_STATS();
+            const response = await GET_STATS(statsRequest());
             const data = await response.json();
 
             expect(response.status).toBe(500);

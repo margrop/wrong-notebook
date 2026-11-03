@@ -235,6 +235,12 @@ export interface PracticeStatsData {
 export interface TagStats {
     tag: string;
     count: number;
+    /** 学科标识，如 math */
+    subject: string;
+    /** 标签体系，default 为内置体系 */
+    tagSet: string;
+    /** 计入该条统计的标签 ID（同一体系、学科下的同名标签） */
+    tagIds: string[];
 }
 
 export interface TagStatsResponse {

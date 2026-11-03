@@ -15,7 +15,7 @@ export function TagManagement() {
     const { t } = useLanguage();
     const tagSets = useTagSets();
     const [tagSet, setTagSet] = useState(DEFAULT_TAG_SET);
-    const { stats } = useTagStats();
+    const { stats } = useTagStats(tagSet);
 
     return (
         <div className="space-y-4">

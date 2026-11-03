@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { unauthorized } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import type { TagStats } from "@/types/api";
 
 const logger = createLogger('api:tags:stats');
 
@@ -10,38 +11,58 @@ export const dynamic = "force-dynamic";
 
 
 /**
- * GET /api/tags/stats
- * 获取当前用户的标签使用频率统计
+ * GET /api/tags/stats?tagSet=<体系>
+ * 获取当前用户的标签使用频率统计，按「标签体系 + 学科 + 标签名」分组；
+ * 传入 tagSet 时只统计该体系的标签
  */
-export async function GET() {
+export async function GET(request: Request) {
     try {
         const user = await getCurrentUser();
         if (!user) {
             return unauthorized("Authentication required");
         }
 
+        const tagSetParam = new URL(request.url).searchParams.get('tagSet')?.trim();
+
         // 按标签关系统计（knowledgePoints 已弃用，只保留双写）；只计当前用户自己的错题
         const [total, tags] = await Promise.all([
             prisma.errorItem.count({ where: { userId: user.id } }),
             prisma.knowledgeTag.findMany({
-                where: { errorItems: { some: { userId: user.id } } },
+                where: {
+                    errorItems: { some: { userId: user.id } },
+                    ...(tagSetParam ? { tagSet: tagSetParam } : {}),
+                },
                 select: {
+                    id: true,
                     name: true,
+                    subject: true,
+                    tagSet: true,
                     _count: { select: { errorItems: { where: { userId: user.id } } } },
                 },
             }),
         ]);
 
-        // 不同学科或层级可能有同名标签，按名称合并
-        const tagStats: Record<string, number> = {};
+        // 同一体系、同一学科下不同年级可能有同名标签，按名称合并；不同体系或学科分别计数
+        const grouped = new Map<string, TagStats>();
         for (const tag of tags) {
-            tagStats[tag.name] = (tagStats[tag.name] || 0) + tag._count.errorItems;
+            const key = JSON.stringify([tag.tagSet, tag.subject, tag.name]);
+            const entry = grouped.get(key);
+            if (entry) {
+                entry.count += tag._count.errorItems;
+                entry.tagIds.push(tag.id);
+            } else {
+                grouped.set(key, {
+                    tag: tag.name,
+                    subject: tag.subject,
+                    tagSet: tag.tagSet,
+                    count: tag._count.errorItems,
+                    tagIds: [tag.id],
+                });
+            }
         }
 
-        // 转换为数组并按使用次数排序
-        const sortedStats = Object.entries(tagStats)
-            .map(([tag, count]) => ({ tag, count }))
-            .sort((a, b) => b.count - a.count);
+        // 按使用次数降序，次数相同时按名称排序保证结果稳定
+        const sortedStats = [...grouped.values()].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'zh'));
 
         return NextResponse.json({
             stats: sortedStats,

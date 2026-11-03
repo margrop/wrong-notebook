@@ -2,12 +2,12 @@
 
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { TagStats } from "@/types/api";
 import type { TagTreeNode } from "./tag-subjects";
 
 interface TagTreeNodeViewProps {
     node: TagTreeNode;
-    stats: TagStats[];
+    /** 标签 ID → 当前用户错题中的使用次数 */
+    countByTagId: Map<string, number>;
     expandedNodes: Record<string, boolean>;
     onToggle: (nodeId: string) => void;
     depth?: number;
@@ -15,16 +15,16 @@ interface TagTreeNodeViewProps {
 }
 
 /** 标准标签树节点：叶子显示为 Badge，非叶子可展开 */
-export function TagTreeNodeView({ node, stats, expandedNodes, onToggle, depth = 0, isLeafContext = false }: TagTreeNodeViewProps) {
+export function TagTreeNodeView({ node, countByTagId, expandedNodes, onToggle, depth = 0, isLeafContext = false }: TagTreeNodeViewProps) {
     const isExpanded = expandedNodes[node.id];
     const paddingLeft = depth * 16;
 
     if (node.children.length === 0) {
-        const stat = stats.find(s => s.tag === node.name);
+        const count = countByTagId.get(node.id);
         return (
             <Badge variant="outline" className="cursor-default hover:bg-accent" style={{ marginLeft: isLeafContext ? 0 : paddingLeft }}>
                 {node.name}
-                {stat && <span className="ml-1 text-xs text-muted-foreground">({stat.count})</span>}
+                {count !== undefined && <span className="ml-1 text-xs text-muted-foreground">({count})</span>}
             </Badge>
         );
     }
@@ -50,7 +50,7 @@ export function TagTreeNodeView({ node, stats, expandedNodes, onToggle, depth = 
                         <TagTreeNodeView
                             key={child.id}
                             node={child}
-                            stats={stats}
+                            countByTagId={countByTagId}
                             expandedNodes={expandedNodes}
                             onToggle={onToggle}
                             isLeafContext={allChildrenAreLeaves}

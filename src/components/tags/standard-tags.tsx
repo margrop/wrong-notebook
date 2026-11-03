@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
@@ -22,6 +22,15 @@ export function StandardTags({ tagSet, stats }: StandardTagsProps) {
     // 未出现的学科表示尚未加载，[] 表示已加载但无数据
     const [tagsBySubject, setTagsBySubject] = useState<Partial<Record<SubjectKey, TagTreeNode[]>>>({});
     const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+    // 按标签 ID 查使用次数，避免不同学科、体系的同名标签互相串数
+    const countByTagId = useMemo(() => {
+        const map = new Map<string, number>();
+        for (const stat of stats) {
+            if (stat.tagSet !== tagSet) continue;
+            for (const id of stat.tagIds) map.set(id, stat.count);
+        }
+        return map;
+    }, [stats, tagSet]);
 
     const fetchTags = useCallback(async (subject: SubjectKey) => {
         try {
@@ -79,7 +88,7 @@ export function StandardTags({ tagSet, stats }: StandardTagsProps) {
                                     </div>
                                 ) : (
                                     systemTags.map(node => (
-                                        <TagTreeNodeView key={node.id} node={node} stats={stats} expandedNodes={expandedNodes} onToggle={toggleNode} />
+                                        <TagTreeNodeView key={node.id} node={node} countByTagId={countByTagId} expandedNodes={expandedNodes} onToggle={toggleNode} />
                                     ))
                                 )}
                             </CardContent>
