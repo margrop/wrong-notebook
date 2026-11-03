@@ -42,11 +42,14 @@ export async function GET() {
         const now = new Date();
         const timeZone = getAppTimeZone();
 
-        const [subjectGroups, activityStats, difficultyGroups, totalRecords, correctRecords, attemptedRecords] = await Promise.all([
-            prisma.practiceRecord.groupBy({
-                by: ['subject'],
+        const [subjectRecords, activityStats, difficultyGroups, totalRecords, correctRecords, attemptedRecords] = await Promise.all([
+            // 学科分布：优先取关联错题当前的学科名（学科改名后与错题统计一致），回退到记录里的快照
+            prisma.practiceRecord.findMany({
                 where: { userId, ...EXCLUDE_DUPLICATE_IMPORT },
-                _count: { id: true }
+                select: {
+                    subject: true,
+                    errorItem: { select: { subject: { select: { name: true } } } },
+                }
             }),
             prisma.practiceRecord.findMany({
                 where: {
@@ -72,6 +75,13 @@ export async function GET() {
             prisma.practiceRecord.count({ where: { userId, ...CORRECT_CONDITION, ...EXCLUDE_DUPLICATE_IMPORT } }),
             prisma.practiceRecord.count({ where: { userId, ...ATTEMPTED_CONDITION, ...EXCLUDE_DUPLICATE_IMPORT } }),
         ]);
+
+        const subjectCountMap = new Map<string, number>();
+        for (const record of subjectRecords) {
+            const name = record.errorItem?.subject?.name || record.subject || 'Unknown';
+            subjectCountMap.set(name, (subjectCountMap.get(name) ?? 0) + 1);
+        }
+        const subjectStats = Array.from(subjectCountMap, ([name, value]) => ({ name, value }));
 
         // Process activity stats into monthly counts
         const monthlyActivity: Record<string, { total: number, correct: number, [key: string]: number }> = {};
@@ -102,7 +112,7 @@ export async function GET() {
         })).sort((a, b) => a.date.localeCompare(b.date));
 
         return NextResponse.json({
-            subjectStats: subjectGroups.map(s => ({ name: s.subject || 'Unknown', value: s._count.id })),
+            subjectStats,
             activityStats: chartData,
             difficultyStats: difficultyGroups.map(s => ({ name: s.difficulty || 'Unknown', value: s._count.id })),
             overallStats: {

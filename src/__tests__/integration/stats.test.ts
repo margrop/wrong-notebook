@@ -61,27 +61,28 @@ describe('/api/stats', () => {
             vi.useFakeTimers();
             vi.setSystemTime(new Date('2026-09-30T16:30:00Z'));
             mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValue([]);
-            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([{ createdAt: new Date('2026-09-30T16:01:00Z'), result: 'correct', isCorrect: true, difficulty: 'medium' }]);
+            // findMany 第一次：学科分布；第二次：近 6 个月活动
+            mocks.mockPrismaPracticeRecord.findMany
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([{ createdAt: new Date('2026-09-30T16:01:00Z'), result: 'correct', isCorrect: true, difficulty: 'medium' }]);
             try {
                 const response = await GET_PRACTICE_STATS();
                 expect(response.status).toBe(200);
                 expect((await response.json()).activityStats.at(-1)).toMatchObject({ date: '2026-10', total: 1, correct: 1 });
-                expect(mocks.mockPrismaPracticeRecord.findMany.mock.calls[0][0].where.createdAt.gte.toISOString()).toBe('2026-04-30T16:00:00.000Z');
+                expect(mocks.mockPrismaPracticeRecord.findMany.mock.calls[1][0].where.createdAt.gte.toISOString()).toBe('2026-04-30T16:00:00.000Z');
             } finally {
                 vi.useRealTimers();
             }
         });
         it('应该排除 duplicate_import 来源的记录', async () => {
-            mocks.mockPrismaPracticeRecord.groupBy
-                .mockResolvedValueOnce([
-                    { subject: '数学', _count: { id: 8 } },
-                ])
-                .mockResolvedValueOnce([
-                    { difficulty: 'medium', _count: { id: 5 } },
-                ]);
-            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([
-                { createdAt: new Date(), result: 'correct', isCorrect: true, difficulty: 'medium' },
+            mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValueOnce([
+                { difficulty: 'medium', _count: { id: 5 } },
             ]);
+            mocks.mockPrismaPracticeRecord.findMany
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([
+                    { createdAt: new Date(), result: 'correct', isCorrect: true, difficulty: 'medium' },
+                ]);
             mocks.mockPrismaPracticeRecord.count
                 .mockResolvedValueOnce(8)
                 .mockResolvedValueOnce(5)
@@ -91,11 +92,14 @@ describe('/api/stats', () => {
             expect(response.status).toBe(200);
 
             // 所有查询都应包含排除 duplicate_import 的条件
-            expect(mocks.mockPrismaPracticeRecord.groupBy).toHaveBeenCalledTimes(2);
+            expect(mocks.mockPrismaPracticeRecord.groupBy).toHaveBeenCalledTimes(1);
             for (const call of mocks.mockPrismaPracticeRecord.groupBy.mock.calls) {
                 expect(call[0].where.source).toEqual({ not: 'duplicate_import' });
             }
-            expect(mocks.mockPrismaPracticeRecord.findMany.mock.calls[0][0].where.source).toEqual({ not: 'duplicate_import' });
+            expect(mocks.mockPrismaPracticeRecord.findMany).toHaveBeenCalledTimes(2);
+            for (const call of mocks.mockPrismaPracticeRecord.findMany.mock.calls) {
+                expect(call[0].where.source).toEqual({ not: 'duplicate_import' });
+            }
             expect(mocks.mockPrismaPracticeRecord.count).toHaveBeenCalledTimes(3);
             for (const call of mocks.mockPrismaPracticeRecord.count.mock.calls) {
                 expect(call[0].where.source).toEqual({ not: 'duplicate_import' });
@@ -103,23 +107,23 @@ describe('/api/stats', () => {
         });
 
         it('应该返回练习统计数据', async () => {
-            // groupBy 被调用两次（subject + difficulty），按调用顺序 mock
-            mocks.mockPrismaPracticeRecord.groupBy
+            // groupBy 现在仅按 difficulty 调用一次
+            mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValueOnce([
+                { difficulty: 'easy', _count: { id: 3 } },
+                { difficulty: 'medium', _count: { id: 7 } },
+                { difficulty: 'hard', _count: { id: 5 } },
+            ]);
+
+            // findMany 第一次：学科分布；第二次：活动统计
+            mocks.mockPrismaPracticeRecord.findMany
                 .mockResolvedValueOnce([
-                    { subject: '数学', _count: { id: 10 } },
-                    { subject: '英语', _count: { id: 5 } },
+                    { subject: '数学', errorItem: null },
+                    { subject: '英语', errorItem: null },
                 ])
                 .mockResolvedValueOnce([
-                    { difficulty: 'easy', _count: { id: 3 } },
-                    { difficulty: 'medium', _count: { id: 7 } },
-                    { difficulty: 'hard', _count: { id: 5 } },
+                    { createdAt: new Date(), result: 'correct', isCorrect: true, difficulty: 'medium' },
+                    { createdAt: new Date(), result: 'wrong', isCorrect: false, difficulty: 'hard' },
                 ]);
-
-            // Mock activity stats
-            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([
-                { createdAt: new Date(), result: 'correct', isCorrect: true, difficulty: 'medium' },
-                { createdAt: new Date(), result: 'wrong', isCorrect: false, difficulty: 'hard' },
-            ]);
 
             // Mock total and correct counts
             mocks.mockPrismaPracticeRecord.count
@@ -138,12 +142,13 @@ describe('/api/stats', () => {
         });
 
         it('应该返回正确的学科分布', async () => {
-            mocks.mockPrismaPracticeRecord.groupBy
+            mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaPracticeRecord.findMany
                 .mockResolvedValueOnce([
-                    { subject: '数学', _count: { id: 20 } },
+                    { subject: '数学', errorItem: null },
+                    { subject: '数学', errorItem: null },
                 ])
                 .mockResolvedValueOnce([]);
-            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([]);
             mocks.mockPrismaPracticeRecord.count.mockResolvedValue(0);
 
             const response = await GET_PRACTICE_STATS();
@@ -151,7 +156,70 @@ describe('/api/stats', () => {
 
             expect(response.status).toBe(200);
             expect(data.subjectStats[0].name).toBe('数学');
-            expect(data.subjectStats[0].value).toBe(20);
+            expect(data.subjectStats[0].value).toBe(2);
+        });
+
+        it('错题学科改名后，学科分布应显示新的学科名', async () => {
+            mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaPracticeRecord.findMany
+                .mockResolvedValueOnce([
+                    // 关联的错题学科已改名为「初中数学」，快照仍是旧名「数学」
+                    { subject: '数学', errorItem: { subject: { name: '初中数学' } } },
+                    { subject: '英语', errorItem: { subject: { name: '初中英语' } } },
+                ])
+                .mockResolvedValueOnce([]);
+            mocks.mockPrismaPracticeRecord.count.mockResolvedValue(0);
+
+            const response = await GET_PRACTICE_STATS();
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            const names = data.subjectStats.map((s: { name: string }) => s.name);
+            expect(names).toContain('初中数学');
+            expect(names).toContain('初中英语');
+            expect(names).not.toContain('数学');
+            expect(names).not.toContain('英语');
+            const math = data.subjectStats.find((s: { name: string }) => s.name === '初中数学');
+            expect(math.value).toBe(1);
+        });
+
+        it('无关联错题时，学科分布应回退到记录快照', async () => {
+            mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaPracticeRecord.findMany
+                .mockResolvedValueOnce([
+                    { subject: '物理', errorItem: null },
+                    // 关联错题没有学科时也回退到快照
+                    { subject: '化学', errorItem: { subject: null } },
+                ])
+                .mockResolvedValueOnce([]);
+            mocks.mockPrismaPracticeRecord.count.mockResolvedValue(0);
+
+            const response = await GET_PRACTICE_STATS();
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            const stats = Object.fromEntries(data.subjectStats.map((s: { name: string, value: number }) => [s.name, s.value]));
+            expect(stats['物理']).toBe(1);
+            expect(stats['化学']).toBe(1);
+        });
+
+        it('既无关联错题学科也无快照时，学科分布应为 Unknown', async () => {
+            mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaPracticeRecord.findMany
+                .mockResolvedValueOnce([
+                    { subject: null, errorItem: null },
+                    { subject: null, errorItem: { subject: null } },
+                ])
+                .mockResolvedValueOnce([]);
+            mocks.mockPrismaPracticeRecord.count.mockResolvedValue(0);
+
+            const response = await GET_PRACTICE_STATS();
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.subjectStats).toHaveLength(1);
+            expect(data.subjectStats[0].name).toBe('Unknown');
+            expect(data.subjectStats[0].value).toBe(2);
         });
 
         it('应该返回正确的正确率', async () => {
@@ -205,10 +273,12 @@ describe('/api/stats', () => {
 
         it('应该将 result 为 null 且 isCorrect 非空的旧记录视为已作答', async () => {
             mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValue([]);
-            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([
-                { createdAt: new Date(), result: null, isCorrect: true, difficulty: 'easy' },
-                { createdAt: new Date(), result: null, isCorrect: false, difficulty: 'hard' },
-            ]);
+            mocks.mockPrismaPracticeRecord.findMany
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([
+                    { createdAt: new Date(), result: null, isCorrect: true, difficulty: 'easy' },
+                    { createdAt: new Date(), result: null, isCorrect: false, difficulty: 'hard' },
+                ]);
             mocks.mockPrismaPracticeRecord.count
                 .mockResolvedValueOnce(10) // total
                 .mockResolvedValueOnce(6)  // correct
@@ -253,7 +323,7 @@ describe('/api/stats', () => {
         });
 
         it('应该处理数据库错误', async () => {
-            mocks.mockPrismaPracticeRecord.groupBy.mockRejectedValue(
+            mocks.mockPrismaPracticeRecord.findMany.mockRejectedValue(
                 new Error('Database connection failed')
             );
 
