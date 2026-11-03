@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense, useCallback, useRef } from "react";
+import { useEffect, useState, Suspense, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/ui/back-button";
@@ -16,16 +16,21 @@ import type { AnswerSpaceChange } from "@/lib/use-saved-answer-spaces";
 import { PRINT_PREVIEW_PAGE_SIZE } from "@/lib/constants/pagination";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { loadAllImages } from "@/lib/print-images";
+import { usePaperGroups } from "@/lib/use-paper-groups";
 import {
+    chunk,
+    fetchAllPages,
     getPrintPreviewCountLabel,
     getPrintPreviewEmptyState,
     getSelectedPrintItems,
     shouldReserveAnswerSpace,
 } from "@/lib/print-preview";
 
-/** 保存错题打印时手动调整的单题留白 */
+/** 保存错题打印时手动调整的单题留白；接口单次最多接收一页题目，超出时分批保存 */
 async function saveAnswerSpaces(changes: AnswerSpaceChange[]): Promise<void> {
-    await apiClient.put("/api/error-items/answer-space", { items: changes });
+    for (const batch of chunk(changes, PRINT_PREVIEW_PAGE_SIZE)) {
+        await apiClient.put("/api/error-items/answer-space", { items: batch });
+    }
 }
 
 function PrintPreviewContent() {
@@ -53,13 +58,16 @@ function PrintPreviewContent() {
 
     const fetchItems = useCallback(async () => {
         try {
-            const params = new URLSearchParams(searchParams.toString());
-            // 打印预览需要所有符合条件的数据，设置较大的 pageSize
-            params.set("pageSize", String(PRINT_PREVIEW_PAGE_SIZE));
-            params.set("view", "print");
-            const response = await apiClient.get<PaginatedResponse<PrintableErrorItem>>(`/api/error-items/list?${params.toString()}`);
-            setItems(response.items);
-            setSelectedIds(new Set(response.items.map((item) => item.id)));
+            // 打印预览需要所有符合条件的题目，逐页读取，不在单页上限处截断
+            const allItems = await fetchAllPages((page) => {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("page", String(page));
+                params.set("pageSize", String(PRINT_PREVIEW_PAGE_SIZE));
+                params.set("view", "print");
+                return apiClient.get<PaginatedResponse<PrintableErrorItem>>(`/api/error-items/list?${params.toString()}`);
+            });
+            setItems(allItems);
+            setSelectedIds(new Set(allItems.map((item) => item.id)));
         } catch (error) {
             frontendLogger.error('[PrintPreview]', 'Failed to fetch items', { error });
         } finally {
@@ -83,7 +91,9 @@ function PrintPreviewContent() {
         window.print();
     };
 
-    const selectedItems = getSelectedPrintItems(items, selectedIds);
+    const { groups: paperGroups } = usePaperGroups();
+    const paperGroupNames = useMemo(() => new Map(paperGroups.map((group) => [group.id, group.name])), [paperGroups]);
+    const selectedItems = useMemo(() => getSelectedPrintItems(items, selectedIds), [items, selectedIds]);
     const reserveAnswerSpace = shouldReserveAnswerSpace(options.showAnswers, options.showAnalysis);
     const countLabel = getPrintPreviewCountLabel(items.length, selectedItems.length);
     const emptyState = getPrintPreviewEmptyState(items.length, selectedItems.length);
@@ -164,7 +174,8 @@ function PrintPreviewContent() {
                         options={options}
                         reserveAnswerSpace={reserveAnswerSpace}
                         customAnswerSpacePx={customSpaces[item.id]}
-                        onCustomAnswerSpaceChange={(px) => setQuestionCustomSpace(item.id, px)}
+                        onCustomAnswerSpaceChange={setQuestionCustomSpace}
+                        paperGroupName={item.paperLevel ? paperGroupNames.get(item.paperLevel) ?? item.paperLevel : null}
                     />
                 ))}
 

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+    chunk,
+    fetchAllPages,
     getPrintableItemTagNames,
     getPrintPreviewCountLabel,
     getPrintPreviewEmptyState,
@@ -45,5 +47,36 @@ describe('print preview helpers', () => {
             .toEqual(['二次函数', '配方法']);
         expect(getPrintableItemTagNames({ tags: [], knowledgePoints: 'invalid-json' }))
             .toEqual([]);
+    });
+});
+
+describe('打印预览读取全部题目', () => {
+    const pageOf = (page: number, totalPages: number, items: string[]) => ({ items, total: 0, page, pageSize: 2, totalPages });
+
+    it('逐页读取直到最后一页，保持顺序', async () => {
+        const pages = [['a', 'b'], ['c', 'd'], ['e']];
+        const requested: number[] = [];
+        const items = await fetchAllPages(async (page) => {
+            requested.push(page);
+            return pageOf(page, 3, pages[page - 1]);
+        });
+        expect(items).toEqual(['a', 'b', 'c', 'd', 'e']);
+        expect(requested).toEqual([1, 2, 3]);
+    });
+
+    it('没有题目时只请求一次', async () => {
+        let calls = 0;
+        expect(await fetchAllPages(async (page) => { calls += 1; return pageOf(page, 0, []); })).toEqual([]);
+        expect(calls).toBe(1);
+    });
+
+    it('总页数变化导致返回空页时停止，不会无限请求', async () => {
+        const items = await fetchAllPages(async (page) => pageOf(page, 99, page === 1 ? ['a'] : []));
+        expect(items).toEqual(['a']);
+    });
+
+    it('按上限分批', () => {
+        expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+        expect(chunk([], 2)).toEqual([]);
     });
 });

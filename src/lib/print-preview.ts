@@ -1,4 +1,4 @@
-import type { PrintableErrorItem } from '@/types/api';
+import type { PaginatedResponse, PrintableErrorItem } from '@/types/api';
 
 type PrintSelectableItem = {
     id: string;
@@ -39,4 +39,24 @@ export function getPrintPreviewEmptyState(
     if (totalCount === 0) return 'noItems';
     if (selectedCount === 0) return 'noSelection';
     return null;
+}
+
+/**
+ * 逐页读取全部符合条件的题目，不因单页上限截断。
+ * fetchPage 负责请求指定页码，返回分页结果。
+ */
+export async function fetchAllPages<T>(fetchPage: (page: number) => Promise<PaginatedResponse<T>>): Promise<T[]> {
+    const items: T[] = [];
+    for (let page = 1; ; page += 1) {
+        const response = await fetchPage(page);
+        items.push(...response.items);
+        if (response.items.length === 0 || page >= response.totalPages) return items;
+    }
+}
+
+/** 把数组切成不超过 size 的若干段，用于分批保存 */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+    const result: T[][] = [];
+    for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
+    return result;
 }

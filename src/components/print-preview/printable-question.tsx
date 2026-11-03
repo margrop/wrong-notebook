@@ -1,12 +1,12 @@
 "use client";
 
+import { memo } from "react";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AnswerSpaceControl } from "@/components/print-preview/answer-space-control";
 import { QuestionFigure } from "@/components/question-figure";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { resolveQuestionAnswerSpacePx } from "@/lib/exam-answer-space";
 import { getPrintableItemTagNames } from "@/lib/print-preview";
-import { usePaperGroups } from "@/lib/use-paper-groups";
 import type { PrintableErrorItem } from "@/types/api";
 import type { PrintDisplayOptions } from "./print-options";
 
@@ -18,31 +18,34 @@ interface PrintableQuestionProps {
     reserveAnswerSpace: boolean;
     /** 单题手动调整的留白高度（px） */
     customAnswerSpacePx?: number | null;
-    /** 单题手动调整留白回调 */
-    onCustomAnswerSpaceChange?: (px: number | null) => void;
+    /** 单题手动调整留白回调（null 为恢复默认）；需保持引用稳定，避免整页重渲染 */
+    onCustomAnswerSpaceChange?: (id: string, px: number | null) => void;
+    /** 卷别名称，由页面统一查好后传入 */
+    paperGroupName?: string | null;
 }
 
-/** 打印页中的一道题：题号、来源信息、原图或文字，以及可选的答案和解析 */
-export function PrintableQuestion({
+/**
+ * 打印页中的一道题：题号、来源信息、原图或文字，以及可选的答案和解析。
+ * 使用 memo：勾选或调整其他题目时不重新渲染本题的公式与 Markdown。
+ */
+export const PrintableQuestion = memo(function PrintableQuestion({
     item,
     index,
     options,
     reserveAnswerSpace,
     customAnswerSpacePx,
     onCustomAnswerSpaceChange,
+    paperGroupName,
 }: PrintableQuestionProps) {
     const { t } = useLanguage();
     const tags = getPrintableItemTagNames(item);
-    const { groups: paperGroups } = usePaperGroups();
-    const paperGroupName = item.paperLevel
-        ? paperGroups.find((g) => g.id === item.paperLevel)?.name || item.paperLevel
-        : null;
     const answerSpacePx = reserveAnswerSpace
         ? resolveQuestionAnswerSpacePx(options.answerSpace ?? "auto", item.questionText || "", customAnswerSpacePx)
         : 0;
 
     return (
-        <div className={`mb-4 border-b last:border-b-0 print:break-inside-avoid ${reserveAnswerSpace ? "pb-4" : "pb-6"}`}>
+        // content-visibility：屏幕外的题目跳过排版绘制，题目多时滚动和切换选项更流畅；打印时全部渲染
+        <div className={`mb-4 border-b last:border-b-0 print:break-inside-avoid [content-visibility:auto] [contain-intrinsic-size:auto_480px] print:[content-visibility:visible] ${reserveAnswerSpace ? "pb-4" : "pb-6"}`}>
             <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 leading-7">
                 <span className="text-lg font-bold">
                     {t.printPreview?.questionNumber?.replace('{num}', String(index + 1)) || `Question ${index + 1}`}
@@ -112,12 +115,12 @@ export function PrintableQuestion({
                         <AnswerSpaceControl
                             effectivePx={answerSpacePx}
                             isCustom={typeof customAnswerSpacePx === "number"}
-                            onChange={(px) => onCustomAnswerSpaceChange(px)}
-                            onReset={() => onCustomAnswerSpaceChange(null)}
+                            onChange={(px) => onCustomAnswerSpaceChange(item.id, px)}
+                            onReset={() => onCustomAnswerSpaceChange(item.id, null)}
                         />
                     )}
                 </>
             )}
         </div>
     );
-}
+});
