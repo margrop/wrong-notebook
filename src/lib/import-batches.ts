@@ -10,7 +10,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import type { ImportBatch, Prisma, User } from "@prisma/client";
+import type { Prisma, User } from "@prisma/client";
 import { z } from "zod";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { MAX_SPLIT_LINES } from "@/lib/ai/question-split";
@@ -87,7 +87,18 @@ const startSchema = z.object({
     })).max(60).optional(),
 });
 
-type BatchWithTasks = ImportBatch & { tasks: Array<Prisma.ImportTaskGetPayload<{ select: typeof summarySelect }>> };
+/**
+ * 批次读取默认不含整页图片（可能有几 MB）：状态轮询、列表与草稿保存都不从数据库读出原图，
+ * 只有预览页明确取图（?include=image）或后台分题时才读取
+ */
+const batchSelect = {
+    id: true, userId: true, clientRequestId: true, source: true, splitter: true, status: true, mode: true, language: true,
+    subjectId: true, targetSubjectId: true, paperLevel: true, sourceText: true, imageInfo: true, draft: true, version: true,
+    error: true, attempts: true, runnerId: true, heartbeatAt: true, readAt: true, startedAt: true, finishedAt: true,
+    createdAt: true, updatedAt: true,
+    tasks: { select: summarySelect },
+} satisfies Prisma.ImportBatchSelect;
+type BatchWithTasks = Prisma.ImportBatchGetPayload<{ select: typeof batchSelect }> & { imageData?: string };
 
 function parseDraft(raw: string | null): BatchDraft | null {
     if (!raw) return null;
@@ -154,7 +165,6 @@ function toDetail(batch: BatchWithTasks, options: { image?: boolean } = {}): Imp
     };
 }
 
-const batchInclude = { tasks: { select: summarySelect } } satisfies Prisma.ImportBatchInclude;
 
 /** 分题中但执行它的进程已不在：标记失败，可重试 */
 async function reconcileInterrupted(userId: string, batchId?: string): Promise<void> {
@@ -183,10 +193,7 @@ async function findOwnBatch(user: Pick<User, 'id'>, id: string, image = false): 
     await reconcileInterrupted(user.id, id);
     // 批次内正在解析或保存的题若因服务重启中断，同样标记为失败，批次页不会一直显示进行中
     await reconcileInterruptedTasks(user.id);
-    const batch = await prisma.importBatch.findFirst({ where: { id, userId: user.id }, include: batchInclude });
-    if (!batch) return null;
-    if (!image) batch.imageData = '';
-    return batch;
+    return prisma.importBatch.findFirst({ where: { id, userId: user.id }, select: image ? { ...batchSelect, imageData: true } : batchSelect });
 }
 
 async function ownsNotebook(userId: string, subjectId: string | null | undefined): Promise<boolean> {
@@ -274,7 +281,7 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
 
     const existing = await prisma.importBatch.findUnique({
         where: { userId_clientRequestId: { userId: user.id, clientRequestId: input.clientRequestId } },
-        include: batchInclude,
+        select: batchSelect,
     });
     if (existing) return { batch: toDetail(existing), created: false };
     if (!await ownsNotebook(user.id, input.subjectId) || !await ownsNotebook(user.id, input.targetSubjectId)) {
@@ -315,14 +322,14 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
                 readAt: draft ? new Date() : null,
                 finishedAt: draft ? new Date() : null,
             },
-            include: batchInclude,
+            select: batchSelect,
         });
     } catch (error) {
         release();
         if ((error as { code?: string }).code === 'P2002') {
             const winner = await prisma.importBatch.findUnique({
                 where: { userId_clientRequestId: { userId: user.id, clientRequestId: input.clientRequestId } },
-                include: batchInclude,
+                select: batchSelect,
             });
             if (winner) return { batch: toDetail(winner), created: false };
         }
@@ -340,7 +347,6 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
         scheduleWork(id, release, () => runSplit(id));
     }
     logger.info({ batchId: id, source: input.source, splitter, questions: draft?.items.length ?? null }, 'Import batch created');
-    batch.imageData = '';
     return { batch: toDetail(batch), created: true };
 }
 
@@ -548,16 +554,24 @@ export async function markImportBatchRead(user: Pick<User, 'id'>, id: string): P
 export async function listImportBatches(user: Pick<User, 'id'>): Promise<ImportBatchSummary[]> {
     await reconcileInterrupted(user.id);
     await pruneDone(user.id);
-    const batches = await prisma.importBatch.findMany({
-        where: { userId: user.id },
-        include: batchInclude,
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-    });
-    let done = 0;
-    return batches
-        .map((batch) => toBatchSummary(batch).summary)
-        .filter((summary) => summary.phase !== 'done' || done++ < MAX_LISTED_DONE);
+    // 未完成的批次（草稿、分题中/失败、仍有题未入库）全部返回，不会被较新的已完成批次挤出列表；
+    // 全部入库的批次只返回最近若干个
+    const [unfinished, done] = await Promise.all([
+        prisma.importBatch.findMany({
+            where: { userId: user.id, OR: [{ status: { not: 'started' } }, { tasks: { some: { status: { not: 'saved' } } } }] },
+            select: batchSelect,
+            orderBy: { createdAt: 'desc' },
+        }),
+        prisma.importBatch.findMany({
+            where: { userId: user.id, status: 'started', tasks: { every: { status: 'saved' } } },
+            select: batchSelect,
+            orderBy: { createdAt: 'desc' },
+            take: MAX_LISTED_DONE,
+        }),
+    ]);
+    return [...unfinished, ...done]
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .map((batch) => toBatchSummary(batch).summary);
 }
 
 /** 识别任务中心：单独上传的任务与多题批次，执行中数与未读数都包含批次 */

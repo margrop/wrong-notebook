@@ -58,7 +58,8 @@ import { POST as CONFIRM_TASK } from '@/app/api/import-tasks/[id]/confirm/route'
 import { waitForImportBatchTasksForTest } from '@/lib/import-batches';
 import { simulateRestartForTest, waitForImportTaskForTest } from '@/lib/import-tasks';
 
-let database: PrismaClient;
+let database: PrismaClient<{ log: Array<{ emit: 'event'; level: 'query' }> }>;
+const queries: string[] = [];
 let directory: string;
 let sequence = 0;
 const PAGE = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA==';
@@ -109,7 +110,9 @@ beforeAll(async () => {
     execFileSync(process.execPath, [resolve('node_modules/prisma/build/index.js'), 'migrate', 'deploy'], {
         env: { ...process.env, DATABASE_URL: url }, stdio: 'pipe',
     });
-    database = new PrismaClient({ datasources: { db: { url } } });
+    database = new PrismaClient({ datasources: { db: { url } }, log: [{ emit: 'event', level: 'query' }] });
+    // 记录执行的 SQL，用于检查默认读取是否带出整页图片
+    database.$on('query', (event) => { queries.push(event.query); });
     await database.$queryRaw`PRAGMA journal_mode = WAL`;
     await database.$queryRaw`PRAGMA busy_timeout = 30000`;
     mocks.prisma = database;
@@ -434,6 +437,68 @@ describe('照片自动分题批次', () => {
         expect(response.status).toBe(429);
         expect(mocks.splitQuestions).not.toHaveBeenCalled();
         expect(await database.importBatch.findFirstOrThrow()).toMatchObject({ status: 'failed', error: 'AI_DAILY_LIMIT_EXCEEDED' });
+    });
+});
+
+describe('批次生命周期', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+
+    it('批次中 7 天前已保存的题在批次未完成时不被清理，错题不受影响；独立任务按自身保留期清理', async () => {
+        const item = await database.errorItem.create({ data: { userId: 'user-1', subjectId: 'math', questionText: '很早入库的题', originalImageUrl: '' } });
+        const old = new Date(Date.now() - 10 * DAY);
+        await database.importBatch.create({ data: { id: 'batch-long-draft', userId: 'user-1', source: 'text', splitter: 'local', status: 'started', mode: 'review', startedAt: old, createdAt: old } });
+        await database.importTask.createMany({ data: [
+            { id: 'old-saved-in-batch', userId: 'user-1', mode: 'review', status: 'saved', imageData: '', inputText: 'a', errorItemId: item.id, batchId: 'batch-long-draft', batchItemKey: 'qa', finishedAt: old, createdAt: old },
+            { id: 'pending-in-batch', userId: 'user-1', mode: 'review', status: 'review', imageData: '', inputText: 'b', result: null, batchId: 'batch-long-draft', batchItemKey: 'qb', createdAt: old },
+            { id: 'old-standalone', userId: 'user-1', mode: 'auto', status: 'saved', imageData: '', finishedAt: old, createdAt: old },
+        ] });
+        const list = await (await LIST()).json();
+        expect(list.batches.find((batch: { id: string }) => batch.id === 'batch-long-draft')).toMatchObject({ counts: { total: 2, saved: 1, review: 1 } });
+        expect(await database.importTask.count({ where: { id: 'old-saved-in-batch' } })).toBe(1);
+        expect(await database.importTask.count({ where: { id: 'old-standalone' } })).toBe(0);
+        expect(await database.errorItem.count({ where: { id: item.id } })).toBe(1);
+
+        // 全部入库且超过保留期后，批次连同其任务一起清理，错题保留
+        await database.importTask.update({ where: { id: 'pending-in-batch' }, data: { status: 'saved', finishedAt: old } });
+        await LIST();
+        expect(await database.importBatch.count({ where: { id: 'batch-long-draft' } })).toBe(0);
+        expect(await database.importTask.count({ where: { batchId: 'batch-long-draft' } })).toBe(0);
+        expect(await database.errorItem.count({ where: { id: item.id } })).toBe(1);
+    });
+
+    it('100 个较新的已完成批次不会挤掉更早的草稿，已完成的只列最近 10 个', async () => {
+        const base = Date.now() - DAY;
+        await database.importBatch.create({ data: { id: 'very-old-draft', userId: 'user-1', source: 'text', splitter: 'local', status: 'draft', createdAt: new Date(base - 30 * DAY) } });
+        await database.importBatch.createMany({ data: Array.from({ length: 100 }, (_, index) => ({
+            id: `done-batch-${String(index).padStart(3, '0')}`, userId: 'user-1', source: 'text', splitter: 'local', status: 'started',
+            startedAt: new Date(base + index * 1000), createdAt: new Date(base + index * 1000),
+        })) });
+        const list = await (await LIST()).json();
+        expect(list.batches.map((batch: { id: string }) => batch.id)).toContain('very-old-draft');
+        expect(list.batches.filter((batch: { phase: string }) => batch.phase === 'done')).toHaveLength(10);
+        expect(list.batches[0].id).toBe('done-batch-099');
+    });
+
+    it('状态查询、列表与草稿保存不从数据库读出整页图片，只有明确取图时读取', async () => {
+        const bigImage = `data:image/jpeg;base64,${'A'.repeat(2 * 1024 * 1024)}`;
+        const draft = { items: [{ key: 'qa', label: '1', text: '题', material: null, section: null, selected: true, regions: [{ x: 0, y: 0, width: 1, height: 0.5 }], hasFigure: false, flags: [] }], ignored: [], warnings: [] };
+        await database.importBatch.create({ data: { id: 'batch-big-image', userId: 'user-1', source: 'image', splitter: 'ai', status: 'draft', imageData: bigImage, draft: JSON.stringify(draft) } });
+        const selectsImage = () => queries.some((query) => /[`"]ImportBatch[`"]\.[`"]imageData[`"]/.test(query) && /^SELECT/i.test(query));
+
+        queries.length = 0;
+        const detail = await GET_BATCH(new Request('http://localhost/api/import-batches/batch-big-image'), params('batch-big-image'));
+        const detailText = await detail.text();
+        const listText = await (await LIST()).text();
+        const patched = await PATCH(json({ version: 1, draft }, 'PATCH'), params('batch-big-image'));
+        expect(patched.status).toBe(200);
+        const patchText = await patched.text();
+        expect(selectsImage()).toBe(false);
+        for (const text of [detailText, listText, patchText]) expect(text.length).toBeLessThan(50_000);
+
+        queries.length = 0;
+        const { batch } = await getBatch('batch-big-image', true);
+        expect(batch.imageData).toBe(bigImage);
+        expect(selectsImage()).toBe(true);
     });
 });
 
