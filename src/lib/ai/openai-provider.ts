@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { ChatCompletion } from "openai/resources/chat/completions";
 import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest } from './prompt-requests';
+import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest, generateTextFixRequest } from './prompt-requests';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
@@ -17,6 +17,8 @@ import { normalizeGeneratedQuestion } from './generated-question';
 import { normalizeAiQuestionTags } from './knowledge-points';
 import { AI_IMAGE_NOT_SUPPORTED, isImageUnsupportedError, parseQuestionSplit } from './question-split';
 import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
+import { parseTextFix } from './text-fix';
+import type { TextFixInput, TextFixResult } from './text-fix';
 
 const logger = createLogger('ai:openai');
 
@@ -777,6 +779,31 @@ export class OpenAIProvider implements AIService {
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during question split');
             if (input.kind === 'image' && isImageUnsupportedError(error)) throw new Error(AI_IMAGE_NOT_SUPPORTED, { cause: error });
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async fixQuestionText(input: TextFixInput): Promise<TextFixResult> {
+        const prompt = generateTextFixRequest(input);
+        logger.info({ provider: 'OpenAI', model: this.model, questions: input.length }, 'Text Fix Request');
+
+        try {
+            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+                model: this.model,
+                messages: [
+                    { role: "system", content: prompt.system },
+                    { role: "user", content: prompt.user },
+                ],
+                max_tokens: maxTokens,
+            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+
+            const text = response.choices[0]?.message?.content || '';
+            logger.debug({ rawResponse: text }, 'Text fix AI raw response');
+            if (!text) throw new Error("Empty response from AI");
+            return parseTextFix(text, input);
+        } catch (error) {
+            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during text fix');
             this.handleError(error);
             throw error;
         }

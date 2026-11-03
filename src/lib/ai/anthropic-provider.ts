@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateReanswerRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest } from './prompt-requests';
+import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateReanswerRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest, generateTextFixRequest } from './prompt-requests';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
@@ -17,6 +17,8 @@ import { normalizeGeneratedQuestion } from './generated-question';
 import { normalizeAiQuestionTags } from './knowledge-points';
 import { AI_IMAGE_NOT_SUPPORTED, isImageUnsupportedError, parseQuestionSplit } from './question-split';
 import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
+import { parseTextFix } from './text-fix';
+import type { TextFixInput, TextFixResult } from './text-fix';
 
 const logger = createLogger('ai:anthropic');
 
@@ -443,6 +445,21 @@ export class AnthropicProvider implements AIService {
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during question split');
             if (input.kind === 'image' && isImageUnsupportedError(error)) throw new Error(AI_IMAGE_NOT_SUPPORTED, { cause: error });
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async fixQuestionText(input: TextFixInput): Promise<TextFixResult> {
+        const prompt = generateTextFixRequest(input);
+        logger.info({ provider: 'Anthropic', model: this.model, questions: input.length }, 'Text Fix Request');
+
+        try {
+            const text = await this.complete(prompt.system, prompt.user, 8192);
+            logger.debug({ rawResponse: text }, 'Text fix AI raw response');
+            return parseTextFix(text, input);
+        } catch (error) {
+            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during text fix');
             this.handleError(error);
             throw error;
         }

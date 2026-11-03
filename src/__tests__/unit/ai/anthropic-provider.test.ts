@@ -271,6 +271,16 @@ describe('Anthropic Provider 修复 LaTeX', () => {
     });
 });
 
+describe('Anthropic Provider 修正题目文字', () => {
+    it('解析修正结果', async () => {
+        mocks.create.mockResolvedValue(message('{"questions":[{"id":"q1","text":"100公顷","uncertain":[]}]}'));
+        const provider = new AnthropicProvider({ apiKey: 'sk-ant' });
+
+        expect(await provider.fixQuestionText([{ id: 'q1', text: '100公项' }])).toEqual([{ id: 'q1', text: '100公顷', uncertain: [] }]);
+        expect(JSON.parse(mocks.create.mock.calls.at(-1)?.[0].messages[0].content).data.questions[0].text).toBe('100公项');
+    });
+});
+
 describe('Anthropic Provider 判题', () => {
     it('解析判定结果', async () => {
         mocks.create.mockResolvedValue(message('{"correct": false, "reason": "缺少单位"}'));

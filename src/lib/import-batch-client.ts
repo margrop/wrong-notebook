@@ -6,6 +6,7 @@ import type { ImportBatchDetail } from "@/lib/import-batch-types";
 import { newClientRequestId, notifyImportTasksChanged } from "@/lib/import-task-client";
 import type { ImportImageInfo } from "@/lib/import-task-types";
 import type { BatchDraft } from "@/lib/question-split/draft";
+import type { TextFixSuggestion } from "@/lib/question-split/draft-ops";
 
 export interface CreateImportBatchInput {
     source: "text" | "image";
@@ -107,4 +108,18 @@ export async function markImportBatchRead(id: string): Promise<void> {
 export function conflictBatch(error: unknown): ImportBatchDetail | null {
     const data = (error as { status?: number; data?: { details?: { batch?: ImportBatchDetail } } });
     return data?.status === 409 ? data.data?.details?.batch ?? null : null;
+}
+
+export interface ImportBatchTextFixResult {
+    fixes: TextFixSuggestion[];
+    unchanged: string[];
+    failed: string[];
+}
+
+/** 修正多题时耗时较长：超时放宽，连接中断后可取回响应 */
+const TEXT_FIX_TIMEOUT_MS = 10 * 60 * 1000;
+
+/** 为若干题生成「AI 修正文字」建议（不改动服务端草稿） */
+export async function fixImportBatchText(id: string, items: Array<{ key: string; text: string }>): Promise<ImportBatchTextFixResult> {
+    return apiClient.post<ImportBatchTextFixResult>(`/api/import-batches/${encodeURIComponent(id)}/fix-text`, { items }, { timeout: TEXT_FIX_TIMEOUT_MS, recoverable: true });
 }

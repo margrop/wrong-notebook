@@ -9,6 +9,8 @@ interface DraftStartBarProps {
     count: number;
     /** 已选但还没有区域的图片题数 */
     missingRegions: number;
+    /** 有待接受修正建议的题数（开始后这些题按原文解析） */
+    pendingFixes?: number;
     confirmBeforeImport: boolean;
     /** 正在进行的阶段文字（裁剪、提交）；为空表示空闲 */
     starting: string | null;
@@ -17,14 +19,16 @@ interface DraftStartBarProps {
 }
 
 /** 分题预览底部固定的操作栏：按钮写明实际动作与题数 */
-export function DraftStartBar({ count, missingRegions, confirmBeforeImport, starting, onStart, onDiscard }: DraftStartBarProps) {
+export function DraftStartBar({ count, missingRegions, pendingFixes = 0, confirmBeforeImport, starting, onStart, onDiscard }: DraftStartBarProps) {
     const { t } = useLanguage();
     const label = (confirmBeforeImport ? t.importBatch.startReview : t.importBatch.startAuto).replace("{count}", String(count));
     const hint = count === 0
         ? t.importBatch.nothingSelected
         : missingRegions > 0
             ? t.importBatch.needsRegion.replace("{count}", String(missingRegions))
-            : confirmBeforeImport ? t.importBatch.startHintReview : t.importBatch.startHintAuto;
+            : pendingFixes > 0
+                ? t.importBatch.fixText.pendingHint.replace("{count}", String(pendingFixes))
+                : confirmBeforeImport ? t.importBatch.startHintReview : t.importBatch.startHintAuto;
 
     return (
         // 手机上停在底部导航栏之上，右侧留出「后台任务」悬浮按钮的位置；电脑上随内容吸底

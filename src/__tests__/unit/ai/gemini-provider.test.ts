@@ -326,6 +326,16 @@ describe('Gemini Provider 修复 LaTeX', () => {
     });
 });
 
+describe('Gemini Provider 修正题目文字', () => {
+    it('解析修正结果', async () => {
+        mockGenerateContent.mockResolvedValue({ text: '{"questions":[{"id":"q1","text":"100公顷","uncertain":[]}]}' });
+        const provider = new GeminiProvider({ apiKey: 'test-key' });
+
+        expect(await provider.fixQuestionText([{ id: 'q1', text: '100公项' }])).toEqual([{ id: 'q1', text: '100公顷', uncertain: [] }]);
+        expect(mockGenerateContent.mock.calls.at(-1)?.[0].config.systemInstruction).toContain('【文字修正输出协议】');
+    });
+});
+
 describe('Gemini Provider 判题', () => {
     it('解析代码块中的判定结果', async () => {
         const provider = new GeminiProvider({ apiKey: 'test-key', model: 'gemini-2.0-flash' });

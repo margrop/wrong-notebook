@@ -461,6 +461,18 @@ describe('OpenAI Provider 修复 LaTeX', () => {
     });
 });
 
+describe('OpenAI Provider 修正题目文字', () => {
+    it('题目放在数据消息中，解析修正结果', async () => {
+        mockCompletionCreate.mockResolvedValue({ choices: [{ finish_reason: 'stop', message: { content: '{"questions":[{"id":"q1","text":"100公顷","uncertain":[]}]}' } }] });
+        const provider = new OpenAIProvider({ apiKey: 'test-key', model: 'gpt-4o' });
+
+        expect(await provider.fixQuestionText([{ id: 'q1', text: '100公项' }])).toEqual([{ id: 'q1', text: '100公顷', uncertain: [] }]);
+        const request = mockCompletionCreate.mock.calls.at(-1)?.[0];
+        expect(request.messages[0].content).toContain('【文字修正输出协议】');
+        expect(JSON.parse(request.messages[1].content).data.questions).toEqual([{ id: 'q1', text: '100公项' }]);
+    });
+});
+
 describe('OpenAI Provider 判题', () => {
     it('解析判定结果，提示词包含学生答案和标准答案', async () => {
         const provider = new OpenAIProvider({ apiKey: 'test-key', model: 'gpt-4o' });

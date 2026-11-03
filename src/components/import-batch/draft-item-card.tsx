@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronUp, Copy, Crop, Merge, Scissors, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronUp, Copy, Crop, Loader2, Merge, Scissors, Sparkles, Trash2 } from "lucide-react";
 import { RegionThumbnail } from "@/components/import-batch/region-thumbnail";
+import { TextFixPanel } from "@/components/import-batch/text-fix-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,7 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import type { ImportBatchSource } from "@/lib/import-batch-types";
 import { isItemReady } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftItem } from "@/lib/question-split/draft";
-import { duplicateItem, mergeWithPrevious, moveItem, removeItem, setSelected, splitItemAt, updateItem } from "@/lib/question-split/draft-ops";
+import { acceptTextFixes, duplicateItem, mergeWithPrevious, moveItem, rejectTextFix, removeItem, setSelected, splitItemAt, updateItem } from "@/lib/question-split/draft-ops";
 import { cn } from "@/lib/utils";
 
 interface DraftItemCardProps {
@@ -27,14 +28,21 @@ interface DraftItemCardProps {
     onAdjustRegion?: () => void;
     /** 高亮（在原图上点了这一题） */
     highlighted?: boolean;
+    /** 文字批次：用 AI 修正这一题的文字 */
+    onFixText?: () => void;
+    /** 这一题正在修正；fixBusy 为有任何修正在进行 */
+    fixing?: boolean;
+    fixBusy?: boolean;
 }
 
 /** 分题预览中的一道题：默认折叠显示开头几行，展开后可编辑、拆分、合并、移动、删除 */
-export function DraftItemCard({ item, index, total, source, expanded, onToggleExpand, onEdit, image, onAdjustRegion, highlighted }: DraftItemCardProps) {
+export function DraftItemCard({ item, index, total, source, expanded, onToggleExpand, onEdit, image, onAdjustRegion, highlighted, onFixText, fixing, fixBusy }: DraftItemCardProps) {
     const { t } = useLanguage();
     const textRef = useRef<HTMLTextAreaElement>(null);
     const ready = isItemReady(item, source);
     const id = `draft-item-${item.key}`;
+    // 建议生成后文字又被改过时不再显示（接受时也不会覆盖）
+    const pendingFix = item.fix && item.fix.original === item.text ? item.fix : null;
 
     const splitAtCursor = () => {
         const offset = textRef.current?.selectionStart ?? 0;
@@ -47,6 +55,7 @@ export function DraftItemCard({ item, index, total, source, expanded, onToggleEx
             className={cn("rounded-xl border bg-card p-3 transition-colors", !item.selected && "opacity-70", highlighted && "border-primary ring-2 ring-primary/30")}
             data-testid="draft-item"
             data-selected={item.selected}
+            data-fix-pending={pendingFix ? "true" : undefined}
         >
             <div className="flex items-start gap-3">
                 <Checkbox
@@ -62,9 +71,10 @@ export function DraftItemCard({ item, index, total, source, expanded, onToggleEx
                         {item.label && <span className="text-xs text-muted-foreground">{t.importBatch.originalLabel.replace("{label}", item.label)}</span>}
                         {item.material && <Badge variant="secondary">{t.importBatch.material}</Badge>}
                         {item.hasFigure && <Badge variant="outline">{t.importBatch.hasFigure}</Badge>}
+                        {pendingFix && <Badge className="bg-violet-600 text-white hover:bg-violet-600">{t.importBatch.fixText.pending}</Badge>}
                         {item.section && <span className="truncate text-xs text-muted-foreground">{item.section.split("\n")[0]}</span>}
                     </div>
-                    {!expanded && item.text && (
+                    {!expanded && !pendingFix && item.text && (
                         <p className="mt-1 line-clamp-3 whitespace-pre-line break-words text-sm text-muted-foreground">{item.text}</p>
                     )}
                     {item.flags.length > 0 && (
@@ -87,6 +97,16 @@ export function DraftItemCard({ item, index, total, source, expanded, onToggleEx
                 <button type="button" className="mt-2 block w-full max-w-md pl-8" onClick={onAdjustRegion} aria-label={t.importBatch.adjustRegion}>
                     <RegionThumbnail imageUrl={image.url} imageSize={image} regions={item.regions} className="max-h-48" />
                 </button>
+            )}
+
+            {pendingFix && (
+                <div className="mt-2 pl-8">
+                    <TextFixPanel
+                        fix={pendingFix}
+                        onAccept={() => onEdit((draft) => acceptTextFixes(draft, [item.key]))}
+                        onReject={() => onEdit((draft) => rejectTextFix(draft, item.key))}
+                    />
+                </div>
             )}
 
             {expanded && (
@@ -121,9 +141,17 @@ export function DraftItemCard({ item, index, total, source, expanded, onToggleEx
                     )}
                     <div className="flex flex-wrap gap-2">
                         {source === "text" ? (
-                            <Button type="button" size="sm" variant="outline" onClick={splitAtCursor}>
-                                <Scissors className="mr-1 h-4 w-4" />{t.importBatch.splitHere}
-                            </Button>
+                            <>
+                                <Button type="button" size="sm" variant="outline" onClick={splitAtCursor}>
+                                    <Scissors className="mr-1 h-4 w-4" />{t.importBatch.splitHere}
+                                </Button>
+                                {onFixText && (
+                                    <Button type="button" size="sm" variant="outline" onClick={onFixText} disabled={fixBusy || !item.text.trim()}>
+                                        {fixing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+                                        {fixing ? t.importBatch.fixText.running : t.importBatch.fixText.one}
+                                    </Button>
+                                )}
+                            </>
                         ) : (
                             <>
                                 <Button type="button" size="sm" variant="outline" onClick={onAdjustRegion}>

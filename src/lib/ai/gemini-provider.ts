@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest } from './prompt-requests';
+import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest, generateTextFixRequest } from './prompt-requests';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
@@ -16,6 +16,8 @@ import { normalizeGeneratedQuestion } from './generated-question';
 import { normalizeAiQuestionTags } from './knowledge-points';
 import { AI_IMAGE_NOT_SUPPORTED, isImageUnsupportedError, parseQuestionSplit } from './question-split';
 import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
+import { parseTextFix } from './text-fix';
+import type { TextFixInput, TextFixResult } from './text-fix';
 
 const logger = createLogger('ai:gemini');
 
@@ -621,6 +623,28 @@ export class GeminiProvider implements AIService {
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during question split');
             if (input.kind === 'image' && isImageUnsupportedError(error)) throw new Error(AI_IMAGE_NOT_SUPPORTED, { cause: error });
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async fixQuestionText(input: TextFixInput): Promise<TextFixResult> {
+        const prompt = generateTextFixRequest(input);
+        logger.info({ provider: 'Gemini', model: this.modelName, questions: input.length }, 'Text Fix Request');
+
+        try {
+            const response = await this.retryOperation(() => this.ai.models.generateContent({
+                model: this.modelName,
+                config: { systemInstruction: prompt.system },
+                contents: [{ text: prompt.user }],
+            }));
+
+            const text = response.text || '';
+            logger.debug({ rawResponse: text }, 'Text fix AI raw response');
+            if (!text) throw new Error(response.candidates?.[0]?.finishReason === 'MAX_TOKENS' ? AI_OUTPUT_TRUNCATED : "Empty response from AI");
+            return parseTextFix(text, input);
+        } catch (error) {
+            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during text fix');
             this.handleError(error);
             throw error;
         }

@@ -31,6 +31,16 @@ function splitLines(lines) {
     return questions;
 }
 
+/**
+ * 修正文字：删去以「草稿：」开头的行、把「公项」改为「公顷」；
+ * 含「改数字」的题把 77 改成 78，用来验证应用会拒绝改动数字的建议
+ */
+function fixText(text) {
+    let fixed = text.split('\n').filter((line) => !line.startsWith('草稿：')).join('\n').replaceAll('公项', '公顷');
+    if (text.includes('改数字')) fixed = fixed.replaceAll('77', '78');
+    return { text: fixed, uncertain: text.includes('公项') ? ['公项'] : [] };
+}
+
 function textOf(messages) {
     return messages.map((message) => typeof message.content === 'string' ? message.content :
         (message.content || []).filter((part) => part.type === 'text').map((part) => part.text).join('\n')).join('\n');
@@ -95,7 +105,7 @@ export async function startMockAI() {
             const text = textOf(messages);
             const system = typeof messages[0]?.content === 'string' ? messages[0].content : '';
             const image = messages.some((message) => Array.isArray(message.content) && message.content.some((part) => part.type === 'image_url'));
-            const operation = system.includes('【分题输出协议】') ? 'split' : image ? 'analysis' : /"probability"/.test(system) ? 'mastery' : /"correct"/.test(system) ? 'grade' :
+            const operation = system.includes('【分题输出协议】') ? 'split' : system.includes('【文字修正输出协议】') ? 'fix-text' : image ? 'analysis' : /"probability"/.test(system) ? 'mastery' : /"correct"/.test(system) ? 'grade' :
                 system.includes('<mistake_status>内容') && !system.includes('<question_text>内容') ? 'reanswer' :
                 /"gradeSemester"/.test(system) && !/question_text|"questionText"/.test(system) ? 'grade-recognition' : /question_text|"questionText"/.test(system) ? 'variant' : 'unknown';
             const marker = text.match(/E2E_[a-zA-Z0-9]+_[ABC]/)?.[0] || `E2E_${match[1].replace(/[^a-zA-Z0-9]/g, '')}_A`;
@@ -119,6 +129,13 @@ export async function startMockAI() {
                         : { questions: splitLines(user.data?.lines || []) };
                     return json(response, 200, { id: `e2e-${state.id}-${state.calls.length}`, object: 'chat.completion', created: 0, model: 'e2e-mock-model',
                         choices: [{ index: 0, message: { role: 'assistant', content: JSON.stringify(content) }, finish_reason: 'stop' }],
+                        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });
+                }
+                if (operation === 'fix-text') {
+                    const user = JSON.parse(textOf(messages.filter((message) => message.role === 'user')) || '{}');
+                    const questions = (user.data?.questions || []).map((question) => ({ id: question.id, ...fixText(String(question.text || '')) }));
+                    return json(response, 200, { id: `e2e-${state.id}-${state.calls.length}`, object: 'chat.completion', created: 0, model: 'e2e-mock-model',
+                        choices: [{ index: 0, message: { role: 'assistant', content: JSON.stringify({ questions }) }, finish_reason: 'stop' }],
                         usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });
                 }
                 if (operation === 'reanswer') {

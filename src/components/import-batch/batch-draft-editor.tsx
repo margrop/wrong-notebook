@@ -6,15 +6,18 @@ import { DraftItemCard } from "@/components/import-batch/draft-item-card";
 import { DraftStartBar } from "@/components/import-batch/draft-start-bar";
 import { PageImageOverview } from "@/components/import-batch/page-image-overview";
 import { RegionEditorDialog } from "@/components/import-batch/region-editor-dialog";
+import { TextFixToolbar } from "@/components/import-batch/text-fix-toolbar";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { ImportBatchSource } from "@/lib/import-batch-types";
 import { isItemReady } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftRegion } from "@/lib/question-split/draft";
-import { addImageItem, restoreIgnored, setAllSelected, updateItem } from "@/lib/question-split/draft-ops";
+import { acceptTextFixes, addImageItem, pendingTextFixes, restoreIgnored, setAllSelected, updateItem } from "@/lib/question-split/draft-ops";
+import { useDraftTextFix } from "@/lib/use-draft-text-fix";
 import type { DraftSaveState } from "@/lib/use-import-batch";
 
 interface BatchDraftEditorProps {
+    batchId: string;
     source: ImportBatchSource;
     draft: BatchDraft;
     onEdit: (change: (draft: BatchDraft) => BatchDraft, group?: string) => void;
@@ -34,7 +37,7 @@ interface BatchDraftEditorProps {
 }
 
 /** 分题预览：摘要、整页原图（图片批次）、题目列表、未计入题目的内容与底部操作栏 */
-export function BatchDraftEditor({ source, draft, onEdit, onUndo, canUndo, saveState, image, confirmBeforeImport, starting, onStart, onDiscard, hasConflictCopy, onRestoreConflict, onDismissConflict }: BatchDraftEditorProps) {
+export function BatchDraftEditor({ batchId, source, draft, onEdit, onUndo, canUndo, saveState, image, confirmBeforeImport, starting, onStart, onDiscard, hasConflictCopy, onRestoreConflict, onDismissConflict }: BatchDraftEditorProps) {
     const { t } = useLanguage();
     // 一次只展开一道题，手机上不会铺满长表单
     const [expanded, setExpanded] = useState<string | null>(null);
@@ -45,6 +48,10 @@ export function BatchDraftEditor({ source, draft, onEdit, onUndo, canUndo, saveS
     const ready = draft.items.filter((item) => item.selected && isItemReady(item, source));
     const allSelected = draft.items.length > 0 && draft.items.every((item) => item.selected || !isItemReady(item, source));
     const selectedWithoutRegion = draft.items.filter((item) => item.selected && !isItemReady(item, source)).length;
+    const textFix = useDraftTextFix(batchId, draft, onEdit);
+    const pendingFixes = source === "text" ? pendingTextFixes(draft).length : 0;
+    // 批量修正：已选、有文字、还没有待确认建议的题
+    const fixTargets = source === "text" ? ready.filter((item) => !(item.fix && item.fix.original === item.text)).map((item) => item.key) : [];
 
     const focusItem = (key: string) => {
         setHighlighted(key);
@@ -84,6 +91,16 @@ export function BatchDraftEditor({ source, draft, onEdit, onUndo, canUndo, saveS
                 </div>
             )}
 
+            {source === "text" && draft.items.length > 0 && (
+                <TextFixToolbar
+                    targetCount={fixTargets.length}
+                    pendingCount={pendingFixes}
+                    fixing={textFix.fixing}
+                    onFix={() => void textFix.fix(fixTargets)}
+                    onAcceptAll={() => onEdit((current) => acceptTextFixes(current))}
+                />
+            )}
+
             {draft.warnings.length > 0 && (
                 <ul className="space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
                     {draft.warnings.map((warning) => (
@@ -113,6 +130,9 @@ export function BatchDraftEditor({ source, draft, onEdit, onUndo, canUndo, saveS
                             image={image}
                             onAdjustRegion={() => setRegionTarget({ key: item.key, regions: item.regions })}
                             highlighted={highlighted === item.key}
+                            onFixText={source === "text" ? () => void textFix.fix([item.key]) : undefined}
+                            fixing={textFix.fixingKeys.includes(item.key)}
+                            fixBusy={textFix.fixing}
                         />
                     ))}
                 </ol>
@@ -151,6 +171,7 @@ export function BatchDraftEditor({ source, draft, onEdit, onUndo, canUndo, saveS
             <DraftStartBar
                 count={ready.length}
                 missingRegions={selectedWithoutRegion}
+                pendingFixes={pendingFixes}
                 confirmBeforeImport={confirmBeforeImport}
                 starting={starting}
                 onStart={onStart}

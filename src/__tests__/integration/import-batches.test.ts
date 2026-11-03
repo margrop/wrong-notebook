@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
     recognizeGrade: vi.fn(),
     reanswerQuestion: vi.fn(),
     splitQuestions: vi.fn(),
+    fixQuestionText: vi.fn(),
     dailyLimit: 0,
     session: { user: { id: 'user-1', email: 'batch@example.com', role: 'user' }, expires: '2099-01-01' } as {
         user: { id: string; email: string; role: string };
@@ -39,6 +40,7 @@ vi.mock('@/lib/ai', () => ({
         recognizeGrade: mocks.recognizeGrade,
         reanswerQuestion: mocks.reanswerQuestion,
         splitQuestions: mocks.splitQuestions,
+        fixQuestionText: mocks.fixQuestionText,
     }),
 }));
 vi.mock('@/lib/ai/tag-service', () => ({ getNotebookCandidateTags: vi.fn(async () => undefined) }));
@@ -60,6 +62,7 @@ import { POST as START } from '@/app/api/import-batches/[id]/start/route';
 import { POST as RETRY } from '@/app/api/import-batches/[id]/retry/route';
 import { POST as CONFIRM_ALL } from '@/app/api/import-batches/[id]/confirm-all/route';
 import { POST as READ } from '@/app/api/import-batches/[id]/read/route';
+import { POST as FIX_TEXT } from '@/app/api/import-batches/[id]/fix-text/route';
 import { POST as CONFIRM_TASK } from '@/app/api/import-tasks/[id]/confirm/route';
 import { waitForImportBatchTasksForTest } from '@/lib/import-batches';
 import { simulateRestartForTest, waitForImportTaskForTest } from '@/lib/import-tasks';
@@ -131,6 +134,7 @@ beforeEach(async () => {
     mocks.analyzeImage.mockReset();
     mocks.reanswerQuestion.mockReset();
     mocks.splitQuestions.mockReset();
+    mocks.fixQuestionText.mockReset();
     mocks.recognizeGrade.mockResolvedValue(null);
     mocks.reanswerQuestion.mockImplementation(async (questionText: string) => reanswer(questionText));
     mocks.analyzeImage.mockImplementation(async (base64: string) => parsedImage(`图片题 ${base64.length}`));
@@ -444,6 +448,75 @@ describe('照片自动分题批次', () => {
         expect(response.status).toBe(429);
         expect(mocks.splitQuestions).not.toHaveBeenCalled();
         expect(await database.importBatch.findFirstOrThrow()).toMatchObject({ status: 'failed', error: 'AI_DAILY_LIMIT_EXCEEDED' });
+    });
+});
+
+describe('分题预览中的 AI 修正文字', () => {
+    const fixText = (id: string, items: Array<{ key: string; text: string }>) => FIX_TEXT(json({ items }), params(id));
+    /** 模拟模型：删去「草稿：」行、改正「公项」，含「改数字」的题把 77 改成 78 */
+    const fakeFix = async (input: Array<{ id: string; text: string }>) => input.map(({ id, text }) => ({
+        id,
+        text: text.split('\n').filter((line) => !line.startsWith('草稿：')).join('\n').replaceAll('公项', '公顷').replace(text.includes('改数字') ? '77' : '\u0000', '78'),
+        uncertain: [],
+    }));
+
+    it('只返回建议、不改草稿；无需修改与改动数字的题分别列出；按组调用并只计一次额度', async () => {
+        mocks.fixQuestionText.mockImplementation(fakeFix);
+        const text = Array.from({ length: 12 }, (_, index) => `${index + 1}．第 ${index + 1} 题，共100公项。`).join('\n')
+            + '\n13．改数字：某厂有77个工人。\n14．小明有 5 个苹果。';
+        const { batch } = await create({ source: 'text', text });
+        const items = batch.draft.items.map((item: { key: string; text: string }, index: number) => ({ key: item.key, text: index === 0 ? `${item.text}\n草稿：4x=120` : item.text }));
+        const response = await fixText(batch.id, items);
+        expect(response.status).toBe(200);
+        const result = await response.json();
+        expect(result.fixes).toHaveLength(12);
+        expect(result.fixes[0]).toEqual({ key: items[0].key, original: items[0].text, text: '第 1 题，共100公顷。', uncertain: [] });
+        expect(result.unchanged).toEqual([items[13].key]);
+        expect(result.failed).toEqual([items[12].key]);
+        // 14 题分两组调用模型，额度只计一次
+        expect(mocks.fixQuestionText).toHaveBeenCalledTimes(2);
+        expect(await database.aiUsage.count({ where: { userId: 'user-1', kind: 'split' } })).toBe(1);
+        expect((await getBatch(batch.id)).batch.draft.items[0].text).toBe(batch.draft.items[0].text);
+
+        // 建议写入草稿后随版本保存，刷新可取回
+        const draft = { ...batch.draft, items: batch.draft.items.map((item: { key: string }, index: number) => (index === 1 ? { ...item, fix: { original: batch.draft.items[1].text, text: result.fixes[1].text, uncertain: [] } } : item)) };
+        const saved = await PATCH(json({ version: batch.version, draft }, 'PATCH'), params(batch.id));
+        expect(saved.status).toBe(200);
+        expect((await getBatch(batch.id)).batch.draft.items[1].fix.text).toBe('第 2 题，共100公顷。');
+    });
+
+    it('某一组调用失败只影响该组；全部失败时返回 AI 错误码', async () => {
+        const text = Array.from({ length: 11 }, (_, index) => `${index + 1}．第 ${index + 1} 题公项。`).join('\n');
+        const { batch } = await create({ source: 'text', text });
+        const items = batch.draft.items.map((item: { key: string; text: string }) => ({ key: item.key, text: item.text }));
+        mocks.fixQuestionText.mockImplementationOnce(fakeFix).mockRejectedValueOnce(new Error('AI_TIMEOUT_ERROR'));
+        const partial = await (await fixText(batch.id, items)).json();
+        expect(partial.fixes).toHaveLength(10);
+        expect(partial.failed).toEqual([items[10].key]);
+
+        mocks.fixQuestionText.mockRejectedValue(new Error('AI_TIMEOUT_ERROR'));
+        const failed = await fixText(batch.id, items.slice(0, 2));
+        expect(failed.status).toBe(500);
+        expect((await failed.json()).message).toBe('AI_TIMEOUT_ERROR');
+    });
+
+    it('他人批次、照片批次、已开始的批次与无效输入都不调用模型；超额时返回 429', async () => {
+        const { batch } = await create({ source: 'text', text: '1．公项\n2．题二' });
+        const items = [{ key: batch.draft.items[0].key, text: '公项' }];
+        expect((await fixText(batch.id, [{ key: 'bad key!', text: 'x' }])).status).toBe(400);
+        asUser('user-2');
+        expect((await fixText(batch.id, items)).status).toBe(404);
+        asUser('user-1');
+        mocks.splitQuestions.mockResolvedValue({ questions: [], ignored: [], warnings: [] });
+        const photo = await create({ source: 'image', imageBase64: PAGE });
+        expect((await fixText(photo.batch.id, items)).status).toBe(409);
+        mocks.dailyLimit = 1;
+        await database.aiUsage.create({ data: { userId: 'user-1', kind: 'analyze' } });
+        expect((await fixText(batch.id, items)).status).toBe(429);
+        mocks.dailyLimit = 0;
+        await start(batch.id, { version: batch.version });
+        expect((await fixText(batch.id, items)).status).toBe(409);
+        expect(mocks.fixQuestionText).not.toHaveBeenCalled();
     });
 });
 

@@ -130,3 +130,50 @@ test('[E2E-B07] 本地按题号分错时（OCR 认错题号），仍可改用 AI
     expect(await calls(scenario, 'split')).toHaveLength(1);
     await expect(page.getByTestId('draft-item').nth(2)).toContainText('计算 3 + 3');
 });
+
+for (const profile of viewports) {
+    test.describe(profile.name, () => {
+        test.use({ viewport: profile.viewport, isMobile: profile.isMobile, hasTouch: profile.hasTouch });
+
+        test('[E2E-B08] 分题预览中 AI 修正文字：标出删改，逐题接受后才替换，改动数字的建议不采用', async ({ page, scenario }, testInfo) => {
+            await scenario.login(page);
+            await page.goto(`/?notebook=${scenario.book.id}`);
+            await page.getByRole('tab', { name: '手动输入', exact: true }).click();
+            await page.locator('#question-text').fill(`1．两块地一共100公项，各有多少公顷？${scenario.marker}\n草稿：4x=120\n2．改数字：某厂有77个工人。\n3．小明有 5 个苹果，又买了 3 个。`);
+            await page.getByRole('button', { name: '分题预览（3 题）' }).click();
+            await expect(page).toHaveURL(/\/import-batches\/[a-f0-9]+$/);
+
+            await page.getByRole('button', { name: 'AI 修正文字（3 题）' }).click();
+            await expect(page.getByText('已为 1 题生成修正建议').first()).toBeVisible();
+            expect(await calls(scenario, 'fix-text')).toHaveLength(1);
+
+            const items = page.getByTestId('draft-item');
+            const first = items.nth(0);
+            await expect(first).toHaveAttribute('data-fix-pending', 'true');
+            await expect(first.getByTestId('text-fix-diff').locator('del')).toContainText(['项', '草稿：4x=120']);
+            await expect(first.getByTestId('text-fix-diff').locator('ins')).toContainText(['顷']);
+            // 改动数字的建议被拒绝，无需修改的题不显示建议
+            await expect(items.nth(1).getByTestId('text-fix-panel')).toHaveCount(0);
+            await expect(items.nth(2).getByTestId('text-fix-panel')).toHaveCount(0);
+            await expect(page.getByTestId('draft-start-hint')).toHaveText('还有 1 题的修正建议未接受，开始后这些题按原文解析。');
+            await expectNoHorizontalOverflow(page);
+            await saveShot(page, `text-fix-${profile.name}`, testInfo);
+
+            // 建议随草稿保存，刷新后仍在
+            await expect(page.getByTestId('draft-save-state')).toHaveAttribute('data-state', 'saved', { timeout: 10000 });
+            await page.reload();
+            await expect(page.getByTestId('draft-item').nth(0).getByTestId('text-fix-panel')).toBeVisible();
+
+            await page.getByTestId('draft-item').nth(0).getByRole('button', { name: '接受修正' }).click();
+            await expect(page.getByTestId('draft-item').nth(0)).not.toHaveAttribute('data-fix-pending', 'true');
+            await expect(page.getByTestId('draft-item').nth(0)).toContainText(`两块地一共100公顷，各有多少公顷？${scenario.marker}`);
+            await expect(page.getByTestId('draft-item').nth(0)).not.toContainText('草稿');
+
+            await page.getByRole('button', { name: '解析并导入 3 题' }).click();
+            await expect.poll(() => scenario.db.errorItem.count({ where: { userId: scenario.user.id } }), { timeout: 30000 }).toBe(3);
+            const saved = (await scenario.db.errorItem.findMany({ where: { userId: scenario.user.id } })).map((item) => item.questionText);
+            expect(saved).toContain(`两块地一共100公顷，各有多少公顷？${scenario.marker}`);
+            expect(saved).toContain('改数字：某厂有77个工人。');
+        });
+    });
+}

@@ -1,9 +1,9 @@
 /**
- * 分题草稿的编辑操作（纯函数）：选择、编辑、拆分、合并、移动、删除、恢复忽略内容、调整区域。
+ * 分题草稿的编辑操作（纯函数）：选择、编辑、拆分、合并、移动、删除、恢复忽略内容、调整区域、AI 修正建议的采用与放弃。
  * 每个操作返回新的草稿，不修改原对象，便于撤销。
  */
 import { MAX_DRAFT_TEXT_LENGTH, MAX_ITEM_REGIONS, newItemKey } from "@/lib/question-split/draft";
-import type { BatchDraft, DraftItem, DraftRegion } from "@/lib/question-split/draft";
+import type { BatchDraft, DraftItem, DraftRegion, DraftTextFix } from "@/lib/question-split/draft";
 import { MAX_SPLIT_QUESTIONS } from "@/lib/question-split/text";
 
 function updateItems(draft: BatchDraft, items: DraftItem[]): BatchDraft {
@@ -26,7 +26,11 @@ export function updateItem(draft: BatchDraft, key: string, patch: Partial<Pick<D
     return updateItems(draft, draft.items.map((item) => {
         if (item.key !== key) return item;
         const next = { ...item, ...patch };
-        if (patch.text !== undefined) next.text = patch.text.slice(0, MAX_DRAFT_TEXT_LENGTH);
+        if (patch.text !== undefined) {
+            next.text = patch.text.slice(0, MAX_DRAFT_TEXT_LENGTH);
+            // 手工改了题目文字，基于旧文字的修正建议不再适用
+            if (next.text !== item.text) next.fix = null;
+        }
         if (patch.regions !== undefined) {
             next.regions = patch.regions.slice(0, MAX_ITEM_REGIONS);
             // 补上区域后不再是「未定位」
@@ -65,6 +69,7 @@ export function mergeWithPrevious(draft: BatchDraft, key: string): BatchDraft {
         regions: [...previous.regions, ...current.regions].slice(0, MAX_ITEM_REGIONS),
         hasFigure: previous.hasFigure || current.hasFigure,
         flags: [...new Set([...previous.flags, ...current.flags])].filter((flag) => flag !== "unlocated" || previous.regions.length + current.regions.length === 0),
+        fix: null,
     };
     const items = [...draft.items];
     items.splice(index - 1, 2, merged);
@@ -90,9 +95,10 @@ export function splitItemAt(draft: BatchDraft, key: string, offset: number): Bat
         regions: [],
         flags: item.regions.length > 0 ? ["unlocated"] : [],
         selected: item.regions.length > 0 ? false : item.selected,
+        fix: null,
     };
     const items = [...draft.items];
-    items.splice(index, 1, { ...item, text: before }, second);
+    items.splice(index, 1, { ...item, text: before, fix: null }, second);
     return updateItems(draft, items);
 }
 
@@ -126,4 +132,45 @@ export function addImageItem(draft: BatchDraft, region: DraftRegion): BatchDraft
         label: null, text: "", material: null, section: null, selected: true, regions: [region], hasFigure: false, flags: [],
     };
     return { ...draft, items: [...draft.items, item] };
+}
+
+/** 一题的修正结果（key 对应草稿中的题，original 为送去修正时的文字） */
+export interface TextFixSuggestion extends DraftTextFix {
+    key: string;
+}
+
+/** 记下修正建议：只用于文字仍与送去修正时一致的题，修正结果与原文相同的视为无需修改 */
+export function applyTextFixes(draft: BatchDraft, fixes: TextFixSuggestion[]): BatchDraft {
+    const byKey = new Map(fixes.map((fix) => [fix.key, fix]));
+    let changed = false;
+    const items = draft.items.map((item) => {
+        const fix = byKey.get(item.key);
+        if (!fix || item.text !== fix.original || fix.text === fix.original) return item;
+        changed = true;
+        return { ...item, fix: { original: fix.original, text: fix.text, uncertain: fix.uncertain } };
+    });
+    return changed ? updateItems(draft, items) : draft;
+}
+
+/** 有待确认修正建议的题 */
+export function pendingTextFixes(draft: BatchDraft): DraftItem[] {
+    return draft.items.filter((item) => item.fix && item.fix.original === item.text);
+}
+
+/** 采用修正建议；keys 为空时采用全部 */
+export function acceptTextFixes(draft: BatchDraft, keys?: string[]): BatchDraft {
+    const targets = keys ? new Set(keys) : null;
+    let changed = false;
+    const items = draft.items.map((item) => {
+        if (!item.fix || (targets && !targets.has(item.key))) return item;
+        changed = true;
+        // 建议生成后文字又被改过时不覆盖，只放弃建议
+        return item.fix.original === item.text ? { ...item, text: item.fix.text, fix: null } : { ...item, fix: null };
+    });
+    return changed ? updateItems(draft, items) : draft;
+}
+
+/** 放弃修正建议，保留原文 */
+export function rejectTextFix(draft: BatchDraft, key: string): BatchDraft {
+    return updateItems(draft, draft.items.map((item) => (item.key === key && item.fix ? { ...item, fix: null } : item)));
 }

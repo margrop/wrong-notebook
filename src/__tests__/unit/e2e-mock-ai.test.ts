@@ -51,6 +51,11 @@ describe('本地模型服务的分题协议', () => {
         expect(result.questions[0]).toMatchObject({ label: '1', hasFigure: true, regions: [{ x: 0.048, y: 0.197, width: 0.905, height: 0.35 }] });
         expect(mock.cases.get('protocol')?.calls).toContainEqual(expect.objectContaining({ operation: 'split', hasImage: true }));
     });
+    it('修正文字使用修正协议，按 id 返回整理后的文字', async () => {
+        const result = await provider.fixQuestionText([{ id: 'q1', text: '两块地一共100公项。\n草稿：4x=120' }]);
+        expect(result).toEqual([{ id: 'q1', text: '两块地一共100公顷。', uncertain: ['公项'] }]);
+        expect(mock.cases.get('protocol')?.calls).toContainEqual(expect.objectContaining({ operation: 'fix-text' }));
+    });
     it('文字题解析使用解题协议，题干由应用保留', async () => {
         const result = await provider.reanswerQuestion('计算 3 + 4。', 'zh', '数学');
         expect(result.answerText).toContain('E2E 答案：计算 3 + 4');

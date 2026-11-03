@@ -25,6 +25,17 @@ export type DraftRegion = z.infer<typeof draftRegionSchema>;
 export const DRAFT_ITEM_FLAGS = ['unclear', 'partial', 'unlocated'] as const;
 export type DraftItemFlag = typeof DRAFT_ITEM_FLAGS[number];
 
+/** AI 修正文字的建议：基于 original 生成，用户接受前题目仍按原文解析 */
+export const draftTextFixSchema = z.object({
+    /** 生成建议时的题目原文；题目文字已改动时建议作废 */
+    original: z.string().max(MAX_DRAFT_TEXT_LENGTH),
+    /** 修正后的文字 */
+    text: z.string().max(MAX_DRAFT_TEXT_LENGTH),
+    /** 模型拿不准、保留原样的片段 */
+    uncertain: z.array(z.string().max(200)).max(20),
+});
+export type DraftTextFix = z.infer<typeof draftTextFixSchema>;
+
 export const draftItemSchema = z.object({
     key: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/),
     label: z.string().max(20).nullable(),
@@ -35,6 +46,8 @@ export const draftItemSchema = z.object({
     regions: z.array(draftRegionSchema).max(MAX_ITEM_REGIONS),
     hasFigure: z.boolean(),
     flags: z.array(z.enum(DRAFT_ITEM_FLAGS)).max(DRAFT_ITEM_FLAGS.length),
+    /** 待确认的 AI 修正建议（只用于文字批次）；旧草稿没有此字段 */
+    fix: draftTextFixSchema.nullish(),
 });
 export type DraftItem = z.infer<typeof draftItemSchema>;
 
