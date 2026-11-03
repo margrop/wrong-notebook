@@ -594,6 +594,10 @@ export async function retryImportTask(user: User, id: string): Promise<NextRespo
     const task = await findOwnTask(user, id);
     if (!task) return notFound('IMPORT_TASK_NOT_FOUND');
     if (task.status !== 'failed') {
+        // 重复的重试请求（另一个重试已抢占、正在执行）：与抢占失败的并发请求一样返回当前任务，结果不依赖请求先后
+        if ((task.status === 'analyzing' || task.status === 'saving') && task.attempts > 1) {
+            return NextResponse.json({ task: toDetail(task) });
+        }
         return createErrorResponse('IMPORT_TASK_NOT_RETRYABLE', 409, ErrorCode.CONFLICT, { status: task.status });
     }
     const hasResult = parseResult(task.result) !== null;

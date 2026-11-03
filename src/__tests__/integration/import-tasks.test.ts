@@ -420,6 +420,19 @@ describe('识别导入任务', () => {
         await waitForImportTaskForTest(id);
         expect(await database.aiUsage.count({ where: { userId: 'user-1', kind: 'analyze' } })).toBe(2);
         expect(mocks.analyzeImage).toHaveBeenCalledTimes(2);
+
+        // 先后到达的重复重试（第一个已抢占并在识别中）同样返回当前任务，不再识别、不计额度
+        await database.importTask.update({ where: { id }, data: { status: 'failed', result: null, error: 'AI_TIMEOUT_ERROR' } });
+        let releaseAnalysis: () => void = () => undefined;
+        mocks.analyzeImage.mockImplementationOnce(() => new Promise((resolve) => { releaseAnalysis = () => resolve(parsed()); }));
+        expect((await RETRY(json({}), params(id))).status).toBe(202);
+        const late = await RETRY(json({}), params(id));
+        expect(late.status).toBe(200);
+        expect((await late.json()).task.status).toBe('analyzing');
+        releaseAnalysis();
+        await waitForImportTaskForTest(id);
+        expect(await database.aiUsage.count({ where: { userId: 'user-1', kind: 'analyze' } })).toBe(3);
+        expect(mocks.analyzeImage).toHaveBeenCalledTimes(3);
     });
 
     it('拒绝非法状态迁移，确认时不接受前端替换图片', async () => {
