@@ -52,8 +52,7 @@ export class GeminiProvider implements AIService {
         logger.info({
             provider: 'Gemini',
             model: this.modelName,
-            baseUrl: this.baseUrl,
-            apiKeyPrefix: apiKey.substring(0, 8) + '...'
+            baseUrl: this.baseUrl
         }, 'AI Provider initialized');
     }
 

@@ -71,8 +71,7 @@ export class AzureOpenAIProvider implements AIService {
             provider: 'Azure OpenAI',
             model: this.model,
             deployment: this.deployment,
-            endpoint: endpoint,
-            apiKeyPrefix: apiKey.substring(0, 8) + '...'
+            endpoint: endpoint
         }, 'Azure AI Provider initialized');
     }
 

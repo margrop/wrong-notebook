@@ -69,8 +69,7 @@ export class OpenAIProvider implements AIService {
         logger.info({
             provider: 'OpenAI',
             model: this.model,
-            baseURL: this.baseURL,
-            apiKeyPrefix: apiKey.substring(0, 8) + '...'
+            baseURL: this.baseURL
         }, 'AI Provider initialized');
     }
 
