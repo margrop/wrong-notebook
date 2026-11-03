@@ -158,8 +158,7 @@ export default function ImportBatchPage() {
                 <BatchPhasePanel batch={batch} busy={busy} onRetry={retry} onDiscard={discard} />
             ) : batch.status === "draft" && draft ? (
                 <BatchDraftEditor
-                    batchId={batch.id}
-                    source={batch.source}
+                    batch={batch}
                     draft={draft}
                     onEdit={batchState.edit}
                     onUndo={batchState.undo}

@@ -1,24 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronUp, Loader2, Plus, Undo2 } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, Undo2 } from "lucide-react";
+import { ContinuationControls } from "@/components/import-batch/continuation-controls";
 import { DraftItemCard } from "@/components/import-batch/draft-item-card";
 import { DraftStartBar } from "@/components/import-batch/draft-start-bar";
+import { IgnoredContent } from "@/components/import-batch/ignored-content";
 import { PageImageOverview } from "@/components/import-batch/page-image-overview";
 import { RegionEditorDialog } from "@/components/import-batch/region-editor-dialog";
 import { TextFixToolbar } from "@/components/import-batch/text-fix-toolbar";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { ImportBatchSource } from "@/lib/import-batch-types";
+import type { ImportBatchDetail } from "@/lib/import-batch-types";
 import { isItemReady } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftRegion } from "@/lib/question-split/draft";
 import { acceptTextFixes, addImageItem, pendingTextFixes, restoreIgnored, setAllSelected, updateItem } from "@/lib/question-split/draft-ops";
+import { canContinueOnNextPage, useBatchContinuation } from "@/lib/use-batch-continuation";
 import { useDraftTextFix } from "@/lib/use-draft-text-fix";
 import type { DraftSaveState } from "@/lib/use-import-batch";
 
 interface BatchDraftEditorProps {
-    batchId: string;
-    source: ImportBatchSource;
+    batch: Pick<ImportBatchDetail, "id" | "source" | "subjectId" | "targetSubjectId" | "paperLevel">;
     draft: BatchDraft;
     onEdit: (change: (draft: BatchDraft) => BatchDraft, group?: string) => void;
     onUndo: () => void;
@@ -37,18 +39,19 @@ interface BatchDraftEditorProps {
 }
 
 /** 分题预览：摘要、整页原图（图片批次）、题目列表、未计入题目的内容与底部操作栏 */
-export function BatchDraftEditor({ batchId, source, draft, onEdit, onUndo, canUndo, saveState, image, confirmBeforeImport, starting, onStart, onDiscard, hasConflictCopy, onRestoreConflict, onDismissConflict }: BatchDraftEditorProps) {
+export function BatchDraftEditor({ batch, draft, onEdit, onUndo, canUndo, saveState, image, confirmBeforeImport, starting, onStart, onDiscard, hasConflictCopy, onRestoreConflict, onDismissConflict }: BatchDraftEditorProps) {
     const { t } = useLanguage();
+    const source = batch.source;
     // 一次只展开一道题，手机上不会铺满长表单
     const [expanded, setExpanded] = useState<string | null>(null);
     const [highlighted, setHighlighted] = useState<string | null>(null);
     const [regionTarget, setRegionTarget] = useState<{ key: string | null; regions: DraftRegion[] } | null>(null);
-    const [showIgnored, setShowIgnored] = useState(false);
 
     const ready = draft.items.filter((item) => item.selected && isItemReady(item, source));
     const allSelected = draft.items.length > 0 && draft.items.every((item) => item.selected || !isItemReady(item, source));
     const selectedWithoutRegion = draft.items.filter((item) => item.selected && !isItemReady(item, source)).length;
-    const textFix = useDraftTextFix(batchId, draft, onEdit);
+    const textFix = useDraftTextFix(batch.id, draft, onEdit);
+    const continuation = useBatchContinuation(batch, image?.url ?? null, draft, onEdit);
     const pendingFixes = source === "text" ? pendingTextFixes(draft).length : 0;
     // 批量修正：已选、有文字、还没有待确认建议的题
     const fixTargets = source === "text" ? ready.filter((item) => !(item.fix && item.fix.original === item.text)).map((item) => item.key) : [];
@@ -109,6 +112,8 @@ export function BatchDraftEditor({ batchId, source, draft, onEdit, onUndo, canUn
                 </ul>
             )}
 
+            <ContinuationControls inputProps={continuation.inputProps} created={continuation.created} />
+
             {image && (
                 <PageImageOverview imageUrl={image.url} items={draft.items} onSelectItem={focusItem} highlightedKey={highlighted} />
             )}
@@ -133,6 +138,8 @@ export function BatchDraftEditor({ batchId, source, draft, onEdit, onUndo, canUn
                             onFixText={source === "text" ? () => void textFix.fix([item.key]) : undefined}
                             fixing={textFix.fixingKeys.includes(item.key)}
                             fixBusy={textFix.fixing}
+                            onContinue={image && canContinueOnNextPage(item, index, draft.items.length) ? () => continuation.pick(item.key) : undefined}
+                            continuing={continuation.busyKey === item.key}
                         />
                     ))}
                 </ol>
@@ -144,29 +151,7 @@ export function BatchDraftEditor({ batchId, source, draft, onEdit, onUndo, canUn
                 </Button>
             )}
 
-            {draft.ignored.length > 0 && (
-                <section className="rounded-xl border p-3">
-                    <button type="button" className="flex w-full items-center justify-between text-left text-sm font-medium" onClick={() => setShowIgnored((value) => !value)} aria-expanded={showIgnored}>
-                        {t.importBatch.ignoredTitle.replace("{count}", String(draft.ignored.length))}
-                        {showIgnored ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </button>
-                    {showIgnored && (
-                        <div className="mt-2 space-y-2">
-                            <p className="text-xs text-muted-foreground">{t.importBatch.ignoredHint}</p>
-                            <ul className="space-y-2">
-                                {draft.ignored.map((text, index) => (
-                                    <li key={`${index}-${text.slice(0, 20)}`} className="flex items-start gap-2 rounded-lg bg-muted/50 p-2 text-sm">
-                                        <p className="min-w-0 flex-1 whitespace-pre-line break-words text-muted-foreground">{text}</p>
-                                        <Button type="button" size="sm" variant="outline" className="h-7 shrink-0" onClick={() => onEdit((current) => restoreIgnored(current, index))}>
-                                            {t.importBatch.addAsQuestion}
-                                        </Button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-                </section>
-            )}
+            <IgnoredContent ignored={draft.ignored} onRestore={(index) => onEdit((current) => restoreIgnored(current, index))} />
 
             <DraftStartBar
                 count={ready.length}

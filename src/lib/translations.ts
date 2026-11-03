@@ -1260,6 +1260,13 @@ export const translations = {
             adjustRegion: "Adjust area",
             locate: "Mark on photo",
             hasFigure: "Has figure",
+            continuation: {
+                button: "Continues on next page",
+                working: "Joining and splitting…",
+                created: "The next page is being split. This question was moved out of this batch and will appear whole in the next batch.",
+                notice: "Page {n} is being split",
+                open: "Open",
+            },
             fixText: {
                 selected: "AI fix text ({count})",
                 one: "AI fix text",
@@ -2940,6 +2947,13 @@ export const translations = {
             adjustRegion: "调整区域",
             locate: "在原图上框选",
             hasFigure: "含配图",
+            continuation: {
+                button: "下一页接着这题",
+                working: "正在拼接并分题…",
+                created: "下一页已开始分题。这道题已从本批移出，会在下一批中完整出现。",
+                notice: "第 {n} 页正在分题",
+                open: "查看",
+            },
             fixText: {
                 selected: "AI 修正文字（{count} 题）",
                 one: "AI 修正文字",

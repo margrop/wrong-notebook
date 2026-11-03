@@ -36,27 +36,31 @@ interface StackPiece {
     sy: number;
     sw: number;
     sh: number;
+    /** 绘制时的缩放比例（默认 1；scaleToWidth 时忽略） */
+    scale?: number;
 }
 
 /**
- * 纵向拼接的版面：scaleToWidth 为 true 时各段缩放到同一宽度（不同照片拍摄距离不同，字号才一致），
- * 否则保持原尺寸左对齐（同一张图上的多个区域）。返回画布尺寸与每段的目标位置。
+ * 纵向拼接的版面，各段左对齐：
+ * - scaleToWidth 为 true 时各段缩放到同一宽度（不同照片拍摄距离不同，字号才一致）；
+ * - 否则按各段的 scale（默认 1）缩放，同一张图上的多个区域保持原尺寸。
+ * 返回画布尺寸与每段的目标位置。
  */
-export function stackLayout(sizes: Array<{ width: number; height: number }>, gap = STACK_GAP, scaleToWidth = false) {
-    const width = Math.max(...sizes.map((size) => size.width));
+export function stackLayout(sizes: Array<{ width: number; height: number; scale?: number }>, gap = STACK_GAP, scaleToWidth = false) {
+    const widest = Math.max(...sizes.map((size) => size.width));
     let top = 0;
     const rects = sizes.map((size) => {
-        const scale = scaleToWidth ? width / size.width : 1;
+        const scale = scaleToWidth ? widest / size.width : (size.scale ?? 1);
         const rect = { x: 0, y: top, width: Math.round(size.width * scale), height: Math.round(size.height * scale) };
         top += rect.height + gap;
         return rect;
     });
-    return { width, height: top - gap, rects };
+    return { width: Math.max(...rects.map((rect) => rect.width)), height: top - gap, rects };
 }
 
 /** 把若干段纵向拼成一张白底图，再按统一的尺寸、体积与质量限制编码 */
 async function renderStack(pieces: StackPiece[], scaleToWidth: boolean): Promise<RenderedImage> {
-    const layout = stackLayout(pieces.map((piece) => ({ width: piece.sw, height: piece.sh })), STACK_GAP, scaleToWidth);
+    const layout = stackLayout(pieces.map((piece) => ({ width: piece.sw, height: piece.sh, scale: piece.scale })), STACK_GAP, scaleToWidth);
     const canvas = document.createElement("canvas");
     canvas.width = layout.width;
     canvas.height = layout.height;
@@ -95,4 +99,24 @@ export async function renderQuestionImage(page: HTMLImageElement, regions: Draft
 export async function stackQuestionImages(dataUrls: string[]): Promise<RenderedImage> {
     const images = await Promise.all(dataUrls.map(loadImage));
     return renderStack(images.map((image) => ({ source: image, sx: 0, sy: 0, sw: image.naturalWidth, sh: image.naturalHeight })), true);
+}
+
+/**
+ * 照片自动分题的续页：把上一页中这道题的区域（按两页宽度之比缩放，字号与下一页一致）放在下一页整页的上方，
+ * 拼成一张图交给自动分题，题目的前后两段在图中连在一起
+ */
+export async function renderContinuationPage(previous: HTMLImageElement, regions: DraftRegion[], next: { source: CanvasImageSource; width: number; height: number }): Promise<RenderedImage> {
+    const width = previous.naturalWidth;
+    const height = previous.naturalHeight;
+    const scale = next.width / width;
+    const pieces: StackPiece[] = regions.map((region) => padRegion(region)).map((region) => ({
+        source: previous,
+        sx: Math.round(region.x * width),
+        sy: Math.round(region.y * height),
+        sw: Math.max(1, Math.round(region.width * width)),
+        sh: Math.max(1, Math.round(region.height * height)),
+        scale,
+    }));
+    pieces.push({ source: next.source, sx: 0, sy: 0, sw: next.width, sh: next.height });
+    return renderStack(pieces, false);
 }

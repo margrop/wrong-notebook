@@ -130,3 +130,51 @@ test('[E2E-B06] 照片分题中关闭页面后从识别任务找回；部分题�
     const batch = await batchOf(scenario);
     expect(batch.tasks.every((task) => task.status === 'saved')).toBe(true);
 });
+
+for (const profile of viewports) {
+    test.describe(`续页 ${profile.name}`, () => {
+        test.use({ viewport: profile.viewport, isMobile: profile.isMobile, hasTouch: profile.hasTouch });
+
+        test('[E2E-B09] 照片分题的最后一题接到下一页：这道题的区域放在下一页上方拼图后自动分题，本批移出这道题', async ({ page, scenario }, testInfo) => {
+            await scenario.login(page);
+            await page.goto(`/notebooks/${scenario.book.id}/add`);
+            await page.locator('input[type="file"]').first().setInputFiles(PAGE_PHOTO);
+            await page.getByRole('button', { name: '自动分题' }).click();
+            await page.getByRole('button', { name: '自动识别题目' }).click();
+            await expect(page.getByTestId('draft-summary')).toHaveText(/识别出 3 题/, { timeout: 20000 });
+            const firstUrl = page.url();
+
+            // 模型没有标记截断时，只有最后一题提供续页
+            const items = page.getByTestId('draft-item');
+            await expect(page.getByTestId('draft-continue')).toHaveCount(1);
+            await expect(items.nth(2).getByTestId('draft-continue')).toHaveText('下一页接着这题');
+            await expectNoHorizontalOverflow(page);
+            await saveShot(page, `continuation-${profile.name}`, testInfo);
+
+            const [chooser] = await Promise.all([page.waitForEvent('filechooser'), items.nth(2).getByTestId('draft-continue').click()]);
+            // 不限定拍照，手机上由系统提供拍照或相册
+            expect(await chooser.element().getAttribute('capture')).toBeNull();
+            await chooser.setFiles(PAGE_PHOTO);
+            await expect(page.getByTestId('continuation-notice')).toContainText('第 2 页正在分题');
+            await expect(page.getByTestId('draft-summary')).toHaveText(/识别出 2 题/);
+            expect(await calls(scenario, 'split')).toHaveLength(2);
+
+            const [first, second] = await scenario.db.importBatch.findMany({ where: { userId: scenario.user.id }, orderBy: { createdAt: 'asc' } });
+            expect(second).toMatchObject({ source: 'image', subjectId: first.subjectId, targetSubjectId: first.targetSubjectId });
+            const firstInfo = JSON.parse(first.imageInfo!);
+            const secondInfo = JSON.parse(second.imageInfo!);
+            expect(secondInfo.sourceType).toBe('continuation');
+            // 下一页上方多了上一页这道题的区域，拼图比单页更高
+            expect(secondInfo.outputHeight / secondInfo.outputWidth).toBeGreaterThan(firstInfo.outputHeight / firstInfo.outputWidth);
+
+            // 撤销可以把这道题放回本批
+            await page.getByRole('button', { name: '撤销' }).click();
+            await expect(page.getByTestId('draft-summary')).toHaveText(/识别出 3 题/);
+
+            await page.getByTestId('continuation-notice').getByRole('link', { name: '查看' }).click();
+            await expect(page).toHaveURL(new RegExp(`/import-batches/${second.id}$`));
+            await expect(page.getByTestId('draft-summary')).toHaveText(/识别出 3 题/, { timeout: 20000 });
+            expect(page.url()).not.toBe(firstUrl);
+        });
+    });
+}

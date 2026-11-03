@@ -18,4 +18,11 @@ describe('纵向拼接版面', () => {
             ],
         });
     });
+    it('续页：上一页的区域按两页宽度之比缩放，放在下一页上方', () => {
+        // 上一页宽 4000，区域 2000×500；下一页宽 3000，比例 0.75
+        expect(stackLayout([{ width: 2000, height: 500, scale: 0.75 }, { width: 3000, height: 4000 }], 16)).toEqual({
+            width: 3000, height: 375 + 16 + 4000,
+            rects: [{ x: 0, y: 0, width: 1500, height: 375 }, { x: 0, y: 391, width: 3000, height: 4000 }],
+        });
+    });
 });

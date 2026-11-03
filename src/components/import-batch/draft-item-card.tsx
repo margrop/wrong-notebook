@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronUp, Copy, Crop, Loader2, Merge, Scissors, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronUp, Copy, Crop, FilePlus2, Loader2, Merge, Scissors, Sparkles, Trash2 } from "lucide-react";
 import { RegionThumbnail } from "@/components/import-batch/region-thumbnail";
 import { TextFixPanel } from "@/components/import-batch/text-fix-panel";
 import { Badge } from "@/components/ui/badge";
@@ -33,10 +33,13 @@ interface DraftItemCardProps {
     /** 这一题正在修正；fixBusy 为有任何修正在进行 */
     fixing?: boolean;
     fixBusy?: boolean;
+    /** 照片批次：这道题接到下一页（为空时不显示）；continuing 为正在处理 */
+    onContinue?: () => void;
+    continuing?: boolean;
 }
 
 /** 分题预览中的一道题：默认折叠显示开头几行，展开后可编辑、拆分、合并、移动、删除 */
-export function DraftItemCard({ item, index, total, source, expanded, onToggleExpand, onEdit, image, onAdjustRegion, highlighted, onFixText, fixing, fixBusy }: DraftItemCardProps) {
+export function DraftItemCard({ item, index, total, source, expanded, onToggleExpand, onEdit, image, onAdjustRegion, highlighted, onFixText, fixing, fixBusy, onContinue, continuing }: DraftItemCardProps) {
     const { t } = useLanguage();
     const textRef = useRef<HTMLTextAreaElement>(null);
     const ready = isItemReady(item, source);
@@ -97,6 +100,15 @@ export function DraftItemCard({ item, index, total, source, expanded, onToggleEx
                 <button type="button" className="mt-2 block w-full max-w-md pl-8" onClick={onAdjustRegion} aria-label={t.importBatch.adjustRegion}>
                     <RegionThumbnail imageUrl={image.url} imageSize={image} regions={item.regions} className="max-h-48" />
                 </button>
+            )}
+
+            {onContinue && (
+                <div className="mt-2 pl-8">
+                    <Button type="button" size="sm" variant="outline" onClick={onContinue} disabled={continuing} data-testid="draft-continue">
+                        {continuing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FilePlus2 className="mr-1 h-4 w-4" />}
+                        {continuing ? t.importBatch.continuation.working : t.importBatch.continuation.button}
+                    </Button>
+                </div>
             )}
 
             {pendingFix && (
