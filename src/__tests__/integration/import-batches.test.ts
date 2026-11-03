@@ -418,7 +418,8 @@ describe('照片自动分题批次', () => {
         expect((await start(batch.id, { version: ready.version, images })).status).toBe(202);
         await waitForImportBatchTasksForTest(batch.id);
         expect(mocks.analyzeImage).toHaveBeenCalledTimes(2);
-        expect(mocks.analyzeImage.mock.calls.map(([base64]) => base64)).toEqual(images.map((image: { imageBase64: string }) => image.imageBase64.split(',')[1]));
+        // 各题并发识别，顺序不固定
+        expect(mocks.analyzeImage.mock.calls.map(([base64]) => base64).sort()).toEqual(images.map((image: { imageBase64: string }) => image.imageBase64.split(',')[1]).sort());
         const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
         expect(items.map((item) => item.originalImageUrl).sort()).toEqual(images.map((image: { imageBase64: string }) => image.imageBase64).sort());
         expect(items.every((item) => item.figureSvg?.startsWith('<svg'))).toBe(true);
