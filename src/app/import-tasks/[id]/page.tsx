@@ -15,7 +15,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import type { ReviewedQuestion } from "@/lib/use-question-import";
 import { apiClient } from "@/lib/api-client";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { confirmImportTask } from "@/lib/import-task-client";
+import { confirmImportTask, fetchImportTask } from "@/lib/import-task-client";
 import { usePageTitle } from "@/lib/page-title";
 import { useImportTaskActions } from "@/lib/use-import-task-actions";
 import { useImportTask } from "@/lib/use-import-tasks";
@@ -36,6 +36,21 @@ export default function ImportTaskPage() {
     const now = useNow(task?.status === "analyzing" || task?.status === "saving");
     // 记录已标记已读的任务编号，切换到另一个任务时重新标记
     const markedRead = useRef<string | null>(null);
+    // 状态轮询不带图片；进入待校对时单独取一次题目图片
+    const [image, setImage] = useState<{ id: string; data: string | null } | null>(null);
+    const reviewing = task?.status === "review";
+    useEffect(() => {
+        if (!reviewing) return;
+        let cancelled = false;
+        fetchImportTask(id, { image: true })
+            .then((detail) => {
+                if (!cancelled) setImage({ id, data: detail.imageData });
+            })
+            .catch((error: unknown) => frontendLogger.error('[ImportTask]', 'Failed to load task image', { error }));
+        return () => {
+            cancelled = true;
+        };
+    }, [id, reviewing]);
     // 未指定错题本时与首页一致：按识别出的学科自动选择名称相近的错题本
     const [notebooks, setNotebooks] = useState<Notebook[] | null>(null);
     useEffect(() => {
@@ -65,7 +80,7 @@ export default function ImportTaskPage() {
             </main>
         );
     }
-    if (!task || (task.status === "review" && !notebooks)) return <PageLoading />;
+    if (!task || (task.status === "review" && (!notebooks || image?.id !== id))) return <PageLoading />;
     const subject = task.result?.subject;
     const matchedNotebook = subject ? notebooks?.find((notebook) => notebook.name.includes(subject) || subject.includes(notebook.name)) : undefined;
 
@@ -83,7 +98,7 @@ export default function ImportTaskPage() {
             {task.status === "review" && task.result ? (
                 <CorrectionEditor
                     initialData={task.result}
-                    imagePreview={task.imageData}
+                    imagePreview={image?.data ?? null}
                     onSave={save}
                     onCancel={() => router.push("/import-tasks")}
                     initialSubjectId={task.targetSubjectId || task.subjectId || matchedNotebook?.id}

@@ -61,7 +61,7 @@ export interface ImportTaskSummary {
     finishedAt: string | null;
 }
 
-/** 单个任务详情：含待校对的识别结果与题目图片 */
+/** 单个任务详情：含待校对的识别结果；题目图片只在请求时（校对页）返回，其余为 null */
 export interface ImportTaskDetail extends ImportTaskSummary {
     result: ParsedQuestion | null;
     imageData: string | null;

@@ -66,8 +66,10 @@ export async function createImportTask(input: CreateImportTaskInput, clientReque
     throw lastError;
 }
 
-export async function fetchImportTask(id: string): Promise<ImportTaskDetail> {
-    const { task } = await apiClient.get<{ task: ImportTaskDetail }>(`/api/import-tasks/${encodeURIComponent(id)}`);
+/** 读取任务；状态轮询不带图片，校对页加载时传 image: true 取一次图片 */
+export async function fetchImportTask(id: string, options: { image?: boolean } = {}): Promise<ImportTaskDetail> {
+    const query = options.image ? "?include=image" : "";
+    const { task } = await apiClient.get<{ task: ImportTaskDetail }>(`/api/import-tasks/${encodeURIComponent(id)}${query}`);
     return task;
 }
 

@@ -88,7 +88,7 @@ export async function GET(req: Request) {
         const importTasks = await prisma.importTask.findMany({
             where: { ...userFilter, status: { not: 'saved' } },
             select: {
-                id: true, userId: true, mode: true, status: true, language: true, subjectId: true, targetSubjectId: true,
+                id: true, clientRequestId: true, userId: true, mode: true, status: true, language: true, subjectId: true, targetSubjectId: true,
                 paperLevel: true, imageData: true, imageInfo: true, result: true, error: true, timings: true,
                 attempts: true, createdAt: true, finishedAt: true,
             },

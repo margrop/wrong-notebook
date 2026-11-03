@@ -2,8 +2,9 @@
  * 备份导入：还原未处理的识别导入任务（待校对草稿与失败可重试的任务）。
  * 只写入记录，不会安排后台执行；导出时仍在执行的任务按中断处理，需用户在任务列表中重试。
  *
- * 导入沿用备份中的任务编号作为来源标识：同一任务重复导入时跳过，再次导出时编号不变；
- * 同一时间、同一图片的不同任务编号不同，全部还原。编号已被其他账户占用时改用新编号。
+ * 以任务的幂等键（clientRequestId，旧数据没有时用原任务编号）作为来源标识，写入新任务的同一字段：
+ * 同一账户内按「用户 + 来源标识」判断是否已导入，跨账户恢复、重复导入或再次导出后导入都不会重复创建；
+ * 同一时间、同一图片的不同任务来源标识不同，全部还原。新任务使用新编号，不复用、不覆盖其他账户的任务。
  */
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -16,6 +17,7 @@ const TASK_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
 const backupTaskSchema = z.object({
     id: z.string().regex(TASK_ID_PATTERN).optional(),
+    clientRequestId: z.string().regex(TASK_ID_PATTERN).nullish(),
     userId: z.string().max(100).optional(),
     mode: z.string().optional(),
     status: z.string().optional(),
@@ -56,7 +58,7 @@ interface ImportTaskBackupContext {
     paperGroupIdMap: Map<string, string>;
 }
 
-/** 返回新建的任务数；同一来源任务已导入过时跳过 */
+/** 返回新建的任务数；同一账户已导入过同一来源任务时跳过 */
 export async function importImportTasks(tx: Prisma.TransactionClient, raw: unknown, context: ImportTaskBackupContext): Promise<number> {
     if (!Array.isArray(raw)) return 0;
     let created = 0;
@@ -75,12 +77,10 @@ export async function importImportTasks(tx: Prisma.TransactionClient, raw: unkno
         if (!result && !imageData) continue;
 
         const createdAt = parseDate(task.createdAt);
-        let id: string | undefined;
-        if (task.id) {
-            const existing = await tx.importTask.findUnique({ where: { id: task.id }, select: { userId: true } });
-            if (existing?.userId === userId) continue;
-            // 编号被其他账户占用（伪造或跨账户的备份）时改用新编号，不覆盖、不泄露他人任务
-            if (!existing) id = task.id;
+        const sourceKey = task.clientRequestId || task.id;
+        if (sourceKey) {
+            const imported = await tx.importTask.count({ where: { userId, OR: [{ clientRequestId: sourceKey }, { id: sourceKey }] } });
+            if (imported > 0) continue;
         }
 
         const mapId = (id: string | null | undefined, map: Map<string, string>) => (id && map.has(id) ? map.get(id)! : null);
@@ -93,8 +93,8 @@ export async function importImportTasks(tx: Prisma.TransactionClient, raw: unkno
 
         await tx.importTask.create({
             data: {
-                id,
                 userId,
+                clientRequestId: sourceKey ?? null,
                 mode,
                 status,
                 language: task.language === 'en' ? 'en' : 'zh',

@@ -5,12 +5,16 @@ import { discardImportTask, getImportTask } from "@/lib/import-tasks";
 
 type Params = { params: Promise<{ id: string }> };
 
-/** GET /api/import-tasks/:id 任务详情（含待校对结果与图片），只能读取自己的任务 */
-export async function GET(_req: Request, { params }: Params) {
+/**
+ * GET /api/import-tasks/:id 任务状态与识别结果，只能读取自己的任务。
+ * 默认不含题目图片（状态轮询使用）；?include=image 时附带图片，供校对页加载一次。
+ */
+export async function GET(req: Request, { params }: Params) {
     const user = await getCurrentUser();
     if (!user) return unauthorized("Authentication required");
     const { id } = await params;
-    const task = await getImportTask(user, id);
+    const image = new URL(req.url).searchParams.get("include") === "image";
+    const task = await getImportTask(user, id, { image });
     if (!task) return notFound("IMPORT_TASK_NOT_FOUND");
     return NextResponse.json({ task });
 }

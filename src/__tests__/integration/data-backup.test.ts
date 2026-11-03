@@ -23,6 +23,7 @@ vi.mock('@/lib/mastery', async (importOriginal) => ({
 }));
 
 import { GET as EXPORT } from '@/app/api/export/route';
+import { importImportTasks } from '@/lib/import-task-backup';
 import { POST as IMPORT } from '@/app/api/import/route';
 import { sanitizeFigureSvg } from '@/lib/figure-svg';
 import { embedNarration, sanitizeSvgAnimation } from '@/lib/svg-animation';
@@ -445,7 +446,8 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             ['failed', 'SERVER_RESTARTED'],
             ['failed', 'AI_TIMEOUT_ERROR'],
         ]);
-        expect(tasks[0]).toMatchObject({ imageData: image, subjectId: math.id, targetSubjectId: math.id, clientRequestId: null });
+        // 来源标识写入幂等键，用于判断重复导入
+        expect(tasks[0]).toMatchObject({ imageData: image, subjectId: math.id, targetSubjectId: math.id, clientRequestId: expect.any(String) });
         expect(JSON.parse(tasks[0].result!).questionText).toBe('备份中的草稿题目');
 
         // 再次导入同一文件不重复创建
@@ -462,42 +464,61 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBeGreaterThan(0);
     });
 
-    it('同一时间同一图片的不同任务全部还原；按来源任务编号判断重复导入，再次导出保留编号', async () => {
+    it('同一时间同一图片的不同任务全部还原；按来源标识判断重复导入，再次导出保留来源标识', async () => {
         const image = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
         const createdAt = new Date('2026-10-05T00:00:00Z');
         const draft = (questionText: string) => JSON.stringify({ questionText, answerText: '答', analysis: '析', knowledgePoints: [], subject: '数学' });
         await database.importTask.createMany({ data: [
-            { id: 'source-task-aaaaaaaa', userId: 'user-1', mode: 'review', status: 'review', imageData: image, result: draft('第一份草稿'), createdAt },
+            { id: 'source-task-aaaaaaaa', clientRequestId: 'client-request-aaaa', userId: 'user-1', mode: 'review', status: 'review', imageData: image, result: draft('第一份草稿'), createdAt },
+            // 旧数据没有幂等键时用任务编号作为来源标识
             { id: 'source-task-bbbbbbbb', userId: 'user-1', mode: 'review', status: 'review', imageData: image, result: draft('第二份草稿'), createdAt },
         ] });
         const backup = await exportBackup();
-        expect(backup.importTasks.map((task: { id: string }) => task.id).sort()).toEqual(['source-task-aaaaaaaa', 'source-task-bbbbbbbb']);
+        expect(backup.importTasks.map((task: { clientRequestId: string | null }) => task.clientRequestId).sort()).toEqual(['client-request-aaaa', null]);
+        // 原任务仍在时导入同一备份不重复创建
+        expect((await importBackup(backup)).stats.importTasksCreated).toBe(0);
 
         await clearUserData();
         expect((await importBackup(backup)).stats.importTasksCreated).toBe(2);
-        const drafts = await database.importTask.findMany({ where: { userId: 'user-1' }, orderBy: { id: 'asc' } });
-        expect(drafts.map((task) => JSON.parse(task.result!).questionText)).toEqual(['第一份草稿', '第二份草稿']);
-        expect(drafts.map((task) => task.id)).toEqual(['source-task-aaaaaaaa', 'source-task-bbbbbbbb']);
+        const drafts = await database.importTask.findMany({ where: { userId: 'user-1' }, orderBy: { clientRequestId: 'asc' } });
+        expect(drafts.map((task) => [task.clientRequestId, JSON.parse(task.result!).questionText])).toEqual([
+            ['client-request-aaaa', '第一份草稿'],
+            ['source-task-bbbbbbbb', '第二份草稿'],
+        ]);
 
-        // 重复导入同一备份不重复创建；再次导出后编号不变，导入仍按同一来源判断
+        // 重复导入同一备份、再次导出后导入都不重复创建，来源标识保持不变
         expect((await importBackup(backup)).stats.importTasksCreated).toBe(0);
         const again = await exportBackup();
-        expect(again.importTasks.map((task: { id: string }) => task.id).sort()).toEqual(['source-task-aaaaaaaa', 'source-task-bbbbbbbb']);
+        expect(again.importTasks.map((task: { clientRequestId: string }) => task.clientRequestId).sort()).toEqual(['client-request-aaaa', 'source-task-bbbbbbbb']);
         expect((await importBackup(again)).stats.importTasksCreated).toBe(0);
         expect(await database.importTask.count({ where: { userId: 'user-1' } })).toBe(2);
     });
 
-    it('备份中的任务编号属于其他账户时改用新编号，不覆盖他人任务', async () => {
+    it('跨账户恢复同一备份：原任务仍属于其他账户时，目标账户只创建一次且不影响原账户', async () => {
         const image = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
-        const result = JSON.stringify({ questionText: '他人的草稿', answerText: '答', analysis: '析', knowledgePoints: [], subject: '数学' });
-        await database.user.upsert({ where: { email: 'backup-other@example.com' }, update: {}, create: { id: 'backup-other', email: 'backup-other@example.com', password: 'test-only' } });
-        await database.importTask.create({ data: { id: 'shared-task-id-1', userId: 'backup-other', mode: 'review', status: 'review', imageData: image, result } });
+        const draft = (questionText: string) => JSON.stringify({ questionText, answerText: '答', analysis: '析', knowledgePoints: [], subject: '数学' });
+        const createdAt = new Date('2026-10-06T00:00:00Z');
+        await database.importTask.createMany({ data: [
+            { id: 'cross-task-aaaaaaaa', clientRequestId: 'cross-request-aaaa', userId: 'user-1', mode: 'review', status: 'review', imageData: image, result: draft('草稿 A'), createdAt },
+            { id: 'cross-task-bbbbbbbb', clientRequestId: 'cross-request-bbbb', userId: 'user-1', mode: 'review', status: 'review', imageData: image, result: draft('草稿 B'), createdAt },
+        ] });
         const backup = await exportBackup();
-        backup.importTasks = [{ id: 'shared-task-id-1', userId: 'user-1', mode: 'review', status: 'review', imageData: image, result: result.replace('他人的草稿', '我的草稿') }];
-        expect((await importBackup(backup)).stats.importTasksCreated).toBe(1);
-        expect(JSON.parse((await database.importTask.findUniqueOrThrow({ where: { id: 'shared-task-id-1' } })).result!).questionText).toBe('他人的草稿');
-        const mine = await database.importTask.findFirstOrThrow({ where: { userId: 'user-1' } });
-        expect(mine.id).not.toBe('shared-task-id-1');
+        await database.user.upsert({ where: { email: 'backup-other@example.com' }, update: {}, create: { id: 'backup-other', email: 'backup-other@example.com', password: 'test-only' } });
+        const restore = (tasks: unknown) => database.$transaction((tx) => importImportTasks(tx, tasks, {
+            resolveUserId: () => 'backup-other', subjectIdMap: new Map(), paperGroupIdMap: new Map(),
+        }));
+        expect(await restore(backup.importTasks)).toBe(2);
+        expect(await restore(backup.importTasks)).toBe(0);
+        const restored = await database.importTask.findMany({ where: { userId: 'backup-other' } });
+        expect(restored).toHaveLength(2);
+        expect(restored.map((task) => task.id)).not.toContain('cross-task-aaaaaaaa');
+        // 目标账户再次导出后导入仍按来源判断
+        const reexported = restored.map((task) => ({ ...task, createdAt: task.createdAt.toISOString(), finishedAt: task.finishedAt?.toISOString() ?? null }));
+        expect(await restore(reexported)).toBe(0);
+        expect(await database.importTask.count({ where: { userId: 'backup-other' } })).toBe(2);
+        // 原账户的任务不受影响
+        expect(await database.importTask.count({ where: { userId: 'user-1' } })).toBe(2);
+        expect(JSON.parse((await database.importTask.findUniqueOrThrow({ where: { id: 'cross-task-aaaaaaaa' } })).result!).questionText).toBe('草稿 A');
         await database.user.delete({ where: { id: 'backup-other' } });
     });
 });

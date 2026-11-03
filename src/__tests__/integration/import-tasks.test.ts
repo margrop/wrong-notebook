@@ -96,8 +96,8 @@ async function create(body: Record<string, unknown> = {}) {
     const data = await response.json();
     return { response, task: data.task, data };
 }
-async function getTask(id: string) {
-    const response = await GET_TASK(new Request(`http://localhost/api/import-tasks/${id}`), params(id));
+async function getTask(id: string, image = false) {
+    const response = await GET_TASK(new Request(`http://localhost/api/import-tasks/${id}${image ? '?include=image' : ''}`), params(id));
     return { response, task: (await response.json()).task };
 }
 const confirm = (id: string, body: Record<string, unknown> = {}) => CONFIRM(json({ ...parsed(), subjectId: 'math', ...body }), params(id));
@@ -148,7 +148,7 @@ describe('识别导入任务', () => {
         expect(task).toMatchObject({ status: 'analyzing', mode: 'review' });
         await waitForImportTaskForTest(task.id);
 
-        const stored = await getTask(task.id);
+        const stored = await getTask(task.id, true);
         expect(stored.task).toMatchObject({ status: 'review', unread: true, hasResult: true, imageData: IMAGE });
         expect(stored.task.result.questionText).toBe('求解方程 x + 2 = 5');
         expect(stored.task.timings.client).toMatchObject({ compress: 120, read: 5 });
@@ -309,7 +309,7 @@ describe('识别导入任务', () => {
         const byId = Object.fromEntries(list.tasks.map((task: { id: string }) => [task.id, task]));
         expect(byId[pending.task.id]).toMatchObject({ status: 'failed', error: 'SERVER_RESTARTED' });
         expect(list.activeCount).toBe(0);
-        const recovered = (await getTask(done.task.id)).task;
+        const recovered = (await getTask(done.task.id, true)).task;
         expect(recovered).toMatchObject({ status: 'review', imageData: IMAGE });
         expect(recovered.result.questionText).toBe('求解方程 x + 2 = 5');
         expect(mocks.analyzeImage).toHaveBeenCalledTimes(2);
@@ -433,6 +433,38 @@ describe('识别导入任务', () => {
         expect((await RETRY(json({}), params(task.id))).status).toBe(409);
         const saved = await (await confirm(task.id, { originalImageUrl: 'data:image/png;base64,ZXZpbA==' })).json();
         expect((await database.errorItem.findUniqueOrThrow({ where: { id: saved.id } })).originalImageUrl).toBe(IMAGE);
+        simulateRestartForTest();
+    });
+
+    it('状态响应不含题目图片：创建、识别中、待校对轮询都很小，校对页按需取一次图片', async () => {
+        // 约 2MB 的图片
+        const large = `data:image/jpeg;base64,/9j/${'A'.repeat(2 * 1024 * 1024)}`;
+        mocks.analyzeImage.mockImplementationOnce(() => new Promise(() => undefined));
+        const pending = await CREATE(json({ clientRequestId: 'large-image-pending', imageBase64: large }));
+        const pendingText = await pending.text();
+        expect(pending.status).toBe(202);
+        expect(pendingText.length).toBeLessThan(4096);
+        expect(JSON.parse(pendingText).task.imageData).toBeNull();
+        const polling = await GET_TASK(new Request(`http://localhost/api/import-tasks/${JSON.parse(pendingText).task.id}`), params(JSON.parse(pendingText).task.id));
+        const pollingText = await polling.text();
+        expect(JSON.parse(pollingText).task).toMatchObject({ status: 'analyzing', imageData: null });
+        expect(pollingText.length).toBeLessThan(4096);
+
+        const done = await CREATE(json({ clientRequestId: 'large-image-review', imageBase64: large }));
+        const id = (await done.json()).task.id;
+        await waitForImportTaskForTest(id);
+        const review = await GET_TASK(new Request(`http://localhost/api/import-tasks/${id}`), params(id));
+        const reviewText = await review.text();
+        expect(JSON.parse(reviewText).task).toMatchObject({ status: 'review', imageData: null, hasResult: true });
+        expect(reviewText.length).toBeLessThan(4096);
+        const withImage = await GET_TASK(new Request(`http://localhost/api/import-tasks/${id}?include=image`), params(id));
+        expect((await withImage.json()).task.imageData).toBe(large);
+        const list = await (await LIST()).text();
+        expect(list.length).toBeLessThan(8192);
+        // 后台入库仍使用服务端保存的原图
+        expect((await confirm(id)).status).toBe(201);
+        const task = await database.importTask.findUniqueOrThrow({ where: { id } });
+        expect((await database.errorItem.findUniqueOrThrow({ where: { id: task.errorItemId! } })).originalImageUrl).toBe(large);
         simulateRestartForTest();
     });
 });

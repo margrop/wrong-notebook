@@ -164,11 +164,12 @@ function toSummary(task: SummaryRow): ImportTaskSummary {
     };
 }
 
-function toDetail(task: TaskWithItem): ImportTaskDetail {
+/** 任务详情：题目图片只在明确需要（进入校对页）时返回，状态轮询与创建响应不重复传输整张图片 */
+function toDetail(task: SummaryRow & { paperLevel: string | null; imageData?: string }, options: { image?: boolean } = {}): ImportTaskDetail {
     return {
         ...toSummary(task),
         result: parseResult(task.result),
-        imageData: task.imageData || null,
+        imageData: options.image ? task.imageData || null : null,
         paperLevel: task.paperLevel,
     };
 }
@@ -468,9 +469,14 @@ export async function listImportTasks(user: Pick<User, 'id'>): Promise<ImportTas
     };
 }
 
-export async function getImportTask(user: Pick<User, 'id'>, id: string): Promise<ImportTaskDetail | null> {
-    const task = await findOwnTask(user, id);
-    return task ? toDetail(task) : null;
+/** 单个任务；image 为 true 时附带题目图片（只在校对页需要时读取一次） */
+export async function getImportTask(user: Pick<User, 'id'>, id: string, options: { image?: boolean } = {}): Promise<ImportTaskDetail | null> {
+    await reconcileInterrupted(user.id, id);
+    const task = await prisma.importTask.findFirst({
+        where: { id, userId: user.id },
+        select: { ...summarySelect, paperLevel: true, imageData: options.image === true },
+    });
+    return task ? toDetail(task, options) : null;
 }
 
 /** 标记已查看（清除未读提示） */
