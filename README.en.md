@@ -119,7 +119,7 @@ The tag library organizes knowledge points by curriculum level. Knowledge points
 <details>
 <summary><strong>Statistics: mistake distribution, mastery rate, practice accuracy and trends</strong></summary>
 
-Mistake statistics show total mistakes, mastered count, mastery rate, subject distribution and monthly trend; when there is no data, a prompt guides you to record mistakes, and a retry button appears when loading fails.
+Mistake statistics show total mistakes, to-review count, reviewing count, mastered count and mastery rate, with a three-segment review-status progress bar, subject distribution and monthly trend; when there is no data, a prompt guides you to record mistakes, and a retry button appears when loading fails.
 
 ![Mistake count, mastery rate, subject distribution and monthly trend charts](doc/screenshots/en/error-stats.png)
 

@@ -26,8 +26,14 @@ export async function GET() {
         const sevenDaysAgo = getDayRange(now, timeZone, -6).start;
         const masteryThreshold = await getMasteryThreshold(userId);
 
-        const [totalErrors, masteredCount, subjectGroups, recentCreatedAt] = await Promise.all([
+        const [totalErrors, newCount, reviewingCount, masteredCount, subjectGroups, recentCreatedAt] = await Promise.all([
             prisma.errorItem.count({ where: { userId } }),
+            prisma.errorItem.count({
+                where: { AND: [{ userId }, masteryStatusWhere('new', masteryThreshold)] }
+            }),
+            prisma.errorItem.count({
+                where: { AND: [{ userId }, masteryStatusWhere('reviewing', masteryThreshold)] }
+            }),
             prisma.errorItem.count({
                 where: { AND: [{ userId }, masteryStatusWhere('mastered', masteryThreshold)] }
             }),
@@ -79,6 +85,8 @@ export async function GET() {
 
         return NextResponse.json({
             totalErrors,
+            newCount,
+            reviewingCount,
             masteredCount,
             masteryRate,
             subjectStats,

@@ -82,6 +82,8 @@ describe('/api/analytics', () => {
         it('应该返回完整的统计数据', async () => {
             mocks.mockPrismaErrorItem.count
                 .mockResolvedValueOnce(100)  // totalErrors
+                .mockResolvedValueOnce(10)   // newCount
+                .mockResolvedValueOnce(15)   // reviewingCount
                 .mockResolvedValueOnce(75);  // masteredCount
             mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([
                 { subjectId: 'sub-1', _count: { id: 3 } },
@@ -96,6 +98,8 @@ describe('/api/analytics', () => {
 
             expect(response.status).toBe(200);
             expect(data.totalErrors).toBe(100);
+            expect(data.newCount).toBe(10);
+            expect(data.reviewingCount).toBe(15);
             expect(data.masteredCount).toBe(75);
             expect(data.masteryRate).toBe('75.0');
             expect(data.subjectStats).toBeDefined();
@@ -218,13 +222,51 @@ describe('/api/analytics', () => {
 
             expect(response.status).toBe(200);
             expect(data.totalErrors).toBe(0);
+            expect(data.newCount).toBe(0);
+            expect(data.reviewingCount).toBe(0);
             expect(data.masteredCount).toBe(0);
             expect(data.masteryRate).toBe(0);
+        });
+
+        it('应该使用 masteryStatusWhere 查询三种复习状态', async () => {
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            await GET();
+
+            // 验证 4 次 count 调用分别对应 totalErrors、new、reviewing、mastered
+            expect(mocks.mockPrismaErrorItem.count).toHaveBeenCalledTimes(4);
+            // newCount 查询条件：practiceRecords none
+            expect(mocks.mockPrismaErrorItem.count).toHaveBeenCalledWith({
+                where: { AND: [{ userId: 'user-123' }, { practiceRecords: { none: { result: { not: null } } } }] },
+            });
+            // reviewingCount 查询条件：有记录但掌握概率低于阈值或为 null
+            expect(mocks.mockPrismaErrorItem.count).toHaveBeenCalledWith({
+                where: {
+                    AND: [{ userId: 'user-123' }, {
+                        practiceRecords: { some: { result: { not: null } } },
+                        OR: [{ masteryProbability: null }, { masteryProbability: { lt: 0.5 } }],
+                    }],
+                },
+            });
+            // masteredCount 查询条件：有记录且掌握概率达到阈值
+            expect(mocks.mockPrismaErrorItem.count).toHaveBeenCalledWith({
+                where: {
+                    AND: [{ userId: 'user-123' }, {
+                        practiceRecords: { some: { result: { not: null } } },
+                        masteryProbability: { gte: 0.5 },
+                    }],
+                },
+            });
         });
 
         it('应该正确计算掌握率', async () => {
             mocks.mockPrismaErrorItem.count
                 .mockResolvedValueOnce(200)  // totalErrors
+                .mockResolvedValueOnce(20)   // newCount
+                .mockResolvedValueOnce(30)   // reviewingCount
                 .mockResolvedValueOnce(50);  // masteredCount
             mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
@@ -277,7 +319,9 @@ describe('/api/analytics', () => {
             vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
 
             mocks.mockPrismaErrorItem.count
-                .mockResolvedValueOnce(50)   // totalErrors
+                .mockResolvedValueOnce(50)  // totalErrors
+                .mockResolvedValueOnce(0)   // newCount
+                .mockResolvedValueOnce(0)   // reviewingCount
                 .mockResolvedValueOnce(50);  // masteredCount (all mastered)
             mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
@@ -296,6 +340,8 @@ describe('/api/analytics', () => {
 
             mocks.mockPrismaErrorItem.count
                 .mockResolvedValueOnce(50)  // totalErrors
+                .mockResolvedValueOnce(20)  // newCount
+                .mockResolvedValueOnce(30)  // reviewingCount
                 .mockResolvedValueOnce(0);  // masteredCount (none mastered)
             mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);

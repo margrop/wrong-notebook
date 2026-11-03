@@ -219,6 +219,8 @@ export interface AppConfig extends VendorConfigs {
 
 export interface AnalyticsData {
     totalErrors: number;
+    newCount: number;
+    reviewingCount: number;
     masteredCount: number;
     masteryRate: number;
     subjectStats: { name: string; value: number }[];

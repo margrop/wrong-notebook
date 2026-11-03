@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
-import { Loader2, TrendingUp, CheckCircle, BookOpen, Inbox } from "lucide-react";
+import { Loader2, CheckCircle, BookOpen, Clock, RefreshCw, Inbox } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AnalyticsData } from "@/types/api";
 import { useStatsData } from "@/lib/use-stats-data";
 import { StatCard } from "./stat-card";
 import { SubjectPieChart } from "./subject-pie-chart";
 import { StatsEmpty, StatsError } from "./stats-state";
+import { MasteryProgressBar } from "./mastery-progress-bar";
 import { CHART_GRID_COLOR, CHART_AXIS_COLOR, CHART_BAR_GRADIENT_START } from "./chart-colors";
 
 export function WrongAnswerStats() {
@@ -51,7 +52,7 @@ export function WrongAnswerStats() {
                 {t.wrongAnswerStats.title}
             </h2>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <StatCard
                     title={t.wrongAnswerStats.totalErrors}
                     value={data.totalErrors}
@@ -59,18 +60,32 @@ export function WrongAnswerStats() {
                     icon={BookOpen}
                 />
                 <StatCard
-                    title={t.wrongAnswerStats.mastered}
-                    value={data.masteredCount}
-                    description={t.wrongAnswerStats.masteredDesc}
-                    icon={CheckCircle}
+                    title={t.wrongAnswerStats.new}
+                    value={data.newCount}
+                    description={t.wrongAnswerStats.newDesc}
+                    icon={Clock}
                 />
                 <StatCard
-                    title={t.wrongAnswerStats.masteryRate}
-                    value={`${data.masteryRate}%`}
-                    description={t.wrongAnswerStats.masteryRateDesc}
-                    icon={TrendingUp}
+                    title={t.wrongAnswerStats.reviewing}
+                    value={data.reviewingCount}
+                    description={t.wrongAnswerStats.reviewingDesc}
+                    icon={RefreshCw}
+                />
+                <StatCard
+                    title={t.wrongAnswerStats.mastered}
+                    value={data.masteredCount}
+                    description={`${t.wrongAnswerStats.masteryRate}: ${data.masteryRate}%`}
+                    icon={CheckCircle}
                 />
             </div>
+
+            {/* 三段式进度条：待复习 / 复习中 / 已掌握 */}
+            <MasteryProgressBar
+                total={data.totalErrors}
+                newCount={data.newCount}
+                reviewingCount={data.reviewingCount}
+                masteredCount={data.masteredCount}
+            />
 
             <div className="grid gap-4 md:grid-cols-2">
                 <SubjectPieChart
