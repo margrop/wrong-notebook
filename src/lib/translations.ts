@@ -64,6 +64,8 @@ export const translations = {
                 resetZoom: "Reset to 100%",
             },
             progress: {
+                reading: "Reading photo...",
+                converting: "Converting HEIC/HEIF photo...",
                 compressing: "Preparing image...",
                 uploading: "Uploading...",
                 analyzing: "Waiting for AI analysis...",
@@ -166,7 +168,17 @@ export const translations = {
         },
         upload: {
             // dragDrop: "Click or drag image to upload", // Moved to app
-            support: "Support JPG, PNG (Max 5MB)",
+            support: "JPG, PNG, WebP and HEIC/HEIF photos",
+            decodeErrors: {
+                HEIC_DECODE_FAILED: "This HEIC/HEIF photo could not be decoded. Export it as JPG in your photo app (or forward it through a chat app) and try again.",
+                IMAGE_DECODE_FAILED: "This image ({format}) could not be read. It may be damaged or unsupported by this browser.",
+                UNSUPPORTED_IMAGE: "The selected file is not a recognized image. Choose a JPG, PNG, WebP or HEIC photo.",
+            },
+            stages: {
+                read: "Read",
+                convert: "Convert",
+                compress: "Crop & compress",
+            },
             analyze: "Analyze with AI",
             // analyzing: "Analyzing...", // Moved to app
             screenshot: "Screenshot",
@@ -1548,6 +1560,8 @@ export const translations = {
                 resetZoom: "还原为 100%",
             },
             progress: {
+                reading: "正在读取照片...",
+                converting: "正在转换 HEIC/HEIF 照片...",
                 compressing: "正在准备图片...",
                 uploading: "正在上传...",
                 analyzing: "等待 AI 返回分析结果...",
@@ -1650,7 +1664,17 @@ export const translations = {
         },
         upload: {
             // dragDrop: "点击或拖拽上传图片", // Moved to app
-            support: "支持 JPG, PNG (最大 5MB)",
+            support: "支持 JPG、PNG、WebP 和 HEIC/HEIF 照片",
+            decodeErrors: {
+                HEIC_DECODE_FAILED: "无法解码这张 HEIC/HEIF 照片。可在相册中将其导出为 JPG（或经微信等转存）后重试。",
+                IMAGE_DECODE_FAILED: "无法读取这张图片（{format}），可能已损坏或当前浏览器不支持该格式。",
+                UNSUPPORTED_IMAGE: "所选文件不是可识别的图片，请选择 JPG、PNG、WebP 或 HEIC 照片。",
+            },
+            stages: {
+                read: "读取",
+                convert: "转换",
+                compress: "裁剪压缩",
+            },
             analyze: "AI 智能解析",
             // analyzing: "解析中...", // Moved to app
             screenshot: "屏幕截图",

@@ -22,6 +22,10 @@ The notebook list shows only each name and question count; click one to open its
 
 Images can be cropped first. While cropping or selecting several questions, zoom with the mouse wheel, a two-finger pinch or the buttons at the top right (100%–500%; click the percentage to reset). When one image contains several questions, select them all for a batch import. Keep the full question, any required figure and the student's work, and avoid blurry images or cut-off conditions.
 
+After you choose an image, the real format is detected from the file content: HEIC/HEIF photos are converted to JPEG and rotated upright before cropping, and no extra decoder is downloaded when the browser can decode them itself. Damaged files or files that are not images show a specific reason.
+
+The crop preview uses a thumbnail; after you confirm, the crop is taken from the original. Output is limited by a 4096 px long edge, about 4.9 megapixels and 1.5 MB together, with JPEG quality at 0.8 or above, so small text, formulas and figures stay sharp.
+
 After enabling "Review before import" in "Settings → General", you can correct the recognition on the review page before saving. The AI may misread numbers, symbols and figure relationships, so check against the original before saving.
 
 ### Recognition tasks

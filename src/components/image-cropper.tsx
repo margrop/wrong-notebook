@@ -25,12 +25,20 @@ interface ImageCropperProps {
     imageSrc: string;
     open: boolean;
     onClose: () => void;
-    onCropComplete: (croppedImageBlob: Blob) => void;
+    /** 返回按显示图片裁剪出的图片（预览图即原图时使用） */
+    onCropComplete?: (croppedImageBlob: Blob) => void;
     /** 提供时显示「多题框选」模式，返回每个框裁剪出的图片 */
     onMultiCropComplete?: (croppedImageBlobs: Blob[]) => void;
+    /**
+     * 提供时只返回相对坐标（0～1），由调用方从原图裁剪：预览使用缩略图时，保证裁剪结果保留原图分辨率。
+     * multi 为 true 表示多题框选，此时也会显示「多题框选」模式。
+     */
+    onRegionsSelected?: (regions: ImageRegion[], multi: boolean) => void;
+    /** 与 onRegionsSelected 一起使用时是否提供多题框选，默认提供 */
+    allowMulti?: boolean;
 }
 
-export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiCropComplete }: ImageCropperProps) {
+export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiCropComplete, onRegionsSelected, allowMulti = true }: ImageCropperProps) {
     const { t } = useLanguage();
     const safeImageSrc = toSafeImageSrc(imageSrc);
     // 始终保存百分比坐标，缩放改变图片显示尺寸后仍然准确
@@ -52,8 +60,15 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
     const setRegions = (next: ImageRegion[]) => setRegionState({ src: imageSrc, regions: next });
     const multiImgRef = useRef<HTMLImageElement>(null);
 
+    const multiEnabled = !!onMultiCropComplete || (!!onRegionsSelected && allowMulti);
     const handleMultiConfirm = async () => {
-        if (!multiImgRef.current || regions.length === 0 || !onMultiCropComplete) return;
+        if (regions.length === 0) return;
+        if (onRegionsSelected) {
+            onRegionsSelected(regions, true);
+            setRegions([]);
+            return;
+        }
+        if (!multiImgRef.current || !onMultiCropComplete) return;
         try {
             onMultiCropComplete(await cropImageRegions(multiImgRef.current, regions));
             setRegions([]);
@@ -69,11 +84,15 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
     }
 
     const handleConfirm = async () => {
-        if (!imgRef.current) return;
         // 没有有效选框（如只点了一下）时使用整张图片
         const region: ImageRegion = crop && crop.width > 0 && crop.height > 0
             ? { x: crop.x / 100, y: crop.y / 100, width: crop.width / 100, height: crop.height / 100 }
             : { x: 0, y: 0, width: 1, height: 1 };
+        if (onRegionsSelected) {
+            onRegionsSelected([region], false);
+            return;
+        }
+        if (!imgRef.current || !onCropComplete) return;
         try {
             const [croppedBlob] = await cropImageRegions(imgRef.current, [region]);
             onCropComplete(croppedBlob);
@@ -121,7 +140,7 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
                 </div>
 
                 <div className="p-4 border-t bg-background shrink-0 space-y-3">
-                    {onMultiCropComplete && (
+                    {multiEnabled && (
                         <div className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1 sm:w-80">
                             {(["single", "multi"] as const).map((value) => (
                                 <button

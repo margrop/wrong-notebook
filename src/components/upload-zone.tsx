@@ -23,6 +23,12 @@ declare global {
     }
 }
 
+/**
+ * 拖拽区接受的类型：image/* 加常见扩展名。部分系统不认识 HEIC/HEIF 的 MIME（报告为空或 octet-stream），
+ * 按扩展名放行，选择后再按文件头识别真实格式。
+ */
+const IMAGE_ACCEPT = { "image/*": [".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".heic", ".heif"] };
+
 interface UploadZoneProps {
     onImageSelect: (file: File) => void;  // 改为传递 File 对象
     isAnalyzing: boolean;
@@ -54,9 +60,7 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
-        accept: {
-            "image/*": [".jpeg", ".jpg", ".png"],
-        },
+        accept: IMAGE_ACCEPT,
         maxFiles: 1,
         disabled: isAnalyzing,
     });

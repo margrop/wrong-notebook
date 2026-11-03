@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { ProgressStatus } from "@/components/ui/progress-feedback";
+import { useEffect, useRef, useState } from "react";
+import type { CompletedStage, ProgressStatus } from "@/components/ui/progress-feedback";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { ParsedQuestion } from "@/lib/ai";
 import { getAnalysisErrorMessage } from "@/lib/analysis-error";
@@ -10,7 +10,10 @@ import { getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { createImportTask } from "@/lib/import-task-client";
-import { processImageFile } from "@/lib/image-utils";
+import type { ImageRegion } from "@/lib/image-crop";
+import { describeImage, ImageDecodeError, prepareImage, renderRegion } from "@/lib/image-pipeline";
+import type { PreparedImage, RenderedImage } from "@/lib/image-pipeline";
+import type { ImportImageInfo } from "@/lib/import-task-types";
 import { normalizeMistakeStatus } from "@/lib/mistake-status";
 import { fetchConfirmBeforeImport, saveParsedQuestion } from "@/lib/question-import";
 import type { ImportedQuestion } from "@/lib/question-import";
@@ -22,6 +25,13 @@ import type { AppConfig } from "@/types/api";
 const DEFAULT_AI_TIMEOUT = 180000;
 
 export type ReviewedQuestion = ParsedQuestion & { subjectId?: string; paperLevel?: string };
+
+/** 框选批量导入的一道题：已从原图裁剪并压缩好的图片 */
+export interface BatchImage {
+    dataUrl: string;
+    info: ImportImageInfo;
+    timings: { read: number; convert: number; crop: number; compress: number };
+}
 
 interface ReanswerResponse {
     gradeSemester?: string | null;
@@ -66,7 +76,10 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     // 免确认导入：偏好、最近一次导入结果、批量框选的题目图片
     const [confirmBeforeImport, setConfirmBeforeImport] = useState(false);
     const [lastImported, setLastImported] = useState<ImportedQuestion | null>(null);
-    const [batchBlobs, setBatchBlobs] = useState<Blob[] | null>(null);
+    const [batchImages, setBatchImages] = useState<BatchImage[] | null>(null);
+    // 当前选择的照片（已解码、已按方向校正的原图），裁剪时从原图取区域
+    const preparedRef = useRef<PreparedImage | null>(null);
+    const [completedStages, setCompletedStages] = useState<CompletedStage[]>([]);
     // 本页最近发起的识别任务
     const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
     // 本页发起的任务只在状态卡中更新（含完成后的「继续校对」「查看错题」），不切换页面、不自动标记已读，
@@ -76,12 +89,8 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     const aiTimeout = config?.timeouts?.analyze || DEFAULT_AI_TIMEOUT;
     const safetyTimeout = aiTimeout + 10000;
 
-    // Cleanup Blob URL to prevent memory leak
-    useEffect(() => {
-        return () => {
-            if (croppingImage) URL.revokeObjectURL(croppingImage);
-        };
-    }, [croppingImage]);
+    // 离开页面时释放解码后的原图与预览图
+    useEffect(() => () => preparedRef.current?.dispose(), []);
 
     useEffect(() => {
         fetchConfirmBeforeImport().then(setConfirmBeforeImport);
@@ -100,18 +109,79 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
         return () => clearTimeout(timeout);
     }, [analysisStep, safetyTimeout]);
 
-    const selectImage = (file: File) => {
+    const decodeErrorMessage = (error: ImageDecodeError) =>
+        t.upload.decodeErrors[error.code].replace("{format}", error.format.toUpperCase());
+
+    /** 选择照片：读取并解码（HEIC/HEIF 在此转换为 JPEG 并校正方向），生成缩略图后打开裁剪 */
+    const selectImage = async (file: File) => {
         setLastImported(null);
         saver.setSaveError(null);
-        setCroppingImage(URL.createObjectURL(file));
-        setIsCropperOpen(true);
+        setCompletedStages([]);
+        setAnalysisStep('reading');
+        try {
+            const prepared = await prepareImage(file, () => setAnalysisStep('converting'));
+            preparedRef.current?.dispose();
+            preparedRef.current = prepared;
+            frontendLogger.info(logPrefix, 'Image decoded', {
+                format: prepared.format, sourceType: prepared.sourceType, sourceBytes: prepared.sourceBytes,
+                width: prepared.width, height: prepared.height, decoder: prepared.decoder, ...prepared.timings,
+            });
+            setCroppingImage(prepared.previewUrl);
+            setIsCropperOpen(true);
+        } catch (error) {
+            const message = error instanceof ImageDecodeError ? decodeErrorMessage(error) : getErrorMessage(error);
+            frontendLogger.warn(logPrefix, 'Image decode failed', {
+                code: error instanceof ImageDecodeError ? error.code : 'UNKNOWN',
+                format: error instanceof ImageDecodeError ? error.format : 'unknown',
+                sourceType: file.type, sourceBytes: file.size,
+            });
+            toast.error(message);
+        } finally {
+            setAnalysisStep('idle');
+        }
     };
 
-    const startBatch = (blobs: Blob[]) => {
+    const stageList = (timings: Partial<BatchImage["timings"]>): CompletedStage[] => [
+        { label: t.upload.stages.read, ms: timings.read ?? 0 },
+        ...(timings.convert !== undefined ? [{ label: t.upload.stages.convert, ms: timings.convert }] : []),
+        ...(timings.compress !== undefined ? [{ label: t.upload.stages.compress, ms: (timings.crop ?? 0) + timings.compress }] : []),
+    ];
+
+    /** 从原图裁剪框选区域并压缩，返回各区域的图片与耗时 */
+    const renderRegions = async (prepared: PreparedImage, regions: ImageRegion[]): Promise<BatchImage[]> => {
+        const images: BatchImage[] = [];
+        for (const region of regions) {
+            const rendered: RenderedImage = await renderRegion(prepared, region);
+            images.push({ dataUrl: rendered.dataUrl, info: describeImage(prepared, rendered), timings: { ...prepared.timings, ...rendered.timings } });
+        }
+        return images;
+    };
+
+    /** 裁剪完成：单题直接上传，多题进入批量导入 */
+    const cropRegions = async (regions: ImageRegion[], multi: boolean) => {
+        const prepared = preparedRef.current;
+        if (!prepared || regions.length === 0) return;
         setIsCropperOpen(false);
-        setLastImported(null);
-        saver.setSaveError(null);
-        setBatchBlobs(blobs);
+        setCompletedStages(stageList(prepared.timings));
+        setAnalysisStep('compressing');
+        let images: BatchImage[];
+        try {
+            images = await renderRegions(prepared, regions);
+        } catch (error) {
+            frontendLogger.error(logPrefix, 'Crop failed', { error: getErrorMessage(error) });
+            toast.error(getAnalysisErrorMessage(error, t));
+            setAnalysisStep('idle');
+            return;
+        }
+        if (multi) {
+            setAnalysisStep('idle');
+            setCompletedStages([]);
+            setLastImported(null);
+            saver.setSaveError(null);
+            setBatchImages(images);
+            return;
+        }
+        await uploadImage(images[0]);
     };
 
     /** 文字解题结果：未开启人工确认时直接入库，否则进入校对页 */
@@ -129,28 +199,23 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
         setStep("review");
     };
 
-    /** 压缩并上传图片，创建服务端识别任务；上传完成即关闭遮罩 */
-    const analyzeImage = async (file: File) => {
+    /** 上传已处理好的图片，创建服务端识别任务；上传完成即关闭遮罩 */
+    const uploadImage = async (image: BatchImage) => {
         const startTime = Date.now();
-        frontendLogger.info(logPrefix, 'Starting import task', { sourceType: file.type, sourceBytes: file.size });
+        setCompletedStages(stageList(image.timings));
         try {
-            setAnalysisStep('compressing');
-            const compressStarted = Date.now();
-            const base64Image = await processImageFile(file);
-            const compressMs = Date.now() - compressStarted;
-
             setAnalysisStep('uploading');
-            const uploadStarted = Date.now();
             const task = await createImportTask({
-                imageBase64: base64Image,
+                imageBase64: image.dataUrl,
                 language,
                 subjectId: analyzeSubjectId,
                 // 添加页固定错题本；首页指定了错题本时免确认入库放入该错题本，校对时由用户选择
                 targetSubjectId: fixedSubjectId ?? (confirmBeforeImport ? null : importSubjectId),
-                clientTimings: { compress: compressMs },
-                imageInfo: { sourceType: file.type || undefined, sourceBytes: file.size, outputBytes: Math.round(base64Image.length * 3 / 4) },
+                clientTimings: image.timings,
+                imageInfo: image.info,
             });
-            frontendLogger.info(logPrefix, 'Import task created', { taskId: task.id, compressMs, uploadMs: Date.now() - uploadStarted, totalMs: Date.now() - startTime });
+            const uploadMs = Date.now() - startTime;
+            frontendLogger.info(logPrefix, 'Import task created', { taskId: task.id, ...image.info, ...image.timings, uploadMs });
             setPendingTaskId(task.id);
             pending.setTask(task);
             setStep("upload");
@@ -159,12 +224,8 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
             toast.error(getAnalysisErrorMessage(error, t));
         } finally {
             setAnalysisStep('idle');
+            setCompletedStages([]);
         }
-    };
-
-    const cropComplete = (croppedBlob: Blob) => {
-        setIsCropperOpen(false);
-        analyzeImage(new File([croppedBlob], "cropped-image.jpg", { type: "image/jpeg" }));
     };
 
     /** 文字题目由 AI 解答后导入 */
@@ -226,10 +287,10 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
         parsedData, currentImage, aiTimeout,
         croppingImage, isCropperOpen, closeCropper: () => setIsCropperOpen(false),
         lastImported, dismissImported: () => setLastImported(null),
-        batchBlobs, closeBatch: () => setBatchBlobs(null),
+        batchImages, closeBatch: () => setBatchImages(null), completedStages,
         pendingTask: pendingTaskId ? pending.task : null,
         refreshPendingTask: pending.refresh,
         dismissPendingTask: () => setPendingTaskId(null),
-        selectImage, cropComplete, startBatch, submitText, saveQuestion, saveReviewed,
+        selectImage, cropRegions, submitText, saveQuestion, saveReviewed,
     };
 }

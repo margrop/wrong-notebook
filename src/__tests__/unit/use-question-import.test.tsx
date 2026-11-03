@@ -28,7 +28,16 @@ vi.mock('@/lib/question-import', () => ({
     fetchConfirmBeforeImport: vi.fn(async () => mocks.confirmBeforeImport),
     saveParsedQuestion: mocks.saveParsedQuestion,
 }));
-vi.mock('@/lib/image-utils', () => ({ processImageFile: vi.fn(async () => 'data:image/jpeg;base64,AAAA') }));
+const pipeline = vi.hoisted(() => ({
+    prepareImage: vi.fn(),
+    renderRegion: vi.fn(),
+    dispose: vi.fn(),
+}));
+vi.mock('@/lib/image-pipeline', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/lib/image-pipeline')>()),
+    prepareImage: pipeline.prepareImage,
+    renderRegion: pipeline.renderRegion,
+}));
 vi.mock('@/lib/feedback', () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
 vi.mock('@/lib/import-task-client', () => ({
     createImportTask: mocks.createImportTask,
@@ -46,6 +55,13 @@ const task = (patch: object = {}) => ({
     attempts: 1, timings: {}, createdAt: '2026-11-03T00:00:00.000Z', finishedAt: null, result: null, imageData: IMAGE, paperLevel: null,
     ...patch,
 });
+const prepared = { source: {}, width: 4032, height: 3024, format: 'heic', decoder: 'heic', previewUrl: 'blob:preview', sourceType: 'image/heic', sourceBytes: 2_000_000, timings: { read: 12, convert: 800 }, dispose: pipeline.dispose };
+const FULL = [{ x: 0, y: 0, width: 1, height: 1 }];
+/** 选择照片并确认裁剪 */
+async function chooseAndCrop(regions = FULL, multi = false) {
+    await act(async () => { await flow.selectImage(new File(['x'], 'photo.heic', { type: 'image/heic' })); });
+    await act(async () => { await flow.cropRegions(regions, multi); });
+}
 /** 等待任务查询（首次查询放在下一轮事件循环） */
 const flushTimers = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
 
@@ -74,6 +90,8 @@ beforeEach(() => {
     mocks.confirmBeforeImport = false;
     mocks.get.mockResolvedValue({ timeouts: { analyze: 120000 } });
     mocks.saveParsedQuestion.mockResolvedValue({ id: 'saved', duplicate: false });
+    pipeline.prepareImage.mockResolvedValue(prepared);
+    pipeline.renderRegion.mockResolvedValue({ dataUrl: IMAGE, width: 2364, height: 1773, bytes: 400_000, quality: 0.9, timings: { crop: 30, compress: 120 } });
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -92,10 +110,14 @@ describe('题目导入流程', () => {
         mocks.fetchImportTask.mockResolvedValue(task({ status: 'saved', errorItemId: 'saved', errorItemShortId: 'AbC234', notebookName: '数学', unread: true }));
         await render({ analyzeSubjectId: 'nb-1', importSubjectId: 'nb-1' });
 
-        await act(async () => flow.cropComplete(new Blob(['x'])));
+        await chooseAndCrop();
         expect(mocks.createImportTask).toHaveBeenCalledWith(expect.objectContaining({
-            imageBase64: IMAGE, subjectId: 'nb-1', targetSubjectId: 'nb-1', clientTimings: { compress: expect.any(Number) },
+            imageBase64: IMAGE, subjectId: 'nb-1', targetSubjectId: 'nb-1',
+            clientTimings: { read: 12, convert: 800, crop: 30, compress: 120 },
+            imageInfo: expect.objectContaining({ sourceType: 'image/heic', sourceWidth: 4032, sourceHeight: 3024, outputWidth: 2364, outputHeight: 1773, decoder: 'heic', quality: 0.9 }),
         }));
+        // 裁剪从原图进行
+        expect(pipeline.renderRegion).toHaveBeenCalledWith(prepared, FULL[0]);
         expect(flow.analysisStep).toBe('idle');
         await flushTimers();
 
@@ -109,7 +131,7 @@ describe('题目导入流程', () => {
         mocks.createImportTask.mockResolvedValueOnce(task());
         mocks.fetchImportTask.mockResolvedValue(task());
         await render();
-        await act(async () => flow.cropComplete(new Blob(['x'])));
+        await chooseAndCrop();
         await flushTimers();
         expect(flow.pendingTask).toMatchObject({ id: 'task-1', status: 'analyzing' });
         expect(flow.isBusy).toBe(false);
@@ -124,7 +146,7 @@ describe('题目导入流程', () => {
         await render({ fixedSubjectId: 'nb-2' });
         await act(async () => {});
 
-        await act(async () => flow.cropComplete(new Blob(['x'])));
+        await chooseAndCrop();
         expect(mocks.createImportTask).toHaveBeenCalledWith(expect.objectContaining({ targetSubjectId: 'nb-2' }));
         await flushTimers();
         expect(flow.pendingTask).toMatchObject({ status: 'review', unread: true });
@@ -139,13 +161,13 @@ describe('题目导入流程', () => {
         mocks.fetchImportTask.mockResolvedValue(task({ mode: 'review' }));
         await render();
         await act(async () => {});
-        await act(async () => flow.cropComplete(new Blob(['x'])));
+        await chooseAndCrop();
         await flushTimers();
         expect(flow.pendingTask?.status).toBe('analyzing');
 
         // 用户开始裁剪下一张图片时，上一题识别完成
-        vi.stubGlobal('URL', { ...URL, createObjectURL: () => 'blob:next', revokeObjectURL: () => undefined });
-        await act(async () => flow.selectImage(new File(['y'], 'next.jpg', { type: 'image/jpeg' })));
+        pipeline.prepareImage.mockResolvedValueOnce({ ...prepared, previewUrl: 'blob:next' });
+        await act(async () => { await flow.selectImage(new File(['y'], 'next.jpg', { type: 'image/jpeg' })); });
         mocks.fetchImportTask.mockResolvedValue(task({ mode: 'review', status: 'review', result: parsed, hasResult: true, unread: true }));
         await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
         await act(async () => { await flow.refreshPendingTask(); });
@@ -205,10 +227,31 @@ describe('题目导入流程', () => {
     it('上传失败时提示错误并恢复空闲状态', async () => {
         mocks.createImportTask.mockRejectedValueOnce(new Error('boom'));
         await render();
-        await act(async () => flow.cropComplete(new Blob(['x'])));
+        await chooseAndCrop();
         await act(async () => {});
         expect(mocks.toastError).toHaveBeenCalled();
         expect(flow.analysisStep).toBe('idle');
         expect(mocks.saveParsedQuestion).not.toHaveBeenCalled();
+    });
+
+    it('照片无法解码时按原因提示，不打开裁剪', async () => {
+        const { ImageDecodeError } = await import('@/lib/image-pipeline');
+        pipeline.prepareImage.mockRejectedValueOnce(new ImageDecodeError('HEIC_DECODE_FAILED', 'heic'));
+        await render();
+        await act(async () => { await flow.selectImage(new File(['x'], 'photo.heic')); });
+        expect(mocks.toastError).toHaveBeenCalledWith(translations.zh.upload.decodeErrors.HEIC_DECODE_FAILED);
+        expect(flow.isCropperOpen).toBe(false);
+        expect(flow.analysisStep).toBe('idle');
+    });
+
+    it('多题框选从原图逐框裁剪后进入批量导入', async () => {
+        await render();
+        const regions = [{ x: 0, y: 0, width: 1, height: 0.5 }, { x: 0, y: 0.5, width: 1, height: 0.5 }];
+        await chooseAndCrop(regions, true);
+        expect(pipeline.renderRegion).toHaveBeenCalledTimes(2);
+        expect(pipeline.renderRegion).toHaveBeenLastCalledWith(prepared, regions[1]);
+        expect(flow.batchImages).toHaveLength(2);
+        expect(flow.batchImages?.[0]).toMatchObject({ dataUrl: IMAGE, timings: { read: 12, convert: 800, crop: 30, compress: 120 } });
+        expect(mocks.createImportTask).not.toHaveBeenCalled();
     });
 });

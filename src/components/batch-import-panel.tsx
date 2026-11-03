@@ -9,11 +9,12 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { createImportTask, fetchImportTask, markImportTaskRead, retryImportTask } from "@/lib/import-task-client";
 import type { ImportTaskDetail } from "@/lib/import-task-types";
-import { processImageFile } from "@/lib/image-utils";
 import type { ImportedQuestion } from "@/lib/question-import";
+import type { BatchImage } from "@/lib/use-question-import";
 
 interface BatchImportPanelProps {
-    blobs: Blob[];
+    /** 已从原图裁剪并压缩好的各题图片 */
+    images: BatchImage[];
     /** 指定错题本；为空时按 AI 识别的学科匹配或新建错题本 */
     subjectId?: string | null;
     onClose: () => void;
@@ -61,9 +62,9 @@ async function runWithConcurrency(indexes: number[], limit: number, run: (index:
 /**
  * 一图多题：先把所有框上传为服务端识别任务（落库后锁屏或关闭页面也会继续），再等待各题的识别与入库结果。
  */
-export function BatchImportPanel({ blobs, subjectId, onClose }: BatchImportPanelProps) {
+export function BatchImportPanel({ images, subjectId, onClose }: BatchImportPanelProps) {
     const { t, language } = useLanguage();
-    const [items, setItems] = useState<BatchItem[]>(() => blobs.map(() => ({ status: "pending" })));
+    const [items, setItems] = useState<BatchItem[]>(() => images.map(() => ({ status: "pending" })));
     const startedRef = useRef(false);
     const taskIds = useRef<Array<string | undefined>>([]);
 
@@ -88,17 +89,15 @@ export function BatchImportPanel({ blobs, subjectId, onClose }: BatchImportPanel
                 // 已上传过：重试服务端任务（有识别结果时只重试保存，不重新识别）
                 await retryImportTask(existing);
             } else {
-                const blob = blobs[index];
-                const compressStarted = Date.now();
-                const imageBase64 = await processImageFile(blob instanceof File ? blob : new File([blob], "question.jpg", { type: blob.type || "image/jpeg" }));
+                const image = images[index];
                 const task = await createImportTask({
-                    imageBase64,
+                    imageBase64: image.dataUrl,
                     language,
                     subjectId,
                     targetSubjectId: subjectId,
                     mode: "auto",
-                    clientTimings: { compress: Date.now() - compressStarted },
-                    imageInfo: { sourceBytes: blob.size, outputBytes: Math.round(imageBase64.length * 3 / 4) },
+                    clientTimings: image.timings,
+                    imageInfo: image.info,
                 });
                 taskIds.current[index] = task.id;
                 updateItem(index, { taskId: task.id });
@@ -109,7 +108,7 @@ export function BatchImportPanel({ blobs, subjectId, onClose }: BatchImportPanel
             fail(index, error);
             return false;
         }
-    }, [blobs, language, subjectId, updateItem, fail]);
+    }, [images, language, subjectId, updateItem, fail]);
 
     /** 第二步：等待服务端识别与入库结果 */
     const watch = useCallback(async (index: number) => {
@@ -143,8 +142,8 @@ export function BatchImportPanel({ blobs, subjectId, onClose }: BatchImportPanel
     useEffect(() => {
         if (startedRef.current) return;
         startedRef.current = true;
-        runAll(blobs.map((_, index) => index));
-    }, [blobs, runAll]);
+        runAll(images.map((_, index) => index));
+    }, [images, runAll]);
 
     const done = items.filter((item) => item.status === "success").length;
     const failedIndexes = items.flatMap((item, index) => (item.status === "failed" ? [index] : []));
@@ -173,7 +172,7 @@ export function BatchImportPanel({ blobs, subjectId, onClose }: BatchImportPanel
                 <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {items.map((item, index) => (
                         <li key={index} className="flex gap-3 rounded-lg border p-3">
-                            <BlobThumbnail blob={blobs[index]} />
+                            <img src={images[index].dataUrl} alt="" className="h-20 w-20 shrink-0 rounded object-contain bg-muted" />
                             <div className="min-w-0 flex-1 space-y-1 text-sm">
                                 <div className="font-medium">{t.batchImport.question.replace("{index}", String(index + 1))}</div>
                                 <StatusLine item={item} />
@@ -226,17 +225,4 @@ function StatusLine({ item }: { item: BatchItem }) {
             {label}
         </span>
     );
-}
-
-/** 题目图片缩略图：在组件内创建并回收 blob URL */
-function BlobThumbnail({ blob }: { blob: Blob }) {
-    const imageRef = useRef<HTMLImageElement>(null);
-
-    useEffect(() => {
-        const url = URL.createObjectURL(blob);
-        if (imageRef.current) imageRef.current.src = url;
-        return () => URL.revokeObjectURL(url);
-    }, [blob]);
-
-    return <img ref={imageRef} alt="" className="h-20 w-20 shrink-0 rounded object-contain bg-muted" />;
 }
