@@ -61,7 +61,7 @@ describe('/api/stats', () => {
             vi.useFakeTimers();
             vi.setSystemTime(new Date('2026-09-30T16:30:00Z'));
             mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValue([]);
-            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([{ createdAt: new Date('2026-09-30T16:01:00Z'), isCorrect: true, difficulty: 'medium' }]);
+            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([{ createdAt: new Date('2026-09-30T16:01:00Z'), result: 'correct', isCorrect: true, difficulty: 'medium' }]);
             try {
                 const response = await GET_PRACTICE_STATS();
                 expect(response.status).toBe(200);
@@ -80,10 +80,11 @@ describe('/api/stats', () => {
                     { difficulty: 'medium', _count: { id: 5 } },
                 ]);
             mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([
-                { createdAt: new Date(), isCorrect: true, difficulty: 'medium' },
+                { createdAt: new Date(), result: 'correct', isCorrect: true, difficulty: 'medium' },
             ]);
             mocks.mockPrismaPracticeRecord.count
                 .mockResolvedValueOnce(8)
+                .mockResolvedValueOnce(5)
                 .mockResolvedValueOnce(5);
 
             const response = await GET_PRACTICE_STATS();
@@ -95,7 +96,7 @@ describe('/api/stats', () => {
                 expect(call[0].where.source).toEqual({ not: 'duplicate_import' });
             }
             expect(mocks.mockPrismaPracticeRecord.findMany.mock.calls[0][0].where.source).toEqual({ not: 'duplicate_import' });
-            expect(mocks.mockPrismaPracticeRecord.count).toHaveBeenCalledTimes(2);
+            expect(mocks.mockPrismaPracticeRecord.count).toHaveBeenCalledTimes(3);
             for (const call of mocks.mockPrismaPracticeRecord.count.mock.calls) {
                 expect(call[0].where.source).toEqual({ not: 'duplicate_import' });
             }
@@ -116,14 +117,15 @@ describe('/api/stats', () => {
 
             // Mock activity stats
             mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([
-                { createdAt: new Date(), isCorrect: true, difficulty: 'medium' },
-                { createdAt: new Date(), isCorrect: false, difficulty: 'hard' },
+                { createdAt: new Date(), result: 'correct', isCorrect: true, difficulty: 'medium' },
+                { createdAt: new Date(), result: 'wrong', isCorrect: false, difficulty: 'hard' },
             ]);
 
             // Mock total and correct counts
             mocks.mockPrismaPracticeRecord.count
                 .mockResolvedValueOnce(15)
-                .mockResolvedValueOnce(10);
+                .mockResolvedValueOnce(10)
+                .mockResolvedValueOnce(12);
 
             const response = await GET_PRACTICE_STATS();
             const data = await response.json();
@@ -157,7 +159,8 @@ describe('/api/stats', () => {
             mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([]);
             mocks.mockPrismaPracticeRecord.count
                 .mockResolvedValueOnce(100) // total
-                .mockResolvedValueOnce(75);  // correct
+                .mockResolvedValueOnce(75)  // correct
+                .mockResolvedValueOnce(80); // attempted
 
             const response = await GET_PRACTICE_STATS();
             const data = await response.json();
@@ -165,7 +168,8 @@ describe('/api/stats', () => {
             expect(response.status).toBe(200);
             expect(data.overallStats.total).toBe(100);
             expect(data.overallStats.correct).toBe(75);
-            expect(data.overallStats.rate).toBe('75.0');
+            expect(data.overallStats.attempted).toBe(80);
+            expect(data.overallStats.rate).toBe('93.8');
         });
 
         it('应该处理零记录情况', async () => {
@@ -179,6 +183,50 @@ describe('/api/stats', () => {
             expect(response.status).toBe(200);
             expect(data.overallStats.total).toBe(0);
             expect(data.overallStats.rate).toBe(0);
+        });
+
+        it('应该排除 not_attempted 记录，不将其计入已作答', async () => {
+            mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([]);
+            mocks.mockPrismaPracticeRecord.count
+                .mockResolvedValueOnce(10) // total
+                .mockResolvedValueOnce(6)  // correct
+                .mockResolvedValueOnce(8); // attempted（排除了 2 条 not_attempted）
+
+            const response = await GET_PRACTICE_STATS();
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.overallStats.total).toBe(10);
+            expect(data.overallStats.correct).toBe(6);
+            expect(data.overallStats.attempted).toBe(8);
+            expect(data.overallStats.rate).toBe('75.0');
+        });
+
+        it('应该将 result 为 null 且 isCorrect 非空的旧记录视为已作答', async () => {
+            mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([
+                { createdAt: new Date(), result: null, isCorrect: true, difficulty: 'easy' },
+                { createdAt: new Date(), result: null, isCorrect: false, difficulty: 'hard' },
+            ]);
+            mocks.mockPrismaPracticeRecord.count
+                .mockResolvedValueOnce(10) // total
+                .mockResolvedValueOnce(6)  // correct
+                .mockResolvedValueOnce(8); // attempted（包含 2 条 result=null 的旧记录）
+
+            const response = await GET_PRACTICE_STATS();
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.overallStats.total).toBe(10);
+            expect(data.overallStats.correct).toBe(6);
+            expect(data.overallStats.attempted).toBe(8);
+            expect(data.overallStats.rate).toBe('75.0');
+            // 月度趋势：result=null 且 isCorrect=true 计入 correct
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            const monthData = data.activityStats.find((m: { date: string }) => m.date === currentMonth);
+            expect(monthData.total).toBe(2);
+            expect(monthData.correct).toBe(1);
         });
 
         it('应该拒绝未登录用户', async () => {

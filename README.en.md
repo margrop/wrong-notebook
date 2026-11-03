@@ -123,7 +123,7 @@ Mistake statistics show total mistakes, mastered count, mastery rate, subject di
 
 ![Mistake count, mastery rate, subject distribution and monthly trend charts](doc/screenshots/en/error-stats.png)
 
-Practice statistics show total practice, accuracy and active months, with distribution and trends by subject and difficulty.
+Practice statistics show total practice, accuracy (correct / attempted) and active months, with distribution and trends by subject and difficulty.
 
 ![Practice count, accuracy, active months and practice trend charts](doc/screenshots/en/practice-stats.png)
 

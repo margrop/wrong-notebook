@@ -122,7 +122,7 @@ export function PracticeStats() {
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.overallStats.rate}%</div>
                         <p className="text-xs text-muted-foreground">
-                            {stats.overallStats.correct} / {stats.overallStats.total} {t.stats?.correct || "Correct"}
+                            {stats.overallStats.correct} / {stats.overallStats.attempted} {t.stats?.attempted || "Attempted"}
                         </p>
                     </CardContent>
                 </Card>

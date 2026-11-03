@@ -13,6 +13,22 @@ const logger = createLogger('api:stats:practice');
 /** 重复导入产生的记录不计入练习统计 */
 const EXCLUDE_DUPLICATE_IMPORT = { source: { not: 'duplicate_import' } } satisfies Prisma.PracticeRecordWhereInput;
 
+/** 已作答：result 为 correct 或 wrong；result 为 null 的旧记录以 isCorrect 是否非 null 判断 */
+const ATTEMPTED_CONDITION = {
+    OR: [
+        { result: { in: ['correct', 'wrong'] } },
+        { AND: [{ result: null }, { isCorrect: { not: null } }] }
+    ]
+} satisfies Prisma.PracticeRecordWhereInput;
+
+/** 答对：result 为 correct，或 result 为 null 且 isCorrect 为 true */
+const CORRECT_CONDITION = {
+    OR: [
+        { result: 'correct' },
+        { AND: [{ result: null }, { isCorrect: true }] }
+    ]
+} satisfies Prisma.PracticeRecordWhereInput;
+
 export async function GET() {
     const session = await getServerSession(authOptions);
 
@@ -26,7 +42,7 @@ export async function GET() {
         const now = new Date();
         const timeZone = getAppTimeZone();
 
-        const [subjectGroups, activityStats, difficultyGroups, totalRecords, correctRecords] = await Promise.all([
+        const [subjectGroups, activityStats, difficultyGroups, totalRecords, correctRecords, attemptedRecords] = await Promise.all([
             prisma.practiceRecord.groupBy({
                 by: ['subject'],
                 where: { userId, ...EXCLUDE_DUPLICATE_IMPORT },
@@ -42,6 +58,7 @@ export async function GET() {
                 },
                 select: {
                     createdAt: true,
+                    result: true,
                     isCorrect: true,
                     difficulty: true
                 }
@@ -52,7 +69,8 @@ export async function GET() {
                 _count: { id: true }
             }),
             prisma.practiceRecord.count({ where: { userId, ...EXCLUDE_DUPLICATE_IMPORT } }),
-            prisma.practiceRecord.count({ where: { userId, isCorrect: true, ...EXCLUDE_DUPLICATE_IMPORT } }),
+            prisma.practiceRecord.count({ where: { userId, ...CORRECT_CONDITION, ...EXCLUDE_DUPLICATE_IMPORT } }),
+            prisma.practiceRecord.count({ where: { userId, ...ATTEMPTED_CONDITION, ...EXCLUDE_DUPLICATE_IMPORT } }),
         ]);
 
         // Process activity stats into monthly counts
@@ -68,7 +86,8 @@ export async function GET() {
             const date = formatDateTime(record.createdAt, 'yyyy-MM', timeZone);
             if (monthlyActivity[date]) {
                 monthlyActivity[date].total++;
-                if (record.isCorrect) {
+                const isCorrect = record.result === 'correct' || (record.result === null && record.isCorrect === true);
+                if (isCorrect) {
                     monthlyActivity[date].correct++;
                 }
 
@@ -89,7 +108,8 @@ export async function GET() {
             overallStats: {
                 total: totalRecords,
                 correct: correctRecords,
-                rate: totalRecords > 0 ? (correctRecords / totalRecords * 100).toFixed(1) : 0
+                attempted: attemptedRecords,
+                rate: attemptedRecords > 0 ? (correctRecords / attemptedRecords * 100).toFixed(1) : 0
             }
         });
 

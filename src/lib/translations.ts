@@ -545,6 +545,7 @@ export const translations = {
             weeklyTrend: "Monthly Trend",
             total: "Total",
             correct: "Correct",
+            attempted: "Attempted",
         },
         settings: {
             title: "Settings",
@@ -2233,6 +2234,7 @@ export const translations = {
             weeklyTrend: "月度趋势",
             total: "总题数",
             correct: "正确",
+            attempted: "已作答",
         },
         settings: {
             title: "设置",
