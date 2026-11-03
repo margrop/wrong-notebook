@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Camera, ClipboardPaste, FolderOpen, Images, Loader2, Monitor, UploadCloud } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getAndroidAppBridge } from "@/lib/android-app";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { toast } from "@/lib/feedback";
 import { useIsClient } from "@/lib/use-is-client";
@@ -33,10 +34,13 @@ const IMAGE_ACCEPT = { "image/*": [".jpg", ".jpeg", ".png", ".webp", ".gif", ".b
 /**
  * 检测是否有摄像头：只在浏览器提供 mediaDevices 时判断（HTTP 页面和部分 WebView 不提供，此时不阻止拍照）。
  * 不请求权限，只读取设备种类。
+ * 安卓 App 中拍照由原生调用系统相机应用（ACTION_IMAGE_CAPTURE），WebView 的设备枚举不代表原生相机能力，
+ * 因此不据此拦截，相机不可用时由原生提示。
  */
 function useCameraAvailability(): boolean | null {
     const [available, setAvailable] = useState<boolean | null>(null);
     useEffect(() => {
+        if (getAndroidAppBridge()) return;
         if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) return;
         let cancelled = false;
         navigator.mediaDevices.enumerateDevices()

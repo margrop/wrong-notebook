@@ -181,4 +181,24 @@ test.describe('手机拍照、相册与文件入口', () => {
         await expect(page.getByText('未检测到可用的相机', { exact: false })).toBeVisible();
         expect(opened).toBe(false);
     });
+
+    test('[E2E-I08] 安卓 App 中设备枚举为空也不拦截拍照，交给原生相机', async ({ page, scenario }) => {
+        await page.addInitScript(() => {
+            Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { enumerateDevices: async () => [] } });
+            // 模拟安卓 App 注入的接口
+            Object.defineProperty(window, 'WrongNotebookAndroid', { configurable: true, value: {
+                changeServer: () => undefined, getServerUrl: () => location.origin, getDeviceType: () => 'phone', isStandalone: () => false,
+            } });
+        });
+        await scenario.login(page);
+        await page.goto('/');
+        const [chooser] = await Promise.all([
+            page.waitForEvent('filechooser'),
+            page.getByTestId('image-sources').getByRole('button', { name: '拍照' }).click(),
+        ]);
+        expect(await chooser.element().getAttribute('capture')).toBe('environment');
+        await expect(page.getByText('未检测到可用的相机', { exact: false })).toHaveCount(0);
+        await chooser.setFiles(fixture('orientation-6.jpg'));
+        await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible();
+    });
 });
