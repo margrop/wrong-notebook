@@ -70,7 +70,35 @@ try {
     [System.IO.File]::WriteAllBytes($tamperedPath, $bytes)
     Assert-Rejected '签名后文件被篡改' $paths
 
-    Write-Output 'Windows 签名验证的 5 项测试通过'
+    # 测试证书模式：用临时自签名证书模拟 SignPath 测试证书。
+    $selfSignedFixture = Join-Path $taskDir 'self-signed.dll'
+    Add-Type -TypeDefinition 'public static class WrongNotebookSigningFixture {}' -OutputAssembly $selfSignedFixture -OutputType Library
+    $testCert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=WrongNotebook Signing Test' -CertStoreLocation Cert:\CurrentUser\My
+    try {
+        $result = Set-AuthenticodeSignature -LiteralPath $selfSignedFixture -Certificate $testCert
+        if ($null -eq $result.SignerCertificate) { throw '无法生成自签名测试文件' }
+    } finally {
+        Remove-Item -LiteralPath "Cert:\CurrentUser\My\$($testCert.Thumbprint)" -Force
+    }
+
+    $paths = New-FixtureSet 'test-certificate'
+    foreach ($name in $names) { Copy-Item -LiteralPath $selfSignedFixture -Destination (Join-Path $paths.SignedDirectory $name) -Force }
+    $production = @{ UnsignedDirectory = $paths.UnsignedDirectory; SignedDirectory = $paths.SignedDirectory }
+    Assert-Rejected '生产模式拒绝测试证书' $production
+    & $verify @paths -TestCertificate
+    foreach ($name in $names) {
+        if ((Get-FileHash -LiteralPath (Join-Path $paths.UnsignedDirectory $name)).Hash -ne (Get-FileHash -LiteralPath $fixture).Hash) {
+            throw '测试证书模式不得覆盖发布文件'
+        }
+    }
+    Write-Output '已接受：测试证书签名且未覆盖发布文件'
+
+    $paths = New-FixtureSet 'test-certificate-unsigned'
+    [System.IO.File]::WriteAllText((Join-Path $paths.SignedDirectory $names[0]), '未签名文件')
+    $paths.TestCertificate = $true
+    Assert-Rejected '测试证书模式拒绝未签名文件' $paths
+
+    Write-Output 'Windows 签名验证的 8 项测试通过'
 } finally {
     if (Test-Path -LiteralPath $taskDir) { Remove-Item -LiteralPath $taskDir -Recurse -Force }
 }

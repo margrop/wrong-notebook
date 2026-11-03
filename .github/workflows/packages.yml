@@ -7,6 +7,14 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      windows_signing:
+        description: 'Windows 签名：auto 按 SIGNPATH_ENABLED 决定生产签名；test 仅限 main，用 SignPath 测试证书签名并单独上传，不替换安装包'
+        type: choice
+        options:
+          - auto
+          - test
+        default: auto
 
 permissions:
   contents: write
@@ -135,8 +143,9 @@ jobs:
       contents: read
       actions: read
     env:
-      # 审核通过并配置后才启用；分支试构建仍沿用原有的未签名流程。
-      SIGN_WINDOWS: ${{ matrix.name == 'windows-x64' && vars.SIGNPATH_ENABLED == 'true' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main') }}
+      # production：SIGNPATH_ENABLED=true 时对 main 和版本标签签名；test：在 main 手动运行时用测试证书试签。
+      # 其他情况（含分支试构建）保持原有的未签名流程。
+      SIGNPATH_MODE: ${{ matrix.name != 'windows-x64' && 'off' || (github.event_name == 'workflow_dispatch' && inputs.windows_signing == 'test' && github.ref == 'refs/heads/main') && 'test' || (vars.SIGNPATH_ENABLED == 'true' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')) && 'production' || 'off' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -189,14 +198,14 @@ jobs:
         run: node scripts/package/build.mjs desktop ${{ matrix.args }}
 
       - name: 检查 Windows 签名配置与安装包元数据
-        if: env.SIGN_WINDOWS == 'true'
+        if: env.SIGNPATH_MODE != 'off'
         id: windows-signing
         shell: pwsh
         env:
           SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
           SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
           SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-          SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ env.SIGNPATH_MODE == 'test' && (vars.SIGNPATH_TEST_SIGNING_POLICY_SLUG || 'test-signing') || vars.SIGNPATH_SIGNING_POLICY_SLUG }}
           SIGNPATH_ARTIFACT_CONFIGURATION_SLUG: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
         run: |
           foreach ($name in @('SIGNPATH_API_TOKEN', 'SIGNPATH_ORGANIZATION_ID', 'SIGNPATH_PROJECT_SLUG', 'SIGNPATH_SIGNING_POLICY_SLUG', 'SIGNPATH_ARTIFACT_CONFIGURATION_SLUG')) {
@@ -213,10 +222,11 @@ jobs:
             throw 'Windows 安装包必须使用 WrongNotebook 产品名和一致的产品版本'
           }
           "product-version=$($versions[0])" >> $env:GITHUB_OUTPUT
+          "signing-policy-slug=$env:SIGNPATH_SIGNING_POLICY_SLUG" >> $env:GITHUB_OUTPUT
 
       # SignPath 验证 GitHub 构建来源；此中间产物不匹配 Release 的 package-* 下载规则。
       - name: 上传 Windows 未签名产物供 SignPath 验证
-        if: env.SIGN_WINDOWS == 'true'
+        if: env.SIGNPATH_MODE != 'off'
         id: unsigned-windows
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -226,13 +236,13 @@ jobs:
           retention-days: 1
 
       - name: 提交 SignPath 请求并等待维护者批准
-        if: env.SIGN_WINDOWS == 'true'
+        if: env.SIGNPATH_MODE != 'off'
         uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
           project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          signing-policy-slug: ${{ steps.windows-signing.outputs.signing-policy-slug }}
           artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
           github-artifact-id: ${{ steps.unsigned-windows.outputs.artifact-id }}
           wait-for-completion: true
@@ -242,9 +252,24 @@ jobs:
             version: ${{ toJSON(steps.windows-signing.outputs.product-version) }}
 
       - name: 验证 Windows 签名并替换发布文件
-        if: env.SIGN_WINDOWS == 'true'
+        if: env.SIGNPATH_MODE == 'production'
         shell: pwsh
         run: ./scripts/package/verify-windows-signatures.ps1 -UnsignedDirectory dist/desktop/release -SignedDirectory '${{ runner.temp }}/signed-windows'
+
+      - name: 验证测试证书签名（不替换发布文件）
+        if: env.SIGNPATH_MODE == 'test'
+        shell: pwsh
+        run: ./scripts/package/verify-windows-signatures.ps1 -UnsignedDirectory dist/desktop/release -SignedDirectory '${{ runner.temp }}/signed-windows' -TestCertificate
+
+      # 测试证书签名的文件仅供下载核对，名称不匹配 Release 的 package-* 规则。
+      - name: 上传测试证书签名的 Windows 产物
+        if: env.SIGNPATH_MODE == 'test'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-signed-windows-x64
+          path: ${{ runner.temp }}/signed-windows
+          if-no-files-found: error
+          retention-days: 7
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

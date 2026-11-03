@@ -1,16 +1,15 @@
 # Windows 安装包签名（SignPath）
 
-当前为申请与接入准备阶段，未取得 SignPath Foundation 的证书授权；现有 Windows 包仍未签名。[Code signing policy](CODE_SIGNING.md) 和[隐私说明](PRIVACY.md)是申请材料的一部分。
+项目已于 2026 年 10 月通过 SignPath Foundation 开源计划审核。当前阶段：用 SignPath 提供的自签名测试证书调试流程；基金会复核接入配置后订购生产证书并导入组织，之后才启用正式签名。现有 Windows 包仍未签名。[Code signing policy](CODE_SIGNING.md) 和[隐私说明](PRIVACY.md)是申请材料的一部分。
 
-## 申请与项目设置
+## 账号与项目设置
 
-1. 在 [SignPath Foundation](https://signpath.org/apply) 提交开源项目申请，提供公开仓库、官网、下载页、代码签名政策、隐私说明、可核实的使用情况和维护者联系信息。
-2. 收到账号邮件并获批后，完成账号验证与多因素认证。为公开仓库配置 GitHub.com Trusted Build System；如需 GitHub App，仅授权 `margrop/wrong-notebook`。
-3. 创建或使用获批的项目，例如 `wrong-notebook`，将 [windows-installers.xml](../packaging/signpath/windows-installers.xml) 导入为 `windows-installers` Artifact Configuration。上传的 GitHub Artifact 是 ZIP，根元素必须为 `zip-file`。
-4. 创建生产签名策略，例如 `release-signing`：使用基金会批准的生产证书，限制到本仓库、GitHub 托管 Runner、公开 `main` 和版本标签，要求维护者逐次人工批准。不得自动批准，不使用测试证书发布正式附件。
-5. 为签名请求创建仅有提交权限的 API Token。不要把维护者的账号密码或批准权限交给 CI。
-
-基金会是否接受项目、是否授权证书及其审批时长由基金会决定，提交申请不等于获批。
+1. **账号与邀请**：SignPath 会发两封邮件——OSS 组织邀请，以及 CI 用户邮箱确认，顺序不定。必须先注册 SignPath 账号（启用多因素认证），用该账号接受组织邀请，**然后**才确认 CI 用户邮箱；邀请未接受时确认无法完成。
+2. **Trusted Build System**：在组织中为公开仓库启用 GitHub.com Trusted Build System；如需 GitHub App，仅授权 `margrop/wrong-notebook`。
+3. **项目与 Artifact Configuration**：创建项目 `wrong-notebook`，将 [windows-installers.xml](../packaging/signpath/windows-installers.xml) 导入为 `windows-installers` Artifact Configuration。GitHub 上传的 Artifact 总是 ZIP，根元素必须为 `zip-file`（参考 [Artifact Configuration](https://about.signpath.io/documentation/artifact-configuration/)）。
+4. **测试签名策略**：使用组织自带的测试证书策略（通常为 `test-signing`），关联 GitHub Trusted Build System，可设为自动批准，仅用于调试。
+5. **生产签名策略**：生产证书导入后创建 `release-signing`：使用基金会签发的生产证书，限制到本仓库、GitHub 托管 Runner、公开 `main` 和版本标签，要求维护者逐次人工批准。不得自动批准，不使用测试证书发布正式附件。
+6. **API Token**：CI 用户只授予提交请求的权限（Submitter），把它的 API Token 存为 GitHub Secret。不要把维护者账号或批准权限交给 CI。
 
 ## GitHub Actions 配置
 
@@ -21,13 +20,24 @@
 | Secret | `SIGNPATH_API_TOKEN` | SignPath 提交者 Token |
 | Variable | `SIGNPATH_ORGANIZATION_ID` | 账号的 Organization ID |
 | Variable | `SIGNPATH_PROJECT_SLUG` | 获批项目 slug，例如 `wrong-notebook` |
-| Variable | `SIGNPATH_SIGNING_POLICY_SLUG` | 生产策略 slug，例如 `release-signing` |
+| Variable | `SIGNPATH_SIGNING_POLICY_SLUG` | 生产策略 slug，例如 `release-signing`（生产证书到位后配置） |
+| Variable | `SIGNPATH_TEST_SIGNING_POLICY_SLUG` | 测试策略 slug；未设置时为 `test-signing` |
 | Variable | `SIGNPATH_ARTIFACT_CONFIGURATION_SLUG` | Artifact Configuration slug，例如 `windows-installers` |
-| Variable | `SIGNPATH_ENABLED` | 全部获批、配置完成后才设为 `true`；未设置时保持原有未签名构建 |
+| Variable | `SIGNPATH_ENABLED` | 生产证书到位、首次验收通过后才设为 `true`；未设置时保持原有未签名构建 |
+
+## 测试证书试签
+
+不需要 `SIGNPATH_ENABLED`，也不需要生产策略 slug。配置 Token、Organization ID、项目 slug 和 Artifact Configuration slug 后，在 Actions → Packages → Run workflow 中选择 `main` 分支、`windows_signing` 选 `test`：
+
+1. 构建、检查元数据并上传 `unsigned-windows-x64`，向测试策略提交请求。
+2. 下载签名文件，验证文件集合、产品元数据和 Authenticode 签名。测试证书的根不受信任，状态为 `UnknownError` 属正常；未签名或哈希不符仍会失败。不检查时间戳。
+3. 签名文件上传为 `test-signed-windows-x64`（保留 7 天）供下载核对，**不替换** `package-desktop-windows-x64` 中的未签名安装包。
+
+`workflow_dispatch` 不会创建 Release，测试运行不影响任何已发布附件。试签成功后回复 SignPath 支持邮件，请基金会复核配置并订购生产证书。
 
 ## 发布过程
 
-沿用原来的 `v*` 标签触发 Packages 工作流；也可从公开 `main` 手动运行。其他分支的手动试构建不提交生产签名。npm、macOS、Linux、飞牛OS、安卓和 Release 创建逻辑保持原样。
+以下为 `SIGNPATH_ENABLED=true` 后的生产签名。沿用原来的 `v*` 标签触发 Packages 工作流；也可从公开 `main` 手动运行。其他分支的手动试构建不提交生产签名。npm、macOS、Linux、飞牛OS、安卓和 Release 创建逻辑保持原样。
 
 Windows Runner 仍先生成安装版和免安装版。启用签名后：
 
@@ -41,7 +51,7 @@ Windows Runner 仍先生成安装版和免安装版。启用签名后：
 
 ## 验证
 
-首次启用后先从公开 `main` 手动运行 Packages，在 SignPath 批准请求，确认两个 EXE 均能通过 Windows 验证，再按现有版本发布流程打标签：
+生产证书导入、`release-signing` 配置完成并设置 `SIGNPATH_ENABLED=true` 后，先从公开 `main` 手动运行 Packages（`windows_signing` 保持 `auto`），在 SignPath 批准请求，确认两个 EXE 均能通过 Windows 验证，再按现有版本发布流程打标签：
 
 ```powershell
 Get-AuthenticodeSignature .\WrongNotebook-Win-Setup-<版本>-x64.exe | Format-List Status,SignerCertificate,TimeStamperCertificate
@@ -50,6 +60,6 @@ Get-AuthenticodeSignature .\WrongNotebook-Win-Portable-<版本>-x64.exe | Format
 
 签名应为 `Valid`，并核对发布者及时间戳。还应核对 Release 的校验和与实际下载文件一致。签名不保证立即消除所有 SmartScreen 提示，Windows 的信誉判断还取决于文件和证书信誉。
 
-CI 的 `Windows Signature Validation` 使用 Windows Runner 自带的真实签名程序验证正常路径、缺失文件、多余文件、未签名内容和签名后篡改，失败场景还会确认原始文件未被部分覆盖；这些测试不需要 SignPath Token，不能替代首次真实签名验收。
+CI 的 `Windows Signature Validation` 使用 Windows Runner 自带的真实签名程序验证正常路径、缺失文件、多余文件、未签名内容和签名后篡改，并用临时自签名证书验证测试证书模式（生产模式拒绝、测试模式接受且不覆盖发布文件）；失败场景还会确认原始文件未被部分覆盖；这些测试不需要 SignPath Token，不能替代首次真实签名验收。
 
 参考：[SignPath GitHub Actions 集成](https://docs.signpath.io/trusted-build-systems/github)、[基金会条件](https://signpath.org/terms)。
