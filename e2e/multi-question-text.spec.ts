@@ -116,3 +116,17 @@ test('[E2E-B05] 其他用户打开批次链接看不到内容', async ({ page, s
     await expect(page.getByText('这批题目不存在或已被放弃。')).toBeVisible();
     expect(await scenario.db.importTask.count({ where: { userId: { in: [scenario.user.id, scenario.otherUser.id] } } })).toBe(0);
 });
+
+test('[E2E-B07] 本地按题号分错时（OCR 认错题号），仍可改用 AI 分题', async ({ page, scenario }) => {
+    await scenario.login(page);
+    await page.goto(`/?notebook=${scenario.book.id}`);
+    await page.getByRole('tab', { name: '手动输入', exact: true }).click();
+    // 10、11 被 OCR 认成 19 和「山」，本地规则只能连上 12、13
+    await page.locator('#question-text').fill(`9. 计算 1 + 1。${scenario.marker}\n\n19. 计算 2 + 2。\n\n山.计算 3 + 3。\n\n12.计算 4 + 4。\n\n13.计算 5 + 5。`);
+    await expect(page.getByTestId('multi-detected')).toContainText('检测到 2 道编号题');
+    await page.getByRole('button', { name: /分得不对？用 AI 分题/ }).click();
+    await expect(page).toHaveURL(/\/import-batches\/[a-f0-9]+$/);
+    await expect(page.getByTestId('draft-summary')).toHaveText(/识别出 5 题/);
+    expect(await calls(scenario, 'split')).toHaveLength(1);
+    await expect(page.getByTestId('draft-item').nth(2)).toContainText('计算 3 + 3');
+});

@@ -42,6 +42,17 @@ export function TextInputZone({ onSubmit, isAnalyzing, defaultNotebookName, onCr
         await onCreateBatch(questionText, splitter, forceNumbered);
     };
 
+    // 「用 AI 分题」入口：没检测到多题时用于未编号的题；检测到多题时用于本地规则分错（如 OCR 认错题号）
+    const aiSplitEntry = (label: string) => onCreateBatch && text ? (
+        <div className="text-center">
+            <Button variant="link" size="sm" onClick={() => preview("ai")} disabled={busy || tooLong} className="h-auto whitespace-normal">
+                {creatingBatch ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Layers className="mr-1 h-3 w-3" />}
+                {creatingBatch ? t.app.creatingBatch : label}
+            </Button>
+            <p className="text-xs text-muted-foreground">{t.app.aiSplitHint}</p>
+        </div>
+    ) : null;
+
     // Ctrl/⌘+Enter 执行当前的主操作
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -99,6 +110,7 @@ export function TextInputZone({ onSubmit, isAnalyzing, defaultNotebookName, onCr
                                 {isAnalyzing ? t.editor?.reanswering || "AI solving..." : t.app.solveAsOne}
                             </Button>
                         </div>
+                        {aiSplitEntry(t.app.aiSplitMulti)}
                     </div>
                 ) : (
                     <>
@@ -122,15 +134,7 @@ export function TextInputZone({ onSubmit, isAnalyzing, defaultNotebookName, onCr
                                 </Button>
                             </div>
                         )}
-                        {onCreateBatch && text && (
-                            <div className="text-center">
-                                <Button variant="link" size="sm" onClick={() => preview("ai")} disabled={busy || tooLong} className="h-auto whitespace-normal">
-                                    {creatingBatch ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Layers className="mr-1 h-3 w-3" />}
-                                    {creatingBatch ? t.app.creatingBatch : t.app.aiSplit}
-                                </Button>
-                                <p className="text-xs text-muted-foreground">{t.app.aiSplitHint}</p>
-                            </div>
-                        )}
+                        {aiSplitEntry(t.app.aiSplit)}
                     </>
                 )}
 
