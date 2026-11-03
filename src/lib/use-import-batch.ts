@@ -12,12 +12,16 @@ const ACTIVE_POLL_MS = 2500;
 const SAVE_DELAY_MS = 800;
 /** 撤销记录的条数 */
 const MAX_UNDO = 30;
+/** 保存失败（网络等）后自动重试的间隔 */
+const RETRY_DELAY_MS = 5000;
 
 export type DraftSaveState = "saved" | "dirty" | "saving" | "error";
 
 /**
  * 单个多题批次：进行中时轮询，回到前台立即刷新；草稿编辑后自动保存到服务端（带版本号）。
- * 本地有未保存的修改时，轮询结果不会覆盖正在编辑的草稿；其他页面先保存了修改时载入最新内容并通过 onConflict 提示。
+ * 本地有未保存的修改时，轮询结果不会覆盖正在编辑的草稿；其他页面先保存了修改时载入最新内容并通过 onConflict 提示，
+ * 本页的修改保留为可恢复的副本（conflictCopy），由用户选择恢复或放弃。
+ * 保存串行进行：防抖、页面隐藏、开始按钮等同时触发时合并为同一个保存循环，每次提交最新内容和最新版本，不会自己与自己冲突。
  */
 export function useImportBatch(id: string, options: { onConflict?: () => void } = {}) {
     const [batch, setBatch] = useState<ImportBatchDetail | null>(null);
@@ -33,6 +37,8 @@ export function useImportBatch(id: string, options: { onConflict?: () => void } 
     const draftRef = useRef<BatchDraft | null>(null);
     const saving = useRef<Promise<boolean> | null>(null);
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const saveRef = useRef<() => Promise<boolean>>(async () => true);
+    const [conflictCopy, setConflictCopy] = useState<BatchDraft | null>(null);
     const onConflictRef = useRef(options.onConflict);
     useEffect(() => {
         onConflictRef.current = options.onConflict;
@@ -90,44 +96,59 @@ export function useImportBatch(id: string, options: { onConflict?: () => void } 
         return () => clearInterval(interval);
     }, [active, refresh]);
 
-    /** 立即保存当前草稿；返回是否已与服务端一致 */
+    /** 提交一次当前草稿与当前版本 */
+    const saveOnce = useCallback(async (): Promise<"ok" | "conflict" | "error"> => {
+        const seq = editSeq.current;
+        setSaveState("saving");
+        try {
+            const next = await saveImportBatchDraft(id, versionRef.current, draftRef.current!);
+            versionRef.current = next.version;
+            savedSeq.current = seq;
+            setBatch((current) => (current ? { ...next, imageData: current.imageData } : next));
+            setSaveState(editSeq.current === seq ? "saved" : "dirty");
+            return "ok";
+        } catch (error) {
+            const latest = conflictBatch(error);
+            if (latest) {
+                // 其他页面已修改或已开始：载入最新内容；本页的修改（含保存期间新输入的）保留为可恢复的副本
+                const local = draftRef.current;
+                if (latest.status === "draft" && local) setConflictCopy(local);
+                adopt(latest, true);
+                onConflictRef.current?.();
+                return "conflict";
+            }
+            setSaveState("error");
+            if (timer.current) clearTimeout(timer.current);
+            timer.current = setTimeout(() => void saveRef.current(), RETRY_DELAY_MS);
+            return "error";
+        }
+    }, [id, adopt]);
+
+    /** 立即保存当前草稿；同时发起的保存合并为一个串行循环，返回是否已与服务端一致 */
     const save = useCallback(async (): Promise<boolean> => {
         if (timer.current) {
             clearTimeout(timer.current);
             timer.current = null;
         }
-        if (saving.current) await saving.current;
-        if (editSeq.current === savedSeq.current || !draftRef.current) return true;
-        const seq = editSeq.current;
-        const run = (async () => {
-            setSaveState("saving");
-            try {
-                const next = await saveImportBatchDraft(id, versionRef.current, draftRef.current!);
-                versionRef.current = next.version;
-                savedSeq.current = seq;
-                setBatch((current) => (current ? { ...next, imageData: current.imageData } : next));
-                setSaveState(editSeq.current === seq ? "saved" : "dirty");
-                return editSeq.current === seq;
-            } catch (error) {
-                const latest = conflictBatch(error);
-                if (latest) {
-                    // 其他页面已修改或已开始：载入最新内容
-                    editSeq.current = seq;
-                    adopt(latest, true);
-                    onConflictRef.current?.();
-                    return false;
+        for (;;) {
+            const run = saving.current ?? (saving.current = (async () => {
+                try {
+                    while (editSeq.current !== savedSeq.current && draftRef.current) {
+                        if (await saveOnce() !== "ok") return false;
+                    }
+                    return true;
+                } finally {
+                    saving.current = null;
                 }
-                setSaveState("error");
-                return false;
-            }
-        })();
-        saving.current = run;
-        try {
-            return await run;
-        } finally {
-            saving.current = null;
+            })());
+            if (!await run) return false;
+            // 等待期间又有新修改且循环已结束时，再保存一轮
+            if (editSeq.current === savedSeq.current) return true;
         }
-    }, [id, adopt]);
+    }, [saveOnce]);
+    useEffect(() => {
+        saveRef.current = save;
+    }, [save]);
 
     // 页面隐藏（锁屏、切换应用、关闭）前尽快保存
     useEffect(() => {
@@ -182,8 +203,16 @@ export function useImportBatch(id: string, options: { onConflict?: () => void } 
         if (previous) apply(previous);
     }, [apply]);
 
+    /** 保存冲突后恢复本页的修改：在最新版本上作为一次编辑重新保存 */
+    const restoreConflictCopy = useCallback(() => {
+        const copy = conflictCopy;
+        setConflictCopy(null);
+        if (copy) edit(() => copy);
+    }, [conflictCopy, edit]);
+
     return {
         batch, draft, notFound, saveState, refresh, save, edit, undo, canUndo,
+        conflictCopy, restoreConflictCopy, dismissConflictCopy: () => setConflictCopy(null),
         /** 当前已保存的版本（开始解析时提交） */
         version: () => versionRef.current,
         replace: (next: ImportBatchDetail) => adopt(next, true),

@@ -27,10 +27,14 @@ interface BatchDraftEditorProps {
     starting: string | null;
     onStart: () => void;
     onDiscard: () => void;
+    /** 保存冲突后保留的本页修改：可恢复或放弃 */
+    hasConflictCopy?: boolean;
+    onRestoreConflict?: () => void;
+    onDismissConflict?: () => void;
 }
 
 /** 分题预览：摘要、整页原图（图片批次）、题目列表、未计入题目的内容与底部操作栏 */
-export function BatchDraftEditor({ source, draft, onEdit, onUndo, canUndo, saveState, image, confirmBeforeImport, starting, onStart, onDiscard }: BatchDraftEditorProps) {
+export function BatchDraftEditor({ source, draft, onEdit, onUndo, canUndo, saveState, image, confirmBeforeImport, starting, onStart, onDiscard, hasConflictCopy, onRestoreConflict, onDismissConflict }: BatchDraftEditorProps) {
     const { t } = useLanguage();
     // 一次只展开一道题，手机上不会铺满长表单
     const [expanded, setExpanded] = useState<string | null>(null);
@@ -69,6 +73,16 @@ export function BatchDraftEditor({ source, draft, onEdit, onUndo, canUndo, saveS
                     </Button>
                 </div>
             </div>
+
+            {hasConflictCopy && (
+                <div className="space-y-2 rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm" role="status" data-testid="draft-conflict">
+                    <p>{t.importBatch.conflictKept}</p>
+                    <div className="flex flex-wrap gap-2">
+                        <Button type="button" size="sm" onClick={onRestoreConflict}>{t.importBatch.restoreMine}</Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={onDismissConflict}>{t.importBatch.discardMine}</Button>
+                    </div>
+                </div>
+            )}
 
             {draft.warnings.length > 0 && (
                 <ul className="space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">

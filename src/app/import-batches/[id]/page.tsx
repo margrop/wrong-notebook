@@ -169,6 +169,9 @@ export default function ImportBatchPage() {
                     starting={starting}
                     onStart={start}
                     onDiscard={discard}
+                    hasConflictCopy={!!batchState.conflictCopy}
+                    onRestoreConflict={batchState.restoreConflictCopy}
+                    onDismissConflict={batchState.dismissConflictCopy}
                 />
             ) : (
                 <BatchProgress batch={batch} image={image} busy={busy} onRetryFailed={retry} onRetryOne={retryOne} onConfirmAll={confirmAll} />
