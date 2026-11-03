@@ -557,4 +557,6 @@ Issues and pull requests are welcome. Please read the [contributing guide](CONTR
 
 [MIT License](LICENSE)
 
+The [heic-to](https://github.com/hoppergee/heic-to) 1.6.6 converter, loaded on demand when the browser cannot decode HEIC/HEIF photos itself, and the libheif and libde265 libraries it contains are licensed under LGPL-3.0; the Emscripten runtime code is dual-licensed under MIT and NCSA. The third-party notice, full license texts and links to the corresponding source and build instructions are in [`public/third-party-licenses/heic-to/`](public/third-party-licenses/heic-to/NOTICE.txt). This directory ships with the Docker image and every install package, and signed-in users can also open `/third-party-licenses/heic-to/NOTICE.txt` in the app.
+
 © 2026 margrop. This project extends [wttwins/wrong-notebook](https://github.com/wttwins/wrong-notebook); copyright in the original code remains with its author.

@@ -24,6 +24,8 @@ AI requests are dispatched to a provider on the server and call external service
 
 Photo recognition uses the database-backed `ImportTask` (`/api/import-tasks`): the upload returns a task ID immediately, recognition and saving run after the response via `after()`, and the result, draft and final question ID are persisted. State changes are claimed with conditional `updateMany`, and writing the question and marking the task saved commit in the same transaction. Running tasks record the process boot ID, so a single-process deployment marks them interrupted right after a restart; multi-instance deployments (Vercel) use a heartbeat timeout. `/api/analyze` stays as the synchronous endpoint and shares `src/lib/question-analysis.ts` with tasks; saving shares `src/lib/question-save.ts` with the add-question endpoint.
 
+HEIC/HEIF conversion depends on `heic-to` (LGPL-3.0, containing libheif, libde265 and the Emscripten runtime), which is loaded dynamically only when the browser cannot decode the photo itself. Its third-party notice and full license texts are in `public/third-party-licenses/heic-to/` and ship with `public/` in every distribution. When upgrading `heic-to`, check the versions, license texts and upstream source links in that directory as well.
+
 ## Common checks
 
 ### List API payloads

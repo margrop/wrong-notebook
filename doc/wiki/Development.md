@@ -24,6 +24,8 @@ AI 请求由服务端选择提供商并调用外部服务，业务数据经 Pris
 
 拍照识别使用数据库中的 `ImportTask`（`/api/import-tasks`）：上传后立即返回任务编号，识别与入库通过 `after()` 在响应后执行，结果、草稿与最终错题编号持久保存。状态迁移用带条件的 `updateMany` 抢占，错题写入与任务标记已保存在同一事务提交；执行中的任务记录进程启动编号，单进程部署重启后立即判为中断，多实例（Vercel）按心跳超时判断。`/api/analyze` 保留为同步接口，与任务共用 `src/lib/question-analysis.ts`；保存与「添加错题」共用 `src/lib/question-save.ts`。
 
+HEIC/HEIF 转换依赖 `heic-to`（LGPL-3.0，内含 libheif、libde265 与 Emscripten 运行时），只在浏览器无法直接解码时动态加载。其第三方说明与完整许可证文本放在 `public/third-party-licenses/heic-to/`，随 `public/` 进入各分发形式；升级 `heic-to` 时须同步核对该目录中的版本、许可证文本与上游源码链接。
+
 ## 常用检查
 
 ### 列表接口的数据范围

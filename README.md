@@ -555,4 +555,6 @@ E2E 启动器会在系统临时目录复制应用和依赖、执行正式迁移�
 
 [MIT License](LICENSE)
 
+浏览器无法直接解码 HEIC/HEIF 照片时按需加载的转换组件 [heic-to](https://github.com/hoppergee/heic-to) 1.6.6 及其包含的 libheif、libde265 采用 LGPL-3.0，Emscripten 运行时代码采用 MIT/NCSA 双许可。第三方说明、完整许可证文本与对应源码和构建说明链接见 [`public/third-party-licenses/heic-to/`](public/third-party-licenses/heic-to/NOTICE.txt)，该目录随 Docker 镜像和各安装包一起分发，登录后也可在应用中访问 `/third-party-licenses/heic-to/NOTICE.txt`。
+
 © 2026 margrop。本项目基于 [wttwins/wrong-notebook](https://github.com/wttwins/wrong-notebook) 扩展，原项目代码版权归原作者所有。
