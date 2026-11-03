@@ -30,7 +30,7 @@ HEIC/HEIF 转换依赖 `heic-to`（LGPL-3.0，内含 libheif、libde265 与 Emsc
 
 ### 列表接口的数据范围
 
-`GET /api/error-items/list` 默认只返回卡片所需字段，标签只返回名称；不包含原图、OCR、答案、解析、配图、动画或历史练习。详情使用 `GET /api/error-items/:id`；打印预览通过列表接口的 `view=print` 参数额外读取原图、答案、解析、配图、年级学期、卷别和错题本名称。两种视图使用相同的认证、用户范围、筛选和分页规则，不能将默认列表响应当成完整的 `ErrorItem`。
+`GET /api/error-items/list` 默认只返回卡片所需字段，标签只返回名称；不包含原图、OCR、答案、解析、配图、动画或历史练习。详情使用 `GET /api/error-items/:id`；打印预览通过列表接口的 `view=print` 参数额外读取答案、解析、配图、年级学期、卷别和错题本名称；原图不随列表返回，`originalImageUrl` 换成 `GET /api/error-items/:id/image?v=<更新时间>` 链接，由页面懒加载，点击打印前再统一加载完成。图片接口只输出 PNG、JPEG、WebP、GIF 位图，链接随原图替换而变化，可长期缓存。两种视图使用相同的认证、用户范围、筛选和分页规则，不能将默认列表响应当成完整的 `ErrorItem`。
 
 `src/__tests__/integration/error-list-payload.test.ts` 使用独立的 SQLite 数据库验证大图片、动画、分页与打印；18 题默认响应必须小于 12 KiB，防止重新把大字段带回列表。配对测量方法与报告见仓库 `perf/` 目录。
 

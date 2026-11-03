@@ -17,7 +17,7 @@ vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 
 import { GET, DELETE } from '@/app/api/tasks/route';
 import { POST as GENERATE } from '@/app/api/error-items/[id]/svg-animation/route';
-import { PUT as REPLACE_IMAGE } from '@/app/api/error-items/[id]/image/route';
+import { GET as READ_IMAGE, PUT as REPLACE_IMAGE } from '@/app/api/error-items/[id]/image/route';
 import { resetBackgroundTasksForTest, startBackgroundTask } from '@/lib/background-tasks';
 
 const context = { params: Promise.resolve({ id: 'e1' }) };
@@ -104,5 +104,33 @@ describe('PUT /api/error-items/:id/image', () => {
         mocks.session = null;
         expect((await put({ imageDataUrl: image })).status).toBe(401);
         expect(mocks.errorItem.update).not.toHaveBeenCalled();
+    });
+});
+
+describe('GET /api/error-items/:id/image', () => {
+    const read = () => READ_IMAGE(new Request('http://localhost/api/error-items/e1/image'), context);
+
+    it('以二进制输出本人的原图并允许长期缓存', async () => {
+        mocks.errorItem.findUnique.mockResolvedValue({ userId: 'user-1', originalImageUrl: 'data:image/jpeg;base64,QUJDRA==' });
+        const response = await read();
+        expect(response.status).toBe(200);
+        expect(response.headers.get('content-type')).toBe('image/jpeg');
+        expect(response.headers.get('cache-control')).toContain('private');
+        expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+        expect(Buffer.from(await response.arrayBuffer()).toString()).toBe('ABCD');
+    });
+
+    it('不输出 SVG、HTML 等非位图内容', async () => {
+        for (const originalImageUrl of ['data:image/svg+xml;base64,PHN2Zz4=', 'data:text/html;base64,PGh0bWw+', '']) {
+            mocks.errorItem.findUnique.mockResolvedValue({ userId: 'user-1', originalImageUrl });
+            expect((await read()).status).toBe(404);
+        }
+    });
+
+    it('他人的题目返回 404，未登录返回 401', async () => {
+        mocks.errorItem.findUnique.mockResolvedValue({ userId: 'other', originalImageUrl: 'data:image/png;base64,QUJDRA==' });
+        expect((await read()).status).toBe(404);
+        mocks.session = null;
+        expect((await read()).status).toBe(401);
     });
 });

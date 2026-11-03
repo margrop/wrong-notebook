@@ -106,17 +106,29 @@ describe('错题列表大字段与打印回归（真实 SQLite）', () => {
         expect(data.items.map((item: { id: string }) => item.id)).not.toContain('private');
     });
 
-    it('打印视图保留原图、题干、配图、答案、解析和错题本名称', async () => {
+    it('打印视图保留题干、配图、答案、解析和错题本名称，原图换成懒加载链接', async () => {
         const response = await get('view=print&pageSize=1');
         const data = await response.json();
         expect(response.status).toBe(200);
+        expect(data.items[0].originalImageUrl).toMatch(/^\/api\/error-items\/question-0\/image\?v=\d+$/);
         expect(data.items[0]).toMatchObject({
-            id: 'question-0', originalImageUrl: image, questionText: '题目 0：求解方程',
+            id: 'question-0', questionText: '题目 0：求解方程',
             figureSvg: figure, figureScale: 65, figureAlign: 'left', answerText: 'x = 1', analysis: '等式两边同时运算',
             subject: { name: '数学' }, tags: [{ name: '方程' }],
         });
         expect(Object.keys(data.items[0])).not.toContain('svgAnimation');
         expect(Object.keys(data.items[0])).not.toContain('lastPractice');
+        expect(Object.keys(data.items[0])).not.toContain('updatedAt');
+    });
+
+    it('打印全部题目时不携带 base64 原图，响应保持轻量', async () => {
+        const response = await get('view=print&pageSize=200');
+        const text = await response.text();
+        const data = JSON.parse(text);
+        expect(data.items).toHaveLength(52);
+        expect(text).not.toContain('base64');
+        // 52 张 128 KiB 原图若随列表返回会超过 6 MiB
+        expect(Buffer.byteLength(text)).toBeLessThan(64 * 1024);
     });
 
     it('未登录时不能获取列表或打印内容', async () => {

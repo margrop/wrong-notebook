@@ -82,6 +82,8 @@ export function PrintableQuestion({
                         <img
                             src={item.originalImageUrl}
                             alt={t.detail?.originalProblem || 'Question Image'}
+                            loading="lazy"
+                            decoding="async"
                             className="h-auto border rounded"
                             style={{ maxWidth: `${options.imageScale}%` }}
                         />

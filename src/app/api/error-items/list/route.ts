@@ -10,7 +10,7 @@ import { shiftCalendarDate } from "@/lib/date-time";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/lib/constants/pagination";
 import { isShortId } from "@/lib/short-id";
 import { isMasteryStatus, masteryStatusOf, masteryStatusWhere } from "@/lib/mastery-status";
-import { ERROR_ITEM_LIST_SELECT, ERROR_ITEM_PRINT_SELECT } from "@/lib/error-list-select";
+import { ERROR_ITEM_LIST_SELECT, ERROR_ITEM_PRINT_SELECT, printImageUrl } from "@/lib/error-list-select";
 
 const logger = createLogger('api:error-items:list');
 
@@ -155,18 +155,15 @@ export async function GET(req: Request) {
         });
 
         // 分页查询
-        const errorItems = await prisma.errorItem.findMany({
-            where: whereClause,
-            orderBy: { createdAt: "desc" },
-            select: searchParams.get("view") === "print" ? ERROR_ITEM_PRINT_SELECT : ERROR_ITEM_LIST_SELECT,
-            skip: (page - 1) * pageSize,
-            take: pageSize,
-        });
+        const pageArgs = { where: whereClause, orderBy: { createdAt: "desc" as const }, skip: (page - 1) * pageSize, take: pageSize };
+        const items = searchParams.get("view") === "print"
+            ? await findPrintItems(pageArgs)
+            : await prisma.errorItem.findMany({ ...pageArgs, select: ERROR_ITEM_LIST_SELECT });
 
         const totalPages = Math.ceil(total / pageSize);
 
         return NextResponse.json({
-            items: errorItems.map(({ _count, ...item }) => ({
+            items: items.map(({ _count, ...item }) => ({
                 ...item,
                 masteryStatus: masteryStatusOf(_count.practiceRecords, item.masteryProbability, user.masteryThreshold),
             })),
@@ -179,6 +176,29 @@ export async function GET(req: Request) {
         logger.error({ error }, 'Error fetching items');
         return internalError("Failed to fetch error items");
     }
+}
+
+/**
+ * 打印视图：读取解答与配图；base64 原图换成懒加载的图片接口链接，外部链接原样返回。
+ * 原图类型只在 SQLite 中按前缀判断，不把 base64 读入服务端内存，也不随列表返回。
+ */
+async function findPrintItems(args: Pick<Prisma.ErrorItemFindManyArgs, "where" | "orderBy" | "skip" | "take">) {
+    const rows = await prisma.errorItem.findMany({ ...args, select: ERROR_ITEM_PRINT_SELECT });
+    const ids = rows.map((row) => row.id);
+    const isInline = { originalImageUrl: { startsWith: "data:" } };
+    const [inline, external] = ids.length === 0 ? [[], []] : await Promise.all([
+        prisma.errorItem.findMany({ where: { id: { in: ids }, ...isInline }, select: { id: true } }),
+        prisma.errorItem.findMany({
+            where: { id: { in: ids }, originalImageUrl: { not: "" }, NOT: isInline },
+            select: { id: true, originalImageUrl: true },
+        }),
+    ]);
+    const inlineIds = new Set(inline.map((row) => row.id));
+    const externalUrls = new Map(external.map((row) => [row.id, row.originalImageUrl]));
+    return rows.map(({ updatedAt, ...row }) => ({
+        ...row,
+        originalImageUrl: inlineIds.has(row.id) ? printImageUrl(row.id, updatedAt) : externalUrls.get(row.id) ?? "",
+    }));
 }
 
 function buildGradeFilter(gradeSemester: string): Prisma.ErrorItemWhereInput {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense, useCallback } from "react";
+import { useEffect, useState, Suspense, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/ui/back-button";
@@ -15,6 +15,7 @@ import { useSavedAnswerSpaces } from "@/lib/use-saved-answer-spaces";
 import type { AnswerSpaceChange } from "@/lib/use-saved-answer-spaces";
 import { PRINT_PREVIEW_PAGE_SIZE } from "@/lib/constants/pagination";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { loadAllImages } from "@/lib/print-images";
 import {
     getPrintPreviewCountLabel,
     getPrintPreviewEmptyState,
@@ -70,7 +71,15 @@ function PrintPreviewContent() {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- 数据请求：进入页面或条件变化时加载，请求前后更新加载状态和结果
         fetchItems();
     }, [fetchItems]);
-    const handlePrint = () => {
+    const contentRef = useRef<HTMLDivElement>(null);
+    /** 打印前加载图片的进度；为 null 表示未在准备打印 */
+    const [imageProgress, setImageProgress] = useState<{ loaded: number; total: number } | null>(null);
+    const handlePrint = async () => {
+        if (contentRef.current) {
+            // 原图懒加载，打印前先全部加载，避免打印出空白
+            await loadAllImages(contentRef.current, { onProgress: (loaded, total) => setImageProgress({ loaded, total }) });
+        }
+        setImageProgress(null);
         window.print();
     };
 
@@ -118,8 +127,10 @@ function PrintPreviewContent() {
                         <h1 className="text-lg sm:text-xl font-bold flex-1">
                             {t.printPreview?.title || 'Print Preview'} ({countLabel} {t.notebooks?.items || 'items'})
                         </h1>
-                        <Button onClick={handlePrint} size="sm" className="whitespace-nowrap" disabled={selectedItems.length === 0}>
-                            {t.printPreview?.printButton || 'Print / Save PDF'}
+                        <Button onClick={handlePrint} size="sm" className="whitespace-nowrap" disabled={selectedItems.length === 0 || imageProgress !== null}>
+                            {imageProgress
+                                ? t.printPreview.loadingImages.replace('{loaded}', String(imageProgress.loaded)).replace('{total}', String(imageProgress.total))
+                                : (t.printPreview?.printButton || 'Print / Save PDF')}
                         </Button>
                     </div>
 
@@ -144,7 +155,7 @@ function PrintPreviewContent() {
             </div>
 
             {/* Print Content */}
-            <div className="max-w-4xl mx-auto p-8 print:p-0">
+            <div ref={contentRef} className="max-w-4xl mx-auto p-8 print:p-0">
                 {selectedItems.map((item, index) => (
                     <PrintableQuestion
                         key={item.id}

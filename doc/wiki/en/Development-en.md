@@ -30,7 +30,7 @@ HEIC/HEIF conversion depends on `heic-to` (LGPL-3.0, containing libheif, libde26
 
 ### List API payloads
 
-`GET /api/error-items/list` returns card fields by default, with tag names only. It excludes original images, OCR, answers, explanations, figures, animations and saved practice data. Use `GET /api/error-items/:id` for details. Print preview adds `view=print` to the list request to retrieve the original image, answer, explanation, figure, grade/term, paper level and notebook name. Both views share authentication, user scope, filters and pagination. The default response is a summary, not a complete `ErrorItem`.
+`GET /api/error-items/list` returns card fields by default, with tag names only. It excludes original images, OCR, answers, explanations, figures, animations and saved practice data. Use `GET /api/error-items/:id` for details. Print preview adds `view=print` to the list request to retrieve the answer, explanation, figure, grade/term, paper level and notebook name. Original images are not embedded: `originalImageUrl` becomes a `GET /api/error-items/:id/image?v=<updated time>` link that the page lazy-loads and fully loads right before printing. The image endpoint only serves PNG, JPEG, WebP and GIF bitmaps; the link changes when the image is replaced, so it can be cached long-term. Both views share authentication, user scope, filters and pagination. The default response is a summary, not a complete `ErrorItem`.
 
 `src/__tests__/integration/error-list-payload.test.ts` uses an isolated SQLite database to verify large images, animations, pagination and printing. The default response for 18 questions must stay below 12 KiB to prevent large fields from returning to the list. Paired benchmarks and their report are in `perf/`.
 
