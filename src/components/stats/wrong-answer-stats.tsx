@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
-import { Loader2, CheckCircle, BookOpen, Clock, RefreshCw, Inbox } from "lucide-react";
+import { Loader2, CheckCircle, BookOpen, Clock, RefreshCw, Inbox, TrendingUp } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AnalyticsData } from "@/types/api";
 import { useStatsData } from "@/lib/use-stats-data";
@@ -15,9 +15,13 @@ import { StatsEmpty, StatsError } from "./stats-state";
 import { MasteryProgressBar } from "./mastery-progress-bar";
 import { CHART_GRID_COLOR, CHART_AXIS_COLOR, CHART_BAR_GRADIENT_START } from "./chart-colors";
 
-export function WrongAnswerStats() {
+interface WrongAnswerStatsProps {
+    url: string;
+}
+
+export function WrongAnswerStats({ url }: WrongAnswerStatsProps) {
     const { t } = useLanguage();
-    const { data, loading, error, reload } = useStatsData<AnalyticsData>("/api/analytics");
+    const { data, loading, error, reload } = useStatsData<AnalyticsData>(url);
 
     if (loading) {
         return (
@@ -45,6 +49,10 @@ export function WrongAnswerStats() {
             />
         );
     }
+
+    const trendTitle = data.granularity === 'day'
+        ? t.wrongAnswerStats.dailyTrend
+        : t.wrongAnswerStats.monthlyTrend;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -93,10 +101,14 @@ export function WrongAnswerStats() {
                     data={data.subjectStats}
                 />
 
-                {/* Monthly Trend */}
+                {/* 趋势图：按粒度显示每日或月度 */}
+                {/* 趋势图：按粒度显示每日或月度 */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>{t.wrongAnswerStats.MonthlyTrend}</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4" />
+                            {trendTitle}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">

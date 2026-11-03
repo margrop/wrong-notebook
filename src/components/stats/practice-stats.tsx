@@ -14,9 +14,13 @@ import { SubjectPieChart } from "./subject-pie-chart";
 import { StatsEmpty, StatsError } from "./stats-state";
 import { COLORS, DIFFICULTY_COLORS, CHART_GRID_COLOR, CHART_AXIS_COLOR } from "./chart-colors";
 
-export function PracticeStats() {
+interface PracticeStatsProps {
+    url: string;
+}
+
+export function PracticeStats({ url }: PracticeStatsProps) {
     const { t } = useLanguage();
-    const { data: stats, loading, error, reload } = useStatsData<PracticeStatsData>("/api/stats/practice");
+    const { data: stats, loading, error, reload } = useStatsData<PracticeStatsData>(url);
 
     if (loading) {
         return (
@@ -54,6 +58,10 @@ export function PracticeStats() {
     // Get unique difficulties for the bar chart
     const difficulties = stats.difficultyStats.map(d => d.name);
 
+    const trendTitle = stats.granularity === 'day'
+        ? (t.stats?.dailyTrend || "Daily Trend")
+        : (t.stats?.monthlyTrend || "Monthly Trend");
+
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-bold tracking-tight">{t.stats?.title || "Practice Statistics"}</h2>
@@ -72,8 +80,8 @@ export function PracticeStats() {
                     icon={Target}
                 />
                 <StatCard
-                    title={t.stats?.activeDays || "Active Days (6m)"}
-                    value={stats.activityStats.filter(d => d.total > 0).length}
+                    title={t.stats?.activeDays || "Active Days"}
+                    value={stats.activeDays}
                     icon={TrendingUp}
                 />
             </div>
@@ -84,10 +92,10 @@ export function PracticeStats() {
                     data={stats.subjectStats}
                 />
 
-                {/* Monthly Activity with Difficulty Stack */}
+                {/* 趋势图：按粒度显示每日或月度 */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>{t.stats?.weeklyTrend || "Monthly Trend"}</CardTitle>
+                        <CardTitle>{trendTitle}</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">

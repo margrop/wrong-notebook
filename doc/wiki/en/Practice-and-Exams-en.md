@@ -63,7 +63,7 @@ Before printing, check page breaks, formulas and figures. Paper size, scaling an
 
 ## Statistics
 
-Mistake statistics show total questions, mastered count, mastery rate, subject distribution and monthly trends. Practice statistics separately show practice count, accuracy, active months, and distribution by difficulty and subject.
+Mistake statistics show total questions, mastered count, mastery rate, subject distribution and a trend chart. Practice statistics separately show practice count, accuracy, active days, and distribution by difficulty and subject. Both tabs support filtering by time range (last 7 days / 30 days / 6 months / all time) and subject; the trend chart shows daily or monthly bars depending on the selected granularity.
 
 Knowledge points also live in the stats center: the **Knowledge Points** tab shows a tag system switcher at the top (visible once another tag system is imported), a usage frequency Top 20 card below (counting identically named points in different tag systems or subjects separately), and the standard knowledge points for each stage and subject with custom tag management at the bottom, all shown and added per the selected system. Old `/tags` links redirect here.
 

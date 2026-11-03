@@ -4,9 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { getAppTimeZone } from "@/lib/config";
-import { formatDateTime, getMonthStart } from "@/lib/date-time";
+import { formatDateTime } from "@/lib/date-time";
 import { unauthorized, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { parseStatsRange, resolveStatsRange } from "@/lib/stats-range";
+import { resolveStatsSubjectId, practiceSubjectWhere } from "@/lib/stats-filter";
 
 const logger = createLogger('api:stats:practice');
 
@@ -29,7 +31,7 @@ const CORRECT_CONDITION = {
     ]
 } satisfies Prisma.PracticeRecordWhereInput;
 
-export async function GET() {
+export async function GET(req: Request) {
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -41,24 +43,53 @@ export async function GET() {
     try {
         const now = new Date();
         const timeZone = getAppTimeZone();
+        const url = new URL(req.url);
+        const range = parseStatsRange(url.searchParams.get('range'));
+        const subjectIdParam = url.searchParams.get('subjectId');
 
-        const [subjectRecords, activityStats, difficultyGroups, totalRecords, correctRecords, attemptedRecords] = await Promise.all([
+        // 校验 subjectId 是否属于当前用户；非法时当作未筛选
+        const subject = await resolveStatsSubjectId(userId, subjectIdParam);
+        const subjectId = subject?.id ?? null;
+        const subjectName = subject?.name ?? null;
+
+        // 构建基础查询条件
+        const baseWhere: Prisma.PracticeRecordWhereInput = {
+            userId,
+            ...EXCLUDE_DUPLICATE_IMPORT,
+            ...(subjectId && subjectName ? practiceSubjectWhere(subjectId, subjectName) : {}),
+        };
+
+        let earliest: Date | null = null;
+        if (range === 'all') {
+            // 仅 all 范围需要查最早记录作为分桶起点
+            const earliestRecord = await prisma.practiceRecord.findFirst({
+                where: baseWhere,
+                select: { createdAt: true },
+                orderBy: { createdAt: 'asc' },
+            });
+            earliest = earliestRecord?.createdAt ?? null;
+        }
+
+        const rangeInfo = resolveStatsRange(range, earliest, now, timeZone);
+
+        // 时间范围筛选合并进 where
+        const scopedWhere: Prisma.PracticeRecordWhereInput = {
+            ...baseWhere,
+            ...(rangeInfo.start ? { createdAt: { gte: rangeInfo.start } } : {}),
+        };
+
+        // CORRECT/ATTEMPTED 自身含 OR，必须用 AND 组合，避免相互覆盖
+        const [subjectRecords, rangeRecords, difficultyGroups, totalRecords, correctRecords, attemptedRecords] = await Promise.all([
             // 学科分布：优先取关联错题当前的学科名（学科改名后与错题统计一致），回退到记录里的快照
             prisma.practiceRecord.findMany({
-                where: { userId, ...EXCLUDE_DUPLICATE_IMPORT },
+                where: scopedWhere,
                 select: {
                     subject: true,
                     errorItem: { select: { subject: { select: { name: true } } } },
                 }
             }),
             prisma.practiceRecord.findMany({
-                where: {
-                    userId,
-                    ...EXCLUDE_DUPLICATE_IMPORT,
-                    createdAt: {
-                        gte: getMonthStart(now, timeZone, -5),
-                    }
-                },
+                where: scopedWhere,
                 select: {
                     createdAt: true,
                     result: true,
@@ -68,12 +99,12 @@ export async function GET() {
             }),
             prisma.practiceRecord.groupBy({
                 by: ['difficulty'],
-                where: { userId, ...EXCLUDE_DUPLICATE_IMPORT },
+                where: scopedWhere,
                 _count: { id: true }
             }),
-            prisma.practiceRecord.count({ where: { userId, ...EXCLUDE_DUPLICATE_IMPORT } }),
-            prisma.practiceRecord.count({ where: { userId, ...CORRECT_CONDITION, ...EXCLUDE_DUPLICATE_IMPORT } }),
-            prisma.practiceRecord.count({ where: { userId, ...ATTEMPTED_CONDITION, ...EXCLUDE_DUPLICATE_IMPORT } }),
+            prisma.practiceRecord.count({ where: scopedWhere }),
+            prisma.practiceRecord.count({ where: { AND: [scopedWhere, CORRECT_CONDITION] } }),
+            prisma.practiceRecord.count({ where: { AND: [scopedWhere, ATTEMPTED_CONDITION] } }),
         ]);
 
         const subjectCountMap = new Map<string, number>();
@@ -83,33 +114,35 @@ export async function GET() {
         }
         const subjectStats = Array.from(subjectCountMap, ([name, value]) => ({ name, value }));
 
-        // Process activity stats into monthly counts
-        const monthlyActivity: Record<string, { total: number, correct: number, [key: string]: number }> = {};
-
-        // Initialize last 6 months
-        for (let i = 5; i >= 0; i--) {
-            const key = formatDateTime(getMonthStart(now, timeZone, -i), 'yyyy-MM', timeZone);
-            monthlyActivity[key] = { total: 0, correct: 0 };
-        }
-
-        activityStats.forEach(record => {
-            const date = formatDateTime(record.createdAt, 'yyyy-MM', timeZone);
-            if (monthlyActivity[date]) {
-                monthlyActivity[date].total++;
+        // 按分桶统计趋势
+        const chartData = rangeInfo.buckets.map(bucket => {
+            const bucketRecords = rangeRecords.filter(
+                r => r.createdAt >= bucket.start && r.createdAt < bucket.end
+            );
+            const stats: { date: string; total: number; correct: number;[key: string]: number | string } = {
+                date: bucket.label,
+                total: bucketRecords.length,
+                correct: 0,
+            };
+            for (const record of bucketRecords) {
                 const isCorrect = record.result === 'correct' || (record.result === null && record.isCorrect === true);
                 if (isCorrect) {
-                    monthlyActivity[date].correct++;
+                    stats.correct++;
                 }
-
                 const difficulty = record.difficulty || 'Unknown';
-                monthlyActivity[date][difficulty] = (monthlyActivity[date][difficulty] || 0) + 1;
+                const current = typeof stats[difficulty] === 'number' ? stats[difficulty] as number : 0;
+                stats[difficulty] = current + 1;
             }
+            return stats;
         });
 
-        const chartData = Object.entries(monthlyActivity).map(([date, stats]) => ({
-            date,
-            ...stats
-        })).sort((a, b) => a.date.localeCompare(b.date));
+        // 活跃天数：范围内有练习的不同日期数（按应用时区）
+        const activeDaysSet = new Set<string>();
+        for (const record of rangeRecords) {
+            const dayKey = formatDateTime(record.createdAt, 'yyyy-MM-dd', timeZone);
+            activeDaysSet.add(dayKey);
+        }
+        const activeDays = activeDaysSet.size;
 
         return NextResponse.json({
             subjectStats,
@@ -120,7 +153,11 @@ export async function GET() {
                 correct: correctRecords,
                 attempted: attemptedRecords,
                 rate: attemptedRecords > 0 ? (correctRecords / attemptedRecords * 100).toFixed(1) : 0
-            }
+            },
+            activeDays,
+            range: rangeInfo.range,
+            granularity: rangeInfo.granularity,
+            ...(subjectId ? { subjectId, subjectName } : {}),
         });
 
     } catch (error) {

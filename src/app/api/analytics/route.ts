@@ -3,15 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { getAppTimeZone } from "@/lib/config";
-import { formatDateTime, getDayRange } from "@/lib/date-time";
 import { unauthorized, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { getMasteryThreshold } from "@/lib/mastery";
 import { masteryStatusWhere } from "@/lib/mastery-status";
+import { parseStatsRange, resolveStatsRange } from "@/lib/stats-range";
+import { resolveStatsSubjectId } from "@/lib/stats-filter";
 
 const logger = createLogger('api:analytics');
 
-export async function GET() {
+export async function GET(req: Request) {
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -23,30 +24,60 @@ export async function GET() {
     try {
         const timeZone = getAppTimeZone();
         const now = new Date();
-        const sevenDaysAgo = getDayRange(now, timeZone, -6).start;
+        const url = new URL(req.url);
+        const range = parseStatsRange(url.searchParams.get('range'));
+        const subjectIdParam = url.searchParams.get('subjectId');
+
+        // 校验 subjectId 是否属于当前用户；非法时当作未筛选
+        const subject = await resolveStatsSubjectId(userId, subjectIdParam);
+        const subjectId = subject?.id ?? null;
+        const subjectName = subject?.name ?? null;
+
+        // 构建基础查询条件
+        const baseWhere = {
+            userId,
+            ...(subjectId ? { subjectId } : {}),
+        };
+
+        let earliest: Date | null = null;
+        if (range === 'all') {
+            // 仅 all 范围需要查最早错题作为分桶起点
+            const earliestItem = await prisma.errorItem.findFirst({
+                where: baseWhere,
+                select: { createdAt: true },
+                orderBy: { createdAt: 'asc' },
+            });
+            earliest = earliestItem?.createdAt ?? null;
+        }
+
+        const rangeInfo = resolveStatsRange(range, earliest, now, timeZone);
+
         const masteryThreshold = await getMasteryThreshold(userId);
 
-        const [totalErrors, newCount, reviewingCount, masteredCount, subjectGroups, recentCreatedAt] = await Promise.all([
-            prisma.errorItem.count({ where: { userId } }),
+        // 时间范围筛选合并进 where
+        const scopedWhere = {
+            ...baseWhere,
+            ...(rangeInfo.start ? { createdAt: { gte: rangeInfo.start } } : {}),
+        };
+
+        const [totalErrors, newCount, reviewingCount, masteredCount, subjectGroups, rangeItems] = await Promise.all([
+            prisma.errorItem.count({ where: scopedWhere }),
             prisma.errorItem.count({
-                where: { AND: [{ userId }, masteryStatusWhere('new', masteryThreshold)] }
+                where: { AND: [scopedWhere, masteryStatusWhere('new', masteryThreshold)] }
             }),
             prisma.errorItem.count({
-                where: { AND: [{ userId }, masteryStatusWhere('reviewing', masteryThreshold)] }
+                where: { AND: [scopedWhere, masteryStatusWhere('reviewing', masteryThreshold)] }
             }),
             prisma.errorItem.count({
-                where: { AND: [{ userId }, masteryStatusWhere('mastered', masteryThreshold)] }
+                where: { AND: [scopedWhere, masteryStatusWhere('mastered', masteryThreshold)] }
             }),
             prisma.errorItem.groupBy({
                 by: ['subjectId'],
-                where: { userId },
+                where: scopedWhere,
                 _count: { id: true },
             }),
             prisma.errorItem.findMany({
-                where: {
-                    userId,
-                    createdAt: { gte: sevenDaysAgo },
-                },
+                where: scopedWhere,
                 select: { createdAt: true },
             }),
         ]);
@@ -69,17 +100,11 @@ export async function GET() {
             value: g._count.id,
         }));
 
-        // 最近 7 天每日新增：一次查询后在内存里按应用时区分组
-        const dayBuckets: { start: Date; end: Date; date: string }[] = [];
-        for (let i = 6; i >= 0; i--) {
-            const { start, end } = getDayRange(now, timeZone, -i);
-            dayBuckets.push({ start, end, date: formatDateTime(start, 'MM-dd', timeZone) });
-        }
-
-        const activityData = dayBuckets.map(({ start, end, date }) => ({
-            date,
-            count: recentCreatedAt.filter(
-                item => item.createdAt >= start && item.createdAt < end
+        // 按分桶统计每日/每月新增
+        const activityData = rangeInfo.buckets.map(bucket => ({
+            date: bucket.label,
+            count: rangeItems.filter(
+                item => item.createdAt >= bucket.start && item.createdAt < bucket.end
             ).length,
         }));
 
@@ -90,7 +115,10 @@ export async function GET() {
             masteredCount,
             masteryRate,
             subjectStats,
-            activityData
+            activityData,
+            range: rangeInfo.range,
+            granularity: rangeInfo.granularity,
+            ...(subjectId ? { subjectId, subjectName } : {}),
         });
 
     } catch (error) {

@@ -119,11 +119,11 @@ The tag library organizes knowledge points by curriculum level. Knowledge points
 <details>
 <summary><strong>Statistics: mistake distribution, mastery rate, practice accuracy and trends</strong></summary>
 
-Mistake statistics show total mistakes, to-review count, reviewing count, mastered count and mastery rate, with a three-segment review-status progress bar, subject distribution and monthly trend; when there is no data, a prompt guides you to record mistakes, and a retry button appears when loading fails.
+Mistake statistics show total mistakes, to-review count, reviewing count, mastered count and mastery rate, with a three-segment review-status progress bar, subject distribution and a trend chart. Filter by time range (last 7 days / 30 days / 6 months / all time) and subject; the trend chart shows daily or monthly data depending on the selected granularity. When there is no data, a prompt guides you to record mistakes, and a retry button appears when loading fails.
 
 ![Mistake count, mastery rate, subject distribution and monthly trend charts](doc/screenshots/en/error-stats.png)
 
-Practice statistics show total practice, accuracy (correct / attempted) and active months, with distribution and trends by subject and difficulty; when there is no data, a prompt guides you to practice, and a retry button appears when loading fails.
+Practice statistics show total practice, accuracy (correct / attempted) and active days, with distribution and trends by subject and difficulty; time-range and subject filters are also supported. When there is no data, a prompt guides you to practice, and a retry button appears when loading fails.
 
 ![Practice count, accuracy, active months and practice trend charts](doc/screenshots/en/practice-stats.png)
 
@@ -168,7 +168,7 @@ Practice statistics show total practice, accuracy (correct / attempted) and acti
 ### Management and statistics
 
 - **🔍 Filters**: filter by mastery, date range, knowledge point, grade and term, paper level and more; supports bulk actions and comparing the similarity of two questions.
-- **📊 Statistics**: mastery rate, monthly trend and subject distribution for both mistakes and practice.
+- **📊 Statistics**: mastery rate, trends and subject distribution for both mistakes and practice, with time-range and subject filters.
 - **⏳ Background tasks**: the button at the bottom right shows the progress of long-running jobs such as recognition, AI generation, animation voice, bulk tagging and exam generation. Jobs keep running on the server after you leave the page. Photo recognition results are also kept in **Recognition**.
 - **💾 Import and export**: export or import data backups in **Settings**, including notebooks, questions, system and custom tags, practice and answer records, exams, personal preferences and synthesized cloud voice. Tags are restored by tag system and parent path, keeping identically named chapters and knowledge points under different grades separate and reconnecting questions to their specific tag nodes. Account credentials and AI settings are not included.
 - **🌗 Dark mode**: the theme button in the top navigation bar switches between Auto (follow system), Light and Dark; Auto is the default. The choice is saved per account, so it carries over when you sign in on another device.

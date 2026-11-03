@@ -217,6 +217,8 @@ export interface AppConfig extends VendorConfigs {
 }
 
 
+export type StatsRange = '7d' | '30d' | '6m' | 'all';
+
 export interface AnalyticsData {
     totalErrors: number;
     newCount: number;
@@ -225,6 +227,8 @@ export interface AnalyticsData {
     masteryRate: number;
     subjectStats: { name: string; value: number }[];
     activityData: { date: string; count: number }[];
+    range: StatsRange;
+    granularity: 'day' | 'month';
 }
 
 export interface PracticeStatsData {
@@ -232,6 +236,9 @@ export interface PracticeStatsData {
     activityStats: { date: string; total: number; correct: number;[key: string]: number | string }[];
     difficultyStats: { name: string; value: number }[];
     overallStats: { total: number; correct: number; attempted: number; rate: string };
+    activeDays: number;
+    range: StatsRange;
+    granularity: 'day' | 'month';
 }
 
 export interface TagStats {
