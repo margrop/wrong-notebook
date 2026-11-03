@@ -9,7 +9,7 @@ async function upload(page: Page, scenario: Scenario, path = '/') {
     await scenario.control({ hold: true });
     await scenario.login(page);
     await page.goto(path);
-    await page.locator('input[type="file"]').first().setInputFiles(resolve('e2e/fixtures/math_test.png'));
+    await page.locator('input[type="file"]').first().setInputFiles(resolve('src/__tests__/fixtures/images/math_test.png'));
     await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible();
     await page.getByRole('button', { name: /确认|Confirm/ }).click();
     await expect.poll(async () => (await scenario.model()).calls.filter((call) => call.operation === 'analysis').length).toBe(1);
@@ -123,7 +123,7 @@ test('[E2E-T04] 框选 5 题先全部落库，模型排队时关闭页面后仍�
     await scenario.control({ hold: true });
     await scenario.login(page);
     await page.goto(`/notebooks/${scenario.book.id}/add`);
-    await page.locator('input[type="file"]').first().setInputFiles(resolve('e2e/fixtures/math_test.png'));
+    await page.locator('input[type="file"]').first().setInputFiles(resolve('src/__tests__/fixtures/images/math_test.png'));
     await page.getByRole('button', { name: '手工框选' }).click();
     const overlay = page.locator('.cursor-crosshair').first();
     await expect(overlay).toBeVisible();

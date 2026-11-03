@@ -11,6 +11,12 @@ import { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { QuestionSplitInput, QuestionSplitResult } from '@/lib/ai/question-split';
 
+// 模拟核数少的 CI/NAS：Prisma 查询引擎只有 2 个工作线程（须在加载 Prisma 前设置）。
+// 线程少时，等写锁的语句若占满线程会让持锁事务卡住，这一组用例据此验证写入串行化
+vi.hoisted(() => {
+    process.env.TOKIO_WORKER_THREADS = '2';
+});
+
 const mocks = vi.hoisted(() => ({
     prisma: undefined as PrismaClient | undefined,
     analyzeImage: vi.fn(),
@@ -57,6 +63,7 @@ import { POST as READ } from '@/app/api/import-batches/[id]/read/route';
 import { POST as CONFIRM_TASK } from '@/app/api/import-tasks/[id]/confirm/route';
 import { waitForImportBatchTasksForTest } from '@/lib/import-batches';
 import { simulateRestartForTest, waitForImportTaskForTest } from '@/lib/import-tasks';
+import { runQuestionImportTransaction } from '@/lib/question-deduplication';
 
 let database: PrismaClient<{ log: Array<{ emit: 'event'; level: 'query' }> }>;
 const queries: string[] = [];
@@ -464,6 +471,53 @@ describe('批次生命周期', () => {
         expect(await database.importBatch.count({ where: { id: 'batch-long-draft' } })).toBe(0);
         expect(await database.importTask.count({ where: { batchId: 'batch-long-draft' } })).toBe(0);
         expect(await database.errorItem.count({ where: { id: item.id } })).toBe(1);
+    });
+
+    it('慢写事务持锁期间，重复开始、已读、后台状态更新与部分失败都排队完成，不互相卡住、不重复', async () => {
+        mocks.reanswerQuestion.mockImplementation(async (questionText: string) => {
+            if (questionText.includes('3 + 3')) throw new Error('AI_SERVICE_UNAVAILABLE');
+            return reanswer(questionText);
+        });
+        const text = Array.from({ length: 6 }, (_, index) => `${index + 1}．计算 ${index + 1} + ${index + 1}。`).join('\n');
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+        // 另一个写事务（如其他题的入库）写入后迟迟不提交，持有 SQLite 写锁
+        let release: () => void = () => undefined;
+        const gate = new Promise<void>((resolve) => { release = resolve; });
+        const holding = runQuestionImportTransaction(async (tx) => {
+            await tx.user.update({ where: { id: 'user-1' }, data: { name: '持锁中' } });
+            await gate;
+        });
+        const started = Date.now();
+        const pending = Promise.all([
+            start(batch.id, { version: batch.version }),
+            start(batch.id, { version: batch.version }),
+            READ(json({}), params(batch.id)),
+        ]);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        // 持锁期间没有任何开始请求越过队列写入
+        expect(await database.importTask.count({ where: { batchId: batch.id } })).toBe(0);
+        release();
+        await holding;
+        const [first, second, read] = await pending;
+        expect([first.status, second.status].sort()).toEqual([200, 202]);
+        expect(read.status).toBe(200);
+        await waitForImportBatchTasksForTest(batch.id);
+        expect(Date.now() - started).toBeLessThan(10_000);
+
+        let { batch: current } = await getBatch(batch.id);
+        expect(current).toMatchObject({ phase: 'attention', counts: { total: 6, saved: 5, failed: 1, active: 0 } });
+        expect(await database.errorItem.count()).toBe(5);
+        expect(await database.aiUsage.count({ where: { kind: 'reanswer' } })).toBe(6);
+
+        mocks.reanswerQuestion.mockImplementation(async (questionText: string) => reanswer(questionText));
+        const retries = await Promise.all([RETRY(json({}), params(batch.id)), RETRY(json({}), params(batch.id))]);
+        expect(retries.some((response) => response.status === 202)).toBe(true);
+        await waitForImportBatchTasksForTest(batch.id);
+        ({ batch: current } = await getBatch(batch.id));
+        expect(current).toMatchObject({ phase: 'done', counts: { total: 6, saved: 6 } });
+        expect(await database.errorItem.count()).toBe(6);
+        // 失败的那题只重新解析一次
+        expect(mocks.reanswerQuestion).toHaveBeenCalledTimes(7);
     });
 
     it('100 个较新的已完成批次不会挤掉更早的草稿，已完成的只列最近 10 个', async () => {

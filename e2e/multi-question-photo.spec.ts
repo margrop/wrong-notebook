@@ -3,7 +3,7 @@ import { expect, test } from './support/fixtures';
 import { batchOf, calls, expectNoHorizontalOverflow, expectNotCovered, saveShot } from './support/batch-flows';
 import { viewports } from './support/flows';
 
-const PAGE_PHOTO = resolve('e2e/fixtures/multi-question-page.jpg');
+const PAGE_PHOTO = resolve('src/__tests__/fixtures/images/multi-question-page.jpg');
 
 for (const profile of viewports) {
     test.describe(`照片 ${profile.name}`, () => {
