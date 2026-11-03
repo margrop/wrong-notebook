@@ -28,6 +28,7 @@ import {
 } from "@/lib/import-tasks";
 import { createLogger } from "@/lib/logger";
 import { parsedQuestionToSavePayload } from "@/lib/parsed-question-payload";
+import { runSerializedTransaction, serializeWrite } from "@/lib/db-write-queue";
 import { prisma } from "@/lib/prisma";
 import { mapAnalysisError, parseImageDataUrl, splitQuestionsForUser } from "@/lib/question-analysis";
 import { batchDraftSchema, draftFromTextSplit, newItemKey, readyItems } from "@/lib/question-split/draft";
@@ -175,18 +176,18 @@ async function reconcileInterrupted(userId: string, batchId?: string): Promise<v
     const now = Date.now();
     const interrupted = splitting.filter((batch) => isInterrupted(batch, now)).map((batch) => batch.id);
     if (interrupted.length === 0) return;
-    await prisma.importBatch.updateMany({
+    await serializeWrite(() => prisma.importBatch.updateMany({
         where: { id: { in: interrupted }, status: 'splitting' },
         data: { status: 'failed', error: IMPORT_TASK_INTERRUPTED_ERROR, finishedAt: new Date(), readAt: null },
-    });
+    }));
 }
 
 /** 所有题都已入库超过保留期的批次删除（错题不受影响） */
 async function pruneDone(userId: string): Promise<void> {
     const cutoff = new Date(Date.now() - SAVED_IMPORT_TASK_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    await prisma.importBatch.deleteMany({
+    await serializeWrite(() => prisma.importBatch.deleteMany({
         where: { userId, status: 'started', startedAt: { lt: cutoff }, tasks: { every: { status: 'saved', finishedAt: { lt: cutoff } } } },
-    });
+    }));
 }
 
 async function findOwnBatch(user: Pick<User, 'id'>, id: string, image = false): Promise<BatchWithTasks | null> {
@@ -251,16 +252,16 @@ async function runSplit(id: string): Promise<void> {
             const message = getErrorMessage(error);
             const code = message === 'SPLIT_NO_QUESTIONS' ? message : mapAnalysisError(message);
             logger.warn({ batchId: id, error: code, splitMs: Date.now() - started }, 'Import batch split failed');
-            await prisma.importBatch.updateMany({
+            await serializeWrite(() => prisma.importBatch.updateMany({
                 where: { id, status: 'splitting' },
                 data: { status: 'failed', error: code.slice(0, 200), finishedAt: new Date(), readAt: null },
-            });
+            }));
             return;
         }
-        await prisma.importBatch.updateMany({
+        await serializeWrite(() => prisma.importBatch.updateMany({
             where: { id, status: 'splitting' },
             data: { status: 'draft', draft: JSON.stringify(draft), version: { increment: 1 }, error: null, finishedAt: new Date(), readAt: null },
-        });
+        }));
         logger.info({ batchId: id, source, questions: draft.items.length, warnings: draft.warnings, splitMs: Date.now() - started }, 'Import batch split');
     } finally {
         stopHeartbeat();
@@ -300,7 +301,7 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
     const release = splitter === 'ai' ? register(id) : () => undefined;
     let batch: BatchWithTasks;
     try {
-        batch = await prisma.importBatch.create({
+        batch = await serializeWrite(() => prisma.importBatch.create({
             data: {
                 id,
                 userId: user.id,
@@ -323,7 +324,7 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
                 finishedAt: draft ? new Date() : null,
             },
             select: batchSelect,
-        });
+        }));
     } catch (error) {
         release();
         if ((error as { code?: string }).code === 'P2002') {
@@ -338,10 +339,10 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
 
     if (splitter === 'ai') {
         // 创建成功后才计额度；超额时批次标记失败，可次日重试或丢弃
-        const limited = await consumeAiQuota(user, 'split');
+        const limited = await serializeWrite(() => consumeAiQuota(user, 'split'));
         if (limited) {
             release();
-            await prisma.importBatch.updateMany({ where: { id, status: 'splitting' }, data: { status: 'failed', error: 'AI_DAILY_LIMIT_EXCEEDED', finishedAt: new Date() } });
+            await serializeWrite(() => prisma.importBatch.updateMany({ where: { id, status: 'splitting' }, data: { status: 'failed', error: 'AI_DAILY_LIMIT_EXCEEDED', finishedAt: new Date() } }));
             return { response: limited };
         }
         scheduleWork(id, release, () => runSplit(id));
@@ -363,10 +364,10 @@ function conflict(code: string, batch?: BatchWithTasks): NextResponse {
 export async function updateImportBatchDraft(user: Pick<User, 'id'>, id: string, raw: unknown): Promise<NextResponse> {
     const parsed = updateDraftSchema.safeParse(raw);
     if (!parsed.success) return validationError('IMPORT_BATCH_INVALID_DRAFT', parsed.error.issues);
-    const updated = await prisma.importBatch.updateMany({
+    const updated = await serializeWrite(() => prisma.importBatch.updateMany({
         where: { id, userId: user.id, status: 'draft', version: parsed.data.version },
         data: { draft: JSON.stringify(parsed.data.draft), version: { increment: 1 } },
-    });
+    }));
     const batch = await findOwnBatch(user, id);
     if (!batch) return notFound('IMPORT_BATCH_NOT_FOUND');
     if (updated.count === 0) return conflict(batch.status === 'draft' ? 'IMPORT_BATCH_VERSION_CONFLICT' : 'IMPORT_BATCH_NOT_EDITABLE', batch);
@@ -403,7 +404,7 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
     const releases = new Map(planned.map(({ id: taskId }) => [taskId, register(taskId)]));
     const releaseAll = () => releases.forEach((release) => release());
     try {
-        await prisma.$transaction(async (tx) => {
+        await runSerializedTransaction(async (tx) => {
             const claimed = await tx.importBatch.updateMany({
                 where: { id, userId: user.id, status: 'draft', version: parsed.data.version },
                 data: { status: 'started', mode, startedAt: new Date(), readAt: new Date(), error: null },
@@ -451,7 +452,7 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
     // 抢占成功、任务已建出后逐题计额度；超额的题标记失败，可次日重试
     for (const { item, id: taskId } of planned) {
         const release = releases.get(taskId)!;
-        const limited = await consumeAiQuota(user, quotaKindOf({ inputText: source === 'text' ? item.text : null }));
+        const limited = await serializeWrite(() => consumeAiQuota(user, quotaKindOf({ inputText: source === 'text' ? item.text : null })));
         if (limited) {
             release();
             await markFailed(taskId, 'analyzing', 'AI_DAILY_LIMIT_EXCEEDED');
@@ -479,17 +480,17 @@ export async function retryImportBatch(user: User, id: string): Promise<NextResp
             return createErrorResponse('IMPORT_BATCH_NOT_RETRYABLE', 409, ErrorCode.CONFLICT);
         }
         const release = register(id);
-        const claimed = await prisma.importBatch.updateMany({
+        const claimed = await serializeWrite(() => prisma.importBatch.updateMany({
             where: { id, userId: user.id, status: 'failed' },
             data: { status: 'splitting', error: null, attempts: { increment: 1 }, runnerId: bootId(), heartbeatAt: new Date(), finishedAt: null },
-        });
+        }));
         if (claimed.count === 0) {
             release();
         } else {
-            const limited = await consumeAiQuota(user, 'split');
+            const limited = await serializeWrite(() => consumeAiQuota(user, 'split'));
             if (limited) {
                 release();
-                await prisma.importBatch.updateMany({ where: { id, status: 'splitting' }, data: { status: 'failed', error: 'AI_DAILY_LIMIT_EXCEEDED', finishedAt: new Date() } });
+                await serializeWrite(() => prisma.importBatch.updateMany({ where: { id, status: 'splitting' }, data: { status: 'failed', error: 'AI_DAILY_LIMIT_EXCEEDED', finishedAt: new Date() } }));
                 return limited;
             }
             scheduleWork(id, release, () => runSplit(id));
@@ -540,12 +541,12 @@ export async function discardImportBatch(user: Pick<User, 'id'>, id: string): Pr
     const batch = await findOwnBatch(user, id);
     if (!batch) return notFound('IMPORT_BATCH_NOT_FOUND');
     if (batch.tasks.some((task) => task.status === 'saving')) return createErrorResponse('IMPORT_TASK_BUSY', 409, ErrorCode.CONFLICT);
-    await prisma.importBatch.deleteMany({ where: { id, userId: user.id, tasks: { none: { status: 'saving' } } } });
+    await serializeWrite(() => prisma.importBatch.deleteMany({ where: { id, userId: user.id, tasks: { none: { status: 'saving' } } } }));
     return NextResponse.json({ success: true });
 }
 
 export async function markImportBatchRead(user: Pick<User, 'id'>, id: string): Promise<boolean> {
-    const updated = await prisma.importBatch.updateMany({ where: { id, userId: user.id, readAt: null }, data: { readAt: new Date() } });
+    const updated = await serializeWrite(() => prisma.importBatch.updateMany({ where: { id, userId: user.id, readAt: null }, data: { readAt: new Date() } }));
     if (updated.count > 0) return true;
     return (await prisma.importBatch.count({ where: { id, userId: user.id } })) > 0;
 }

@@ -28,6 +28,7 @@ import type {
 } from "@/lib/import-task-types";
 import { createLogger } from "@/lib/logger";
 import { parsedQuestionToSavePayload } from "@/lib/parsed-question-payload";
+import { serializeWrite } from "@/lib/db-write-queue";
 import { prisma } from "@/lib/prisma";
 import { analyzeQuestionForUser, analyzeQuestionTextForUser, mapAnalysisError } from "@/lib/question-analysis";
 import { importSchema, saveQuestionForUser } from "@/lib/question-save";
@@ -192,17 +193,17 @@ export async function reconcileInterrupted(userId: string, taskId?: string): Pro
     const now = Date.now();
     const interrupted = active.filter((task) => isInterrupted(task, now)).map((task) => task.id);
     if (interrupted.length === 0) return;
-    await prisma.importTask.updateMany({
+    await serializeWrite(() => prisma.importTask.updateMany({
         where: { id: { in: interrupted }, status: { in: ['analyzing', 'saving'] } },
         data: { status: 'failed', error: IMPORT_TASK_INTERRUPTED_ERROR, finishedAt: new Date(), readAt: null },
-    });
+    }));
     logger.info({ userId, count: interrupted.length }, 'Marked interrupted import tasks as failed');
 }
 
 /** 删除超过保留期的已保存独立任务；批次中的任务随批次一起保留或清理，不单独删除 */
 async function pruneSaved(userId: string): Promise<void> {
     const cutoff = new Date(Date.now() - SAVED_IMPORT_TASK_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    await prisma.importTask.deleteMany({ where: { userId, batchId: null, status: 'saved', finishedAt: { lt: cutoff } } });
+    await serializeWrite(() => prisma.importTask.deleteMany({ where: { userId, batchId: null, status: 'saved', finishedAt: { lt: cutoff } } }));
 }
 
 async function findOwnTask(user: Pick<User, 'id'>, id: string): Promise<TaskWithItem | null> {
@@ -220,7 +221,7 @@ export function startHeartbeat(id: string, model: 'task' | 'batch' = 'task'): ()
     const timer = setInterval(() => {
         const where = { id, runnerId: bootId() };
         const data = { heartbeatAt: new Date() };
-        (model === 'batch' ? prisma.importBatch.updateMany({ where, data }) : prisma.importTask.updateMany({ where, data }))
+        (model === 'batch' ? serializeWrite(() => prisma.importBatch.updateMany({ where, data })) : serializeWrite(() => prisma.importTask.updateMany({ where, data })))
             .catch((error: unknown) => logger.warn({ id, model, error: getErrorMessage(error) }, 'Import heartbeat failed'));
     }, HEARTBEAT_MS);
     timer.unref?.();
@@ -256,10 +257,10 @@ export function scheduleWork(id: string, release: () => void, work: () => Promis
 }
 
 export async function markFailed(id: string, fromStatus: ImportTaskStatus, error: string): Promise<void> {
-    await prisma.importTask.updateMany({
+    await serializeWrite(() => prisma.importTask.updateMany({
         where: { id, status: fromStatus },
         data: { status: 'failed', error: error.slice(0, 200), finishedAt: new Date(), readAt: null },
-    });
+    }));
 }
 
 type SaveOutcome =
@@ -303,10 +304,10 @@ async function saveTask(task: ImportTask, user: User, input: unknown): Promise<S
 
     const error = typeof body.message === 'string' ? body.message : 'QUESTION_SAVE_FAILED';
     const fallback = task.mode === 'auto' ? 'failed' : 'review';
-    await prisma.importTask.updateMany({
+    await serializeWrite(() => prisma.importTask.updateMany({
         where: { id: task.id, status: 'saving' },
         data: { status: fallback, error: error.slice(0, 200), finishedAt: new Date(), timings, readAt: null },
-    });
+    }));
     logger.warn({ taskId: task.id, error, saveMs }, 'Import task save failed');
     return { ok: false, response, error };
 }
@@ -323,7 +324,7 @@ function autoSavePayload(task: ImportTask, result: ParsedQuestion) {
 /** 批次中的任务结束后（含失败），批次重新显示为有新结果 */
 async function touchBatch(batchId: string | null): Promise<void> {
     if (!batchId) return;
-    await prisma.importBatch.updateMany({ where: { id: batchId }, data: { readAt: null } })
+    await serializeWrite(() => prisma.importBatch.updateMany({ where: { id: batchId }, data: { readAt: null } }))
         .catch((error: unknown) => logger.warn({ batchId, error: getErrorMessage(error) }, 'Failed to mark import batch unread'));
 }
 
@@ -384,17 +385,18 @@ async function executeTask(id: string): Promise<void> {
             }
             const analyzeMs = Date.now() - started;
             const next: ImportTaskStatus = task.mode === 'auto' ? 'saving' : 'review';
-            const updated = await prisma.importTask.updateMany({
+            const timings = mergeTimings(task.timings, { server: { analyze: analyzeMs } });
+            const updated = await serializeWrite(() => prisma.importTask.updateMany({
                 where: { id, status: 'analyzing' },
                 data: {
                     status: next,
                     result: JSON.stringify(result),
                     error: null,
-                    timings: mergeTimings(task.timings, { server: { analyze: analyzeMs } }),
+                    timings,
                     heartbeatAt: new Date(),
                     ...(next === 'review' ? { finishedAt: new Date(), readAt: null } : {}),
                 },
-            });
+            }));
             logger.info({ taskId: id, analyzeMs, next }, 'Import task analyzed');
             // 识别期间任务被丢弃
             if (updated.count === 0 || next === 'review') return;
@@ -439,7 +441,7 @@ export async function createImportTask(user: User, raw: unknown, measured: { rec
     const release = register(id);
     let task: TaskWithItem;
     try {
-        task = await prisma.importTask.create({
+        task = await serializeWrite(() => prisma.importTask.create({
             data: {
                 id,
                 userId: user.id,
@@ -460,7 +462,7 @@ export async function createImportTask(user: User, raw: unknown, measured: { rec
                 heartbeatAt: new Date(),
             },
             include: withItem,
-        });
+        }));
     } catch (error) {
         release();
         // 并发的重复提交：返回先创建的任务
@@ -475,7 +477,7 @@ export async function createImportTask(user: User, raw: unknown, measured: { rec
     }
 
     // 只有创建成功的请求计一次额度；超出额度时任务标记失败，可次日重试或丢弃
-    const limited = await consumeAiQuota(user, 'analyze');
+    const limited = await serializeWrite(() => consumeAiQuota(user, 'analyze'));
     if (limited) {
         release();
         await markFailed(id, 'analyzing', 'AI_DAILY_LIMIT_EXCEEDED');
@@ -526,7 +528,7 @@ export async function getImportTask(user: Pick<User, 'id'>, id: string, options:
 
 /** 标记已查看（清除未读提示） */
 export async function markImportTaskRead(user: Pick<User, 'id'>, id: string): Promise<boolean> {
-    const updated = await prisma.importTask.updateMany({ where: { id, userId: user.id, readAt: null }, data: { readAt: new Date() } });
+    const updated = await serializeWrite(() => prisma.importTask.updateMany({ where: { id, userId: user.id, readAt: null }, data: { readAt: new Date() } }));
     if (updated.count > 0) return true;
     return (await prisma.importTask.count({ where: { id, userId: user.id } })) > 0;
 }
@@ -535,7 +537,7 @@ export async function markImportTaskRead(user: Pick<User, 'id'>, id: string): Pr
 export async function discardImportTask(user: Pick<User, 'id'>, id: string): Promise<NextResponse> {
     const task = await findOwnTask(user, id);
     if (!task) return notFound('IMPORT_TASK_NOT_FOUND');
-    const deleted = await prisma.importTask.deleteMany({ where: { id, userId: user.id, status: { not: 'saving' } } });
+    const deleted = await serializeWrite(() => prisma.importTask.deleteMany({ where: { id, userId: user.id, status: { not: 'saving' } } }));
     if (deleted.count === 0) return createErrorResponse('IMPORT_TASK_BUSY', 409, ErrorCode.CONFLICT);
     return NextResponse.json({ success: true });
 }
@@ -561,10 +563,10 @@ export async function confirmImportTask(user: User, id: string, raw: unknown): P
     if (!await ownsNotebook(user.id, subjectId)) return validationError('IMPORT_TASK_INVALID_NOTEBOOK');
 
     const release = register(id);
-    const claimed = await prisma.importTask.updateMany({
+    const claimed = await serializeWrite(() => prisma.importTask.updateMany({
         where: { id, userId: user.id, status: 'review' },
         data: { status: 'saving', runnerId: bootId(), heartbeatAt: new Date(), error: null },
-    });
+    }));
     if (claimed.count === 0) {
         release();
         const current = await prisma.importTask.findFirst({ where: { id, userId: user.id }, include: withItem });
@@ -577,7 +579,7 @@ export async function confirmImportTask(user: User, id: string, raw: unknown): P
         return NextResponse.json({ ...outcome.body, importTask: toSummary(saved) }, { status: outcome.status });
     } catch (error) {
         // 保存过程中出现意外错误：退回待校对，草稿不丢失
-        await prisma.importTask.updateMany({ where: { id, status: 'saving' }, data: { status: 'review', error: 'QUESTION_SAVE_FAILED' } });
+        await serializeWrite(() => prisma.importTask.updateMany({ where: { id, status: 'saving' }, data: { status: 'review', error: 'QUESTION_SAVE_FAILED' } }));
         throw error;
     } finally {
         release();
@@ -598,13 +600,13 @@ export async function retryImportTask(user: User, id: string): Promise<NextRespo
     if (!hasResult && !task.imageData && !task.inputText) return createErrorResponse('IMPORT_TASK_NOT_RETRYABLE', 409, ErrorCode.CONFLICT);
 
     if (hasResult && task.mode === 'review') {
-        await prisma.importTask.updateMany({
+        await serializeWrite(() => prisma.importTask.updateMany({
             where: { id, status: 'failed' },
             data: { status: 'review', error: null, attempts: { increment: 1 }, finishedAt: new Date() },
-        });
+        }));
     } else {
         const release = register(id);
-        const claimed = await prisma.importTask.updateMany({
+        const claimed = await serializeWrite(() => prisma.importTask.updateMany({
             where: { id, status: 'failed' },
             data: {
                 status: hasResult ? 'saving' : 'analyzing',
@@ -614,7 +616,7 @@ export async function retryImportTask(user: User, id: string): Promise<NextRespo
                 heartbeatAt: new Date(),
                 finishedAt: null,
             },
-        });
+        }));
         if (claimed.count === 0) {
             release();
             const current = await prisma.importTask.findFirstOrThrow({ where: { id }, include: withItem });
@@ -622,7 +624,7 @@ export async function retryImportTask(user: User, id: string): Promise<NextRespo
         }
         // 抢占成功后才计额度，并发重试只计一次；只重试保存时不调用 AI，不计额度
         if (!hasResult) {
-            const limited = await consumeAiQuota(user, quotaKindOf(task));
+            const limited = await serializeWrite(() => consumeAiQuota(user, quotaKindOf(task)));
             if (limited) {
                 release();
                 await markFailed(id, 'analyzing', 'AI_DAILY_LIMIT_EXCEEDED');

@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
 import { DEFAULT_QUESTION_DUPLICATE_THRESHOLD, duplicateQuestionSimilarity } from '@/lib/question-similarity';
 import { translations } from '@/lib/translations';
+import { runSerializedTransaction } from "@/lib/db-write-queue";
 
 export interface ImportedQuestionContent {
     questionText?: string | null;
@@ -92,28 +92,8 @@ export async function recordDuplicateQuestion(
     };
 }
 
-// 进程内导入事务队列：SQLite 同一时刻只允许一个写事务，先读后写的并发事务在慢机器上会互相等待写锁直到超时
-let importQueue: Promise<unknown> = Promise.resolve();
-
-function isRetryableWriteConflict(error: unknown): boolean {
-    const code = (error as { code?: string })?.code;
-    const message = error instanceof Error ? error.message : String(error);
-    return code === 'P2034' || code === 'P1008' || /database is locked|SQLITE_BUSY/i.test(message);
-}
-
-async function runWithRetry<T>(operation: (client: Prisma.TransactionClient) => Promise<T>): Promise<T> {
-    for (let attempt = 0; ; attempt++) {
-        try {
-            return await prisma.$transaction(operation, { maxWait: 10000, timeout: 30000 });
-        } catch (error) {
-            if (attempt >= 2 || !isRetryableWriteConflict(error)) throw error;
-        }
-    }
-}
-
 /** 判重与写入一起提交，并在进程内串行执行，避免同时导入的相同题目都判为新题或互相锁等待。 */
 export function runQuestionImportTransaction<T>(operation: (client: Prisma.TransactionClient) => Promise<T>): Promise<T> {
-    const run = importQueue.then(() => runWithRetry(operation));
-    importQueue = run.catch(() => undefined);
-    return run;
+    // 与识别任务、多题批次的其他写入共用同一个进程内写入队列
+    return runSerializedTransaction(operation);
 }
