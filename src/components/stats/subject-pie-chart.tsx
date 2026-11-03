@@ -25,7 +25,7 @@ export function SubjectPieChart({ title, data }: SubjectPieChartProps) {
                             cy="50%"
                             innerRadius={60}
                             outerRadius={80}
-                            fill="#8884d8"
+                            fill={COLORS[0]}
                             paddingAngle={5}
                             dataKey="value"
                             label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}

@@ -12,7 +12,7 @@ import { StatCard } from "./stat-card";
 import { ChartTooltip } from "./chart-tooltip";
 import { SubjectPieChart } from "./subject-pie-chart";
 import { StatsEmpty, StatsError } from "./stats-state";
-import { COLORS, DIFFICULTY_COLORS } from "./chart-colors";
+import { COLORS, DIFFICULTY_COLORS, CHART_GRID_COLOR, CHART_AXIS_COLOR } from "./chart-colors";
 
 export function PracticeStats() {
     const { t } = useLanguage();
@@ -92,19 +92,19 @@ export function PracticeStats() {
                     <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={stats.activityStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_GRID_COLOR} />
                                 <XAxis
                                     dataKey="date"
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                                    tick={{ fill: CHART_AXIS_COLOR, fontSize: 12 }}
                                     dy={10}
                                 />
                                 <YAxis
                                     allowDecimals={false}
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                                    tick={{ fill: CHART_AXIS_COLOR, fontSize: 12 }}
                                 />
                                 <Tooltip
                                     content={

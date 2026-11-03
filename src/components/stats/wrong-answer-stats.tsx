@@ -12,6 +12,7 @@ import { useStatsData } from "@/lib/use-stats-data";
 import { StatCard } from "./stat-card";
 import { SubjectPieChart } from "./subject-pie-chart";
 import { StatsEmpty, StatsError } from "./stats-state";
+import { CHART_GRID_COLOR, CHART_AXIS_COLOR, CHART_BAR_GRADIENT_START } from "./chart-colors";
 
 export function WrongAnswerStats() {
     const { t } = useLanguage();
@@ -87,21 +88,21 @@ export function WrongAnswerStats() {
                             <BarChart data={data.activityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1} />
+                                        <stop offset="5%" stopColor={CHART_BAR_GRADIENT_START} stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor={CHART_BAR_GRADIENT_START} stopOpacity={0.1} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_GRID_COLOR} />
                                 <XAxis
                                     dataKey="date"
-                                    stroke="#888888"
+                                    stroke={CHART_AXIS_COLOR}
                                     fontSize={12}
                                     tickLine={false}
                                     axisLine={false}
                                     dy={10}
                                 />
                                 <YAxis
-                                    stroke="#888888"
+                                    stroke={CHART_AXIS_COLOR}
                                     fontSize={12}
                                     tickLine={false}
                                     axisLine={false}
@@ -141,7 +142,10 @@ function MonthlyTooltip({ active, payload, label, activityLabel }: MonthlyToolti
             <div className="bg-background border rounded-lg shadow-lg p-3 text-sm">
                 <p className="font-medium mb-1">{label}</p>
                 <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-violet-500" />
+                    <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: CHART_BAR_GRADIENT_START }}
+                    />
                     <span className="text-muted-foreground">{activityLabel}:</span>
                     <span className="font-bold">{payload[0].value}</span>
                 </div>
