@@ -344,6 +344,31 @@ describe('文字多题批次', () => {
         expect(await database.aiUsage.count({ where: { kind: 'split' } })).toBe(2);
     });
 
+    it('逐题解析中服务重启：批次页显示中断失败，重试后完成，已入库的不重复', async () => {
+        let release: () => void = () => undefined;
+        mocks.reanswerQuestion.mockImplementation(async (questionText: string) => {
+            if (questionText.includes('2 + 2')) await new Promise<void>((resolve) => { release = resolve; });
+            return reanswer(questionText);
+        });
+        const { batch } = await create({ source: 'text', text: '1．计算 1 + 1。\n2．计算 2 + 2。', targetSubjectId: 'math' });
+        await start(batch.id, { version: batch.version });
+        await vi.waitFor(async () => expect(await database.errorItem.count()).toBe(1));
+        simulateRestartForTest();
+        const { batch: interrupted } = await getBatch(batch.id);
+        expect(interrupted).toMatchObject({ phase: 'attention', counts: { saved: 1, failed: 1, active: 0 } });
+        expect(interrupted.tasks.find((task: { status: string }) => task.status === 'failed').error).toBe('SERVER_RESTARTED');
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        // 旧进程的结果不会写回已标记失败的任务
+        expect(await database.errorItem.count()).toBe(1);
+
+        mocks.reanswerQuestion.mockImplementation(async (questionText: string) => reanswer(questionText));
+        expect((await RETRY(json({}), params(batch.id))).status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+        expect((await getBatch(batch.id)).batch).toMatchObject({ phase: 'done', counts: { saved: 2 } });
+        expect(await database.errorItem.count()).toBe(2);
+    });
+
     it('分题过程中服务重启：标记中断失败，不会自动重新调用 AI', async () => {
         let release: () => void = () => undefined;
         mocks.splitQuestions.mockImplementation(() => new Promise((resolve) => {

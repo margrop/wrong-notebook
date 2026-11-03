@@ -183,8 +183,8 @@ export function isInterrupted(task: { id: string; runnerId: string | null; heart
     return true;
 }
 
-/** 把已中断的执行中任务标记为失败，保留已有的识别结果供重试 */
-async function reconcileInterrupted(userId: string, taskId?: string): Promise<void> {
+/** 把已中断的执行中任务标记为失败，保留已有的识别结果供重试（批次页读取时也会调用） */
+export async function reconcileInterrupted(userId: string, taskId?: string): Promise<void> {
     const active = await prisma.importTask.findMany({
         where: { userId, ...(taskId ? { id: taskId } : {}), status: { in: ['analyzing', 'saving'] } },
         select: { id: true, runnerId: true, heartbeatAt: true, updatedAt: true },

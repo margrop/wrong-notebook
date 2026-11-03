@@ -23,7 +23,7 @@ import type { ImportBatchCounts, ImportBatchDetail, ImportBatchSource, ImportBat
 import { IMPORT_TASK_INTERRUPTED_ERROR, SAVED_IMPORT_TASK_RETENTION_DAYS } from "@/lib/import-task-types";
 import type { ImportTaskMode, ImportTaskStatus, ImportTaskSummary } from "@/lib/import-task-types";
 import {
-    bootId, confirmImportTask, isInterrupted, listImportTasks, markFailed, parseResult, quotaKindOf, register, retryImportTask,
+    bootId, confirmImportTask, isInterrupted, listImportTasks, markFailed, parseResult, quotaKindOf, reconcileInterrupted as reconcileInterruptedTasks, register, retryImportTask,
     scheduleImportTask, scheduleWork, startHeartbeat, summarySelect, toSummary,
 } from "@/lib/import-tasks";
 import { createLogger } from "@/lib/logger";
@@ -181,6 +181,8 @@ async function pruneDone(userId: string): Promise<void> {
 
 async function findOwnBatch(user: Pick<User, 'id'>, id: string, image = false): Promise<BatchWithTasks | null> {
     await reconcileInterrupted(user.id, id);
+    // 批次内正在解析或保存的题若因服务重启中断，同样标记为失败，批次页不会一直显示进行中
+    await reconcileInterruptedTasks(user.id);
     const batch = await prisma.importBatch.findFirst({ where: { id, userId: user.id }, include: batchInclude });
     if (!batch) return null;
     if (!image) batch.imageData = '';
