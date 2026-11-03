@@ -39,6 +39,9 @@ const backupTaskSchema = z.object({
     batchId: z.string().max(100).nullish(),
     batchItemKey: z.string().max(40).nullish(),
     inputText: z.string().max(40_000).nullish(),
+    // version 6 起：批次中已保存的题所关联的错题与是否判为重复
+    errorItemId: z.string().max(100).nullish(),
+    duplicate: z.boolean().optional(),
 });
 
 const backupBatchSchema = z.object({
@@ -87,6 +90,8 @@ interface ImportTaskBackupContext {
     paperGroupIdMap: Map<string, string>;
     /** 导出文件中的批次编号 → 写入的批次编号；任务的批次不在其中时按单独任务还原 */
     batchIdMap?: Map<string, string>;
+    /** 导出文件中的错题编号 → 写入（或已存在）的错题编号，用于还原批次中已保存的题的链接 */
+    errorItemIdMap?: Map<string, string>;
 }
 
 function validDraft(raw: string | null | undefined): string | null {
@@ -175,8 +180,12 @@ export async function importImportTasks(tx: Prisma.TransactionClient, raw: unkno
         const imageData = task.imageData && IMAGE_DATA_PATTERN.test(task.imageData) ? task.imageData : '';
         const result = validResult(task.result);
         const inputText = task.inputText?.trim() ? task.inputText : null;
-        // 既没有识别结果、也没有图片或题目原文的任务无法继续处理
-        if (!result && !imageData && !inputText) continue;
+        const batchId = task.batchId && context.batchIdMap?.has(task.batchId) ? context.batchIdMap.get(task.batchId)! : null;
+        // 批次中已保存的题按完成记录还原：保持已保存、关联到还原后的错题，不重新识别也不重复记做错记录
+        const savedInBatch = task.status === 'saved' && batchId !== null;
+        if (task.status === 'saved' && !savedInBatch) continue;
+        // 既没有识别结果、也没有图片或题目原文的未完成任务无法继续处理
+        if (!savedInBatch && !result && !imageData && !inputText) continue;
 
         const createdAt = parseDate(task.createdAt);
         const sourceKey = task.clientRequestId || task.id;
@@ -185,10 +194,11 @@ export async function importImportTasks(tx: Prisma.TransactionClient, raw: unkno
             if (imported > 0) continue;
         }
 
-        const batchId = task.batchId && context.batchIdMap?.has(task.batchId) ? context.batchIdMap.get(task.batchId)! : null;
         const mode = task.mode === 'auto' ? 'auto' : 'review';
         // 只有带有效草稿的待校对任务保持待校对；其余（含导出时仍在执行的）一律为失败，需用户手动重试
-        const status = task.status === 'review' && result ? 'review' : 'failed';
+        const status = savedInBatch ? 'saved' : task.status === 'review' && result ? 'review' : 'failed';
+        // 关联的错题已被删除（或不在备份中）时为空，界面显示「已保存，但该错题之后已被删除」
+        const errorItemId = savedInBatch && task.errorItemId ? context.errorItemIdMap?.get(task.errorItemId) ?? null : null;
         const error = status === 'failed'
             ? (task.status === 'analyzing' || task.status === 'saving' ? IMPORT_TASK_INTERRUPTED_ERROR : task.error || IMPORT_TASK_INTERRUPTED_ERROR)
             : null;
@@ -212,6 +222,9 @@ export async function importImportTasks(tx: Prisma.TransactionClient, raw: unkno
                 inputText,
                 batchId,
                 batchItemKey: batchId ? task.batchItemKey ?? null : null,
+                errorItemId,
+                duplicate: savedInBatch ? task.duplicate === true : false,
+                ...(savedInBatch ? { readAt: new Date() } : {}),
                 createdAt,
                 finishedAt: parseDate(task.finishedAt) ?? new Date(),
             },

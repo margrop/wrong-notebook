@@ -760,6 +760,7 @@ export async function POST(req: Request) {
                 resolveUserId: (raw: string) => importAll ? raw : user.id,
                 subjectIdMap,
                 paperGroupIdMap,
+                errorItemIdMap,
             };
             const batches = await importImportBatches(tx, body.importBatches, backupContext);
             stats.importBatchesCreated = batches.created;

@@ -499,6 +499,47 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.importBatch.count({ where: { userId: 'user-1' } })).toBe(3);
     });
 
+    it('部分完成的批次随备份往返：已保存的题保留完成状态与错题链接，不重新识别、不重复记做错记录', async () => {
+        const result = JSON.stringify({ questionText: '批次中的题', answerText: '答', analysis: '析', knowledgePoints: [], subject: '数学' });
+        const draft = JSON.stringify({ items: ['qa', 'qb', 'qc', 'qd'].map((key) => ({ key, label: null, text: key, material: null, section: null, selected: true, regions: [], hasFigure: false, flags: [] })), ignored: [], warnings: [] });
+        // 只看本用例的批次：清掉之前用例留下的识别记录
+        await database.importBatch.deleteMany({ where: { userId: 'user-1' } });
+        await database.importTask.deleteMany({ where: { userId: 'user-1' } });
+        const saved = await database.errorItem.create({ data: { userId: 'user-1', subjectId: 'math', questionText: '批次中已入库的题', answerText: '答', originalImageUrl: '' } });
+        await database.importBatch.create({ data: { id: 'batch-partial-aaaaaaa', userId: 'user-1', source: 'text', splitter: 'local', status: 'started', mode: 'auto', draft, startedAt: new Date('2026-10-09T00:00:00Z'), createdAt: new Date('2026-10-09T00:00:00Z') } });
+        await database.importTask.createMany({ data: [
+            { userId: 'user-1', mode: 'auto', status: 'saved', imageData: '', inputText: '已入库', result, errorItemId: saved.id, batchId: 'batch-partial-aaaaaaa', batchItemKey: 'qa', finishedAt: new Date('2026-10-09T00:01:00Z'), createdAt: new Date('2026-10-09T00:00:01Z') },
+            { userId: 'user-1', mode: 'auto', status: 'saved', imageData: '', inputText: '入库后错题被删', result, duplicate: true, batchId: 'batch-partial-aaaaaaa', batchItemKey: 'qb', createdAt: new Date('2026-10-09T00:00:02Z') },
+            { userId: 'user-1', mode: 'auto', status: 'review', imageData: '', inputText: '待校对', result, batchId: 'batch-partial-aaaaaaa', batchItemKey: 'qc', createdAt: new Date('2026-10-09T00:00:03Z') },
+            { userId: 'user-1', mode: 'auto', status: 'failed', error: 'AI_TIMEOUT_ERROR', imageData: '', inputText: '失败', batchId: 'batch-partial-aaaaaaa', batchItemKey: 'qd', createdAt: new Date('2026-10-09T00:00:04Z') },
+        ] });
+        const backup = await exportBackup();
+        expect(backup.importTasks.filter((task: { batchId: string | null }) => task.batchId === 'batch-partial-aaaaaaa')).toHaveLength(4);
+
+        await clearUserData();
+        const { stats } = await importBackup(backup);
+        expect(stats).toMatchObject({ importBatchesCreated: 1, importTasksCreated: 4 });
+        const batch = await database.importBatch.findFirstOrThrow({ where: { userId: 'user-1', clientRequestId: 'batch-partial-aaaaaaa' }, include: { tasks: { orderBy: { createdAt: 'asc' } } } });
+        const restoredItem = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1', questionText: '批次中已入库的题' } });
+        expect(batch.tasks.map((task) => [task.batchItemKey, task.status, task.errorItemId, task.duplicate, task.error])).toEqual([
+            ['qa', 'saved', restoredItem.id, false, null],
+            ['qb', 'saved', null, true, null],
+            ['qc', 'review', null, false, null],
+            ['qd', 'failed', null, false, 'AI_TIMEOUT_ERROR'],
+        ]);
+        expect(batch.tasks.slice(0, 2).every((task) => task.readAt !== null)).toBe(true);
+
+        // 再次导入（不清空）：不重复创建批次、任务、错题或做错记录
+        const itemsBefore = await database.errorItem.count({ where: { userId: 'user-1' } });
+        const records = await database.practiceRecord.count({ where: { userId: 'user-1' } });
+        const again = await importBackup(backup);
+        expect(again.stats).toMatchObject({ importBatchesCreated: 0, importTasksCreated: 0 });
+        expect(await database.importTask.count({ where: { batchId: batch.id } })).toBe(4);
+        expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBe(itemsBefore);
+        // 新增的做错记录全部来自错题本身的重复导入（既有判重规则，计入 practiceRecordsCreated），还原任务不额外追加
+        expect(await database.practiceRecord.count({ where: { userId: 'user-1' } })).toBe(records + again.stats.practiceRecordsCreated);
+    });
+
     it('旧版备份没有识别任务字段时正常导入', async () => {
         const backup = await exportBackup();
         delete backup.importTasks;

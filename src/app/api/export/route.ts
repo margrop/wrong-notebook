@@ -84,17 +84,6 @@ export async function GET(req: Request) {
             where: userFilter,
         });
 
-        // 尚未处理的识别导入任务（待校对草稿、失败可重试的任务）；已保存的任务只是记录，不导出
-        const importTasks = await prisma.importTask.findMany({
-            where: { ...userFilter, status: { not: 'saved' } },
-            select: {
-                id: true, clientRequestId: true, userId: true, mode: true, status: true, language: true, subjectId: true, targetSubjectId: true,
-                paperLevel: true, imageData: true, imageInfo: true, result: true, error: true, timings: true,
-                attempts: true, createdAt: true, finishedAt: true, batchId: true, batchItemKey: true, inputText: true,
-            },
-            orderBy: { createdAt: 'asc' },
-        });
-
         // 未完成的多题批次（分题草稿、分题失败、已开始但仍有题未入库），version 6 起导出
         const importBatches = await prisma.importBatch.findMany({
             where: { ...userFilter, OR: [{ status: { not: 'started' } }, { tasks: { some: { status: { not: 'saved' } } } }] },
@@ -102,6 +91,19 @@ export async function GET(req: Request) {
                 id: true, clientRequestId: true, userId: true, source: true, splitter: true, status: true, mode: true, language: true,
                 subjectId: true, targetSubjectId: true, paperLevel: true, sourceText: true, imageData: true, imageInfo: true, draft: true,
                 error: true, attempts: true, createdAt: true, startedAt: true, finishedAt: true,
+            },
+            orderBy: { createdAt: 'asc' },
+        });
+
+        // 尚未处理的识别导入任务（待校对草稿、失败可重试的任务）；单独的已保存任务只是记录，不导出。
+        // 未完成批次中已保存的题一并导出（含所关联的错题），恢复后批次的题数、已保存数与题目链接保持不变
+        const importTasks = await prisma.importTask.findMany({
+            where: { ...userFilter, OR: [{ status: { not: 'saved' } }, { batchId: { in: importBatches.map((batch) => batch.id) } }] },
+            select: {
+                id: true, clientRequestId: true, userId: true, mode: true, status: true, language: true, subjectId: true, targetSubjectId: true,
+                paperLevel: true, imageData: true, imageInfo: true, result: true, error: true, timings: true,
+                attempts: true, createdAt: true, finishedAt: true, batchId: true, batchItemKey: true, inputText: true,
+                errorItemId: true, duplicate: true,
             },
             orderBy: { createdAt: 'asc' },
         });
