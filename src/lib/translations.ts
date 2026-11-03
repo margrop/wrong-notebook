@@ -565,6 +565,7 @@ export const translations = {
             less: "Less",
             more: "More",
             levels: ["None", "Low", "Medium", "High", "Very High"],
+            weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
             dayTooltip: "{date}: {errors} questions, {practices} practices",
         },
         statsState: {
@@ -2285,6 +2286,7 @@ export const translations = {
             less: "少",
             more: "多",
             levels: ["无", "较少", "中等", "较多", "很多"],
+            weekdays: ["一", "二", "三", "四", "五", "六", "日"],
             dayTooltip: "{date}：录入 {errors} 题，练习 {practices} 次",
         },
         statsState: {

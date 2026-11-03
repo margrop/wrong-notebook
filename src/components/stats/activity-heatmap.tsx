@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useStatsData } from "@/lib/use-stats-data";
@@ -30,7 +30,7 @@ const LEVEL_COLORS = [
 ];
 
 export function ActivityHeatmap({ url }: ActivityHeatmapProps) {
-    const { t } = useLanguage();
+    const { language, t } = useLanguage();
     const { data: stats, loading, error } = useStatsData<ActivityStatsData>(url);
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -90,9 +90,26 @@ export function ActivityHeatmap({ url }: ActivityHeatmapProps) {
             .replace("{practices}", String(practices));
     };
 
+    // 月份标签：每月第一周所在列显示该月简称（按界面语言）
+    const monthFormatter = new Intl.DateTimeFormat(language, { month: "short" });
+    // 日期是 'yyyy-MM-dd' 字符串，直接取年月，避免按 UTC 解析后在本地时区错位
+    const monthKey = (date: string) => date.slice(0, 7);
+    const monthLabels: (string | null)[] = weeks.map((week, idx) => {
+        const monday = week[0];
+        if (!monday) return null;
+        const prevMonday = idx > 0 ? weeks[idx - 1][0] : null;
+        if (prevMonday && monthKey(prevMonday.date) === monthKey(monday.date)) return null;
+        const [year, month] = monday.date.split("-").map(Number);
+        return monthFormatter.format(new Date(year, month - 1, 1));
+    });
+
+    // 星期标签：只标周一、周三、周五
+    const weekdayLabels = t.activityHeatmap?.weekdays ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const visibleWeekdays = new Set([0, 2, 4]);
+
     return (
         <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <CardTitle className="text-base font-semibold">
                         {t.activityHeatmap?.title || "Learning Calendar"}
@@ -113,31 +130,45 @@ export function ActivityHeatmap({ url }: ActivityHeatmapProps) {
                     </div>
                 </div>
             </CardHeader>
-            <CardContent>
-                {/* 横向滚动容器 */}
-                <div ref={scrollRef} className="overflow-x-auto pb-2">
-                    <div className="inline-flex gap-1 min-w-max">
-                        {weeks.map((week, weekIdx) => (
-                            <div key={weekIdx} className="flex flex-col gap-1">
-                                {week.map((day) => {
+            <CardContent className="pt-1">
+                {/* 横向滚动容器（窄屏放不下时滚动，默认滚到最右侧看最新数据） */}
+                <div ref={scrollRef} className="overflow-x-auto pb-1">
+                    <div className="grid min-w-max" style={{ gridTemplateColumns: "auto repeat(26, minmax(10px, 1fr))", gap: "3px" }}>
+                        {/* 月份标签行：第一列为星期标签留空 */}
+                        <div />
+                        {monthLabels.map((label, idx) => (
+                            <div key={idx} className="text-[10px] leading-4 text-muted-foreground whitespace-nowrap">
+                                {label ?? ""}
+                            </div>
+                        ))}
+
+                        {/* 7 行日期方格，每行开头是星期标签 */}
+                        {Array.from({ length: 7 }, (_, rowIdx) => (
+                            <Fragment key={rowIdx}>
+                                <div className="text-[10px] leading-4 text-muted-foreground text-right pr-1 w-7">
+                                    {visibleWeekdays.has(rowIdx) ? weekdayLabels[rowIdx] : ""}
+                                </div>
+                                {weeks.map((week, weekIdx) => {
+                                    const day = week[rowIdx];
+                                    if (!day) return <div key={weekIdx} />;
                                     const level = activityLevel(day.errors + day.practices);
                                     return (
                                         <div
                                             key={day.date}
-                                            className="h-3 w-3 rounded-sm"
+                                            className="aspect-square w-full max-w-[18px] rounded-[2px]"
                                             style={{ backgroundColor: LEVEL_COLORS[level] }}
                                             title={formatTooltip(day.date, day.errors, day.practices)}
                                             aria-label={formatTooltip(day.date, day.errors, day.practices)}
                                         />
                                     );
                                 })}
-                            </div>
+                            </Fragment>
                         ))}
                     </div>
                 </div>
 
                 {/* 图例 */}
-                <div className="flex items-center justify-end gap-1 mt-2 text-xs text-muted-foreground">
+                <div className="flex items-center justify-end gap-1 mt-1 text-xs text-muted-foreground">
                     <span>{t.activityHeatmap?.less || "Less"}</span>
                     {LEVEL_COLORS.map((color, idx) => (
                         <div
