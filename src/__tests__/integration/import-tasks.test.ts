@@ -415,8 +415,13 @@ describe('识别导入任务', () => {
 
         // 识别失败后并发重试：只重新识别一次、计一次额度
         await database.importTask.update({ where: { id }, data: { status: 'failed', result: null, error: 'AI_TIMEOUT_ERROR' } });
+        // 识别保持进行中，直到两个重试都已返回，保证两次请求确实重叠（慢机器上第一个重试不会在第二个到达前就结束）
+        let releaseRetry: () => void = () => undefined;
+        const retryGate = new Promise<void>((resolve) => { releaseRetry = resolve; });
+        mocks.analyzeImage.mockImplementationOnce(async () => { await retryGate; return parsed(); });
         const retries = await Promise.all([RETRY(json({}), params(id)), RETRY(json({}), params(id))]);
         expect(retries.map((response) => response.status).sort()).toEqual([200, 202]);
+        releaseRetry();
         await waitForImportTaskForTest(id);
         expect(await database.aiUsage.count({ where: { userId: 'user-1', kind: 'analyze' } })).toBe(2);
         expect(mocks.analyzeImage).toHaveBeenCalledTimes(2);
@@ -424,7 +429,8 @@ describe('识别导入任务', () => {
         // 先后到达的重复重试（第一个已抢占并在识别中）同样返回当前任务，不再识别、不计额度
         await database.importTask.update({ where: { id }, data: { status: 'failed', result: null, error: 'AI_TIMEOUT_ERROR' } });
         let releaseAnalysis: () => void = () => undefined;
-        mocks.analyzeImage.mockImplementationOnce(() => new Promise((resolve) => { releaseAnalysis = () => resolve(parsed()); }));
+        const analysisGate = new Promise<void>((resolve) => { releaseAnalysis = resolve; });
+        mocks.analyzeImage.mockImplementationOnce(async () => { await analysisGate; return parsed(); });
         expect((await RETRY(json({}), params(id))).status).toBe(202);
         const late = await RETRY(json({}), params(id));
         expect(late.status).toBe(200);
