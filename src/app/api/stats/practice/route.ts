@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
@@ -8,6 +9,9 @@ import { unauthorized, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger('api:stats:practice');
+
+/** 重复导入产生的记录不计入练习统计 */
+const EXCLUDE_DUPLICATE_IMPORT = { source: { not: 'duplicate_import' } } satisfies Prisma.PracticeRecordWhereInput;
 
 export async function GET() {
     const session = await getServerSession(authOptions);
@@ -25,12 +29,13 @@ export async function GET() {
         const [subjectGroups, activityStats, difficultyGroups, totalRecords, correctRecords] = await Promise.all([
             prisma.practiceRecord.groupBy({
                 by: ['subject'],
-                where: { userId },
+                where: { userId, ...EXCLUDE_DUPLICATE_IMPORT },
                 _count: { id: true }
             }),
             prisma.practiceRecord.findMany({
                 where: {
                     userId,
+                    ...EXCLUDE_DUPLICATE_IMPORT,
                     createdAt: {
                         gte: getMonthStart(now, timeZone, -5),
                     }
@@ -43,11 +48,11 @@ export async function GET() {
             }),
             prisma.practiceRecord.groupBy({
                 by: ['difficulty'],
-                where: { userId },
+                where: { userId, ...EXCLUDE_DUPLICATE_IMPORT },
                 _count: { id: true }
             }),
-            prisma.practiceRecord.count({ where: { userId } }),
-            prisma.practiceRecord.count({ where: { userId, isCorrect: true } }),
+            prisma.practiceRecord.count({ where: { userId, ...EXCLUDE_DUPLICATE_IMPORT } }),
+            prisma.practiceRecord.count({ where: { userId, isCorrect: true, ...EXCLUDE_DUPLICATE_IMPORT } }),
         ]);
 
         // Process activity stats into monthly counts

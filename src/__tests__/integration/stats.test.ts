@@ -71,6 +71,36 @@ describe('/api/stats', () => {
                 vi.useRealTimers();
             }
         });
+        it('应该排除 duplicate_import 来源的记录', async () => {
+            mocks.mockPrismaPracticeRecord.groupBy
+                .mockResolvedValueOnce([
+                    { subject: '数学', _count: { id: 8 } },
+                ])
+                .mockResolvedValueOnce([
+                    { difficulty: 'medium', _count: { id: 5 } },
+                ]);
+            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([
+                { createdAt: new Date(), isCorrect: true, difficulty: 'medium' },
+            ]);
+            mocks.mockPrismaPracticeRecord.count
+                .mockResolvedValueOnce(8)
+                .mockResolvedValueOnce(5);
+
+            const response = await GET_PRACTICE_STATS();
+            expect(response.status).toBe(200);
+
+            // 所有查询都应包含排除 duplicate_import 的条件
+            expect(mocks.mockPrismaPracticeRecord.groupBy).toHaveBeenCalledTimes(2);
+            for (const call of mocks.mockPrismaPracticeRecord.groupBy.mock.calls) {
+                expect(call[0].where.source).toEqual({ not: 'duplicate_import' });
+            }
+            expect(mocks.mockPrismaPracticeRecord.findMany.mock.calls[0][0].where.source).toEqual({ not: 'duplicate_import' });
+            expect(mocks.mockPrismaPracticeRecord.count).toHaveBeenCalledTimes(2);
+            for (const call of mocks.mockPrismaPracticeRecord.count.mock.calls) {
+                expect(call[0].where.source).toEqual({ not: 'duplicate_import' });
+            }
+        });
+
         it('应该返回练习统计数据', async () => {
             // groupBy 被调用两次（subject + difficulty），按调用顺序 mock
             mocks.mockPrismaPracticeRecord.groupBy
