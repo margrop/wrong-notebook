@@ -1,6 +1,6 @@
 /**
  * 照片自动分题开始解析时，在浏览器中按各题区域从整页图裁剪出题目图片（沿用 image-pipeline 的尺寸、体积与质量限制）。
- * 一题有多个区域（如跨栏的题干与配图）时按顺序纵向拼接为一张图。
+ * 一题有多个区域（如跨栏的题干与配图）时按顺序纵向拼接为一张图；单题拍照时一道题分在几张纸上，也用同样的方式拼接。
  */
 import { renderRegion } from "@/lib/image-pipeline";
 import type { RenderedImage } from "@/lib/image-pipeline";
@@ -29,35 +29,70 @@ export async function loadImage(dataUrl: string): Promise<HTMLImageElement> {
     return image;
 }
 
-/** 按区域裁剪一道题的图片 */
-export async function renderQuestionImage(page: HTMLImageElement, regions: DraftRegion[]): Promise<RenderedImage> {
-    const width = page.naturalWidth;
-    const height = page.naturalHeight;
-    const padded = regions.map((region) => padRegion(region));
-    if (padded.length === 1) return renderRegion({ source: page, width, height }, padded[0]);
+/** 一张参与拼接的图片：源图与要取的矩形（像素） */
+interface StackPiece {
+    source: CanvasImageSource;
+    sx: number;
+    sy: number;
+    sw: number;
+    sh: number;
+}
 
-    const rects = padded.map((region) => ({
-        sx: Math.round(region.x * width),
-        sy: Math.round(region.y * height),
-        sw: Math.max(1, Math.round(region.width * width)),
-        sh: Math.max(1, Math.round(region.height * height)),
-    }));
+/**
+ * 纵向拼接的版面：scaleToWidth 为 true 时各段缩放到同一宽度（不同照片拍摄距离不同，字号才一致），
+ * 否则保持原尺寸左对齐（同一张图上的多个区域）。返回画布尺寸与每段的目标位置。
+ */
+export function stackLayout(sizes: Array<{ width: number; height: number }>, gap = STACK_GAP, scaleToWidth = false) {
+    const width = Math.max(...sizes.map((size) => size.width));
+    let top = 0;
+    const rects = sizes.map((size) => {
+        const scale = scaleToWidth ? width / size.width : 1;
+        const rect = { x: 0, y: top, width: Math.round(size.width * scale), height: Math.round(size.height * scale) };
+        top += rect.height + gap;
+        return rect;
+    });
+    return { width, height: top - gap, rects };
+}
+
+/** 把若干段纵向拼成一张白底图，再按统一的尺寸、体积与质量限制编码 */
+async function renderStack(pieces: StackPiece[], scaleToWidth: boolean): Promise<RenderedImage> {
+    const layout = stackLayout(pieces.map((piece) => ({ width: piece.sw, height: piece.sh })), STACK_GAP, scaleToWidth);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(...rects.map((rect) => rect.sw));
-    canvas.height = rects.reduce((sum, rect) => sum + rect.sh, 0) + STACK_GAP * (rects.length - 1);
+    canvas.width = layout.width;
+    canvas.height = layout.height;
     const context = canvas.getContext("2d");
     if (!context) throw new Error("CANVAS_UNSUPPORTED");
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    let top = 0;
-    for (const rect of rects) {
-        context.drawImage(page, rect.sx, rect.sy, rect.sw, rect.sh, 0, top, rect.sw, rect.sh);
-        top += rect.sh + STACK_GAP;
-    }
+    pieces.forEach((piece, index) => {
+        const rect = layout.rects[index];
+        context.drawImage(piece.source, piece.sx, piece.sy, piece.sw, piece.sh, rect.x, rect.y, rect.width, rect.height);
+    });
     const bitmap = await createImageBitmap(canvas);
     try {
         return await renderRegion({ source: bitmap, width: canvas.width, height: canvas.height });
     } finally {
         bitmap.close();
     }
+}
+
+/** 按区域裁剪一道题的图片 */
+export async function renderQuestionImage(page: HTMLImageElement, regions: DraftRegion[]): Promise<RenderedImage> {
+    const width = page.naturalWidth;
+    const height = page.naturalHeight;
+    const padded = regions.map((region) => padRegion(region));
+    if (padded.length === 1) return renderRegion({ source: page, width, height }, padded[0]);
+    return renderStack(padded.map((region) => ({
+        source: page,
+        sx: Math.round(region.x * width),
+        sy: Math.round(region.y * height),
+        sw: Math.max(1, Math.round(region.width * width)),
+        sh: Math.max(1, Math.round(region.height * height)),
+    })), false);
+}
+
+/** 一道题分在几张纸上：把各张已裁好的图（data URL）按顺序纵向拼成一张，各段缩放到同一宽度 */
+export async function stackQuestionImages(dataUrls: string[]): Promise<RenderedImage> {
+    const images = await Promise.all(dataUrls.map(loadImage));
+    return renderStack(images.map((image) => ({ source: image, sx: 0, sy: 0, sw: image.naturalWidth, sh: image.naturalHeight })), true);
 }

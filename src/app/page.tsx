@@ -10,6 +10,7 @@ import { HomeHero } from "@/components/home-hero";
 import { ImageCropper } from "@/components/image-cropper";
 import { ImportResultBanner } from "@/components/import-result-banner";
 import { PendingImportTask } from "@/components/import-tasks/pending-import-task";
+import { QuestionPartsBar } from "@/components/question-parts-bar";
 import { QuestionSaveError } from "@/components/question-save-error";
 import { TextInputZone } from "@/components/text-input-zone";
 import { UploadZone } from "@/components/upload-zone";
@@ -20,7 +21,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { usePageTitle } from "@/lib/page-title";
-import { useQuestionImport } from "@/lib/use-question-import";
+import { MAX_QUESTION_PARTS, useQuestionImport } from "@/lib/use-question-import";
 import type { Notebook, PaginatedResponse } from "@/types/api";
 
 /** 直接录入（不经 AI）提交的内容 */
@@ -119,7 +120,17 @@ function HomeContent() {
                                     onClose={flow.closeBatch}
                                 />
                             ) : inputMode === "image" ? (
+                                <>
+                                {flow.parts.length > 0 && (
+                                    <QuestionPartsBar
+                                        parts={flow.parts.map((part) => part.dataUrl)}
+                                        busy={flow.isBusy}
+                                        onFinish={() => void flow.finishParts()}
+                                        onDiscard={flow.discardParts}
+                                    />
+                                )}
                                 <UploadZone onImageSelect={flow.selectImage} isAnalyzing={flow.isBusy} />
+                            </>
                             ) : inputMode === "text" ? (
                                 <TextInputZone
                                     onSubmit={flow.submitText}
@@ -146,7 +157,10 @@ function HomeContent() {
                         open={flow.isCropperOpen}
                         onClose={flow.closeCropper}
                         onRegionsSelected={flow.cropRegions}
-                        onAutoSplit={flow.autoSplitImage}
+                        allowMulti={flow.parts.length === 0}
+                        onAutoSplit={flow.parts.length === 0 ? flow.autoSplitImage : undefined}
+                        onAddPart={flow.parts.length < MAX_QUESTION_PARTS - 1 ? flow.addPart : undefined}
+                        partCount={flow.parts.length}
                     />
                 )}
 

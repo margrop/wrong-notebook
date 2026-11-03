@@ -41,9 +41,13 @@ interface ImageCropperProps {
     allowMulti?: boolean;
     /** 提供时显示「自动分题」模式：返回所框的试卷区域（相对坐标），由 AI 识别其中的每道题 */
     onAutoSplit?: (region: ImageRegion) => void;
+    /** 单题模式下提供「下一段在另一张」：返回这一段的区域，由调用方暂存后继续选下一张 */
+    onAddPart?: (region: ImageRegion) => void;
+    /** 已暂存的段数：大于 0 时本张是后续段，确认后与前面各段拼成一题 */
+    partCount?: number;
 }
 
-export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiCropComplete, onRegionsSelected, allowMulti = true, onAutoSplit }: ImageCropperProps) {
+export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiCropComplete, onRegionsSelected, allowMulti = true, onAutoSplit, onAddPart, partCount = 0 }: ImageCropperProps) {
     const { t } = useLanguage();
     const safeImageSrc = toSafeImageSrc(imageSrc);
     // 始终保存百分比坐标，缩放改变图片显示尺寸后仍然准确
@@ -90,11 +94,13 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
         measureImage(e.currentTarget);
     }
 
+    // 没有有效选框（如只点了一下）时使用整张图片
+    const selectedRegion = (): ImageRegion => (crop && crop.width > 0 && crop.height > 0
+        ? { x: crop.x / 100, y: crop.y / 100, width: crop.width / 100, height: crop.height / 100 }
+        : { x: 0, y: 0, width: 1, height: 1 });
+
     const handleConfirm = async () => {
-        // 没有有效选框（如只点了一下）时使用整张图片
-        const region: ImageRegion = crop && crop.width > 0 && crop.height > 0
-            ? { x: crop.x / 100, y: crop.y / 100, width: crop.width / 100, height: crop.height / 100 }
-            : { x: 0, y: 0, width: 1, height: 1 };
+        const region = selectedRegion();
         if (mode === "auto" && onAutoSplit) {
             onAutoSplit(region);
             return;
@@ -171,9 +177,10 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
                             {mode === "multi"
                                 ? `${t.batchImport.hint} ${t.batchImport.regionCount.replace("{count}", String(regions.length))}`
                                 : mode === "auto" ? t.batchImport.autoHint
+                                : partCount > 0 ? t.upload.parts.cropHint.replace("{n}", String(partCount + 1))
                                 : (t.common.cropper?.hint || "💡 Drag to adjust crop area")}
                         </p>
-                        <div className="flex gap-2 justify-end">
+                        <div className="flex flex-wrap gap-2 justify-end">
                             {mode === "multi" && regions.length > 0 && (
                                 <Button variant="ghost" onClick={() => setRegions([])}>
                                     {t.batchImport.clear}
@@ -187,9 +194,18 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
                                     {t.batchImport.start.replace("{count}", String(regions.length))}
                                 </Button>
                             ) : (
-                                <Button onClick={handleConfirm}>
-                                    {mode === "auto" ? t.batchImport.autoStart : (t.common.confirm || "Confirm")}
-                                </Button>
+                                <>
+                                    {mode === "single" && onAddPart && (
+                                        <Button variant="secondary" onClick={() => onAddPart(selectedRegion())} data-testid="crop-add-part">
+                                            {t.upload.parts.addNext}
+                                        </Button>
+                                    )}
+                                    <Button onClick={handleConfirm}>
+                                        {mode === "auto" ? t.batchImport.autoStart
+                                            : partCount > 0 ? t.upload.parts.confirm.replace("{count}", String(partCount + 1))
+                                            : (t.common.confirm || "Confirm")}
+                                    </Button>
+                                </>
                             )}
                         </div>
                     </div>

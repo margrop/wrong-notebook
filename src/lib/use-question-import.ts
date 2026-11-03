@@ -13,6 +13,7 @@ import { frontendLogger } from "@/lib/frontend-logger";
 import { createImportBatch } from "@/lib/import-batch-client";
 import { createImportTask } from "@/lib/import-task-client";
 import type { ImageRegion } from "@/lib/image-crop";
+import { stackQuestionImages } from "@/lib/batch-crop";
 import { describeImage, ImageDecodeError, prepareImage, renderRegion } from "@/lib/image-pipeline";
 import type { PreparedImage, RenderedImage } from "@/lib/image-pipeline";
 import type { ImportImageInfo } from "@/lib/import-task-types";
@@ -34,6 +35,9 @@ export interface BatchImage {
     info: ImportImageInfo;
     timings: { read: number; convert: number; crop: number; compress: number };
 }
+
+/** 一道题最多分几段（几张纸）拍摄 */
+export const MAX_QUESTION_PARTS = 4;
 
 interface ReanswerResponse {
     gradeSemester?: string | null;
@@ -81,6 +85,8 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     const [confirmBeforeImport, setConfirmBeforeImport] = useState(false);
     const [lastImported, setLastImported] = useState<ImportedQuestion | null>(null);
     const [batchImages, setBatchImages] = useState<BatchImage[] | null>(null);
+    // 一道题分在几张纸上时，已框选暂存的前几段（按顺序），最后纵向拼成一张图识别
+    const [parts, setParts] = useState<BatchImage[]>([]);
     // 当前选择的照片（已解码、已按方向校正的原图），裁剪时从原图取区域
     const preparedRef = useRef<PreparedImage | null>(null);
     const [completedStages, setCompletedStages] = useState<CompletedStage[]>([]);
@@ -161,7 +167,52 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
         return images;
     };
 
-    /** 裁剪完成：单题直接上传，多题进入批量导入 */
+    /** 把各段纵向拼成一张图后上传；失败时保留已暂存的段，可重试 */
+    const uploadParts = async (list: BatchImage[]) => {
+        setAnalysisStep('compressing');
+        let image: BatchImage;
+        try {
+            const rendered = await stackQuestionImages(list.map((part) => part.dataUrl));
+            const sum = (key: keyof BatchImage["timings"]) => list.reduce((total, part) => total + part.timings[key], 0);
+            image = {
+                dataUrl: rendered.dataUrl,
+                info: {
+                    sourceType: `stacked-${list.length}`,
+                    sourceBytes: list.reduce((total, part) => total + (part.info.sourceBytes ?? 0), 0),
+                    outputWidth: rendered.width, outputHeight: rendered.height, outputBytes: rendered.bytes, quality: rendered.quality,
+                },
+                timings: { read: sum('read'), convert: sum('convert'), crop: sum('crop') + rendered.timings.crop, compress: sum('compress') + rendered.timings.compress },
+            };
+        } catch (error) {
+            frontendLogger.error(logPrefix, 'Stack parts failed', { parts: list.length, error: getErrorMessage(error) });
+            toast.error(getAnalysisErrorMessage(error, t));
+            setAnalysisStep('idle');
+            return;
+        }
+        frontendLogger.info(logPrefix, 'Question parts stacked', { parts: list.length, width: image.info.outputWidth, height: image.info.outputHeight });
+        setParts([]);
+        await uploadImage(image);
+    };
+
+    /** 「下一段在另一张」：框选的这一段暂存起来，回到选图继续拍下一张 */
+    const addPart = async (region: ImageRegion) => {
+        const prepared = preparedRef.current;
+        if (!prepared || parts.length >= MAX_QUESTION_PARTS - 1) return;
+        setIsCropperOpen(false);
+        setAnalysisStep('compressing');
+        try {
+            const [image] = await renderRegions(prepared, [region]);
+            setParts((current) => [...current, image]);
+            toast.info(t.upload.parts.added.replace("{n}", String(parts.length + 1)));
+        } catch (error) {
+            frontendLogger.error(logPrefix, 'Crop part failed', { error: getErrorMessage(error) });
+            toast.error(getAnalysisErrorMessage(error, t));
+        } finally {
+            setAnalysisStep('idle');
+        }
+    };
+
+    /** 裁剪完成：单题直接上传（有暂存的段时与其拼成一题），多题进入批量导入 */
     const cropRegions = async (regions: ImageRegion[], multi: boolean) => {
         const prepared = preparedRef.current;
         if (!prepared || regions.length === 0) return;
@@ -183,6 +234,10 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
             setLastImported(null);
             saver.setSaveError(null);
             setBatchImages(images);
+            return;
+        }
+        if (parts.length > 0) {
+            await uploadParts([...parts, images[0]]);
             return;
         }
         await uploadImage(images[0]);
@@ -354,5 +409,6 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
         dismissPendingTask: () => setPendingTaskId(null),
         selectImage, cropRegions, submitText, saveQuestion, saveReviewed,
         createTextBatch, autoSplitImage, creatingBatch,
+        parts, addPart, finishParts: () => uploadParts(parts), discardParts: () => setParts([]),
     };
 }

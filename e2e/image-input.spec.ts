@@ -202,3 +202,36 @@ test.describe('手机拍照、相册与文件入口', () => {
         await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible();
     });
 });
+
+test('[E2E-I09] 一道题分在两张纸上：第一段暂存后选第二张，两段缩放到同宽后上下拼成一张图识别', async ({ page, scenario }, testInfo) => {
+    await scenario.db.user.update({ where: { id: scenario.user.id }, data: { confirmBeforeImport: true } });
+    await scenario.login(page);
+    await page.goto('/');
+    const cropper = page.getByRole('dialog');
+
+    await page.locator('[data-testid="file-input"]').setInputFiles({ name: 'part-1.png', mimeType: 'image/png', buffer: grayPng(600, 400) });
+    await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
+    await cropper.getByRole('button', { name: '下一段在另一张' }).click();
+    await expect(page.getByTestId('question-parts')).toContainText('这道题已暂存 1 段');
+    expect(await scenario.db.importTask.count({ where: { userId: scenario.user.id } })).toBe(0);
+    await snap(page, testInfo, 'parts-bar');
+    // 等裁剪框关闭动画结束（真实操作中，打开相机或相册选图本身就有间隔）
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    await page.locator('[data-testid="file-input"]').setInputFiles({ name: 'part-2.png', mimeType: 'image/png', buffer: grayPng(300, 200) });
+    await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
+    // 已有暂存的段时只保留单题裁剪，提示这是第 2 段
+    await expect(cropper.getByRole('button', { name: '自动分题' })).toHaveCount(0);
+    await expect(cropper.getByRole('button', { name: '手工框选' })).toHaveCount(0);
+    await expect(cropper.getByText('第 2 段：框选这一段', { exact: false })).toBeVisible();
+    await cropper.getByRole('button', { name: '拼成一题并识别（2 段）' }).click();
+
+    await expect.poll(() => scenario.db.importTask.count({ where: { userId: scenario.user.id } })).toBe(1);
+    const task = await scenario.db.importTask.findFirstOrThrow({ where: { userId: scenario.user.id } });
+    // 第二段 300×200 放大到 600 宽，两段之间留 16 像素白边
+    expect(JSON.parse(task.imageInfo!)).toMatchObject({ sourceType: 'stacked-2', outputWidth: 600, outputHeight: 816 });
+    const decoded = await inspectJpeg(page, task.imageData!, [[0.5, 408 / 816]]);
+    expect(decoded).toMatchObject({ width: 600, height: 816 });
+    expect(isWhite(decoded.colors[0])).toBe(true);
+    await expect(page.getByTestId('question-parts')).toHaveCount(0);
+});

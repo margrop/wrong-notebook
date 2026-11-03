@@ -24,6 +24,8 @@ Images can be cropped first. While cropping or selecting several questions, zoom
 
 On phones there are three separate entries: **Take photo** opens the camera directly (if the device has no camera you are asked to use the album or a file instead); **Photo album** picks from your photos; **Choose file** accepts any file type, for photos that do not show up in the album (some systems do not treat HEIC/HEIF as images). After selection the real format is detected from the file content: HEIC/HEIF photos are converted to JPEG and rotated upright before cropping, and no extra decoder is downloaded when the browser can decode them itself. Damaged files or files that are not images show a specific reason.
 
+When one question spans two or more sheets, frame the first part in single-question crop and tap **Rest is on another sheet**; that part is saved above the upload area. Take or choose the next photo, frame the continuing part and tap **Join … parts and recognize**: the parts are scaled to the same width and joined top to bottom into one image. A question can have up to 4 parts; while parts are saved you can also start recognition or discard them from the saved-parts panel, and cropping offers only the single-question mode.
+
 The crop preview uses a thumbnail; after you confirm, the crop is taken from the original. Output is limited by a 4096 px long edge, about 4.9 megapixels and 1.5 MB together, with JPEG quality at 0.8 or above, so small text, formulas and figures stay sharp.
 
 After enabling "Review before import" in "Settings → General", you can correct the recognition on the review page before saving. The AI may misread numbers, symbols and figure relationships, so check against the original before saving.

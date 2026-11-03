@@ -180,6 +180,18 @@ export const translations = {
         upload: {
             // dragDrop: "Click or drag image to upload", // Moved to app
             support: "JPG, PNG, WebP and HEIC/HEIF photos",
+            parts: {
+                addNext: "Rest is on another sheet",
+                cropHint: "Part {n}: frame this part. On confirm it is joined below the earlier parts and recognized as one question.",
+                confirm: "Join {count} parts and recognize",
+                added: "Part {n} saved. Take or choose the photo with the next part.",
+                title: "{count} parts of this question saved",
+                hint: "Take or choose the photo with the next part and frame it; parts are joined top to bottom into one image. You can also start now.",
+                finish: "Recognize {count} parts as one question",
+                discard: "Discard saved parts",
+                part: "Part {n}",
+                max: "A question can have up to {max} parts",
+            },
             camera: "Take photo",
             cameraDesc: "Opens the camera directly",
             album: "Photo album",
@@ -1849,6 +1861,18 @@ export const translations = {
         upload: {
             // dragDrop: "点击或拖拽上传图片", // Moved to app
             support: "支持 JPG、PNG、WebP 和 HEIC/HEIF 照片",
+            parts: {
+                addNext: "下一段在另一张",
+                cropHint: "第 {n} 段：框选这一段，确认后接在前面各段下方，拼成一道题识别。",
+                confirm: "拼成一题并识别（{count} 段）",
+                added: "已暂存第 {n} 段，请拍摄或选择下一段所在的照片。",
+                title: "这道题已暂存 {count} 段",
+                hint: "拍摄或选择下一段所在的照片并框选，各段会按顺序上下拼成一张图；也可以现在开始识别。",
+                finish: "拼成一题并识别（{count} 段）",
+                discard: "放弃已暂存的",
+                part: "第 {n} 段",
+                max: "一道题最多分 {max} 段",
+            },
             camera: "拍照",
             cameraDesc: "直接打开相机拍摄",
             album: "相册",
