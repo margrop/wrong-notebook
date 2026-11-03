@@ -71,8 +71,16 @@ try {
     Assert-Rejected '签名后文件被篡改' $paths
 
     # 测试证书模式：用临时自签名证书模拟 SignPath 测试证书。
+    # 签名前后须为同一文件，并带有产品名和版本，才能通过元数据比对。
+    $unsignedFixture = Join-Path $taskDir 'unsigned.dll'
     $selfSignedFixture = Join-Path $taskDir 'self-signed.dll'
-    Add-Type -TypeDefinition 'public static class WrongNotebookSigningFixture {}' -OutputAssembly $selfSignedFixture -OutputType Library
+    $fixtureSource = @'
+[assembly: System.Reflection.AssemblyProduct("WrongNotebook")]
+[assembly: System.Reflection.AssemblyInformationalVersion("1.0.0")]
+public static class WrongNotebookSigningFixture {}
+'@
+    Add-Type -TypeDefinition $fixtureSource -OutputAssembly $unsignedFixture -OutputType Library
+    Copy-Item -LiteralPath $unsignedFixture -Destination $selfSignedFixture
     $testCert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=WrongNotebook Signing Test' -CertStoreLocation Cert:\CurrentUser\My
     try {
         $result = Set-AuthenticodeSignature -LiteralPath $selfSignedFixture -Certificate $testCert
@@ -82,12 +90,15 @@ try {
     }
 
     $paths = New-FixtureSet 'test-certificate'
-    foreach ($name in $names) { Copy-Item -LiteralPath $selfSignedFixture -Destination (Join-Path $paths.SignedDirectory $name) -Force }
+    foreach ($name in $names) {
+        Copy-Item -LiteralPath $unsignedFixture -Destination (Join-Path $paths.UnsignedDirectory $name) -Force
+        Copy-Item -LiteralPath $selfSignedFixture -Destination (Join-Path $paths.SignedDirectory $name) -Force
+    }
     $production = @{ UnsignedDirectory = $paths.UnsignedDirectory; SignedDirectory = $paths.SignedDirectory }
     Assert-Rejected '生产模式拒绝测试证书' $production
     & $verify @paths -TestCertificate
     foreach ($name in $names) {
-        if ((Get-FileHash -LiteralPath (Join-Path $paths.UnsignedDirectory $name)).Hash -ne (Get-FileHash -LiteralPath $fixture).Hash) {
+        if ((Get-FileHash -LiteralPath (Join-Path $paths.UnsignedDirectory $name)).Hash -ne (Get-FileHash -LiteralPath $unsignedFixture).Hash) {
             throw '测试证书模式不得覆盖发布文件'
         }
     }
