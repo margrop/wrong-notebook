@@ -9,7 +9,7 @@ import { getAppConfig } from '../config';
 import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure, stripThinkingTags } from './schema';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
-import { AI_OUTPUT_TRUNCATED, withTruncationRetry } from './truncation';
+import { AI_OUTPUT_TRUNCATED, withModelOutputLimit } from './truncation';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
 import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
@@ -185,7 +185,7 @@ export class AzureOpenAIProvider implements AIService {
         logger.box('📝 Full System Prompt', systemPrompt.system);
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     {
@@ -206,7 +206,7 @@ export class AzureOpenAIProvider implements AIService {
                     },
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             logger.box('📦 Full API Response', JSON.stringify(response, null, 2));
 
@@ -266,7 +266,7 @@ export class AzureOpenAIProvider implements AIService {
         logger.box('📝 User Prompt', userPrompt);
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     {
@@ -279,7 +279,7 @@ export class AzureOpenAIProvider implements AIService {
                     },
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             // 检查响应是否有效
             if (!response || !response.choices || response.choices.length === 0) {
@@ -344,14 +344,14 @@ export class AzureOpenAIProvider implements AIService {
                 logger.debug({ imageBase64Type: typeof imageBase64, hasValue: !!imageBase64 }, 'No image data');
             }
 
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: userContent }
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             logger.debug({ response: JSON.stringify(response) }, 'Full API response');
 
@@ -401,14 +401,14 @@ export class AzureOpenAIProvider implements AIService {
         }, 'GeoGebra Analysis Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'GeoGebra AI raw response');
@@ -452,14 +452,14 @@ export class AzureOpenAIProvider implements AIService {
         }, 'Mastery Evaluation Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Mastery AI raw response');
@@ -476,11 +476,11 @@ export class AzureOpenAIProvider implements AIService {
     async recognizeGrade(questionText: string): Promise<string | null> {
         const prompt = generateGradeRecognitionRequest(questionText);
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [{ role: 'system', content: prompt.system }, { role: 'user', content: prompt.user }],
                 max_tokens: maxTokens,
-            }), 1024, () => logger.warn('年级识别输出截断，增加上限重试'));
+            }), this.model);
             return parseGradeRecognition(response.choices[0]?.message?.content || '');
         } catch (error) {
             logger.error({ error }, '识别题目年级失败');
@@ -494,14 +494,14 @@ export class AzureOpenAIProvider implements AIService {
         logger.info({ provider: 'Azure OpenAI' }, 'Answer Grading Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Grading AI raw response');
@@ -525,14 +525,14 @@ export class AzureOpenAIProvider implements AIService {
         }, 'Tag Suggestion Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Tag suggestion AI raw response');
@@ -551,14 +551,14 @@ export class AzureOpenAIProvider implements AIService {
         logger.info({ provider: 'Azure OpenAI', deployment: this.deployment, imageSize: imageBase64.length }, 'Figure SVG Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: [{ type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } }, { type: "text", text: prompt.user }] },
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
@@ -577,14 +577,14 @@ export class AzureOpenAIProvider implements AIService {
         logger.info({ provider: 'Azure OpenAI', deployment: this.deployment, fields: Object.keys(input) }, 'LaTeX Fix Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'LaTeX fix AI raw response');
@@ -603,14 +603,14 @@ export class AzureOpenAIProvider implements AIService {
         logger.info({ provider: 'Azure OpenAI', deployment: this.deployment, questionLength: questionText.length }, 'SVG Animation Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
-            }), 16384, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'SVG animation AI raw response');
@@ -629,14 +629,14 @@ export class AzureOpenAIProvider implements AIService {
         logger.info({ provider: 'Azure OpenAI', deployment: this.deployment, svgLength: svgAnimation.length }, 'SVG Narration Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'SVG narration AI raw response');
@@ -658,14 +658,14 @@ export class AzureOpenAIProvider implements AIService {
             : prompt.user;
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content },
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Question split AI raw response');
@@ -684,14 +684,14 @@ export class AzureOpenAIProvider implements AIService {
         logger.info({ provider: 'Azure OpenAI', deployment: this.deployment, questions: input.length }, 'Text Fix Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.client.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
-            }), 16384, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             // 部分网关在上游超时等情况下返回 200 但 choices 为空
             const text = response.choices?.[0]?.message?.content || '';

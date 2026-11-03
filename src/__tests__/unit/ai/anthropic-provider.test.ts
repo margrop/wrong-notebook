@@ -128,7 +128,8 @@ describe('AnthropicProvider', () => {
 
         const request = mocks.create.mock.calls[0][0];
         expect(request.model).toBe('claude-test');
-        expect(request.max_tokens).toBe(8192);
+        // 未收录的模型用默认上限
+        expect(request.max_tokens).toBe(262144);
         expect(typeof request.system).toBe('string');
         expect(request.messages[0].content[0]).toEqual({
             type: 'image',
@@ -174,21 +175,18 @@ describe('AnthropicProvider', () => {
         expect(figure.figureSvg).toContain('<rect');
     });
 
-    it('正文为空且因 max_tokens 截断时，按默认模型的最大输出重试一次', async () => {
-        mocks.create
-            .mockResolvedValueOnce({ content: [{ type: 'thinking', thinking: '...', signature: 'x' }], stop_reason: 'max_tokens', usage: {} })
-            .mockResolvedValueOnce(message('{"probability": 85, "reason": "连续答对"}'));
+    it('直接按默认模型的最大输出请求，只调用一次', async () => {
+        mocks.create.mockResolvedValueOnce(message('{"probability": 85, "reason": "连续答对"}'));
         const provider = new AnthropicProvider({ apiKey: 'sk-ant' });
 
         const result = await provider.evaluateMastery({ questionText: 'q', knowledgePoints: [], history: [], ruleProbability: 0.5 });
 
-        expect(mocks.create).toHaveBeenCalledTimes(2);
-        expect(mocks.create.mock.calls[0][0].max_tokens).toBe(4096);
-        expect(mocks.create.mock.calls[1][0].max_tokens).toBe(128000);
+        expect(mocks.create).toHaveBeenCalledTimes(1);
+        expect(mocks.create.mock.calls[0][0].max_tokens).toBe(128000);
         expect(result.probability).toBe(0.85);
     });
 
-    it('重试后仍被截断时报 AI_OUTPUT_TRUNCATED', async () => {
+    it('用满上限仍被截断且没有正文时报 AI_OUTPUT_TRUNCATED', async () => {
         mocks.create.mockResolvedValue({ content: [], stop_reason: 'max_tokens', usage: {} });
         const provider = new AnthropicProvider({ apiKey: 'sk-ant' });
 
@@ -228,7 +226,7 @@ describe('Anthropic Provider SVG 动画讲解', () => {
         const svg = await provider.generateSvgAnimation('求面积', '6', '解析');
 
         const request = mocks.create.mock.calls.at(-1)?.[0];
-        expect(request.max_tokens).toBe(16384);
+        expect(request.max_tokens).toBe(128000);
         expect(JSON.parse(request.messages[0].content).data.questionText).toBe('求面积');
         expect(svg).toContain('<set attributeName="opacity"');
         expect(svg).not.toContain('<script');
@@ -247,7 +245,7 @@ describe('Anthropic Provider 补写语音讲解稿', () => {
         expect(await provider.generateSvgNarration('求面积', '6', '解析', narrationSvg)).toEqual(expectedNarration);
 
         const request = mocks.create.mock.calls.at(-1)?.[0];
-        expect(request.max_tokens).toBe(4096);
+        expect(request.max_tokens).toBe(128000);
         expect(JSON.parse(request.messages[0].content).data.svgAnimation).toContain('begin="3s"');
         expect(JSON.parse(request.messages[0].content).data.svgAnimation).not.toContain('旧的');
         expect(request.system).not.toContain('begin="3s"');

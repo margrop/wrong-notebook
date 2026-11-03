@@ -1,11 +1,11 @@
 /**
- * 推理模型（如 MiniMax、DeepSeek-R1）会先输出思考过程，思考过长时会把 max_tokens 全部用完，
- * 返回 finish_reason = "length" 且正文为空或只有一半（如配图 SVG 较长时）。
- * 此时按模型的最大输出重试一次：已知模型用其官方上限，未知模型先试 UNKNOWN_MODEL_RETRY_MAX_TOKENS，
- * 接口报 max_tokens 超限时从错误信息读出真实上限再试并记住。
- * 仍没有正文则报明确错误，仍只有部分正文时返回该结果尽力解析。
+ * AI 调用的输出上限（max_tokens）：
+ * 主流模型的最大输出已有数万到数十万 token，推理模型（如 MiniMax、DeepSeek）的思考过程也计入输出，
+ * 默认的小上限会让思考把额度用完、正文为空，再重试反而更慢。因此每次调用直接按模型允许的最大输出请求：
+ * 已知模型用其官方上限，未知模型用 DEFAULT_MAX_OUTPUT_TOKENS；接口报 max_tokens 超限时从错误信息读出真实上限
+ * 再试并记住，读不出时依次降到 FALLBACK_MAX_OUTPUT_TOKENS 中的值。
+ * 用满上限仍被截断且没有正文时报明确错误，只有部分正文时返回该结果尽力解析。
  */
-
 import { getErrorMessage } from '../error-message';
 import { createLogger } from '../logger';
 import { getKnownModelMaxOutputTokens, isMaxTokensError, parseMaxOutputTokensFromError } from './model-output-limits';
@@ -14,11 +14,11 @@ const logger = createLogger('ai:truncation');
 
 export const AI_OUTPUT_TRUNCATED = 'AI_OUTPUT_TRUNCATED';
 
-/** 未知模型截断后重试使用的输出上限 */
-export const UNKNOWN_MODEL_RETRY_MAX_TOKENS = 65536;
+/** 未收录模型的默认输出上限（256K） */
+export const DEFAULT_MAX_OUTPUT_TOKENS = 262144;
 
-/** 接口拒绝更大上限且读不出具体数字时的保底上限 */
-export const TRUNCATION_RETRY_MAX_TOKENS = 32768;
+/** 接口拒绝上限且读不出具体数字时，依次尝试的更小上限 */
+export const FALLBACK_MAX_OUTPUT_TOKENS = [65536, 32768, 8192] as const;
 
 /** 运行期从接口错误中读出的模型输出上限，按模型名记录 */
 const learnedLimits = new Map<string, number>();
@@ -28,11 +28,16 @@ export function resetLearnedOutputLimits(): void {
     learnedLimits.clear();
 }
 
-/** 模型的最大输出 token：优先使用运行期读出的值，其次是已知模型表 */
+/** 模型的最大输出 token：优先使用运行期读出的值，其次是已知模型表；未知时返回 undefined */
 export function getModelMaxOutputTokens(model?: string): number | undefined {
     const key = model?.trim().toLowerCase();
     const learned = key ? learnedLimits.get(key) : undefined;
     return learned ?? getKnownModelMaxOutputTokens(key);
+}
+
+/** 本次调用使用的输出上限：模型允许的最大输出，未知模型用默认值 */
+export function outputTokenLimit(model?: string): number {
+    return getModelMaxOutputTokens(model) ?? DEFAULT_MAX_OUTPUT_TOKENS;
 }
 
 interface ChatCompletionLike {
@@ -51,53 +56,40 @@ export function isTruncatedWithoutContent(response: ChatCompletionLike | null | 
 }
 
 /**
- * 以 limit 调用；接口报 max_tokens 超限时改用错误信息中的上限（读不出时用保底值）再调用一次
+ * 以 limit 调用；接口报 max_tokens 超限时改用错误信息中的上限，读不出时依次降到保底值再调用
  */
 async function callWithinModelLimit<T>(
     call: (maxTokens: number) => Promise<T>,
     limit: number,
     model?: string
-): Promise<{ response: T; limit: number }> {
-    try {
-        return { response: await call(limit), limit };
-    } catch (error) {
-        const message = getErrorMessage(error);
-        const parsed = parseMaxOutputTokensFromError(message, limit);
-        const next = parsed
-            ?? (isMaxTokensError(message) && limit > TRUNCATION_RETRY_MAX_TOKENS ? TRUNCATION_RETRY_MAX_TOKENS : undefined);
-        if (!next) throw error;
-        const key = model?.trim().toLowerCase();
-        if (key && parsed) learnedLimits.set(key, parsed);
-        logger.warn({ model, requested: limit, adjusted: next }, 'max_tokens exceeds model limit, retrying with model limit');
-        return { response: await call(next), limit: next };
+): Promise<T> {
+    let current = limit;
+    for (;;) {
+        try {
+            return await call(current);
+        } catch (error) {
+            const message = getErrorMessage(error);
+            const parsed = parseMaxOutputTokensFromError(message, current);
+            const next = parsed ?? (isMaxTokensError(message) ? FALLBACK_MAX_OUTPUT_TOKENS.find((value) => value < current) : undefined);
+            if (!next) throw error;
+            const key = model?.trim().toLowerCase();
+            if (key && parsed) learnedLimits.set(key, parsed);
+            logger.warn({ model, requested: current, adjusted: next }, 'max_tokens exceeds model limit, retrying with model limit');
+            current = next;
+        }
     }
 }
 
 /**
- * 以 maxTokens 调用一次（不超过模型上限）；若因长度截断，用模型允许的最大输出重试一次
+ * 按模型允许的最大输出调用一次（接口拒绝时自动降到可用上限）；
+ * 用满上限仍被截断且没有正文时报 AI_OUTPUT_TRUNCATED，有部分正文时返回由调用方尽力解析
  */
-export async function withTruncationRetry<T extends ChatCompletionLike>(
+export async function withModelOutputLimit<T extends ChatCompletionLike>(
     call: (maxTokens: number) => Promise<T>,
-    maxTokens: number,
-    onRetry?: () => void,
     model?: string
 ): Promise<T> {
-    const knownMax = getModelMaxOutputTokens(model);
-    const first = await callWithinModelLimit(call, knownMax ? Math.min(maxTokens, knownMax) : maxTokens, model);
-    if (!isTruncated(first.response)) {
-        return first.response;
-    }
-
-    // 第一次调用可能刚从错误中读出上限，重新取一次
-    const retryLimit = getModelMaxOutputTokens(model) ?? UNKNOWN_MODEL_RETRY_MAX_TOKENS;
-    if (first.limit >= retryLimit) {
-        if (isTruncatedWithoutContent(first.response)) throw new Error(AI_OUTPUT_TRUNCATED);
-        return first.response;
-    }
-    onRetry?.();
-    const second = await callWithinModelLimit(call, retryLimit, model);
-    if (isTruncatedWithoutContent(second.response)) {
-        throw new Error(AI_OUTPUT_TRUNCATED);
-    }
-    return second.response;
+    const response = await callWithinModelLimit(call, outputTokenLimit(model), model);
+    if (isTruncatedWithoutContent(response)) throw new Error(AI_OUTPUT_TRUNCATED);
+    if (isTruncated(response)) logger.warn({ model }, 'Output truncated at model max_tokens, parsing partial content');
+    return response;
 }

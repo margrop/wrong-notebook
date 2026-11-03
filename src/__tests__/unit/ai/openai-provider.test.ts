@@ -361,20 +361,20 @@ describe('OpenAI Provider 知识点重新标注', () => {
     });
 });
 
-describe('OpenAI Provider 推理模型截断重试', () => {
-    it('重新解题时思考耗尽额度后用更大上限重试并成功', async () => {
-        const provider = new OpenAIProvider({ apiKey: 'test-key', model: 'minimax-latest' });
-        mockCompletionCreate
-            .mockResolvedValueOnce({ choices: [{ finish_reason: 'length', message: { content: '' } }] })
-            .mockResolvedValueOnce({ choices: [{ finish_reason: 'stop', message: { content: '<answer_text>x = 2</answer_text><analysis>移项</analysis><knowledge_points>方程</knowledge_points>' } }] });
+describe('OpenAI Provider 输出上限', () => {
+    it('推理模型首次就按模型的最大输出请求，只调用一次', async () => {
+        mockCompletionCreate.mockReset();
+        const answer = { choices: [{ finish_reason: 'stop', message: { content: '<answer_text>x = 2</answer_text><analysis>移项</analysis><knowledge_points>方程</knowledge_points>' } }] };
+        mockCompletionCreate.mockResolvedValue(answer);
 
-        const result = await provider.reanswerQuestion('求解 2x + 3 = 7', 'zh');
-
-        expect(result.answerText).toBe('x = 2');
-        expect(mockCompletionCreate.mock.calls.map((args) => args[0].max_tokens)).toEqual([8192, 65536]);
+        expect((await new OpenAIProvider({ apiKey: 'test-key', model: 'MiniMax-M3.1-Flash' }).reanswerQuestion('求解 2x + 3 = 7', 'zh')).answerText).toBe('x = 2');
+        // 未收录的模型用默认上限
+        await new OpenAIProvider({ apiKey: 'test-key', model: 'minimax-latest' }).reanswerQuestion('求解 2x + 3 = 7', 'zh');
+        expect(mockCompletionCreate.mock.calls.map((args) => args[0].max_tokens)).toEqual([128000, 262144]);
+        mockCompletionCreate.mockReset();
     });
 
-    it('重试后仍为空时返回 AI_OUTPUT_TRUNCATED 而不是未知错误', async () => {
+    it('用满上限仍为空时返回 AI_OUTPUT_TRUNCATED 而不是未知错误', async () => {
         const provider = new OpenAIProvider({ apiKey: 'test-key', model: 'minimax-latest' });
         mockCompletionCreate.mockResolvedValue({ choices: [{ finish_reason: 'length', message: { content: '' } }] });
 
@@ -436,7 +436,8 @@ describe('OpenAI Provider 补写语音讲解稿', () => {
         expect(await provider.generateSvgNarration('求三角形面积', '6', '底乘高除以二', narrationSvg)).toEqual(expectedNarration);
 
         const request = mockCompletionCreate.mock.calls[0][0];
-        expect(request.max_tokens).toBe(4096);
+        // gpt-4o 的最大输出
+        expect(request.max_tokens).toBe(16384);
         expect(JSON.parse(request.messages[1].content).data.questionText).toBe('求三角形面积');
         expect(JSON.parse(request.messages[1].content).data.analysis).toBe('底乘高除以二');
         expect(request.messages[0].content).toContain('总时长约 3 秒');

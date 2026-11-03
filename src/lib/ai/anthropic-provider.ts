@@ -10,7 +10,7 @@ import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation,
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
 import { trimTrailingSlashes } from '../utils';
-import { AI_OUTPUT_TRUNCATED, withTruncationRetry } from './truncation';
+import { AI_OUTPUT_TRUNCATED, withModelOutputLimit } from './truncation';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
 import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
@@ -171,9 +171,9 @@ export class AnthropicProvider implements AIService {
         }, 'AI Provider initialized');
     }
 
-    /** 发送一次单轮对话并返回正文；正文为空且因长度截断时用更大的上限重试 */
-    private async complete(system: string, content: UserContent, maxTokens: number): Promise<string> {
-        const response = await withTruncationRetry(async (limit) => {
+    /** 发送一次单轮对话并返回正文；按模型允许的最大输出请求 */
+    private async complete(system: string, content: UserContent): Promise<string> {
+        const response = await withModelOutputLimit(async (limit) => {
             const message = await this.client.messages.create({
                 model: this.model,
                 max_tokens: limit,
@@ -190,7 +190,7 @@ export class AnthropicProvider implements AIService {
                 text,
                 choices: [{ finish_reason: message.stop_reason === 'max_tokens' ? 'length' : message.stop_reason, message: { content: text } }],
             };
-        }, maxTokens, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+        }, this.model);
 
         if (!response.text) throw new Error("Empty response from AI");
         return response.text;
@@ -220,7 +220,7 @@ export class AnthropicProvider implements AIService {
             const text = await this.complete(systemPrompt.system, [
                 imageBlock(imageBase64, mimeType),
                 { type: 'text', text: systemPrompt.user },
-            ], 8192);
+            ]);
             logger.box('🤖 AI Raw Response', text);
             const parsedResult = normalizeAiQuestionTags(parseQuestionResponse(text), tagOptions);
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
@@ -243,7 +243,7 @@ export class AnthropicProvider implements AIService {
         logger.info({ provider: 'Anthropic', model: this.model, difficulty, language }, 'Generate Similar Question Request');
 
         try {
-            const text = await this.complete(systemPrompt.system, userPrompt, 8192);
+            const text = await this.complete(systemPrompt.system, userPrompt);
             logger.box('🤖 AI Raw Response', text);
             return normalizeGeneratedQuestion(parseQuestionResponse(text));
         } catch (error) {
@@ -268,7 +268,7 @@ export class AnthropicProvider implements AIService {
             const content: UserContent = imageBase64
                 ? [imageBlock(imageBase64), { type: 'text', text: prompt.user }]
                 : prompt.user;
-            const text = await this.complete(prompt.system, content, 8192);
+            const text = await this.complete(prompt.system, content);
             logger.debug({ rawResponse: text }, 'AI raw response');
 
             const wrongAnswerText = extractTag(text, "wrong_answer_text") || "";
@@ -295,7 +295,7 @@ export class AnthropicProvider implements AIService {
         logger.info({ provider: 'Anthropic', model: this.model, questionLength: questionText.length }, 'GeoGebra Analysis Request');
 
         try {
-            const text = await this.complete(prompt.system, prompt.user, 4096);
+            const text = await this.complete(prompt.system, prompt.user);
             logger.debug({ rawResponse: text }, 'GeoGebra AI raw response');
             const parsed = extractJsonObject(text) as { suitable?: unknown; commands?: unknown; description?: unknown };
             return {
@@ -315,7 +315,7 @@ export class AnthropicProvider implements AIService {
         logger.info({ provider: 'Anthropic', historyCount: input.history.length }, 'Mastery Evaluation Request');
 
         try {
-            const text = await this.complete(prompt.system, prompt.user, 4096);
+            const text = await this.complete(prompt.system, prompt.user);
             logger.debug({ rawResponse: text }, 'Mastery AI raw response');
             return parseMasteryEvaluation(text);
         } catch (error) {
@@ -329,7 +329,7 @@ export class AnthropicProvider implements AIService {
         const prompt = generateGradeRecognitionRequest(questionText);
         try {
             return parseGradeRecognition(await this.complete(
-                prompt.system, prompt.user, 1024,
+                prompt.system, prompt.user
             ));
         } catch (error) {
             logger.error({ error }, '识别题目年级失败');
@@ -343,7 +343,7 @@ export class AnthropicProvider implements AIService {
         logger.info({ provider: 'Anthropic' }, 'Answer Grading Request');
 
         try {
-            const text = await this.complete(prompt.system, prompt.user, 4096);
+            const text = await this.complete(prompt.system, prompt.user);
             logger.debug({ rawResponse: text }, 'Grading AI raw response');
             return parseAnswerGrading(text);
         } catch (error) {
@@ -358,7 +358,7 @@ export class AnthropicProvider implements AIService {
         logger.info({ provider: 'Anthropic', subject: input.subject, allowedTagCount: input.allowedTags.length }, 'Tag Suggestion Request');
 
         try {
-            const text = await this.complete(prompt.system, prompt.user, 4096);
+            const text = await this.complete(prompt.system, prompt.user);
             logger.debug({ rawResponse: text }, 'Tag suggestion AI raw response');
             return parseTagSuggestion(text, input.allowedTags);
         } catch (error) {
@@ -376,7 +376,7 @@ export class AnthropicProvider implements AIService {
             const text = await this.complete(prompt.system, [
                 imageBlock(imageBase64, mimeType), { type: 'text', text: prompt.user },
                 { type: 'text', text: '请重新绘制图中题目的配图。' },
-            ], 8192);
+            ]);
             logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
             return parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
         } catch (error) {
@@ -391,7 +391,7 @@ export class AnthropicProvider implements AIService {
         logger.info({ provider: 'Anthropic', model: this.model, fields: Object.keys(input) }, 'LaTeX Fix Request');
 
         try {
-            const text = await this.complete(prompt.system, prompt.user, 8192);
+            const text = await this.complete(prompt.system, prompt.user);
             logger.debug({ rawResponse: text }, 'LaTeX fix AI raw response');
             return parseLatexFix(text, input);
         } catch (error) {
@@ -406,7 +406,7 @@ export class AnthropicProvider implements AIService {
         logger.info({ provider: 'Anthropic', model: this.model, questionLength: questionText.length }, 'SVG Animation Request');
 
         try {
-            const text = await this.complete(prompt.system, prompt.user, 16384);
+            const text = await this.complete(prompt.system, prompt.user);
             logger.debug({ rawResponse: text }, 'SVG animation AI raw response');
             return sanitizeSvgAnimation(extractTag(text, "svg_animation") || text);
         } catch (error) {
@@ -421,7 +421,7 @@ export class AnthropicProvider implements AIService {
         logger.info({ provider: 'Anthropic', model: this.model, svgLength: svgAnimation.length }, 'SVG Narration Request');
 
         try {
-            const text = await this.complete(prompt.system, prompt.user, 4096);
+            const text = await this.complete(prompt.system, prompt.user);
             logger.debug({ rawResponse: text }, 'SVG narration AI raw response');
             return parseNarration(extractTag(text, "narration") || text);
         } catch (error) {
@@ -439,7 +439,7 @@ export class AnthropicProvider implements AIService {
             : prompt.user;
 
         try {
-            const text = await this.complete(prompt.system, content, 8192);
+            const text = await this.complete(prompt.system, content);
             logger.debug({ rawResponse: text }, 'Question split AI raw response');
             return parseQuestionSplit(text, input);
         } catch (error) {
@@ -455,7 +455,7 @@ export class AnthropicProvider implements AIService {
         logger.info({ provider: 'Anthropic', model: this.model, questions: input.length }, 'Text Fix Request');
 
         try {
-            const text = await this.complete(prompt.system, prompt.user, 16384);
+            const text = await this.complete(prompt.system, prompt.user);
             logger.debug({ rawResponse: text }, 'Text fix AI raw response');
             return parseTextFix(text, input);
         } catch (error) {

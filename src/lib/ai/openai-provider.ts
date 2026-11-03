@@ -10,7 +10,7 @@ import { getAppConfig } from '../config';
 import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure, stripThinkingTags } from './schema';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
-import { AI_OUTPUT_TRUNCATED, withTruncationRetry } from './truncation';
+import { AI_OUTPUT_TRUNCATED, outputTokenLimit, withModelOutputLimit } from './truncation';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
 import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
@@ -234,7 +234,7 @@ export class OpenAIProvider implements AIService {
                         ],
                     },
                 ],
-                max_tokens: 8192,
+                max_tokens: outputTokenLimit(this.model),
             };
 
             logger.box('📤 API Request (发送给 AI 的原始请求)', JSON.stringify(requestParamsForLog, null, 2));
@@ -259,28 +259,30 @@ export class OpenAIProvider implements AIService {
                     },
                 ]);
 
-                const res = await fetch(`${this.baseURL}/chat/completions`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${this.apiKey}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        model: this.model,
-                        messages,
-                        max_tokens: 8192,
-                    }),
-                });
+                response = await withModelOutputLimit(async (maxTokens) => {
+                    const res = await fetch(`${this.baseURL}/chat/completions`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.apiKey}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: this.model,
+                            messages,
+                            max_tokens: maxTokens,
+                        }),
+                    });
 
-                if (!res.ok) {
-                    const errBody = await res.text();
-                    logger.error({ status: res.status, body: errBody }, 'LongCat API error');
-                    throw new Error(`${res.status} status code (${errBody})`);
-                }
+                    if (!res.ok) {
+                        const errBody = await res.text();
+                        logger.error({ status: res.status, body: errBody }, 'LongCat API error');
+                        throw new Error(`${res.status} status code (${errBody})`);
+                    }
 
-                response = await res.json() as ChatCompletion;
+                    return await res.json() as ChatCompletion;
+                }, this.model);
             } else {
-                response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+                response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                     model: this.model,
                     messages: [
                         {
@@ -302,7 +304,7 @@ export class OpenAIProvider implements AIService {
                     ],
                     // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
                     max_tokens: maxTokens,
-                }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+                }), this.model);
             }
 
             logger.box('📦 Full API Response', JSON.stringify(response, null, 2));
@@ -355,7 +357,7 @@ export class OpenAIProvider implements AIService {
         logger.box('📝 User Prompt', userPrompt);
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
                     { role: "system", content: systemPrompt.system },
@@ -363,7 +365,7 @@ export class OpenAIProvider implements AIService {
                 ],
                 // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             // 检查响应是否有效
             if (!response || !response.choices || response.choices.length === 0) {
@@ -428,18 +430,18 @@ export class OpenAIProvider implements AIService {
                     { role: "system", content: prompt.system.substring(0, 200) + "..." },
                     { role: "user", content: typeof userContent === 'string' ? userContent : "[包含图片的多模态消息]" }
                 ],
-                max_tokens: 8192
+                max_tokens: outputTokenLimit(this.model)
             };
             logger.debug({ requestParams }, 'Request parameters');
 
-            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: userContent }
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             logger.debug({ response: JSON.stringify(response) }, 'Full API response');
 
@@ -488,14 +490,14 @@ export class OpenAIProvider implements AIService {
         }, 'GeoGebra Analysis Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'GeoGebra AI raw response');
@@ -539,14 +541,14 @@ export class OpenAIProvider implements AIService {
         }, 'Mastery Evaluation Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Mastery AI raw response');
@@ -563,11 +565,11 @@ export class OpenAIProvider implements AIService {
     async recognizeGrade(questionText: string): Promise<string | null> {
         const prompt = generateGradeRecognitionRequest(questionText);
         try {
-            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [{ role: 'system', content: prompt.system }, { role: 'user', content: prompt.user }],
                 max_tokens: maxTokens,
-            }), 1024, () => logger.warn('年级识别输出截断，增加上限重试'));
+            }), this.model);
             return parseGradeRecognition(response.choices[0]?.message?.content || '');
         } catch (error) {
             logger.error({ error }, '识别题目年级失败');
@@ -581,14 +583,14 @@ export class OpenAIProvider implements AIService {
         logger.info({ provider: 'OpenAI' }, 'Answer Grading Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Grading AI raw response');
@@ -612,14 +614,14 @@ export class OpenAIProvider implements AIService {
         }, 'Tag Suggestion Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user }
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Tag suggestion AI raw response');
@@ -638,14 +640,14 @@ export class OpenAIProvider implements AIService {
         logger.info({ provider: 'OpenAI', model: this.model, imageSize: imageBase64.length }, 'Figure SVG Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: [{ type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } }, { type: "text", text: prompt.user }] },
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
@@ -664,14 +666,14 @@ export class OpenAIProvider implements AIService {
         logger.info({ provider: 'OpenAI', model: this.model, fields: Object.keys(input) }, 'LaTeX Fix Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
-            }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'LaTeX fix AI raw response');
@@ -690,14 +692,14 @@ export class OpenAIProvider implements AIService {
         logger.info({ provider: 'OpenAI', model: this.model, questionLength: questionText.length }, 'SVG Animation Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
-            }), 16384, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'SVG animation AI raw response');
@@ -716,14 +718,14 @@ export class OpenAIProvider implements AIService {
         logger.info({ provider: 'OpenAI', model: this.model, svgLength: svgAnimation.length }, 'SVG Narration Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
-            }), 4096, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'SVG narration AI raw response');
@@ -750,15 +752,18 @@ export class OpenAIProvider implements AIService {
                     { role: "system", content: prompt.system },
                     { role: "user", content: [{ type: "text", text: prompt.user }, { type: "image_url", image_url: { url: imageUrl } }] },
                 ]);
-                const res = await fetch(`${this.baseURL}/chat/completions`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model: this.model, messages, max_tokens: 8192 }),
-                });
-                if (!res.ok) throw new Error(`${res.status} status code (${await res.text()})`);
-                text = ((await res.json()) as ChatCompletion).choices?.[0]?.message?.content || '';
+                const response = await withModelOutputLimit(async (maxTokens) => {
+                    const res = await fetch(`${this.baseURL}/chat/completions`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model: this.model, messages, max_tokens: maxTokens }),
+                    });
+                    if (!res.ok) throw new Error(`${res.status} status code (${await res.text()})`);
+                    return await res.json() as ChatCompletion;
+                }, this.model);
+                text = response.choices?.[0]?.message?.content || '';
             } else {
-                const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+                const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                     model: this.model,
                     messages: [
                         { role: "system", content: prompt.system },
@@ -770,7 +775,7 @@ export class OpenAIProvider implements AIService {
                         },
                     ],
                     max_tokens: maxTokens,
-                }), 8192, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+                }), this.model);
                 text = response.choices[0]?.message?.content || '';
             }
             logger.debug({ rawResponse: text }, 'Question split AI raw response');
@@ -789,14 +794,14 @@ export class OpenAIProvider implements AIService {
         logger.info({ provider: 'OpenAI', model: this.model, questions: input.length }, 'Text Fix Request');
 
         try {
-            const response = await withTruncationRetry((maxTokens) => this.openai.chat.completions.create({
+            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
                     { role: "system", content: prompt.system },
                     { role: "user", content: prompt.user },
                 ],
                 max_tokens: maxTokens,
-            }), 16384, () => logger.warn('Output truncated by reasoning, retrying with larger max_tokens'), this.model);
+            }), this.model);
 
             // 部分网关在上游超时等情况下返回 200 但 choices 为空
             const text = response.choices?.[0]?.message?.content || '';
