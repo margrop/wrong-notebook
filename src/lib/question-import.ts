@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api-client";
 import { processImageFile } from "@/lib/image-utils";
 import type { ParsedQuestion } from "@/lib/ai";
+import { parsedQuestionToSavePayload } from "@/lib/parsed-question-payload";
 import type { AnalyzeResponse, UserProfile } from "@/types/api";
 
 /** 导入成功后的题目摘要 */
@@ -53,23 +54,7 @@ export async function saveParsedQuestion(
     parsed: ParsedQuestion,
     options: { subjectId?: string | null; imageUrl?: string | null; paperLevel?: string | null }
 ): Promise<ImportedQuestion> {
-    const created = await apiClient.post<CreatedErrorItem>("/api/error-items", {
-        questionText: parsed.questionText,
-        answerText: parsed.answerText,
-        analysis: parsed.analysis,
-        wrongAnswerText: parsed.wrongAnswerText || null,
-        mistakeAnalysis: parsed.mistakeAnalysis || null,
-        mistakeStatus: parsed.mistakeStatus || "unknown",
-        knowledgePoints: parsed.knowledgePoints || [],
-        difficultyStars: parsed.difficultyStars ?? null,
-        recognizedGradeSemester: parsed.gradeSemester ?? null,
-        hasFigure: parsed.hasFigure ?? false,
-        figureSvg: parsed.figureSvg ?? null,
-        subjectId: options.subjectId || undefined,
-        subjectName: options.subjectId ? undefined : parsed.subject,
-        originalImageUrl: options.imageUrl || "",
-        paperLevel: options.paperLevel || undefined,
-    });
+    const created = await apiClient.post<CreatedErrorItem>("/api/error-items", parsedQuestionToSavePayload(parsed, options));
     return {
         id: created.id,
         shortId: created.shortId ?? null,

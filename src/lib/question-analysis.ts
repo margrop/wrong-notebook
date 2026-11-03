@@ -1,0 +1,124 @@
+/**
+ * 识别一张题目图片：按用户年级规则与错题本的候选知识点调用 AI，并按年级规则确定最终年级。
+ * /api/analyze 与识别导入任务共用。
+ */
+import { getAIService } from "@/lib/ai";
+import type { ParsedQuestion } from "@/lib/ai";
+import type { CandidateTags, GradeLevel } from "@/lib/ai/types";
+import { getNotebookCandidateTags } from "@/lib/ai/tag-service";
+import { trackBackgroundTask } from "@/lib/background-tasks";
+import { getAppTimeZone } from "@/lib/config";
+import { createLogger } from "@/lib/logger";
+import { resolveNotebookScope, SUBJECT_DISPLAY_NAMES } from "@/lib/notebook-scope";
+import { prisma } from "@/lib/prisma";
+import { getQuestionGradeContext, resolveQuestionGrade } from "@/lib/question-grade";
+import type { QuestionGradeProfile } from "@/lib/question-grade";
+
+const logger = createLogger('question-analysis');
+
+export interface QuestionAnalysisInput {
+    /** 会话中的用户邮箱，用于读取年级规则 */
+    email: string | null | undefined;
+    /** 后台任务登记表中的用户 ID */
+    userId: string;
+    imageBase64: string;
+    mimeType?: string;
+    language: 'zh' | 'en';
+    subjectId?: string | null;
+    /** 后台任务弹框中「查看」跳转的页面 */
+    link?: string | null;
+}
+
+/** 拆分 data URL；不是 data URL 时原样返回 */
+export function parseImageDataUrl(imageBase64: string, mimeType?: string): { base64: string; mimeType?: string } {
+    if (imageBase64.startsWith('data:')) {
+        const matches = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) return { mimeType: matches[1], base64: matches[2] };
+    }
+    return { base64: imageBase64, mimeType };
+}
+
+/** 调用 AI 识别题目图片；AI 错误原样抛出，由调用方映射错误码 */
+export async function analyzeQuestionForUser(input: QuestionAnalysisInput): Promise<ParsedQuestion> {
+    const { base64, mimeType } = parseImageDataUrl(input.imageBase64, input.mimeType);
+
+    // 先获取用户年级信息，用于动态生成 AI prompt 中的标签列表
+    let userGrade: GradeLevel | null = null;
+    let userGradeSemester: string | null = null;
+    let subjectChinese: string | null = null;
+    let candidateTags: CandidateTags | undefined;
+    let notebookName: string | null = null;
+    let gradeProfile: QuestionGradeProfile | null = null;
+
+    if (input.email) {
+        try {
+            const user = await prisma.user.findUnique({
+                where: { email: input.email },
+                select: { id: true, educationStage: true, enrollmentYear: true, gradeRecognitionMode: true, fixedGradeSemester: true }
+            });
+
+            if (user) {
+                gradeProfile = user;
+                const context = getQuestionGradeContext(user, getAppTimeZone());
+                userGrade = context.grade;
+                userGradeSemester = context.gradeSemester;
+                logger.debug({ userGrade, userGradeSemester }, 'Calculated user grade');
+            }
+
+            // 错题本的学段 + 学科决定候选知识点：直接取该范围内的全部标签
+            if (input.subjectId && user) {
+                const notebook = await prisma.subject.findUnique({
+                    where: { id: input.subjectId },
+                    select: { name: true, userId: true, stage: true, subjectKey: true, tagSet: true }
+                });
+
+                if (notebook && notebook.userId === user.id) {
+                    notebookName = notebook.name;
+                    const scope = resolveNotebookScope(notebook);
+                    subjectChinese = scope.subject ? SUBJECT_DISPLAY_NAMES[scope.subject] : null;
+                    candidateTags = await getNotebookCandidateTags(scope, notebook.tagSet || 'default');
+                    logger.debug({ scope, tagSet: notebook.tagSet, candidateTagCount: candidateTags?.tags.length }, 'Notebook scope resolved');
+                }
+            }
+        } catch (error) {
+            logger.error({ error }, 'Error fetching user/subject info');
+            // 继续执行，不传递年级参数（会返回所有年级的标签）
+        }
+    }
+
+    logger.info({ userGrade, userGradeSemester, subject: subjectChinese }, 'Calling AI service for image analysis');
+    const aiService = getAIService();
+    const analysisResult = await trackBackgroundTask(
+        { userId: input.userId, kind: 'analyze', subject: notebookName, link: input.link ?? null },
+        () => aiService.analyzeImage(base64, mimeType, input.language, userGrade, subjectChinese, userGradeSemester, candidateTags)
+    );
+
+    logger.debug({
+        knowledgePointsCount: analysisResult.knowledgePoints?.length,
+        knowledgePointsType: typeof analysisResult.knowledgePoints,
+        isArray: Array.isArray(analysisResult.knowledgePoints)
+    }, 'AI returned knowledge points');
+
+    // AI 现在从数据库获取标签列表，返回的标签已经是标准化的，不需要额外处理
+    if (!analysisResult.knowledgePoints || analysisResult.knowledgePoints.length === 0) {
+        logger.warn('Knowledge points is empty or null');
+    }
+
+    return gradeProfile ? {
+        ...analysisResult,
+        gradeSemester: resolveQuestionGrade(gradeProfile, { recognizedGradeSemester: analysisResult.gradeSemester }, getAppTimeZone()),
+    } : analysisResult;
+}
+
+const PASSTHROUGH_AI_ERRORS = new Set([
+    'AI_CONNECTION_FAILED', 'AI_RESPONSE_ERROR', 'AI_TIMEOUT_ERROR', 'AI_QUOTA_EXCEEDED', 'AI_PERMISSION_DENIED',
+    'AI_NOT_FOUND', 'AI_SERVICE_UNAVAILABLE', 'AI_UNKNOWN_ERROR', 'AI_OUTPUT_TRUNCATED',
+]);
+
+/** 把识别异常映射为前端可翻译的错误码 */
+export function mapAnalysisError(message: string): string {
+    if (message.includes('AI_AUTH_ERROR')) return 'AI_AUTH_ERROR';
+    if (PASSTHROUGH_AI_ERRORS.has(message)) return message;
+    if (message.includes('Zod') || message.includes('validate')) return 'AI_RESPONSE_ERROR';
+    return message || 'Failed to analyze image';
+}
