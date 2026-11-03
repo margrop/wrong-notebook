@@ -230,6 +230,8 @@ export interface AnalyticsData {
     mistakeStatusStats: { name: string; value: number }[];
     /** 错误类型分布：按 errorType 分组，自由文本取前 7 个，其余合并为 __other__ */
     errorTypeStats: { name: string; value: number }[];
+    /** 难度分布：按 difficultyStars 分组，始终返回 1~5 星，未评定（null）数量大于 0 时附加 */
+    difficultyStarsStats: { stars: number | null; total: number; mastered: number }[];
     activityData: { date: string; count: number; added: number; mastered: number }[];
     range: StatsRange;
     granularity: 'day' | 'month';

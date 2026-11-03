@@ -7,6 +7,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { AnalyticsData } from "@/types/api";
 import { SubjectPieChart } from "./subject-pie-chart";
 import { MistakeCauseCard } from "./mistake-cause-card";
+import { DifficultyStarsCard } from "./difficulty-stars-card";
 import { ChartTooltip } from "./chart-tooltip";
 import { CHART_GRID_COLOR, CHART_AXIS_COLOR, CHART_ADDED_COLOR, CHART_MASTERED_COLOR } from "./chart-colors";
 
@@ -97,6 +98,16 @@ export function WrongAnswerCharts({ data }: WrongAnswerChartsProps) {
                 errorTypeOtherLabel={t.wrongAnswerStats.errorTypeOther}
                 errorTypeEmptyText={t.wrongAnswerStats.errorTypeEmpty}
             />
+
+            {/* 难度分布：仅在有已评星错题或未评定错题时显示 */}
+            {data.difficultyStarsStats.some(s => s.total > 0) && (
+                <DifficultyStarsCard
+                    title={t.wrongAnswerStats.difficultyDistribution}
+                    subtitle={t.wrongAnswerStats.difficultyDistributionSubtitle}
+                    stats={data.difficultyStarsStats}
+                    unratedLabel={t.difficulty.unrated}
+                />
+            )}
         </div>
     );
 }

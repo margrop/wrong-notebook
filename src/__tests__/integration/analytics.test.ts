@@ -655,6 +655,134 @@ describe('/api/analytics', () => {
         });
     });
 
+    describe('难度分布（difficultyStarsStats）', () => {
+        function mockDifficultyStarsGroups(totalGroups: unknown, masteredGroups: unknown) {
+            mocks.mockPrismaErrorItem.groupBy.mockImplementation(
+                (args: { by: string[]; where?: { AND?: unknown[] } }) => {
+                    if (args.by[0] !== 'difficultyStars') return Promise.resolve([]);
+                    // mastered 分组查询的 where 中带 AND（含 masteryStatusWhere 条件）
+                    const isMasteredQuery = Array.isArray(args.where?.AND);
+                    return Promise.resolve(isMasteredQuery ? masteredGroups : totalGroups);
+                }
+            );
+        }
+
+        it('始终返回 1~5 星五项，未评定数量大于 0 时附加 null 项', async () => {
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mockDifficultyStarsGroups([
+                { difficultyStars: 1, _count: { id: 2 } },
+                { difficultyStars: 3, _count: { id: 5 } },
+                { difficultyStars: null, _count: { id: 4 } },
+            ], []);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            const response = await GET(makeRequest('http://localhost/api/analytics'));
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.difficultyStarsStats).toBeDefined();
+            expect(data.difficultyStarsStats).toHaveLength(6);
+
+            const byStars = Object.fromEntries(
+                data.difficultyStarsStats.map((s: { stars: number | null; total: number; mastered: number }) => [s.stars, s])
+            );
+            expect(byStars[1].total).toBe(2);
+            expect(byStars[2].total).toBe(0);
+            expect(byStars[3].total).toBe(5);
+            expect(byStars[4].total).toBe(0);
+            expect(byStars[5].total).toBe(0);
+            expect(byStars.null.total).toBe(4);
+        });
+
+        it('未评定数量为 0 时不返回 null 项', async () => {
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mockDifficultyStarsGroups([
+                { difficultyStars: 2, _count: { id: 3 } },
+            ], []);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            const response = await GET(makeRequest('http://localhost/api/analytics'));
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.difficultyStarsStats).toHaveLength(5);
+            expect(data.difficultyStarsStats.every((s: { stars: number | null }) => s.stars !== null)).toBe(true);
+        });
+
+        it('全部为空时仍返回 1~5 星五项（total 均为 0）', async () => {
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            const response = await GET(makeRequest('http://localhost/api/analytics'));
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.difficultyStarsStats).toHaveLength(5);
+            expect(data.difficultyStarsStats.every((s: { total: number }) => s.total === 0)).toBe(true);
+        });
+
+        it('mastered 使用 masteryStatusWhere 同口径查询并正确合并', async () => {
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mockDifficultyStarsGroups([
+                { difficultyStars: 1, _count: { id: 5 } },
+                { difficultyStars: 3, _count: { id: 4 } },
+                { difficultyStars: null, _count: { id: 2 } },
+            ], [
+                { difficultyStars: 1, _count: { id: 3 } },
+                { difficultyStars: 3, _count: { id: 1 } },
+            ]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            const response = await GET(makeRequest('http://localhost/api/analytics'));
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            // 验证 mastered 查询使用了 masteryStatusWhere('mastered', 50)
+            expect(mocks.mockPrismaErrorItem.groupBy).toHaveBeenCalledWith({
+                by: ['difficultyStars'],
+                where: {
+                    AND: [
+                        { userId: 'user-123', createdAt: { gte: expect.any(Date) } },
+                        { practiceRecords: { some: { result: { not: null } } }, masteryProbability: { gte: 0.5 } },
+                    ],
+                },
+                _count: { id: true },
+            });
+
+            const byStars = Object.fromEntries(
+                data.difficultyStarsStats.map((s: { stars: number | null; total: number; mastered: number }) => [s.stars, s])
+            );
+            expect(byStars[1]).toEqual({ stars: 1, total: 5, mastered: 3 });
+            expect(byStars[3]).toEqual({ stars: 3, total: 4, mastered: 1 });
+            expect(byStars.null).toEqual({ stars: null, total: 2, mastered: 0 });
+        });
+
+        it('difficultyStarsStats 总数查询使用 scopedWhere 且不读取大字段', async () => {
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.groupBy.mockResolvedValue([]);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+            mocks.mockPrismaSubject.findMany.mockResolvedValue([]);
+
+            await GET(makeRequest('http://localhost/api/analytics'));
+
+            expect(mocks.mockPrismaErrorItem.groupBy).toHaveBeenCalledWith({
+                by: ['difficultyStars'],
+                where: { userId: 'user-123', createdAt: { gte: expect.any(Date) } },
+                _count: { id: true },
+            });
+        });
+    });
+
     describe('错因分布（mistakeStatusStats / errorTypeStats）', () => {
         function mockGroupByByField(field: 'subjectId' | 'mistakeStatus' | 'errorType', value: unknown) {
             mocks.mockPrismaErrorItem.groupBy.mockImplementation(

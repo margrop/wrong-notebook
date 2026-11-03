@@ -72,7 +72,7 @@ export async function GET(req: Request) {
             ...(rangeInfo.start ? { createdAt: { gte: rangeInfo.start } } : {}),
         };
 
-        const [totalErrors, newCount, reviewingCount, masteredCount, subjectGroups, rangeItems, masteredItems, mistakeStatusGroups, errorTypeGroups] = await Promise.all([
+        const [totalErrors, newCount, reviewingCount, masteredCount, subjectGroups, rangeItems, masteredItems, mistakeStatusGroups, errorTypeGroups, difficultyStarsGroups, difficultyStarsMasteredGroups] = await Promise.all([
             prisma.errorItem.count({ where: scopedWhere }),
             prisma.errorItem.count({
                 where: { AND: [scopedWhere, masteryStatusWhere('new', masteryThreshold)] }
@@ -111,6 +111,16 @@ export async function GET(req: Request) {
             prisma.errorItem.groupBy({
                 by: ['errorType'],
                 where: scopedWhere,
+                _count: { id: true },
+            }),
+            prisma.errorItem.groupBy({
+                by: ['difficultyStars'],
+                where: scopedWhere,
+                _count: { id: true },
+            }),
+            prisma.errorItem.groupBy({
+                by: ['difficultyStars'],
+                where: { AND: [scopedWhere, masteryStatusWhere('mastered', masteryThreshold)] },
                 _count: { id: true },
             }),
         ]);
@@ -163,6 +173,32 @@ export async function GET(req: Request) {
             errorTypeStats.push({ name: '__other__', value: otherValue });
         }
 
+        // 难度分布：始终返回 1~5 星五项（数量可为 0），未评定（null）数量大于 0 时附加
+        const difficultyTotalMap = new Map<number | null, number>();
+        for (const g of difficultyStarsGroups) {
+            difficultyTotalMap.set(g.difficultyStars, g._count.id);
+        }
+        const difficultyMasteredMap = new Map<number | null, number>();
+        for (const g of difficultyStarsMasteredGroups) {
+            difficultyMasteredMap.set(g.difficultyStars, g._count.id);
+        }
+        const difficultyStarsStats: { stars: number | null; total: number; mastered: number }[] = [];
+        for (let stars = 1; stars <= 5; stars++) {
+            difficultyStarsStats.push({
+                stars,
+                total: difficultyTotalMap.get(stars) ?? 0,
+                mastered: difficultyMasteredMap.get(stars) ?? 0,
+            });
+        }
+        const unratedTotal = difficultyTotalMap.get(null) ?? 0;
+        if (unratedTotal > 0) {
+            difficultyStarsStats.push({
+                stars: null,
+                total: unratedTotal,
+                mastered: difficultyMasteredMap.get(null) ?? 0,
+            });
+        }
+
         // 按分桶统计每日/每月新增与新掌握
         // 近似口径：以最近一次掌握评估时间（masteryEvaluatedAt）作为「掌握时间」
         const activityData = rangeInfo.buckets.map(bucket => {
@@ -192,6 +228,7 @@ export async function GET(req: Request) {
             subjectStats,
             mistakeStatusStats,
             errorTypeStats,
+            difficultyStarsStats,
             activityData,
             range: rangeInfo.range,
             granularity: rangeInfo.granularity,
