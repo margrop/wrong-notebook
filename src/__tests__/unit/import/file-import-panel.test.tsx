@@ -140,7 +140,7 @@ describe("FileImportPanel", () => {
         await act(async () => confirmButton.click());
         await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
         expect(createStructuredImportBatchesMock).toHaveBeenCalled();
-        expect(pushMock).toHaveBeenCalledWith("/import-batches");
+        expect(pushMock).toHaveBeenCalledWith("/import-tasks");
     });
 
     it("确认后只创建 1 个批次时直达批次详情页", async () => {

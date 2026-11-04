@@ -167,7 +167,7 @@ export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps }
             if (batches.length > 0) {
                 toast.success(t.batchesCreated.replace("{count}", String(batches.length)));
                 // 单批直达详情页；多批去导入中心列表
-                router.push(batches.length === 1 ? `/import-batches/${batches[0].id}` : "/import-batches");
+                router.push(batches.length === 1 ? `/import-batches/${batches[0].id}` : "/import-tasks");
             }
             for (const failure of failures) {
                 toast.error(t.batchFailed.replace("{index}", String(failure.index + 1)).replace("{error}", getErrorMessage(failure.error)));
@@ -230,7 +230,7 @@ export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps }
         if (successes.length > 0) {
             toast.success(t.batchesCreated.replace("{count}", String(successes.length)));
             // 单批直达详情页；多批去导入中心列表
-            router.push(successes.length === 1 ? `/import-batches/${successes[0].batch.id}` : "/import-batches");
+            router.push(successes.length === 1 ? `/import-batches/${successes[0].batch.id}` : "/import-tasks");
         } else {
             // 全部失败：回到扫描版选择页，可调整范围重试
             setPhase({ kind: "scanned-pdf", fileName, buffer, pageCount: phase.pageCount });
@@ -249,6 +249,6 @@ async function defaultRenderPages(
     onProgress: (done: number, total: number) => void,
 ): Promise<RenderedPdfPage[]> {
     const pdfjs = await loadPdfjsBrowser();
-    const doc = (await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise) as unknown as PdfDocumentProxyLike;
+    const doc = (await pdfjs.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise) as unknown as PdfDocumentProxyLike;
     return renderPdfPages(doc, { pages, onProgress });
 }

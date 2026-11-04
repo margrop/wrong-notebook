@@ -60,7 +60,8 @@ function toStructuredInput(question: SplitTextQuestion): Record<string, unknown>
  */
 export async function parsePdf(buffer: ArrayBuffer, options: ParsePdfOptions = {}): Promise<QuestionParseResult> {
     const pdfjs = options.pdfjs ?? (await loadPdfjsBrowser());
-    const data = new Uint8Array(buffer);
+    // 复制一份交给 pdfjs：worker 会转移数据所有权，调用方的 buffer 之后还要用于扫描版渲染
+    const data = new Uint8Array(buffer.slice(0));
     let doc;
     try {
         doc = await pdfjs.getDocument(options.standardFontDataUrl ? { data, standardFontDataUrl: options.standardFontDataUrl, verbosity: 0 } : { data }).promise;

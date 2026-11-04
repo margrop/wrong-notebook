@@ -172,7 +172,7 @@ describe("FileImportPanel：扫描版 PDF", () => {
         expect(renderPagesMock).toHaveBeenCalledTimes(1);
         const renderArgs = renderPagesMock.mock.calls[0];
         expect(renderArgs?.[1]).toEqual([1, 2]);
-        expect(pushMock).toHaveBeenCalledWith("/import-batches");
+        expect(pushMock).toHaveBeenCalledWith("/import-tasks");
     });
 
     it("超出 20 页上限时提示缩小范围，不触发渲染", async () => {
@@ -210,6 +210,6 @@ describe("FileImportPanel：扫描版 PDF", () => {
         await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
         expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("第 2 页"));
         expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("额度不足"));
-        expect(pushMock).toHaveBeenCalledWith("/import-batches");
+        expect(pushMock).toHaveBeenCalledWith("/import-tasks");
     });
 });
