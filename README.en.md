@@ -103,7 +103,7 @@ Generated exams keep each source question's ID and show every attempt, so you ca
 
 ![An English demo exam with source IDs and sample results from multiple attempts](doc/screenshots/en/exam.png)
 
-The print preview can include an answer page and sets the answer space below each question: automatic by question type (less for fill-in, choice and true/false questions, more for worked problems with extra room per sub-question), a fixed none, small, medium or large, or manual per-question adjustment (saved automatically and reused next time); download it as HTML, print it, or save it as PDF from the browser.
+The print preview can include an answer page and sets the answer space below each question: automatic by question type (less for fill-in, choice and true/false questions, more for worked problems with extra room per sub-question), a fixed none, small, medium or large, or manual per-question adjustment (saved automatically and reused next time); choice options listed one per line are laid out across 4, 2 or 1 columns by length; download it as HTML, print it, or save it as PDF from the browser.
 
 ![An English exam print preview with source IDs, answer page toggle and export options](doc/screenshots/en/exam-print.png)
 
@@ -171,7 +171,7 @@ Practice statistics show total practice, accuracy (correct / attempted) and acti
 - **📈 Mastery probability**: AI estimates how likely you have mastered each question from the answer history of practice and exams. Questions fall into three states: **To Review** (no practice records yet), **Reviewing** (has records, probability below the mastered threshold) and **Mastered** (has records, probability at or above the threshold). The threshold is 50% by default and each user can adjust it in settings.
 - **📅 Daily review**: each question is scheduled at Ebbinghaus intervals of 1, 2, 4, 7, 15 and 30 days. A correct answer moves it to the next interval; a wrong answer starts over. The **Review** page lists questions due today (earliest first), and the home page shows how many are due.
 - **🧾 Mistake exams**: draw questions at random by notebook, knowledge point, question type and mastery, and build a printable exam from similar questions (AI-generated) or original questions (no AI quota used, ready to print immediately). Turn on "Generate A/B papers simultaneously" to create two parallel papers with non-overlapping questions in one go. Each question can have its own score and the paper total is summed automatically; a "Group by question type" switch groups questions into sections such as choice and fill-in-the-blank. After finishing, enter results per question; they are added to the original question's answer history.
-- **🖨️ Print mistakes**: print filtered questions with your choice of question text or original image, answer, analysis and knowledge points, adjust image scale and global/per-question blank space (per-question space is saved automatically), then print or save as PDF.
+- **🖨️ Print mistakes**: print filtered questions with your choice of question text or original image, answer, analysis and knowledge points, adjust image scale and global/per-question blank space (per-question space is saved automatically), with choice options laid out across columns by length, then print or save as PDF.
 
 ### Management and statistics
 

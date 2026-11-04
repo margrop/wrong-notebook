@@ -103,10 +103,15 @@ export function extractMathSegments(content: string | null | undefined): { maske
     return { masked, segments };
 }
 
+/** 把 extractMathSegments 留下的占位符还原为公式源码 */
+export function restoreMathSegments(masked: string, segments: MathSegment[]): string {
+    return masked.replace(PLACEHOLDER_PATTERN, (_match, index: string) => segments[Number(index)].source);
+}
+
 /**
  * 预处理要交给 react-markdown + remark-math 渲染的内容
  */
 export function prepareMarkdownMath(content: string | null | undefined): string {
     const { masked, segments } = extractMathSegments(content);
-    return normalizeText(masked).replace(PLACEHOLDER_PATTERN, (_match, index: string) => segments[Number(index)].source);
+    return restoreMathSegments(normalizeText(masked), segments);
 }

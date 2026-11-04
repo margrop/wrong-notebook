@@ -4,6 +4,7 @@ import { memo } from "react";
 import { X } from "lucide-react";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AnswerSpaceControl } from "@/components/print-preview/answer-space-control";
+import { PrintQuestionText } from "@/components/print-preview/print-question-text";
 import { QuestionFigure } from "@/components/question-figure";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { resolveQuestionAnswerSpacePx } from "@/lib/exam/exam-answer-space";
@@ -89,7 +90,7 @@ export const PrintableQuestion = memo(function PrintableQuestion({
 
             {options.showQuestionText && item.questionText ? (
                 <div className="mb-4">
-                    <MarkdownRenderer content={item.questionText} />
+                    <PrintQuestionText content={item.questionText} />
                     {/* 有 SVG 配图时打印配图，不再打印拍照原图 */}
                     <QuestionFigure svg={item.figureSvg} scale={item.figureScale} align={item.figureAlign} />
                 </div>

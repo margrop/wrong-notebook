@@ -4,6 +4,7 @@ import { forwardRef } from "react";
 import { FigureScaleEditor } from "@/components/error-detail/figure-scale-editor";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AnswerSpaceControl } from "@/components/print-preview/answer-space-control";
+import { PrintQuestionText } from "@/components/print-preview/print-question-text";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { resolveQuestionAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import type { AnswerSpaceMode } from "@/lib/exam/exam-answer-space";
@@ -56,7 +57,7 @@ function ExamPrintQuestion({
                 </span>
                 <span className="exam-source">{t.exam.sourceLabel}: {question.sourceShortId}</span>
             </div>
-            <MarkdownRenderer content={question.questionText!} />
+            <PrintQuestionText content={question.questionText!} />
             <FigureScaleEditor
                 key={`${question.id}-${question.figureScale ?? 100}-${question.figureAlign ?? "center"}`}
                 svg={question.figureSvg}
