@@ -5,7 +5,7 @@ import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/lib/constants
 import { isShortId } from "@/lib/short-id/short-id";
 import { isMasteryStatus, masteryStatusWhere } from "@/lib/mastery-status";
 import type { MasteryStatus } from "@/lib/mastery-status";
-import type { TimeFilter } from "@/lib/error-list-filters";
+import type { TimeFilter } from "@/lib/error-list/error-list-filters";
 
 /** 错题列表查询参数（解析自 URL searchParams） */
 export interface ErrorListQueryParams {

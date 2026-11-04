@@ -5,8 +5,8 @@ import { internalError } from "@/lib/api-errors";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
-import { ERROR_ITEM_LIST_SELECT, ERROR_ITEM_PRINT_SELECT, printImageUrl } from "@/lib/error-list-select";
-import { parseErrorListQueryParams, buildErrorListWhere } from "@/lib/error-list-query";
+import { ERROR_ITEM_LIST_SELECT, ERROR_ITEM_PRINT_SELECT, printImageUrl } from "@/lib/error-list/error-list-select";
+import { parseErrorListQueryParams, buildErrorListWhere } from "@/lib/error-list/error-list-query";
 import { masteryStatusOf } from "@/lib/mastery-status";
 
 const logger = createLogger('api:error-items:list');

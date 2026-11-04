@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildErrorListParams, parseErrorListSearchParams } from '@/lib/error-list-filters';
+import { buildErrorListParams, parseErrorListSearchParams } from '@/lib/error-list/error-list-filters';
 import { getItemTags } from '@/lib/tags/item-tags';
 
 const empty = { search: '', mastery: 'all', timeRange: 'all', tag: null, gradeSemester: '', chapter: '', paperLevel: 'all' } as const;

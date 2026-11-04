@@ -5,7 +5,7 @@ import {
     buildErrorListWhere,
     buildGradeFilter,
     type ErrorListQueryDeps,
-} from '@/lib/error-list-query';
+} from '@/lib/error-list/error-list-query';
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from '@/lib/constants/pagination';
 
 // ─── helpers ────────────────────────────────────────────────────────────────

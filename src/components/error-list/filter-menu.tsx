@@ -11,7 +11,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { ErrorListFilters, TimeFilter } from "@/lib/error-list-filters";
+import type { ErrorListFilters, TimeFilter } from "@/lib/error-list/error-list-filters";
 
 interface FilterMenuProps {
     mastery: ErrorListFilters["mastery"];

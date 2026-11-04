@@ -3,7 +3,7 @@
 import { Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { ErrorListContent } from "@/components/error-list/error-list-content";
-import { parseErrorListSearchParams } from "@/lib/error-list-filters";
+import { parseErrorListSearchParams } from "@/lib/error-list/error-list-filters";
 
 interface ErrorListProps {
     subjectId?: string;

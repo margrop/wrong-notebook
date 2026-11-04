@@ -16,12 +16,12 @@ import { Pagination } from "@/components/ui/pagination";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination";
-import { buildErrorListParams } from "@/lib/error-list-filters";
+import { buildErrorListParams } from "@/lib/error-list/error-list-filters";
 import { confirmDialog, toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { locateByShortId } from "@/lib/short-id/short-id-client";
 import { isShortId } from "@/lib/short-id/short-id-format";
-import type { ErrorListFilters, PaperLevelFilter as PaperLevel, TimeFilter } from "@/lib/error-list-filters";
+import type { ErrorListFilters, PaperLevelFilter as PaperLevel, TimeFilter } from "@/lib/error-list/error-list-filters";
 import type { MasteryStatus } from "@/lib/mastery-status";
 import type { ErrorItemSummary, PaginatedResponse } from "@/types/api";
 
