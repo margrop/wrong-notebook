@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 vi.mock('@/lib/frontend-logger', () => ({ frontendLogger: { error: vi.fn() } }));
 
 import { QuestionSummary } from '@/components/error-list/question-summary';
-import { buildQuestionSummary } from '@/lib/question-summary';
+import { buildQuestionSummary } from '@/lib/question/question-summary';
 
 describe('buildQuestionSummary', () => {
     it('空内容返回空数组', () => {

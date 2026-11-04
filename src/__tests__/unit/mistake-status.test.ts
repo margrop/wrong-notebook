@@ -3,7 +3,7 @@ import {
     getMistakeStatusLabel,
     normalizeMistakeStatus,
     normalizeMistakeStatusForSave,
-} from '@/lib/mistake-status';
+} from '@/lib/question/mistake-status';
 
 describe('mistake status helpers', () => {
     it('应该只接受合法作答状态', () => {

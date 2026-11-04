@@ -66,7 +66,7 @@ import { POST as FIX_TEXT } from '@/app/api/import-batches/[id]/fix-text/route';
 import { POST as CONFIRM_TASK } from '@/app/api/import-tasks/[id]/confirm/route';
 import { waitForImportBatchTasksForTest } from '@/lib/import/import-batches';
 import { simulateRestartForTest, waitForImportTaskForTest } from '@/lib/import/import-tasks';
-import { runQuestionImportTransaction } from '@/lib/question-deduplication';
+import { runQuestionImportTransaction } from '@/lib/question/question-deduplication';
 
 let database: PrismaClient<{ log: Array<{ emit: 'event'; level: 'query' }> }>;
 const queries: string[] = [];

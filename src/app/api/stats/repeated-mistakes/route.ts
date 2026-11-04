@@ -9,7 +9,7 @@ import { getMasteryThreshold } from "@/lib/mastery";
 import { masteryStatusOf } from "@/lib/mastery-status";
 import { parseStatsRange, getRangeStart } from "@/lib/stats-range";
 import { resolveStatsSubjectId } from "@/lib/stats-filter";
-import { truncateQuestionPreview } from "@/lib/question-preview";
+import { truncateQuestionPreview } from "@/lib/question/question-preview";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 

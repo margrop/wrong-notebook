@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getAnalysisErrorMessage } from "@/lib/analysis-error";
+import { getAnalysisErrorMessage } from "@/lib/question/analysis-error";
 import { getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";

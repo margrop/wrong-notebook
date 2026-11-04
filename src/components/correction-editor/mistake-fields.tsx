@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { MistakeStatus } from "@/lib/mistake-status";
+import type { MistakeStatus } from "@/lib/question/mistake-status";
 import type { CorrectionDraft, UpdateDraft } from "./types";
 
 interface MistakeFieldsProps {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { SaveQuestionResult } from '@/lib/question-save';
-import { saveQuestionResultToResponse } from '@/lib/question-save-response';
-import type { QuestionSaveFailure } from '@/lib/question-save-failure';
+import type { SaveQuestionResult } from '@/lib/question/question-save';
+import { saveQuestionResultToResponse } from '@/lib/question/question-save-response';
+import type { QuestionSaveFailure } from '@/lib/question/question-save-failure';
 
 function createdResult(): SaveQuestionResult {
     return { ok: true, status: 'created', item: { id: 'item-1', questionText: '题目' } as never };

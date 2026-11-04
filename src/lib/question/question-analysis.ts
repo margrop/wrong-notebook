@@ -12,9 +12,9 @@ import { getAppTimeZone } from "@/lib/config";
 import { createLogger } from "@/lib/logger";
 import { resolveNotebookScope, SUBJECT_DISPLAY_NAMES } from "@/lib/notebook-scope";
 import { prisma } from "@/lib/prisma";
-import { normalizeMistakeStatus } from "@/lib/mistake-status";
-import { getFixedQuestionGrade, getQuestionGradeContext, resolveQuestionGrade } from "@/lib/question-grade";
-import type { QuestionGradeProfile } from "@/lib/question-grade";
+import { normalizeMistakeStatus } from "@/lib/question/mistake-status";
+import { getFixedQuestionGrade, getQuestionGradeContext, resolveQuestionGrade } from "@/lib/question/question-grade";
+import type { QuestionGradeProfile } from "@/lib/question/question-grade";
 
 const logger = createLogger('question-analysis');
 

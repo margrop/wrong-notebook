@@ -5,7 +5,7 @@ import { createLogger } from "@/lib/logger";
 import { startBackgroundTask } from "@/lib/background-tasks";
 import type { BackgroundTaskHandle } from "@/lib/background-tasks";
 import { createErrorResponse, ErrorCode } from "@/lib/api-errors";
-import { importSchema, saveQuestion } from "@/lib/question-save";
+import { importSchema, saveQuestion } from "@/lib/question/question-save";
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { getErrorMessage } from "@/lib/error-message";
 import { validateImage } from "@/lib/openclaw/image-validation";

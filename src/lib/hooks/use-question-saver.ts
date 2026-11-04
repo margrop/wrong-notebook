@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { getApiErrorMessage, getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { getQuestionSaveErrorMessage } from "@/lib/question-save-error";
+import { getQuestionSaveErrorMessage } from "@/lib/question/question-save-error";
 
 interface SavedQuestion {
     id: string;

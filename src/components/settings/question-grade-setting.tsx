@@ -9,7 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { apiClient } from '@/lib/api-client';
 import { getErrorMessage } from '@/lib/error-message';
 import { frontendLogger } from '@/lib/frontend-logger';
-import type { GradeRecognitionMode } from '@/lib/question-grade';
+import type { GradeRecognitionMode } from '@/lib/question/question-grade';
 import type { UserProfile } from '@/types/api';
 
 interface GradePreference {

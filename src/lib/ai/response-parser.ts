@@ -17,8 +17,8 @@ import {
     parseFigure,
     stripThinkingTags,
 } from "./schema";
-import { normalizeMistakeStatusForSave } from "../mistake-status";
-import { parseRecognizedGrade } from "../question-grade";
+import { normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
+import { parseRecognizedGrade } from "@/lib/question/question-grade";
 import { createLogger } from "../logger";
 
 const logger = createLogger('ai:response-parser');

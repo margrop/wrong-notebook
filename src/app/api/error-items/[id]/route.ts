@@ -6,7 +6,7 @@ import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
 import { resolveOrCreateTags, inferTagScope } from "@/lib/tag-resolver";
-import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
+import { normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
 import { getDefaultPaperLevelGroupId } from "@/lib/paper-level";
 import { isValidFigureAlign, isValidFigureScale } from "@/lib/figure-scale";
 import { updateErrorItemSchema } from "@/lib/schemas/error-items";

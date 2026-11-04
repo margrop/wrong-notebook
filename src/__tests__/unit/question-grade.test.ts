@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getQuestionGradeContext, needsQuestionGradeRecognition, resolveQuestionGrade } from '@/lib/question-grade';
+import { getQuestionGradeContext, needsQuestionGradeRecognition, resolveQuestionGrade } from '@/lib/question/question-grade';
 import { parseGradeRecognition } from '@/lib/ai/schema';
 import { generateAnalyzePrompt, generateReanswerPrompt } from '@/lib/ai/prompts';
 

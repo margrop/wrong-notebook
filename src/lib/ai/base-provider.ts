@@ -14,8 +14,8 @@ import { extractTag, parseQuestionResponse, splitKnowledgePoints } from './respo
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
 import { parseErrorCode } from './error-classification';
-import { normalizeMistakeStatusForSave } from '../mistake-status';
-import { parseRecognizedGrade } from '../question-grade';
+import { normalizeMistakeStatusForSave } from '@/lib/question/mistake-status';
+import { parseRecognizedGrade } from '@/lib/question/question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
 import { normalizeAiQuestionTags } from './knowledge-points';
 import { isImageUnsupportedError, parseQuestionSplit, AI_IMAGE_NOT_SUPPORTED } from './question-split';

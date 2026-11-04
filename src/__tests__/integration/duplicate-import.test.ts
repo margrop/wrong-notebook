@@ -65,7 +65,7 @@ import { POST as IMPORT_OPENCLAW } from '@/app/api/openclaw/batch-upload/route';
 import { GET as GET_PROFILE, PATCH as UPDATE_PROFILE } from '@/app/api/user/route';
 import { POST as COMPARE_QUESTIONS } from '@/app/api/error-items/similarity/route';
 import { GET as GET_HISTORY } from '@/app/api/error-items/[id]/practice-records/route';
-import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from '@/lib/question-deduplication';
+import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from '@/lib/question/question-deduplication';
 import * as appConfig from '@/lib/config';
 
 let database: PrismaClient;

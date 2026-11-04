@@ -30,10 +30,10 @@ import {
     scheduleImportTask, scheduleWork, startHeartbeat, summarySelect, toSummary,
 } from "@/lib/import/import-tasks";
 import { createLogger } from "@/lib/logger";
-import { parsedQuestionToSavePayload } from "@/lib/parsed-question-payload";
+import { parsedQuestionToSavePayload } from "@/lib/question/parsed-question-payload";
 import { runSerializedTransaction, serializeWrite } from "@/lib/db-write-queue";
 import { prisma } from "@/lib/prisma";
-import { mapAnalysisError, parseImageDataUrl, splitQuestionsForUser } from "@/lib/question-analysis";
+import { mapAnalysisError, parseImageDataUrl, splitQuestionsForUser } from "@/lib/question/question-analysis";
 import { batchDraftSchema, draftFromTextSplit, newItemKey, readyItems } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftItem } from "@/lib/question-split/draft";
 import { compactLines, composeQuestionInput, MAX_SPLIT_TEXT_LENGTH, splitQuestionText } from "@/lib/question-split/text";

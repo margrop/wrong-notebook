@@ -32,8 +32,8 @@ vi.mock('@/lib/mastery', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/lib/mastery')>()),
     scheduleMasteryEvaluation: vi.fn(),
 }));
-vi.mock('@/lib/question-save', async (importOriginal) => {
-    const original = await importOriginal<typeof import('@/lib/question-save')>();
+vi.mock('@/lib/question/question-save', async (importOriginal) => {
+    const original = await importOriginal<typeof import('@/lib/question/question-save')>();
     return {
         ...original,
         saveQuestion: vi.fn(async (...[user, body, options]: Parameters<typeof original.saveQuestion>) => {

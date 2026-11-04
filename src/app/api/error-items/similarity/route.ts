@@ -5,7 +5,7 @@ import { withUser } from '@/lib/api-handler';
 import type { AuthenticatedContext } from '@/lib/api-handler';
 import { createLogger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
-import { calculateQuestionSimilarity, DEFAULT_QUESTION_DUPLICATE_THRESHOLD, duplicateQuestionSimilarity } from '@/lib/question-similarity';
+import { calculateQuestionSimilarity, DEFAULT_QUESTION_DUPLICATE_THRESHOLD, duplicateQuestionSimilarity } from '@/lib/question/question-similarity';
 
 const logger = createLogger('api:error-items:similarity');
 const schema = z.object({ ids: z.tuple([z.string().min(1).max(200), z.string().min(1).max(200)]) })

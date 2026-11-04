@@ -1,7 +1,7 @@
 import { apiClient } from "@/lib/api-client";
 import { processImageFile } from "@/lib/image-utils";
 import type { ParsedQuestion } from "@/lib/ai";
-import { parsedQuestionToSavePayload } from "@/lib/parsed-question-payload";
+import { parsedQuestionToSavePayload } from "@/lib/question/parsed-question-payload";
 import type { AnalyzeResponse, UserProfile } from "@/types/api";
 
 /** 导入成功后的题目摘要 */

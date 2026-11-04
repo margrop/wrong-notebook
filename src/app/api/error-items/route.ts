@@ -2,8 +2,8 @@ import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { validationError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { importSchema, saveQuestion } from "@/lib/question-save";
-import { questionSaveErrorResponse, saveQuestionResultToResponse } from "@/lib/question-save-response";
+import { importSchema, saveQuestion } from "@/lib/question/question-save";
+import { questionSaveErrorResponse, saveQuestionResultToResponse } from "@/lib/question/question-save-response";
 
 const logger = createLogger('api:error-items');
 

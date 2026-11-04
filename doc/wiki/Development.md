@@ -12,7 +12,7 @@
 | `src/components/` | 业务组件和基础 UI |
 | `src/lib/ai/` | AI 提供商公共基类与四家提供商、提示词（`prompts/`）、结果结构与校验 |
 | `src/lib/config/` | 全局设置与配置文件读取 |
-| `src/lib/question-deduplication.ts` | 导入判重与重复作答记录 |
+| `src/lib/question/question-deduplication.ts` | 导入判重与重复作答记录 |
 | `src/lib/mastery.ts`、`src/lib/exam.ts` | 掌握评估与试卷生成 |
 | `src/lib/date-time.ts` | 应用时区、显示与统计边界 |
 | `src/lib/translations.ts`、`src/lib/i18n/` | 界面文本（入口与按语言拆分的文案） |
@@ -22,7 +22,7 @@
 
 AI 请求由服务端选择提供商并调用外部服务，业务数据经 Prisma 存入 SQLite。后台任务列表存于进程内存并同步写入配置目录的 `background-tasks.json`，重启后只保留记录、不会恢复执行，不能用它替代持久化任务队列。
 
-拍照识别使用数据库中的 `ImportTask`（`/api/import-tasks`）：上传后立即返回任务编号，识别与入库通过 `after()` 在响应后执行，结果、草稿与最终错题编号持久保存。状态迁移用带条件的 `updateMany` 抢占，错题写入与任务标记已保存在同一事务提交；执行中的任务记录进程启动编号，单进程部署重启后立即判为中断，多实例（Vercel）按心跳超时判断。`/api/analyze` 保留为同步接口，与任务共用 `src/lib/question-analysis.ts`；保存与「添加错题」共用 `src/lib/question-save.ts`。
+拍照识别使用数据库中的 `ImportTask`（`/api/import-tasks`）：上传后立即返回任务编号，识别与入库通过 `after()` 在响应后执行，结果、草稿与最终错题编号持久保存。状态迁移用带条件的 `updateMany` 抢占，错题写入与任务标记已保存在同一事务提交；执行中的任务记录进程启动编号，单进程部署重启后立即判为中断，多实例（Vercel）按心跳超时判断。`/api/analyze` 保留为同步接口，与任务共用 `src/lib/question/question-analysis.ts`；保存与「添加错题」共用 `src/lib/question/question-save.ts`。
 
 HEIC/HEIF 转换依赖 `heic-to`（LGPL-3.0，内含 libheif、libde265 与 Emscripten 运行时），只在浏览器无法直接解码时动态加载。其第三方说明与完整许可证文本放在 `public/third-party-licenses/heic-to/`，随 `public/` 进入各分发形式；升级 `heic-to` 时须同步核对该目录中的版本、许可证文本与上游源码链接。
 

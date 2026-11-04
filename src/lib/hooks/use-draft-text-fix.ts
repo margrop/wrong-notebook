@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getAnalysisErrorMessage } from "@/lib/analysis-error";
+import { getAnalysisErrorMessage } from "@/lib/question/analysis-error";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { fixImportBatchText } from "@/lib/import/import-batch-client";

@@ -9,7 +9,7 @@ import { resolveNotebookScope } from "@/lib/notebook-scope";
 import type { CandidateTags } from "@/lib/ai";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
-import { getFixedQuestionGrade, resolveQuestionGrade } from "@/lib/question-grade";
+import { getFixedQuestionGrade, resolveQuestionGrade } from "@/lib/question/question-grade";
 import { getAppTimeZone } from "@/lib/config";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";

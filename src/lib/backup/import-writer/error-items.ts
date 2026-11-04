@@ -2,7 +2,7 @@
  * 导入步骤：卷别分组（paperGroups）预导入与错题（error items）写入。
  */
 import { generateUniqueShortId, isShortId } from "@/lib/short-id";
-import { findDuplicateQuestion, recordDuplicateQuestion } from "@/lib/question-deduplication";
+import { findDuplicateQuestion, recordDuplicateQuestion } from "@/lib/question/question-deduplication";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
 import type { NormalizedErrorItem } from "@/lib/backup/import-parser";
 import type { ImportContext } from "./types";

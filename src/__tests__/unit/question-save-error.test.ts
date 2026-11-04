@@ -1,8 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '@/lib/api-client';
-import { getQuestionSaveErrorMessage } from '@/lib/question-save-error';
-import { questionSaveErrorResponse } from '@/lib/question-save-response';
+import { getQuestionSaveErrorMessage } from '@/lib/question/question-save-error';
+import { questionSaveErrorResponse } from '@/lib/question/question-save-response';
 import { translations } from '@/lib/translations';
 
 describe('保存失败的安全响应与界面提示', () => {

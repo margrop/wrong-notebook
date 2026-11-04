@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getMistakeStatusLabel, normalizeMistakeStatusForSave } from "@/lib/mistake-status";
+import { getMistakeStatusLabel, normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
 import { EditButton, SaveCancelButtons, SectionHeader } from "./edit-controls";
 import { ToggleImage } from "./toggle-image";
 import type { ErrorItemDetail } from "./types";

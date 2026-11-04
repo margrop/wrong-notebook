@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { apiClient } from '@/lib/api-client';
 import { frontendLogger } from '@/lib/frontend-logger';
-import { DEFAULT_QUESTION_DUPLICATE_THRESHOLD } from '@/lib/question-similarity';
+import { DEFAULT_QUESTION_DUPLICATE_THRESHOLD } from '@/lib/question/question-similarity';
 import type { UserProfile } from '@/types/api';
 
 interface DuplicateThresholdSettingProps {

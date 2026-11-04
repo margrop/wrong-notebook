@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import { DEFAULT_QUESTION_DUPLICATE_THRESHOLD, duplicateQuestionSimilarity } from '@/lib/question-similarity';
+import { DEFAULT_QUESTION_DUPLICATE_THRESHOLD, duplicateQuestionSimilarity } from '@/lib/question/question-similarity';
 import { translations } from '@/lib/translations';
 import { runSerializedTransaction } from "@/lib/db-write-queue";
 

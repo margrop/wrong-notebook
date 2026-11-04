@@ -30,14 +30,14 @@ import type {
     ImportTaskDetail, ImportTaskListResponse, ImportTaskMode, ImportTaskStatus, ImportTaskSummary, ImportTaskTimings,
 } from "@/lib/import/import-task-types";
 import { createLogger } from "@/lib/logger";
-import { parsedQuestionToSavePayload } from "@/lib/parsed-question-payload";
+import { parsedQuestionToSavePayload } from "@/lib/question/parsed-question-payload";
 import { serializeWrite } from "@/lib/db-write-queue";
 import { prisma } from "@/lib/prisma";
-import { analyzeQuestionForUser, analyzeQuestionTextForUser, mapAnalysisError } from "@/lib/question-analysis";
-import { importSchema, saveQuestion } from "@/lib/question-save";
-import type { SaveQuestionResult } from "@/lib/question-save";
-import { questionSaveFailureToResponse } from "@/lib/question-save-response";
-import type { QuestionSaveFailure } from "@/lib/question-save-failure";
+import { analyzeQuestionForUser, analyzeQuestionTextForUser, mapAnalysisError } from "@/lib/question/question-analysis";
+import { importSchema, saveQuestion } from "@/lib/question/question-save";
+import type { SaveQuestionResult } from "@/lib/question/question-save";
+import { questionSaveFailureToResponse } from "@/lib/question/question-save-response";
+import type { QuestionSaveFailure } from "@/lib/question/question-save-failure";
 
 const logger = createLogger('import-tasks');
 

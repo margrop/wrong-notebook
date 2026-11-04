@@ -4,7 +4,7 @@ import { createLogger } from "@/lib/logger";
 import { getErrorMessage } from "@/lib/error-message";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
-import { analyzeQuestionForUser, mapAnalysisError } from "@/lib/question-analysis";
+import { analyzeQuestionForUser, mapAnalysisError } from "@/lib/question/question-analysis";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { analyzeBodySchema } from "@/lib/schemas/ai";

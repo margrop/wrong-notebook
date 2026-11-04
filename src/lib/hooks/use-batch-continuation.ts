@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getAnalysisErrorMessage } from "@/lib/analysis-error";
+import { getAnalysisErrorMessage } from "@/lib/question/analysis-error";
 import { loadImage, renderContinuationPage } from "@/lib/import/batch-crop";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";

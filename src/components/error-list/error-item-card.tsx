@@ -12,7 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { formatDateTime } from "@/lib/date-time";
 import { getItemTags } from "@/lib/item-tags";
-import { getMistakeStatusLabel } from "@/lib/mistake-status";
+import { getMistakeStatusLabel } from "@/lib/question/mistake-status";
 import type { ErrorItemSummary } from "@/types/api";
 
 /** 卡片默认显示的知识点个数，其余折叠 */

@@ -13,7 +13,7 @@ import { isDefaultAdminPassword } from "@/lib/default-admin";
 import { syncMasteryLevels } from "@/lib/mastery";
 import { MAX_MASTERY_THRESHOLD, MIN_MASTERY_THRESHOLD } from "@/lib/mastery-status";
 import { THEME_PREFERENCES } from "@/lib/theme";
-import { GRADE_RECOGNITION_MODES } from "@/lib/question-grade";
+import { GRADE_RECOGNITION_MODES } from "@/lib/question/question-grade";
 import { GRADE_SEMESTERS } from "@/lib/grade-options";
 
 const logger = createLogger('api:user');

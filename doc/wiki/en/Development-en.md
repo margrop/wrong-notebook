@@ -12,7 +12,7 @@ The project uses the Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4
 | `src/components/` | Feature components and base UI |
 | `src/lib/ai/` | AI providers, prompts, result schemas and validation |
 | `src/lib/config/` | Global settings and configuration file access |
-| `src/lib/question-deduplication.ts` | Import duplicate detection and repeated-attempt records |
+| `src/lib/question/question-deduplication.ts` | Import duplicate detection and repeated-attempt records |
 | `src/lib/mastery.ts`, `src/lib/exam.ts` | Mastery evaluation and exam generation |
 | `src/lib/date-time.ts` | App time zone, display and statistics boundaries |
 | `src/lib/translations.ts`, `src/lib/i18n/` | Interface text (entry point and per-language strings) |
@@ -22,7 +22,7 @@ The project uses the Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4
 
 AI requests are dispatched to a provider on the server and call external services; business data is stored in SQLite through Prisma. The background task list lives in process memory and is mirrored to `background-tasks.json` in the config directory; after a restart only the records remain and nothing resumes, so it is not a substitute for a persistent job queue.
 
-Photo recognition uses the database-backed `ImportTask` (`/api/import-tasks`): the upload returns a task ID immediately, recognition and saving run after the response via `after()`, and the result, draft and final question ID are persisted. State changes are claimed with conditional `updateMany`, and writing the question and marking the task saved commit in the same transaction. Running tasks record the process boot ID, so a single-process deployment marks them interrupted right after a restart; multi-instance deployments (Vercel) use a heartbeat timeout. `/api/analyze` stays as the synchronous endpoint and shares `src/lib/question-analysis.ts` with tasks; saving shares `src/lib/question-save.ts` with the add-question endpoint.
+Photo recognition uses the database-backed `ImportTask` (`/api/import-tasks`): the upload returns a task ID immediately, recognition and saving run after the response via `after()`, and the result, draft and final question ID are persisted. State changes are claimed with conditional `updateMany`, and writing the question and marking the task saved commit in the same transaction. Running tasks record the process boot ID, so a single-process deployment marks them interrupted right after a restart; multi-instance deployments (Vercel) use a heartbeat timeout. `/api/analyze` stays as the synchronous endpoint and shares `src/lib/question/question-analysis.ts` with tasks; saving shares `src/lib/question/question-save.ts` with the add-question endpoint.
 
 HEIC/HEIF conversion depends on `heic-to` (LGPL-3.0, containing libheif, libde265 and the Emscripten runtime), which is loaded dynamically only when the browser cannot decode the photo itself. Its third-party notice and full license texts are in `public/third-party-licenses/heic-to/` and ship with `public/` in every distribution. When upgrading `heic-to`, check the versions, license texts and upstream source links in that directory as well.
 

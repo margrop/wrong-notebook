@@ -6,7 +6,7 @@ import type { ImportImageInfo } from "@/lib/import/import-task-types";
 import { describeImage, renderRegion } from "@/lib/image-pipeline";
 import type { PreparedImage, RenderedImage } from "@/lib/image-pipeline";
 import type { ImageRegion } from "@/lib/image-crop";
-import { normalizeMistakeStatus } from "@/lib/mistake-status";
+import { normalizeMistakeStatus } from "@/lib/question/mistake-status";
 import type { Translations } from "@/lib/translations";
 
 export type ReviewedQuestion = ParsedQuestion & { subjectId?: string; paperLevel?: string };

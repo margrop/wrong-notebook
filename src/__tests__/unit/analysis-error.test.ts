@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '@/lib/api-client';
-import { getAnalysisErrorMessage } from '@/lib/analysis-error';
+import { getAnalysisErrorMessage } from '@/lib/question/analysis-error';
 import { translations } from '@/lib/translations';
 
 const t = translations.zh;

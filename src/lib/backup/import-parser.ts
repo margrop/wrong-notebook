@@ -15,7 +15,7 @@ import type {
 import { parseLastPractice } from "@/lib/last-practice";
 import { MAX_MASTERY_THRESHOLD, MIN_MASTERY_THRESHOLD } from "@/lib/mastery-status";
 import { THEME_PREFERENCES } from "@/lib/theme";
-import { GRADE_RECOGNITION_MODES } from "@/lib/question-grade";
+import { GRADE_RECOGNITION_MODES } from "@/lib/question/question-grade";
 import { GRADE_SEMESTERS } from "@/lib/grade-options";
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { sanitizeFigureSvg } from "@/lib/figure-svg";

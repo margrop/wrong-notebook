@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import katex from "katex";
 import { cleanMarkdown } from "@/lib/markdown-utils";
-import { buildQuestionSummary } from "@/lib/question-summary";
+import { buildQuestionSummary } from "@/lib/question/question-summary";
 import "katex/dist/katex.min.css";
 
 interface QuestionSummaryProps {

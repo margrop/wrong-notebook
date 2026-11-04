@@ -5,7 +5,7 @@ import { internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { getMasteryThreshold } from "@/lib/mastery";
 import { masteryStatusWhere } from "@/lib/mastery-status";
-import { normalizeMistakeStatus } from "@/lib/mistake-status";
+import { normalizeMistakeStatus } from "@/lib/question/mistake-status";
 import { parseStatsRange, resolveStatsRange } from "@/lib/stats-range";
 import { resolveStatsSubjectId } from "@/lib/stats-filter";
 import { withUser } from "@/lib/api-handler";

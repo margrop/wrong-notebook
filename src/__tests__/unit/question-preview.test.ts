@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { truncateQuestionPreview } from '@/lib/question-preview';
+import { truncateQuestionPreview } from '@/lib/question/question-preview';
 
 describe('truncateQuestionPreview', () => {
     it('空白与 null 返回 null', () => {

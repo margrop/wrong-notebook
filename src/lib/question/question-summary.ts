@@ -2,8 +2,8 @@
  * 错题卡片的题干摘要：去掉 Markdown 格式，但保留公式源码，交给 KaTeX 渲染，
  * 避免复杂 LaTeX（嵌套分数、向量、三角函数等）被正则转成难以阅读的残留文本。
  */
-import { cleanMarkdown } from './markdown-utils';
-import { extractMathSegments } from './markdown-math';
+import { cleanMarkdown } from '@/lib/markdown-utils';
+import { extractMathSegments } from '@/lib/markdown-math';
 
 /** 摘要片段：普通文字或行内公式 */
 export type SummaryPart =

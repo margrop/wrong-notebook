@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildReanswerRequestBody } from '@/lib/reanswer-request';
+import { buildReanswerRequestBody } from '@/lib/question/reanswer-request';
 
 describe('reanswer request body', () => {
     it('重新解答只要有原图就应该带上原图，供错因分析使用', () => {

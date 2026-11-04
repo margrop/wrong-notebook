@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateQuestionSimilarity, duplicateQuestionSimilarity, normalizeQuestionText } from '@/lib/question-similarity';
+import { calculateQuestionSimilarity, duplicateQuestionSimilarity, normalizeQuestionText } from '@/lib/question/question-similarity';
 
 describe('完整题干相似度', () => {
     it('规范化全角字符、换行和连续空白', () => {

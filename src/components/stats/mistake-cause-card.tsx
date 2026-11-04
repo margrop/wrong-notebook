@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { PieChart as PieChartIcon } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getMistakeStatusLabel } from "@/lib/mistake-status";
+import { getMistakeStatusLabel } from "@/lib/question/mistake-status";
 import { COLORS } from "./chart-colors";
 
 export interface MistakeCauseCardProps {

@@ -3,7 +3,7 @@ export type { ParsedQuestionFromSchema as ParsedQuestion } from './schema';
 import type { ParsedQuestionFromSchema } from './schema';
 
 // Import and re-export MistakeStatus from the single source of truth
-import type { MistakeStatus } from '../mistake-status';
+import type { MistakeStatus } from '@/lib/question/mistake-status';
 import type { NarrationSegment } from '../svg-animation';
 export type { MistakeStatus };
 

@@ -2,10 +2,10 @@ import { getAIService } from '@/lib/ai';
 import { consumeAiQuota } from '@/lib/ai-quota';
 import { describeQuestion, trackBackgroundTask } from '@/lib/background-tasks';
 import { getAppTimeZone } from '@/lib/config';
-import { needsQuestionGradeRecognition, resolveQuestionGrade } from '@/lib/question-grade';
-import type { QuestionGradeProfile } from '@/lib/question-grade';
-import type { QuestionSaveFailure } from '@/lib/question-save-failure';
-import { classifyQuestionSaveError } from '@/lib/question-save-failure';
+import { needsQuestionGradeRecognition, resolveQuestionGrade } from '@/lib/question/question-grade';
+import type { QuestionGradeProfile } from '@/lib/question/question-grade';
+import type { QuestionSaveFailure } from '@/lib/question/question-save-failure';
+import { classifyQuestionSaveError } from '@/lib/question/question-save-failure';
 
 interface ImportGradeUser extends QuestionGradeProfile {
     id: string;

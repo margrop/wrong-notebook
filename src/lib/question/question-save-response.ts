@@ -5,9 +5,9 @@
  */
 import { NextResponse } from "next/server";
 import { createErrorResponse } from "@/lib/api-errors";
-import type { SaveQuestionResult } from "@/lib/question-save";
-import { classifyQuestionSaveError } from "@/lib/question-save-failure";
-import type { QuestionSaveFailure, QuestionSaveFailureStage } from "@/lib/question-save-failure";
+import type { SaveQuestionResult } from "@/lib/question/question-save";
+import { classifyQuestionSaveError } from "@/lib/question/question-save-failure";
+import type { QuestionSaveFailure, QuestionSaveFailureStage } from "@/lib/question/question-save-failure";
 
 /** 把失败结果转换为统一错误响应 */
 export function questionSaveFailureToResponse(failure: QuestionSaveFailure) {

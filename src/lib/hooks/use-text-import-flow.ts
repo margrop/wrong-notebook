@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ParsedQuestion } from "@/lib/ai";
-import { getAnalysisErrorMessage } from "@/lib/analysis-error";
+import { getAnalysisErrorMessage } from "@/lib/question/analysis-error";
 import { apiClient } from "@/lib/api-client";
 import { getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { sanitizeFigureSvg } from '../figure-svg';
-import { parseRecognizedGrade } from '../question-grade';
+import { parseRecognizedGrade } from '@/lib/question/question-grade';
 
 /**
  * Zod schema for validating AI-parsed questions
