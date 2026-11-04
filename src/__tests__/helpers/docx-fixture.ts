@@ -175,6 +175,70 @@ export function minimalWmfBytes(): Uint8Array {
     return bytes;
 }
 
+/**
+ * 简单分数 WMF 字节（MathType 风格：TA_UPDATECP + 横向分数线 + 分子/分母各一个字符）。
+ * 可被自研 WMF 结构还原（wmf/latex.ts）高置信还原为 \frac{N}{D}。
+ * numerator/denominator 为单字符（如 "5"、"9"）。
+ */
+export function simpleFractionWmfBytes(numerator = "5", denominator = "9"): Uint8Array {
+    const words: number[] = [];
+    /** 写一条记录：params 为 16 位字数组；奇数长度自动补 0 */
+    const record = (func: number, params: number[]) => {
+        const all = [...params];
+        if (all.length % 2 === 1) all.push(0);
+        words.push(3 + all.length, 0, func, ...all);
+    };
+    /** 把 ASCII 字符串追加为 16 位小端字（每字 2 字符） */
+    const asciiWords = (text: string): number[] => {
+        const bytes: number[] = [];
+        for (let i = 0; i < text.length; i++) bytes.push(text.charCodeAt(i));
+        if (bytes.length % 2 === 1) bytes.push(0);
+        const out: number[] = [];
+        for (let i = 0; i < bytes.length; i += 2) out.push(bytes[i] | (bytes[i + 1] << 8));
+        return out;
+    };
+    /** 生成 CREATEFONTINDIRECT 的 LOGFONT 参数（25 字） */
+    const logFont = (height: number, charSet: number, faceName: string): number[] => {
+        const params = [height & 0xffff, 0, 0, 0, 400];
+        params.push(0, (charSet & 0xff) << 8, 0, 0);
+        const nameBytes: number[] = [];
+        for (let i = 0; i < faceName.length && i < 31; i++) nameBytes.push(faceName.charCodeAt(i));
+        nameBytes.push(0);
+        while (nameBytes.length < 32) nameBytes.push(0);
+        for (let i = 0; i < 32; i += 2) params.push(nameBytes[i] | (nameBytes[i + 1] << 8));
+        return params;
+    };
+    /** ExtTextOut（TA_UPDATECP，dx 定位）：y/x 走 currentX/Y，count 字符，dx 逐字宽度 */
+    const extTextOutUpdateCp = (text: string, dx: number) => {
+        const params = [0, 0, text.length, 0, ...asciiWords(text)];
+        for (let i = 0; i < text.length; i++) params.push(dx);
+        record(0x0a32, params);
+    };
+
+    words.push(1, 9, 0x0300, 0, 0, 0, 0, 0, 0);   // 标准 metafile 头
+    record(0x0103, [1]);                            // SetMapMode(MM_TEXT)
+    record(0x0102, [1]);                            // SetBkMode(TRANSPARENT)
+    record(0x012e, [0x0019]);                       // SetTextAlign(TA_UPDATECP | TA_BASELINE | TA_LEFT)
+    record(0x020b, [0, 0]);                         // SetWindowOrg(0, 0)
+    record(0x020c, [896, 320]);                     // SetWindowExt(y=896, x=320)
+    record(0x02fb, logFont(-400, 0, "Times New Roman")); // CreateFontIndirect
+    record(0x012d, [0]);                            // SelectObject(0)
+    // 分数线：y=448, x 64→256
+    record(0x0214, [448, 64]);                      // MoveTo(y=448, x=64)
+    record(0x0213, [448, 256]);                     // LineTo(y=448, x=256)
+    // 分子（基线 y=320）
+    record(0x0214, [320, 160]);                     // MoveTo(y=320, x=160)
+    extTextOutUpdateCp(numerator, 100);
+    // 分母（基线 y=640）
+    record(0x0214, [640, 160]);                     // MoveTo(y=640, x=160)
+    extTextOutUpdateCp(denominator, 100);
+    record(0, []);                                  // EOF
+    const bytes = new Uint8Array(words.length * 2);
+    const view = new DataView(bytes.buffer);
+    for (let i = 0; i < words.length; i++) view.setUint16(i * 2, words[i], true);
+    return bytes;
+}
+
 /** 普通段落 */
 export function para(runsXml: string, extraPPr = ""): string {
     const pPr = extraPPr ? `<w:pPr>${extraPPr}</w:pPr>` : "";

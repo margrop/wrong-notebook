@@ -8,3 +8,5 @@
 export { parseWmf, decodeWmfText } from "./parser";
 export type { WmfFont, WmfPen, WmfBrush, WmfObject, WmfTextOp, WmfPolylineOp, WmfPolygonOp, WmfParseResult } from "./parser";
 export { renderWmfSvg, wmfBytesToSvg, mapWmfChar, mapFontFamily } from "./renderer";
+export { wmfToLatex, wmfBytesToLatex } from "./latex";
+export type { WmfLatexResult } from "./latex";

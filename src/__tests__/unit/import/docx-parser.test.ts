@@ -13,6 +13,7 @@ import {
     makeDocxBuffer,
     makeLegacyDocBuffer,
     mFraction,
+    minimalWmfBytes,
     mRun,
     mSup,
     num,
@@ -24,6 +25,7 @@ import {
     oleObjectRun,
     para,
     run,
+    simpleFractionWmfBytes,
     strikeRun,
     subRun,
     supRun,
@@ -288,8 +290,9 @@ describe("docx 解析：图片真实提取（T18）", () => {
         expect(target).not.toBeNull();
         // 10pt×28pt → 显示高度 28pt×96/72 ≈ 37px，属公式小图，放大后 ≥120px
         expect(target!.height).toBeGreaterThanOrEqual(120);
-        // OLE 公式对象计数
-        expect(result.warnings.some((w) => w === "OLE_EQUATION:1")).toBe(true);
+        // OLE 公式对象计数（低置信，按图片保留）
+        expect(result.warnings.some((w) => w === "OLE_EQUATION_IMAGE:1")).toBe(true);
+        expect(result.warnings.some((w) => w.startsWith("OLE_EQUATION_LATEX:"))).toBe(false);
     });
 
     it("run 内 w:object 的 EMF 预览图同样解析为待渲染图片，占位为 [公式]", async () => {
@@ -329,7 +332,8 @@ describe("docx 解析：图片真实提取（T18）", () => {
         const result = await parseDocx(buffer);
         expect(result.questions[0].text).toContain("化简 [公式] 的结果");
         expect(result.questions[0].images).toHaveLength(1);
-        expect(result.warnings.some((w) => w === "OLE_EQUATION:1")).toBe(true);
+        expect(result.warnings.some((w) => w === "OLE_EQUATION_IMAGE:1")).toBe(true);
+        expect(result.warnings.some((w) => w.startsWith("OLE_EQUATION_LATEX:"))).toBe(false);
     });
 
     it("多个 w:object 公式图片按出现顺序归属对应题目", async () => {
@@ -361,8 +365,9 @@ describe("docx 解析：图片真实提取（T18）", () => {
         expect(result.questions[1].text).toContain("计算 [公式] 的结果");
         expect(result.questions[1].images).toHaveLength(1);
         expect(result.questions[1].images![0].dataUrl).not.toBe(result.questions[0].images![0].dataUrl);
-        // OLE 公式对象计数 = 3
-        expect(result.warnings.some((w) => w === "OLE_EQUATION:3")).toBe(true);
+        // OLE 公式对象计数 = 3（均低置信，按图片保留）
+        expect(result.warnings.some((w) => w === "OLE_EQUATION_IMAGE:3")).toBe(true);
+        expect(result.warnings.some((w) => w.startsWith("OLE_EQUATION_LATEX:"))).toBe(false);
     });
 
     it("多图归属：每题只挂自己的图片", async () => {
@@ -411,8 +416,8 @@ describe("docx 解析：图片真实提取（T18）", () => {
             extraFiles: { "word/media/image1.png": pngBytes },
         });
         const result = await parseDocx(buffer);
-        // OLE_EQUATION 计数与图片提取共存
-        expect(result.warnings).toContain("OLE_EQUATION:1");
+        // OLE_EQUATION_IMAGE 计数与图片提取共存
+        expect(result.warnings).toContain("OLE_EQUATION_IMAGE:1");
         expect(result.questions[0].text).toContain("[公式]");
         expect(result.questions[0].images).toHaveLength(1);
     });
@@ -594,12 +599,12 @@ describe("docx 解析：OMML 公式转 LaTeX", () => {
         expect(warning?.split(",")[1]).toBeUndefined();
     });
 
-    it("MathType OLE 公式对象按图片占位并计数 OLE_EQUATION:N", async () => {
+    it("MathType OLE 公式对象按图片占位并计数 OLE_EQUATION_IMAGE:N", async () => {
         const buffer = makeDocxBuffer({
             body: para(t("1．") + oleEquationRun()) + para(t("2．") + oleEquationRun("Equation.3")),
         });
         const result = await parseDocx(buffer);
-        expect(result.warnings).toContain("OLE_EQUATION:2");
+        expect(result.warnings).toContain("OLE_EQUATION_IMAGE:2");
         // 仍按图片占位输出
         expect(result.questions[0].text).toContain("[图片]");
     });
@@ -609,7 +614,7 @@ describe("docx 解析：OMML 公式转 LaTeX", () => {
             body: para(t("1．") + drawingRun() + t("2．") + drawingRun()),
         });
         const result = await parseDocx(buffer);
-        expect(result.warnings.some((w) => w.startsWith("OLE_EQUATION:"))).toBe(false);
+        expect(result.warnings.some((w) => w.startsWith("OLE_EQUATION_IMAGE:") || w.startsWith("OLE_EQUATION_LATEX:"))).toBe(false);
     });
 });
 
@@ -723,5 +728,70 @@ describe("docx 解析：自动编号后紧跟数字", () => {
         const result = await parseDocx(buffer);
         expect(result.questions).toHaveLength(3);
         expect(result.questions[1].text).toContain("2008 年的题");
+    });
+});
+
+describe("docx 解析：OLE 公式对象 WMF 结构还原为 LaTeX（W3）", () => {
+    it("高置信 WMF 分数公式在正文原位置嵌入 $…$，不产生图片", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("1．计算 ") + oleObjectRun("rIdWmf", "rIdOle", "width:10pt;height:28pt") + t(" 的结果")),
+            rels: '<Relationship Id="rIdWmf" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.wmf"/>',
+            extraFiles: { "word/media/image1.wmf": simpleFractionWmfBytes("5", "9") },
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(1);
+        // 正文原位置直接为 $…$ LaTeX，无 [公式] 占位
+        expect(result.questions[0].text).toContain("计算 $\\frac{5}{9}$ 的结果");
+        expect(result.questions[0].text).not.toContain("[公式]");
+        // 高置信公式不再作为图片
+        expect(result.questions[0].images).toBeUndefined();
+        // 警告：已转为 LaTeX
+        expect(result.warnings).toContain("OLE_EQUATION_LATEX:1");
+        expect(result.warnings.some((w) => w.startsWith("OLE_EQUATION_IMAGE:"))).toBe(false);
+    });
+
+    it("低置信 WMF（含多边形）保留 [公式] 占位并按图片保留", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("1．化简 ") + oleObjectRun("rIdWmf", "rIdOle", "width:10pt;height:28pt") + t(" 的结果")),
+            rels: '<Relationship Id="rIdWmf" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.wmf"/>',
+            extraFiles: { "word/media/image1.wmf": minimalWmfBytes() },
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(1);
+        // 低置信：保留 [公式] 占位 + 图片
+        expect(result.questions[0].text).toContain("化简 [公式] 的结果");
+        expect(result.questions[0].images).toHaveLength(1);
+        expect(result.questions[0].images![0].dataUrl.startsWith("data:image/wmf;base64,")).toBe(true);
+        // 警告：按图片保留
+        expect(result.warnings).toContain("OLE_EQUATION_IMAGE:1");
+        expect(result.warnings.some((w) => w.startsWith("OLE_EQUATION_LATEX:"))).toBe(false);
+    });
+
+    it("同一文档中高置信与低置信 OLE 公式分别计数", async () => {
+        const buffer = makeDocxBuffer({
+            body: [
+                para(t("1．计算 ") + oleObjectRun("rIdA", "rIdOleA", "width:10pt;height:28pt") + t(" 的结果")),
+                para(t("2．化简 ") + oleObjectRun("rIdB", "rIdOleB", "width:10pt;height:28pt") + t(" 的值")),
+            ].join(""),
+            rels: [
+                '<Relationship Id="rIdA" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.wmf"/>',
+                '<Relationship Id="rIdB" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image2.wmf"/>',
+            ].join(""),
+            extraFiles: {
+                "word/media/image1.wmf": simpleFractionWmfBytes("2", "5"),
+                "word/media/image2.wmf": minimalWmfBytes(),
+            },
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(2);
+        // 第一题高置信 → $…$，无图片
+        expect(result.questions[0].text).toContain("$\\frac{2}{5}$");
+        expect(result.questions[0].images).toBeUndefined();
+        // 第二题低置信 → [公式] + 图片
+        expect(result.questions[1].text).toContain("[公式]");
+        expect(result.questions[1].images).toHaveLength(1);
+        // 警告分别计数
+        expect(result.warnings).toContain("OLE_EQUATION_LATEX:1");
+        expect(result.warnings).toContain("OLE_EQUATION_IMAGE:1");
     });
 });

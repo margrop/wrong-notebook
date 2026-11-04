@@ -8,12 +8,14 @@
  * 4. 把 SplitTextQuestion 转为 StructuredQuestion 后调用 parseQuestionFile 复用规范化与上限校验
  *
  * 上标输出 ^{…}（纯数字用 ^2 简写），下标输出 _{…}（同规则）；
- * 公式输出占位符 [公式]（可通过 handlers.math 扩展）；
+ * 公式输出占位符 [公式]（OMML 公式与 OLE 公式对象的 WMF 预览图可高置信还原时输出 $…$ LaTeX）；
  * 图片默认真实提取：w:drawing（a:blip r:embed）、w:pict（v:imagedata r:id）与
  * run 内直接的 w:object（v:imagedata r:id，MathType/公式编辑器等 OLE 对象）按 rId 查找
  * word/media/* 文件；png/jpeg/gif/webp/bmp 转 data URL；WMF/EMF 以「待渲染图片」挂到题目上——
  * data:image/wmf|emf;base64,… 的 dataUrl，渲染目标尺寸放在 alt 中（metafile.ts），
  * 由浏览器导入流程在使用前渲染为 PNG 再参与合成；正文中以 [图片] 占位。
+ * OLE 公式对象的 WMF 预览图会先尝试结构还原为 LaTeX（wmf/latex.ts），高置信时在
+ * 正文原位置插入 $latex$ 且不再作为图片；低置信或失败时保持 [公式] 占位 + 按图片保留。
  * tiff 等不支持的格式跳过并计入 IMAGE_UNSUPPORTED 警告。
  * 正文中用唯一占位符 ⟦IMG:N⟧ 标记位置，分题后替换为「[图片]」并挂到对应题的 images。
  *
@@ -33,6 +35,7 @@ import { NumberingResolver } from "@/lib/import/file-parsers/docx/numbering";
 import type { DocxInlineHandlers, DocxContext, DocxMathCollector } from "@/lib/import/file-parsers/docx/text";
 import { DEFAULT_MATH_PLACEHOLDER, paragraphText, tableRowText } from "@/lib/import/file-parsers/docx/text";
 import { ommlToLatex } from "@/lib/import/file-parsers/docx/omml";
+import { wmfBytesToLatex } from "@/lib/import/file-parsers/docx/wmf";
 import {
     computeMetafilePixelSize,
     encodeMetafileAlt,
@@ -52,7 +55,6 @@ function ignoredWarning(count: number): string {
 }
 
 const MATH_UNSUPPORTED_WARNING = "MATH_UNSUPPORTED";
-const OLE_EQUATION_WARNING = "OLE_EQUATION";
 const IMAGE_UNSUPPORTED_WARNING = "IMAGE_UNSUPPORTED";
 /** MATH_UNSUPPORTED 中最多列出的元素名个数 */
 const MAX_UNSUPPORTED_LIST = 10;
@@ -100,6 +102,8 @@ export interface ImageCollector {
     images: Array<{ dataUrl: string; alt?: string; oleEquation?: boolean }>;
     /** 不支持的格式扩展名（去重） */
     unsupported: Set<string>;
+    /** OLE 公式对象成功还原为 LaTeX 的数量 */
+    oleLatexCount: number;
 }
 
 /** 从 w:drawing / w:pict / w:object 元素中提取图片 rId（a:blip r:embed 或 v:imagedata r:id） */
@@ -198,6 +202,22 @@ function parseVmlLength(style: string, name: string): number | null {
 /** 默认图片处理：提取真实图片并记录是否 OLE 公式对象，正文中插入唯一占位符 ⟦IMG:N⟧；失败退回默认占位 */
 function defaultImageHandler(collector: ImageCollector) {
     return (element: Element, ctx: DocxContext): string | undefined => {
+        // OLE 公式对象：先尝试 WMF 结构还原为 LaTeX
+        const rid = extractImageRid(element);
+        if (rid && isOleEquationElement(element)) {
+            const target = ctx.relationships[rid];
+            if (target) {
+                const fileKey = `word/${target}`.toLowerCase();
+                const bytes = ctx.files[fileKey];
+                if (bytes && fileKey.endsWith(".wmf")) {
+                    const { latex, confidence } = wmfBytesToLatex(bytes);
+                    if (confidence === "high" && latex) {
+                        collector.oleLatexCount += 1;
+                        return `$${latex}$`;
+                    }
+                }
+            }
+        }
         const image = extractImageDataUrl(element, ctx, collector);
         if (image === null) {
             // 提取失败或不支持：退回默认占位符
@@ -332,8 +352,10 @@ function toStructuredInput(question: SplitTextQuestion): Record<string, unknown>
  * 损坏的 zip 或非 docx 返回 INVALID_DOCX（index 均为 -1）。
  *
  * Word 自带公式（OMML）默认转为 LaTeX：m:oMath 输出 $…$，m:oMathPara 输出独立一行 $$…$$；
- * MathType 等 OLE 公式对象不是 OMML，在 docx 中表现为 w:object/w:pict 内嵌图片，
- * 按图片提取、正文输出「[公式]」占位并计数。
+ * MathType 等 OLE 公式对象不是 OMML，在 docx 中表现为 w:object/w:pict 内嵌图片。
+ * 其 WMF 预览图会先尝试结构还原（分数、上下标、常见符号）：
+ * 高置信时在正文原位置插入 $latex$ 且不再作为图片；低置信或失败时按图片提取、
+ * 正文输出「[公式]」占位并计入 OLE_EQUATION_IMAGE 警告。
  *
  * 图片默认真实提取：w:drawing（a:blip r:embed）、w:pict（v:imagedata r:id）与 run 内直接的
  * w:object（v:imagedata r:id）按 rId 查找 word/media/* 文件；
@@ -341,7 +363,8 @@ function toStructuredInput(question: SplitTextQuestion): Record<string, unknown>
  * 挂到题目 images（data:image/wmf|emf;base64,…，渲染目标尺寸在 alt 中），由浏览器
  * 导入流程渲染为 PNG 后参与合成；tiff 等浏览器无法渲染的格式跳过并计入
  * IMAGE_UNSUPPORTED 警告。正文中用 ⟦IMG:N⟧ 占位符标记位置，
- * 分题后替换为「[公式]」（OLE 公式对象）或「[图片]」并把对应图片挂到该题的 images 上。
+ * 分题后替换为「[公式]」（OLE 公式对象，低置信时）或「[图片]」并把对应图片挂到该题的
+ * images 上；OLE 公式对象高置信还原为 LaTeX 时正文直接为 $latex$，不产生图片。
  */
 export async function parseDocx(
     buffer: ArrayBuffer,
@@ -360,7 +383,7 @@ export async function parseDocx(
     }
 
     const mathCollector: DocxMathCollector = { unsupported: new Set(), oleCount: 0 };
-    const imageCollector: ImageCollector = { images: [], unsupported: new Set() };    const defaultImage = defaultImageHandler(imageCollector);
+    const imageCollector: ImageCollector = { images: [], unsupported: new Set(), oleLatexCount: 0 };    const defaultImage = defaultImageHandler(imageCollector);
     const mergedImage = handlers.image
         ? (element: Element, ctx: DocxContext) => handlers.image!(element, ctx) ?? defaultImage(element, ctx)
         : defaultImage;
@@ -380,7 +403,13 @@ export async function parseDocx(
         warnings.push(`${MATH_UNSUPPORTED_WARNING}:${listed}`);
     }
     if (mathCollector.oleCount > 0) {
-        warnings.push(`${OLE_EQUATION_WARNING}:${mathCollector.oleCount}`);
+        const oleImageCount = mathCollector.oleCount - imageCollector.oleLatexCount;
+        if (imageCollector.oleLatexCount > 0) {
+            warnings.push(`OLE_EQUATION_LATEX:${imageCollector.oleLatexCount}`);
+        }
+        if (oleImageCount > 0) {
+            warnings.push(`OLE_EQUATION_IMAGE:${oleImageCount}`);
+        }
     }
     if (imageCollector.unsupported.size > 0) {
         const listed = Array.from(imageCollector.unsupported).slice(0, MAX_UNSUPPORTED_LIST).join(",");

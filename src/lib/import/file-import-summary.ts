@@ -208,9 +208,13 @@ const WARNING_PARAMETERIZED_CODES: Record<string, { zh: (p: string) => string; e
         zh: (p) => `${p} 个公式小图超出单题拼接上限，未包含在题目原图中`,
         en: (p) => `${p} small equation image(s) exceeded the per-question merge limit and were left out`,
     },
-    OLE_EQUATION: {
-        zh: (p) => `${p} 个 MathType 公式对象按图片导入`,
-        en: (p) => `${p} MathType equation object(s) imported as image(s)`,
+    OLE_EQUATION_LATEX: {
+        zh: (p) => `${p} 个 MathType 公式对象已转为 LaTeX`,
+        en: (p) => `${p} MathType equation object(s) converted to LaTeX`,
+    },
+    OLE_EQUATION_IMAGE: {
+        zh: (p) => `${p} 个 MathType 公式对象按图片保留（复杂公式无法可靠还原）`,
+        en: (p) => `${p} MathType equation object(s) kept as image(s) (complex formula could not be reliably converted)`,
     },
     MATH_UNSUPPORTED: {
         zh: (p) => `部分 OMML 结构未识别：${p}`,
