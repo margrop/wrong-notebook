@@ -342,13 +342,33 @@ async function touchBatch(batchId: string | null): Promise<void> {
         .catch((error: unknown) => logger.warn({ batchId, error: getErrorMessage(error) }, 'Failed to mark import batch unread'));
 }
 
-/** 识别一项任务：文字任务解析题目原文，图片任务识别图片 */
+/** data:image 前缀，用于判断任务是否带有可作为识别输入的原图（区别于仅保存的原始截图） */
+const IMAGE_DATA_URL_PREFIX = 'data:image/';
+
+/** 任务是否带有有效原图：可作为识别输入的图片，而非仅作附件保存的内容 */
+export function hasAnalyzableImage(task: Pick<ImportTask, 'imageData'>): boolean {
+    return task.imageData.startsWith(IMAGE_DATA_URL_PREFIX);
+}
+
+/** 识别一项任务：有原图时按图片识别（文字层仅作参考），否则解析题目原文 */
 function analyzeTask(task: ImportTask & { user: User }): Promise<ParsedQuestion> {
     const link = task.batchId ? `/import-batches/${task.batchId}` : `/import-tasks/${task.id}`;
     const language = task.language === 'en' ? 'en' : 'zh';
+    if (hasAnalyzableImage(task)) {
+        return analyzeQuestionForUser({
+            email: task.user.email,
+            userId: task.user.id,
+            imageBase64: task.imageData,
+            language,
+            subjectId: task.subjectId,
+            link,
+            referenceText: task.inputText || null,
+        });
+    }
     if (task.inputText) {
         return analyzeQuestionTextForUser({ userId: task.user.id, questionText: task.inputText, language, subjectId: task.subjectId, link });
     }
+    // 无文字且无原图时按图片路径走，由 AI 服务报错（与旧行为一致）
     return analyzeQuestionForUser({
         email: task.user.email,
         userId: task.user.id,
@@ -398,8 +418,9 @@ async function fillMissingTags(task: ImportTask & { user: User }, result: Parsed
     }
 }
 
-/** 任务消耗的额度类别：文字题与文字解题一致，图片与拍照识别一致 */
-export function quotaKindOf(task: Pick<ImportTask, 'inputText'>): 'reanswer' | 'analyze' {
+/** 任务消耗的额度类别：与原图识别路径一致——有原图按 analyze 计，纯文字按 reanswer 计 */
+export function quotaKindOf(task: Pick<ImportTask, 'inputText' | 'imageData'>): 'reanswer' | 'analyze' {
+    if (hasAnalyzableImage(task)) return 'analyze';
     return task.inputText ? 'reanswer' : 'analyze';
 }
 

@@ -1493,6 +1493,8 @@ export const zh = {
             analysisTags: "AI 只补知识点和难度",
             analysisNone: "按原样入库",
             startHintAuto: "AI 逐题解析后直接保存到错题本；重复题会记入原题的做错记录。",
+            /** AI 完整解析且已选题中有带原图的题时替换 startHintAuto 显示 */
+            startHintAiWithImage: "带原图的题将按图片识别（文字层仅作参考），消耗图片识别额度；其余题按文字解析。解析后直接保存到错题本；重复题会记入原题的做错记录。",
             startHintReview: "已开启「导入前人工确认」：AI 解析完成后逐题校对再保存。",
             startHintNone: "不调用 AI、不消耗额度，题目按草稿原样保存；答案、解析、知识点等字段以草稿为准。",
             startHintTags: "保留草稿中的题干与答案解析，AI 只补全缺失的知识点、难度星级与题型；每题消耗一次重新标注的额度。",

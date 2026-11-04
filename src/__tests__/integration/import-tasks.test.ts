@@ -505,4 +505,38 @@ describe('识别导入任务', () => {
         expect((await RETRY(json({}), params(task.id))).status).toBe(409);
         expect((await confirm(task.id)).status).toBe(409);
     });
+
+    it('任务同时带有原图与 inputText 时按图片识别，inputText 作为参考文字传给模型', async () => {
+        // 直接造一条带 inputText 与原图的任务（模拟题库文件导入），标记为 failed 后用 retry 触发识别
+        const reference = 'PDF 文字层：12 1 812 2 412 4 22 6a b c d e';
+        const taskId = 'manual-img-text-task';
+        await database.importTask.create({
+            data: {
+                id: taskId,
+                userId: 'user-1',
+                clientRequestId: taskId,
+                mode: 'auto',
+                status: 'failed',
+                language: 'zh',
+                subjectId: 'math',
+                targetSubjectId: 'math',
+                imageData: IMAGE,
+                inputText: reference,
+                runnerId: 'boot',
+                heartbeatAt: new Date(),
+            },
+        });
+        const response = await RETRY(json({}), params(taskId));
+        expect(response.status).toBe(202);
+        await waitForImportTaskForTest(taskId);
+        expect(mocks.analyzeImage).toHaveBeenCalledTimes(1);
+        // 第 8 个参数是 referenceText（前 7 个：base64, mimeType, language, grade, subject, gradeSemester, candidateTags）
+        expect(mocks.analyzeImage.mock.calls[0][7]).toBe(reference);
+        const task = await database.importTask.findUniqueOrThrow({ where: { id: taskId } });
+        expect(task.status).toBe('saved');
+        expect(task.error).toBeNull();
+        // 额度按图片识别计 analyze
+        expect(await database.aiUsage.count({ where: { userId: 'user-1', kind: 'analyze' } })).toBe(1);
+        expect(await database.aiUsage.count({ where: { userId: 'user-1', kind: 'reanswer' } })).toBe(0);
+    });
 });

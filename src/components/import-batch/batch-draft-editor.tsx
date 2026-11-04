@@ -160,6 +160,7 @@ export function BatchDraftEditor({ batch, draft, onEdit, onUndo, canUndo, saveSt
                 count={ready.length}
                 missingRegions={selectedWithoutRegion}
                 pendingFixes={pendingFixes}
+                imageQuestions={ready.filter((item) => !!item.image).length}
                 confirmBeforeImport={confirmBeforeImport}
                 starting={starting}
                 onStart={onStart}

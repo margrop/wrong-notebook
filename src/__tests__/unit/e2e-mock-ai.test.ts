@@ -28,6 +28,11 @@ describe('本地模型服务与真实适配器的协议', () => {
         expect(result).toMatchObject({ answerText: 'x = 3', subject: '数学', difficultyStars: 3, questionType: 'calculation', gradeSemester: '初二上' });
         expect(mock.cases.get('protocol')?.calls).toContainEqual(expect.objectContaining({ operation: 'analysis', hasImage: true }));
     });
+    it('带参考文字（题库文件文字层）的图片识别仍按 analysis 协议处理', async () => {
+        const result = await provider.analyzeImage('dGVzdA==', 'image/png', 'zh', null, null, null, undefined, '从 PDF 提取的文字层，可能乱码');
+        expect(result).toMatchObject({ answerText: 'x = 3', subject: '数学' });
+        expect(mock.cases.get('protocol')?.calls).toContainEqual(expect.objectContaining({ operation: 'analysis', hasImage: true }));
+    });
     it('变式题及内嵌 SVG 按正式输出协议解析', async () => {
         const result = await provider.generateSimilarQuestion('求面积。E2E_protocol_A', [], 'zh', 'medium', '初二上');
         expect(result.questionText).toContain('E2E_protocol_A变式');

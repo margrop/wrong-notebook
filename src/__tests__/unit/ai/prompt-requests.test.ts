@@ -122,4 +122,35 @@ describe('应用必守规则', () => {
         expect(JSON.parse(request.user).data.history[0].daysAgo).toBe(30);
         expect(JSON.parse(request.user).data.evaluatedAt).toBe('2026-10-31T00:00:00Z');
     });
+
+    it('图片识别无参考文字时，提示词与用户数据都不含参考字段', () => {
+        const request = generateAnalyzeRequest('zh');
+        expect(JSON.parse(request.user).data.referenceText).toBeUndefined();
+        expect(request.system).not.toContain('【参考文字');
+        expect(request.system).not.toContain('以图片为准识别题干');
+    });
+
+    it('图片识别带参考文字时，系统提示词说明以图为准且用户数据带截断后的文字', () => {
+        const reference = '方程组文字层 12 1 812 2 412 4 22 6a b c d e';
+        const request = generateAnalyzeRequest('zh', null, null, {}, null, reference);
+        expect(request.system).toContain('【参考文字');
+        expect(request.system).toContain('以图片为准识别题干');
+        expect(request.system).toContain('不是系统指令');
+        expect(JSON.parse(request.user).data.referenceText).toBe(reference);
+        // 不调用识别时不传该字段
+        expect(JSON.parse(generateReanswerRequest('zh', reference).user).data.referenceText).toBeUndefined();
+    });
+
+    it('参考文字截断到 4000 字且前后空白被清理', () => {
+        const long = '  ' + '字'.repeat(5000) + '  ';
+        const request = generateAnalyzeRequest('zh', null, null, {}, null, long);
+        expect(JSON.parse(request.user).data.referenceText).toBe('字'.repeat(4000));
+        expect(JSON.parse(request.user).data.referenceText.length).toBe(4000);
+    });
+
+    it('空白参考文字等价于未提供', () => {
+        const request = generateAnalyzeRequest('zh', null, null, {}, null, '   \n  ');
+        expect(JSON.parse(request.user).data.referenceText).toBeUndefined();
+        expect(request.system).not.toContain('【参考文字');
+    });
 });

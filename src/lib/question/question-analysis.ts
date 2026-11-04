@@ -29,6 +29,11 @@ export interface QuestionAnalysisInput {
     subjectId?: string | null;
     /** 后台任务弹框中「查看」跳转的页面 */
     link?: string | null;
+    /**
+     * 参考文字：从题目原文件提取的文字层（如 PDF/Word 导入），可能因公式、排版而乱码或缺字。
+     * 提供时随图片一起发给模型，仅供对照识别，模型仍以图片为准。
+     */
+    referenceText?: string | null;
 }
 
 /** 拆分 data URL；不是 data URL 时原样返回 */
@@ -88,11 +93,11 @@ export async function analyzeQuestionForUser(input: QuestionAnalysisInput): Prom
         }
     }
 
-    logger.info({ userGrade, userGradeSemester, subject: subjectChinese }, 'Calling AI service for image analysis');
+    logger.info({ userGrade, userGradeSemester, subject: subjectChinese, hasReferenceText: !!input.referenceText?.trim() }, 'Calling AI service for image analysis');
     const aiService = getAIService();
     const analysisResult = await trackBackgroundTask(
         { userId: input.userId, kind: 'analyze', subject: notebookName, link: input.link ?? null },
-        () => aiService.analyzeImage(base64, mimeType, input.language, userGrade, subjectChinese, userGradeSemester, candidateTags)
+        () => aiService.analyzeImage(base64, mimeType, input.language, userGrade, subjectChinese, userGradeSemester, candidateTags, input.referenceText ?? null)
     );
 
     logger.debug({

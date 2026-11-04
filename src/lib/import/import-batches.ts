@@ -526,7 +526,7 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
                         subjectId: batch.subjectId,
                         targetSubjectId: batch.targetSubjectId,
                         paperLevel: batch.paperLevel,
-                        // ai 模式：文字批次仍按文字识别（inputText），图片仅作为原图保存不送 AI
+                        // ai 模式：图片批次按图片识别；文字批次带原图的题按图片识别（文字层作参考），纯文字题按文字识别
                         imageData: source === 'image' ? image!.imageBase64 : (item.image ?? ''),
                         imageInfo: image?.imageInfo ? JSON.stringify(image.imageInfo) : null,
                         inputText: source === 'text' ? composeQuestionInput(item) : null,
@@ -552,10 +552,11 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
         return createErrorResponse('IMPORT_BATCH_START_FAILED', 500, ErrorCode.INTERNAL_ERROR);
     }
 
-    // 抢占成功、任务已建出后逐题计额度；超额的题标记失败，可次日重试
+    // 抢占成功、任务已建出后逐题计额度；带原图的题按图片识别计 analyze 额度，纯文字题按 reanswer 计
     for (const { item, id: taskId } of planned) {
         const release = releases.get(taskId)!;
-        const limited = await serializeWrite(() => consumeAiQuota(user, quotaKindOf({ inputText: source === 'text' ? item.text : null })));
+        const imageData = source === 'image' ? images.get(item.key)!.imageBase64 : (item.image ?? '');
+        const limited = await serializeWrite(() => consumeAiQuota(user, quotaKindOf({ inputText: source === 'text' ? composeQuestionInput(item) : null, imageData })));
         if (limited) {
             release();
             await markFailed(taskId, 'analyzing', 'AI_DAILY_LIMIT_EXCEEDED');

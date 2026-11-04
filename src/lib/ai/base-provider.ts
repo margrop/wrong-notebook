@@ -73,13 +73,13 @@ export abstract class BaseAIProvider implements AIService {
         throw new Error(code, { cause: error });
     }
 
-    async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: GradeLevel | null, subject?: string | null, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ParsedQuestion> {
+    async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: GradeLevel | null, subject?: string | null, gradeSemester?: string | null, candidateTags?: CandidateTags, referenceText?: string | null): Promise<ParsedQuestion> {
         const config = getAppConfig();
         const tagOptions = candidateTags ? { candidateTags } : await prefetchSubjectTags(subject, grade);
         const systemPrompt = generateAnalyzeRequest(language, grade, subject, {
             customTemplate: config.prompts?.analyze,
             ...tagOptions,
-        }, gradeSemester);
+        }, gradeSemester, referenceText);
 
         logger.box('🔍 AI Image Analysis Request', {
             provider: this.providerName,

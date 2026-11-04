@@ -1494,6 +1494,8 @@ export const en = {
             analysisTags: "AI tags & difficulty only",
             analysisNone: "Import as-is",
             startHintAuto: "AI solves each question and saves it to your notebook. Duplicates are added to the original question's mistake record.",
+            /** 已选题中有带原图的题、AI 完整解析时替换 startHintAuto 显示 */
+            startHintAiWithImage: "Questions with an original image are recognized from the image (text layer is for reference only) and use image analysis quota; the rest are parsed as text. Results are saved to your notebook after solving; duplicates are added to the original question's mistake record.",
             startHintReview: "Review before import is on: check each question after AI solves it, then save.",
             startHintNone: "No AI call, no quota used. Questions are saved exactly as in the draft; answers, analysis and knowledge points come from the draft.",
             startHintTags: "Keeps draft question text, answer and analysis; AI only fills in missing knowledge points, difficulty stars and question type. Each question uses one retag quota.",

@@ -84,6 +84,21 @@ describe('BaseAIProvider', () => {
             }));
         });
 
+        it('带参考文字（题库文件文字层）时，参考文字只进入用户数据消息', async () => {
+            await provider.analyzeImage('QUJD', 'image/png', 'zh', null, null, null, undefined, 'PDF 文字层，可能乱码');
+            const request = provider.complete.mock.calls[0][0];
+            expect(request.task).toBe('analyze');
+            expect(JSON.parse(request.user).data.referenceText).toBe('PDF 文字层，可能乱码');
+            expect(request.system).toContain('【参考文字');
+            // 参考文字不作为系统指令注入
+            expect(request.system).not.toContain('PDF 文字层，可能乱码');
+        });
+
+        it('不传参考文字时用户数据不含 referenceText 字段', async () => {
+            await provider.analyzeImage('QUJD', 'image/png');
+            expect(JSON.parse(provider.complete.mock.calls[0][0].user).data.referenceText).toBeUndefined();
+        });
+
         it('空响应时抛错', async () => {
             provider.complete.mockResolvedValue('');
             await expect(provider.analyzeImage('QUJD')).rejects.toThrow();

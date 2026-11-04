@@ -60,6 +60,7 @@ The JSON question exchange format is documented in the [question exchange format
 - **Strikethrough and hidden text**: skipped during parsing; revisions keep insertions and skip deletions.
 - **PDF text layer**: PDF files must have a text layer (text embedded by Word or a generator, selectable in a viewer). Double-column layouts are read left column first, then right; repeated headers and footers (including page numbers such as "Page 3" or "- 3 -") are removed. Scanned PDFs have no text layer; when imported, the app shows "This is a scanned PDF" and lets you pick a page range (up to 20 pages per import) to convert to images, which are then recognized and split by AI — each page uses one AI split quota. A PDF with a text layer but some blank pages imports normally using the text layer, and the warning notes the blank page count. Password-protected PDFs are not supported.
 - **PDF question images**: when importing a text-layer PDF, every question is captured by default as a screenshot of its layout region and saved as the question's original image, so you can always see how the question originally looked (formulas, figures and tables stay intact even if the text layer is garbled). On the summary page, "Question images" can be changed to "Questions with graphics" (only questions with detected pictures, geometric figures, function graphs or table lines; unavailable when the PDF has no graphics) or "Do not save". Questions spanning columns or pages are cropped in segments and stacked vertically, compressed to a long edge of ≤ 1600 pixels and about ≤ 1 MB; the question text is still imported normally.
+- **AI full solve recognizes questions with an original image from the image**: when a question carries an original image (PDF screenshot or merged Word embedded image) and you choose **AI full solve**, the model recognizes the question from the image and the file's text layer is only passed along as a reference (the text layer often garbles formulas and layout, so the image is authoritative). These questions count as image recognition uses. **AI tags & difficulty only** and **Import as-is** never invoke full recognition and are unaffected.
 
 #### Excel / CSV column names
 
@@ -86,7 +87,7 @@ Text batches offer three analysis modes in the start bar (defaulting to **AI tag
 
 | Analysis mode | Description |
 | --- | --- |
-| AI full solve | AI recognizes each question, generates the answer and analysis, and tags it; each question counts as one recognition use |
+| AI full solve | AI recognizes each question, generates the answer and analysis, and tags it; each question counts as one recognition use. Questions that carry an original image (PDF screenshot or merged Word embedded image) are recognized from the image — the file's text layer is only passed to the model as a reference — and count as image recognition uses |
 | AI tags & difficulty only | Keeps the draft question text, answer and analysis; AI only fills in missing knowledge points, difficulty stars and question type; each question counts as one retag use, costing far less than a full solve |
 | Import as-is | No AI call and no quota used; questions are saved exactly as in the draft—the question text, answer, analysis, knowledge points, difficulty and wrong answer all come from the draft |
 

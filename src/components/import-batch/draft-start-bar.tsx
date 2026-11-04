@@ -11,6 +11,8 @@ interface DraftStartBarProps {
     missingRegions: number;
     /** 有待接受修正建议的题数（开始后这些题按原文解析） */
     pendingFixes?: number;
+    /** 已选题中带有原图的题数（这些题在 AI 完整解析下按图片识别） */
+    imageQuestions?: number;
     confirmBeforeImport: boolean;
     /** 正在进行的阶段文字（裁剪、提交）；为空表示空闲 */
     starting: string | null;
@@ -26,7 +28,7 @@ interface DraftStartBarProps {
 }
 
 /** 分题预览底部固定的操作栏：按钮写明实际动作与题数；文字批次可选「按原样入库」或「AI 只补标签」 */
-export function DraftStartBar({ count, missingRegions, pendingFixes = 0, confirmBeforeImport, starting, onStart, onDiscard, source, analysisMode, onAnalysisModeChange, hasTargetNotebook }: DraftStartBarProps) {
+export function DraftStartBar({ count, missingRegions, pendingFixes = 0, imageQuestions = 0, confirmBeforeImport, starting, onStart, onDiscard, source, analysisMode, onAnalysisModeChange, hasTargetNotebook }: DraftStartBarProps) {
     const { t } = useLanguage();
     const isNone = analysisMode === "none";
     const isTags = analysisMode === "tags";
@@ -45,7 +47,9 @@ export function DraftStartBar({ count, missingRegions, pendingFixes = 0, confirm
                     ? t.importBatch.startHintTags
                     : pendingFixes > 0
                         ? t.importBatch.fixText.pendingHint.replace("{count}", String(pendingFixes))
-                        : confirmBeforeImport ? t.importBatch.startHintReview : t.importBatch.startHintAuto;
+                        : imageQuestions > 0
+                            ? t.importBatch.startHintAiWithImage
+                            : confirmBeforeImport ? t.importBatch.startHintReview : t.importBatch.startHintAuto;
     // 按原样入库 / 只补标签需要目标错题本；图片批次不支持
     const needsTarget = isNone || isTags;
     const targetDisabled = needsTarget && !hasTargetNotebook;

@@ -1141,7 +1141,7 @@ describe('按原样入库（analysis=none）', () => {
         expect(await database.aiUsage.count()).toBe(0);
     });
 
-    it('ai 模式带 image 的题：图片作为原图保存，不送 AI（T18）', async () => {
+    it('ai 模式带 image 的题：按图片识别，inputText 作为参考文字，按 analyze 计额度（T18）', async () => {
         const imageData = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA==';
         const { batch } = await create({
             source: 'text',
@@ -1155,9 +1155,14 @@ describe('按原样入库（analysis=none）', () => {
         expect(started.status).toBe(202);
         await waitForImportBatchTasksForTest(batch.id);
 
-        // ai 模式调用 reanswer（文字识别），不调用 analyzeImage
-        expect(mocks.reanswerQuestion).toHaveBeenCalledTimes(1);
-        expect(mocks.analyzeImage).not.toHaveBeenCalled();
+        // ai 模式下带原图的题按图片识别，inputText 作为参考文字传给模型，不调用文字解题
+        expect(mocks.analyzeImage).toHaveBeenCalledTimes(1);
+        expect(mocks.reanswerQuestion).not.toHaveBeenCalled();
+        // analyzeImage 第 8 个参数是 referenceText（题库文件文字层）
+        expect(mocks.analyzeImage.mock.calls[0][7]).toBe('1．如图，求面积。');
+        // 额度按 analyze 计，不按 reanswer 计
+        expect(await database.aiUsage.count({ where: { kind: 'analyze' } })).toBe(1);
+        expect(await database.aiUsage.count({ where: { kind: 'reanswer' } })).toBe(0);
 
         const items = await database.errorItem.findMany();
         expect(items).toHaveLength(1);
