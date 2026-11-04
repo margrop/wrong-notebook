@@ -81,3 +81,5 @@ SECURITY.md
 SUPPORT.md
 docs
 doc
+# 题目交换格式的 JSON Schema 与示例供单元测试校验文档一致性
+!doc/schemas
