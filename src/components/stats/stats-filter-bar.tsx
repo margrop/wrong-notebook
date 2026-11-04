@@ -6,8 +6,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { parseStatsRange } from "@/lib/stats-range-core";
-import type { StatsRange } from "@/lib/stats-range-core";
+import { parseStatsRange } from "@/lib/stats/stats-range-core";
+import type { StatsRange } from "@/lib/stats/stats-range-core";
 import type { Notebook } from "@/types/api";
 
 /** 「全部学科」在 Select 中的哨兵值（Radix Select 不允许空字符串 value） */

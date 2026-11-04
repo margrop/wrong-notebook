@@ -5,8 +5,8 @@ import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
 import { internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { parseStatsRange, resolveStatsRange } from "@/lib/stats-range";
-import { resolveStatsSubjectId, practiceSubjectWhere, EXCLUDE_DUPLICATE_IMPORT } from "@/lib/stats-filter";
+import { parseStatsRange, resolveStatsRange } from "@/lib/stats/stats-range";
+import { resolveStatsSubjectId, practiceSubjectWhere, EXCLUDE_DUPLICATE_IMPORT } from "@/lib/stats/stats-filter";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 

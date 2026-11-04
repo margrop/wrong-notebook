@@ -13,7 +13,7 @@ import { StatsFilterBar } from "@/components/stats/stats-filter-bar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/ui/page-header";
 import { TrendingUp, Activity, Tags } from "lucide-react";
-import { parseStatsRange } from "@/lib/stats-range-core";
+import { parseStatsRange } from "@/lib/stats/stats-range-core";
 
 const STATS_TABS = ["wrong", "practice", "tags"] as const;
 type StatsTab = typeof STATS_TABS[number];

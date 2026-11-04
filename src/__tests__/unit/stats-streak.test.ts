@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeCurrentStreak, computeLongestStreak, computeStreaks } from '@/lib/stats-streak';
+import { computeCurrentStreak, computeLongestStreak, computeStreaks } from '@/lib/stats/stats-streak';
 
 describe('computeCurrentStreak', () => {
     it('无数据时返回 0', () => {

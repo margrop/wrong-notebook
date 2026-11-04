@@ -1,8 +1,8 @@
 import { formatDateTime, getDayRange, getMonthStart } from "@/lib/date-time";
-import type { StatsRange } from "@/lib/stats-range-core";
+import type { StatsRange } from "@/lib/stats/stats-range-core";
 
-export type { StatsRange } from "@/lib/stats-range-core";
-export { parseStatsRange } from "@/lib/stats-range-core";
+export type { StatsRange } from "@/lib/stats/stats-range-core";
+export { parseStatsRange } from "@/lib/stats/stats-range-core";
 
 export type StatsGranularity = 'day' | 'month';
 

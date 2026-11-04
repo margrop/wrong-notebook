@@ -6,8 +6,8 @@ import { createLogger } from "@/lib/logger";
 import { getMasteryThreshold } from "@/lib/mastery";
 import { masteryStatusWhere } from "@/lib/mastery-status";
 import { normalizeMistakeStatus } from "@/lib/question/mistake-status";
-import { parseStatsRange, resolveStatsRange } from "@/lib/stats-range";
-import { resolveStatsSubjectId } from "@/lib/stats-filter";
+import { parseStatsRange, resolveStatsRange } from "@/lib/stats/stats-range";
+import { resolveStatsSubjectId } from "@/lib/stats/stats-filter";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 

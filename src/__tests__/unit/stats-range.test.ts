@@ -6,7 +6,7 @@ import {
     buildStatsBuckets,
     resolveStatsRange,
     findBucketIndex,
-} from '@/lib/stats-range';
+} from '@/lib/stats/stats-range';
 
 const TZ = 'Asia/Shanghai';
 
