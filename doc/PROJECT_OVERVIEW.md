@@ -87,7 +87,8 @@ wrongNotebook/
 │   │   │   ├── index.ts          # 工厂函数 (getAIService)
 │   │   │   ├── types.ts          # AIService 接口定义
 │   │   │   ├── schema.ts         # Zod 校验 (ParsedQuestionSchema)
-│   │   │   ├── prompts.ts        # 提示词模板 (分析/相似题/重新解题)
+│   │   │   ├── base-provider.ts  # 提供商公共基类（14 个业务方法）
+│   │   │   ├── prompts/          # 提示词模板（按任务拆分）
 │   │   │   ├── gemini-provider.ts # Google Gemini Provider
 │   │   │   ├── openai-provider.ts # OpenAI Provider
 │   │   │   ├── azure-provider.ts  # Azure OpenAI Provider

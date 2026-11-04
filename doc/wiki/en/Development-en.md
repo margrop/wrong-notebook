@@ -11,11 +11,11 @@ The project uses the Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4
 | `src/app/` | Pages and API routes |
 | `src/components/` | Feature components and base UI |
 | `src/lib/ai/` | AI providers, prompts, result schemas and validation |
-| `src/lib/config.ts` | Global settings and configuration file access |
+| `src/lib/config/` | Global settings and configuration file access |
 | `src/lib/question-deduplication.ts` | Import duplicate detection and repeated-attempt records |
 | `src/lib/mastery.ts`, `src/lib/exam.ts` | Mastery evaluation and exam generation |
 | `src/lib/date-time.ts` | App time zone, display and statistics boundaries |
-| `src/lib/translations.ts` | Interface text |
+| `src/lib/translations.ts`, `src/lib/i18n/` | Interface text (entry point and per-language strings) |
 | `prisma/` | Data model, formal migrations and seed data |
 | `src/__tests__/`, `e2e/`, `tests/publication/` | Unit, integration, E2E and publication check tests |
 | `scripts/`, `doc/` | Maintenance scripts and topic documents |
@@ -75,7 +75,7 @@ Fork projects (for example an "AI question bank") can customize features through
 
 ## Changing AI features
 
-AI logic changes must consider all providers: Gemini, OpenAI (including the MiniMax, GLM, DeepSeek, Kimi, Qwen, StepFun and Volcengine channels), Azure and Anthropic. Prompts live in `prompts.ts`; the type and format contract of generated questions is also validated by modules such as `generated-question.ts`.
+AI business methods are implemented once in `src/lib/ai/base-provider.ts`. The providers — Gemini, OpenAI (including the MiniMax, GLM, DeepSeek, Kimi, Qwen, StepFun and Volcengine channels), Azure and Anthropic — only implement request transport and their own request differences, so a new AI feature only changes the base class. Prompts live in the `prompts/` directory; the type and format contract of generated questions is also validated by modules such as `generated-question.ts`.
 
 Cover normal results, malformed output, timeouts and truncated output when verifying. After changing an output structure, also check callers such as practice, exam papers, figures and re-solving.
 

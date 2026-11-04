@@ -11,7 +11,7 @@ fork 项目可在此文件中：
 - **增删导航项**：编辑 `NAV_ITEMS` 数组。每个导航项包含 `key`（对应 `translations.ts` 中 `t.nav` 的翻译 key）、`href`、`icon`（lucide 图标）与 `match(pathname)` 高亮规则。
 - **修改无导航路径**：编辑 `BARE_PATHS` 正则数组（登录、注册、打印预览等页面不显示全局导航）。
 - **替换品牌图标**：修改 `APP_BRAND.iconSrc`，无需改动 `src/components/app-shell.tsx`。
-- **新增翻译 key**：在 `src/lib/translations.ts` 的 `nav` 节（中英文同步）中添加对应 key。
+- **新增翻译 key**：在 `src/lib/i18n/zh.ts` 与 `src/lib/i18n/en.ts` 的 `nav` 节（中英文同步）中添加对应 key。
 
 移动端底部导航的列数按 `NAV_ITEMS.length` 自动计算，无需手工调整样式。
 

@@ -10,12 +10,12 @@
 | --- | --- |
 | `src/app/` | 页面与 API 路由 |
 | `src/components/` | 业务组件和基础 UI |
-| `src/lib/ai/` | 四家 AI 提供商、提示词、结果结构与校验 |
-| `src/lib/config.ts` | 全局设置与配置文件读取 |
+| `src/lib/ai/` | AI 提供商公共基类与四家提供商、提示词（`prompts/`）、结果结构与校验 |
+| `src/lib/config/` | 全局设置与配置文件读取 |
 | `src/lib/question-deduplication.ts` | 导入判重与重复作答记录 |
 | `src/lib/mastery.ts`、`src/lib/exam.ts` | 掌握评估与试卷生成 |
 | `src/lib/date-time.ts` | 应用时区、显示与统计边界 |
-| `src/lib/translations.ts` | 界面文本 |
+| `src/lib/translations.ts`、`src/lib/i18n/` | 界面文本（入口与按语言拆分的文案） |
 | `prisma/` | 数据模型、正式迁移和初始化数据 |
 | `src/__tests__/`、`e2e/`、`tests/publication/` | 单元、集成、E2E 与公开发布检查测试 |
 | `scripts/`、`doc/` | 开发维护脚本与专项文档 |
@@ -75,7 +75,7 @@ fork 项目（例如「AI 题库」）可通过上游预留的扩展点定制功
 
 ## 修改 AI 功能
 
-AI 逻辑变化需同步考虑 Gemini、OpenAI、Azure、Anthropic 四个提供商。提示词集中在 `prompts.ts`；生成题目的题型与格式契约还由 `generated-question.ts` 等模块校验。
+AI 业务方法统一实现在 `src/lib/ai/base-provider.ts`，Gemini、OpenAI、Azure、Anthropic 四个提供商只实现请求传输与各自的请求差异，新增 AI 功能只需修改基类。提示词集中在 `prompts/` 目录；生成题目的题型与格式契约还由 `generated-question.ts` 等模块校验。
 
 验证时覆盖正常结果、格式异常、超时和输出截断。变更输出结构后，也要检查练习、试卷、配图和重新解答等调用方。
 

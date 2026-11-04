@@ -125,4 +125,4 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 
 API Key 保存在服务端配置中。备份 `config/` 时应妥善保存，反馈问题时只提供经过脱敏的配置、日志和错误信息。
 
-实现入口：[配置读取](https://github.com/margrop/wrong-notebook/blob/main/src/lib/config.ts) · [提供商选择](https://github.com/margrop/wrong-notebook/blob/main/src/lib/ai/index.ts) · [提示词](https://github.com/margrop/wrong-notebook/blob/main/src/lib/ai/prompts.ts)。
+实现入口：[配置读取](https://github.com/margrop/wrong-notebook/tree/main/src/lib/config) · [提供商选择](https://github.com/margrop/wrong-notebook/blob/main/src/lib/ai/index.ts) · [提示词](https://github.com/margrop/wrong-notebook/tree/main/src/lib/ai/prompts)。

@@ -53,7 +53,7 @@ flowchart LR
 ## 1. 现状事实（调研结论）
 
 ### 1.1 配置与设置
-- 应用级配置在 `config/app-config.json`：`src/lib/config.ts` 中的 `AppConfig`（L29）、`DEFAULT_CONFIG`（L124）、`getAppConfig`（L215）、`updateAppConfig`（L267）。写入用临时文件加 rename；嵌套对象要深合并，可参照 `mergeTtsConfig`。
+- 应用级配置在 `config/app-config.json`：`src/lib/config/` 中的 `AppConfig`（`types.ts`）、`DEFAULT_CONFIG`（`defaults.ts`）、`getAppConfig` 与 `updateAppConfig`（`store.ts`）。写入用临时文件加 rename；嵌套对象要深合并，可参照 `mergeTtsConfig`。
 - 管理员接口的惯例：`getServerSession` + `requireAdmin(session)`，不通过时返回 `forbidden()`（例：`src/app/api/settings/route.ts` 的 POST）。
 - 管理员设置分区的先例：`src/components/settings/debug-log-settings.tsx`，在 `settings-dialog.tsx` L191 注册。
 - 版本号取自 `src/lib/app-version.ts`，优先使用构建时注入的 `APP_VERSION`。
@@ -528,7 +528,7 @@ model DailyUsage {
 - 测试：`unit/telemetry-schema`、`telemetry-sanitize`、`telemetry-client`、`ingest-contract`、`eula`；`integration/telemetry-route`、`telemetry-outbox`、`admin-telemetry-route`、`eula-routes`；`e2e/eula-and-telemetry.spec.ts`
 
 **修改**
-- `src/lib/config.ts`、`prisma/schema.prisma`、`src/lib/rate-limit.ts`、`src/lib/api-errors.ts`
+- `src/lib/config/`、`prisma/schema.prisma`、`src/lib/rate-limit.ts`、`src/lib/api-errors.ts`
 - 高价值路由的 catch 块、`src/lib/frontend-logger.ts`（全局监听追加上报）、`src/instrumentation.ts`（外发队列和清理）
 - `src/app/api/initialize/route.ts`、`src/components/initialize/initialize-form.tsx`
 - `src/lib/initial-admin.ts`、`src/lib/initialization.ts`
