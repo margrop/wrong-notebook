@@ -9,9 +9,12 @@
  *
  * 上标输出 ^{…}（纯数字用 ^2 简写），下标输出 _{…}（同规则）；
  * 公式输出占位符 [公式]（可通过 handlers.math 扩展）；
- * 图片默认真实提取：w:drawing（a:blip r:embed）与 w:pict（v:imagedata r:id）按 rId 查找
- * word/media/* 文件，png/jpeg/gif/webp/bmp 转 data URL（GIF/BMP 由后续压缩步骤转 JPEG），
- * emf/wmf/tiff 等不支持的格式跳过并计入 IMAGE_UNSUPPORTED 警告。
+ * 图片默认真实提取：w:drawing（a:blip r:embed）、w:pict（v:imagedata r:id）与
+ * run 内直接的 w:object（v:imagedata r:id，MathType/公式编辑器等 OLE 对象）按 rId 查找
+ * word/media/* 文件；png/jpeg/gif/webp/bmp 转 data URL；WMF/EMF 以「待渲染图片」挂到题目上——
+ * data:image/wmf|emf;base64,… 的 dataUrl，渲染目标尺寸放在 alt 中（metafile.ts），
+ * 由浏览器导入流程在使用前渲染为 PNG 再参与合成；正文中以 [图片] 占位。
+ * tiff 等不支持的格式跳过并计入 IMAGE_UNSUPPORTED 警告。
  * 正文中用唯一占位符 ⟦IMG:N⟧ 标记位置，分题后替换为「[图片]」并挂到对应题的 images。
  *
  * 删除线、隐藏文字跳过；修订保留插入、跳过删除。
@@ -30,8 +33,16 @@ import { NumberingResolver } from "@/lib/import/file-parsers/docx/numbering";
 import type { DocxInlineHandlers, DocxContext, DocxMathCollector } from "@/lib/import/file-parsers/docx/text";
 import { DEFAULT_MATH_PLACEHOLDER, paragraphText, tableRowText } from "@/lib/import/file-parsers/docx/text";
 import { ommlToLatex } from "@/lib/import/file-parsers/docx/omml";
+import {
+    computeMetafilePixelSize,
+    encodeMetafileAlt,
+    encodeMetafileDataUrl,
+    ptToPx,
+} from "@/lib/import/file-parsers/docx/metafile";
 
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+const VML = "urn:schemas-microsoft-com:vml";
+const WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
 
 export const WARNING_SINGLE_QUESTION = "SINGLE_QUESTION";
 
@@ -50,8 +61,10 @@ const MAX_UNSUPPORTED_LIST = 10;
 const IMAGE_PLACEHOLDER_PREFIX = "⟦IMG:";
 /** 图片占位符后缀 */
 const IMAGE_PLACEHOLDER_SUFFIX = "⟧";
-/** 正文分题后占位符替换为「[图片]」 */
+/** 正文分题后 ⟦IMG:N⟧ 替换的占位文本（普通图片） */
 const IMAGE_DISPLAY_TEXT = "[图片]";
+/** OLE 公式对象（w:object/w:pict 内 o:OLEObject）替换的占位文本 */
+const EQUATION_DISPLAY_TEXT = "[公式]";
 
 /** 浏览器可渲染的图片格式 → MIME 映射 */
 const SUPPORTED_IMAGE_FORMATS: Record<string, string> = {
@@ -63,8 +76,11 @@ const SUPPORTED_IMAGE_FORMATS: Record<string, string> = {
     bmp: "image/bmp",
 };
 
+/** 待渲染的 metafile 格式（浏览器导入流程会渲染为 PNG 后再合成） */
+const METAFILE_EXTENSIONS = new Set(["emf", "wmf"]);
+
 /** 不支持的图片格式（浏览器无法渲染，跳过） */
-const UNSUPPORTED_IMAGE_EXTENSIONS = new Set(["emf", "wmf", "tiff", "tif", "svg", "ico", "pcx", "tga"]);
+const UNSUPPORTED_IMAGE_EXTENSIONS = new Set(["tiff", "tif", "svg", "ico", "pcx", "tga"]);
 
 /** 默认公式处理：m:oMath 输出 $…$，m:oMathPara 输出独立一行 $$…$$；失败退回 [公式] */
 function defaultMathHandler(collector: DocxMathCollector) {
@@ -80,13 +96,13 @@ function defaultMathHandler(collector: DocxMathCollector) {
 
 /** 图片提取收集器：跨段落汇总提取的图片与不支持格式计数 */
 export interface ImageCollector {
-    /** 按出现顺序收集的 data URL */
-    images: string[];
+    /** 按出现顺序收集的图片（data URL；metafile 附渲染目标尺寸的 alt） */
+    images: Array<{ dataUrl: string; alt?: string; oleEquation?: boolean }>;
     /** 不支持的格式扩展名（去重） */
     unsupported: Set<string>;
 }
 
-/** 从 w:drawing 或 w:pict 元素中提取 rId（a:blip r:embed 或 v:imagedata r:id） */
+/** 从 w:drawing / w:pict / w:object 元素中提取图片 rId（a:blip r:embed 或 v:imagedata r:id） */
 function extractImageRid(element: Element): string | null {
     // w:drawing → a:blip r:embed
     const blips = element.getElementsByTagNameNS("http://schemas.openxmlformats.org/drawingml/2006/main", "blip");
@@ -103,8 +119,8 @@ function extractImageRid(element: Element): string | null {
     return null;
 }
 
-/** 按 rId 查找 word/media/* 文件并转为 data URL */
-function extractImageDataUrl(element: Element, ctx: DocxContext, collector: ImageCollector): string | null {
+/** 按 rId 查找 word/media/* 文件并提取为图片（data URL；metafile 附渲染目标尺寸的 alt） */
+function extractImageDataUrl(element: Element, ctx: DocxContext, collector: ImageCollector): { dataUrl: string; alt?: string } | null {
     const rid = extractImageRid(element);
     if (!rid) return null;
     const target = ctx.relationships[rid];
@@ -115,6 +131,15 @@ function extractImageDataUrl(element: Element, ctx: DocxContext, collector: Imag
     if (!bytes) return null;
     // 从扩展名判断格式
     const ext = fileKey.split(".").pop()?.toLowerCase() ?? "";
+    if (METAFILE_EXTENSIONS.has(ext)) {
+        // WMF/EMF：以「待渲染图片」挂到题目上（data:image/wmf|emf;base64,…），
+        // 由浏览器导入流程渲染为 PNG 后再参与合成；渲染目标尺寸（图片显示尺寸换算像素、
+        // 公式小图已放大）放在 alt 的结构化前缀中（metafile.ts）。
+        const format = ext === "wmf" ? "wmf" : "emf";
+        const display = extractImageDisplaySize(element);
+        const targetSize = computeMetafilePixelSize(display.width, display.height);
+        return { dataUrl: encodeMetafileDataUrl(bytes, format), alt: encodeMetafileAlt(targetSize.width, targetSize.height) };
+    }
     if (UNSUPPORTED_IMAGE_EXTENSIONS.has(ext)) {
         collector.unsupported.add(ext);
         return null;
@@ -132,21 +157,74 @@ function extractImageDataUrl(element: Element, ctx: DocxContext, collector: Imag
         binary += String.fromCharCode(...chunk);
     }
     const base64 = btoa(binary);
-    return `data:${mime};base64,${base64}`;
+    return { dataUrl: `data:${mime};base64,${base64}` };
 }
 
-/** 默认图片处理：提取真实图片，正文中插入唯一占位符 ⟦IMG:N⟧；失败退回 [图片] */
+/** 提取图片在 Word 中的显示尺寸并换算为像素（用于 metafile 渲染目标；失败用默认值） */
+function extractImageDisplaySize(element: Element): { width: number; height: number } {
+    // w:drawing → wp:extent cx/cy（EMU：1pt = 12700 EMU）
+    const extent = element.getElementsByTagNameNS(WP, "extent")[0];
+    if (extent) {
+        const cx = Number.parseInt(extent.getAttribute("cx") ?? "", 10);
+        const cy = Number.parseInt(extent.getAttribute("cy") ?? "", 10);
+        if (Number.isFinite(cx) && cx > 0 && Number.isFinite(cy) && cy > 0) {
+            return { width: cx / 12700, height: cy / 12700 };
+        }
+    }
+    // w:pict → v:shape style（如 "width:100pt;height:50pt"）
+    const shape = element.getElementsByTagNameNS(VML, "shape")[0];
+    const style = shape?.getAttribute("style") ?? "";
+    const width = parseVmlLength(style, "width");
+    const height = parseVmlLength(style, "height");
+    return { width: width ?? 300, height: height ?? 225 };
+}
+
+/** 解析 VML style 中的长度（支持 pt/px/in/cm/mm/pc，纯计算） */
+function parseVmlLength(style: string, name: string): number | null {
+    const match = new RegExp(`(?:^|;)\\s*${name}\\s*:\\s*(-?\\d+(?:\\.\\d+)?)(pt|px|in|cm|mm|pc)?`, "i").exec(style);
+    if (!match) return null;
+    const value = Number.parseFloat(match[1]);
+    if (!Number.isFinite(value) || value <= 0) return null;
+    switch ((match[2] ?? "pt").toLowerCase()) {
+        case "px": return value;
+        case "in": return ptToPx(value * 72);
+        case "cm": return ptToPx((value / 2.54) * 72);
+        case "mm": return ptToPx((value / 25.4) * 72);
+        case "pc": return ptToPx(value * 12);
+        default: return ptToPx(value);
+    }
+}
+
+/** 默认图片处理：提取真实图片并记录是否 OLE 公式对象，正文中插入唯一占位符 ⟦IMG:N⟧；失败退回默认占位 */
 function defaultImageHandler(collector: ImageCollector) {
     return (element: Element, ctx: DocxContext): string | undefined => {
-        const dataUrl = extractImageDataUrl(element, ctx, collector);
-        if (dataUrl === null) {
+        const image = extractImageDataUrl(element, ctx, collector);
+        if (image === null) {
             // 提取失败或不支持：退回默认占位符
             return undefined;
         }
         const index = collector.images.length;
-        collector.images.push(dataUrl);
+        collector.images.push({ ...image, oleEquation: isOleEquationElement(element) });
         return `${IMAGE_PLACEHOLDER_PREFIX}${index}${IMAGE_PLACEHOLDER_SUFFIX}`;
     };
+}
+
+/** 判断元素是否为 OLE 公式对象（w:object/w:pict 内 OLE 公式：ProgID 含 Equation，或 v:shapetype id 为公式专用 _x0000_tole_*） */
+function isOleEquationElement(element: Element): boolean {
+    const objects = element.localName === "object" && element.namespaceURI === W
+        ? [element]
+        : Array.from(element.getElementsByTagNameNS(W, "object"));
+    for (const object of objects) {
+        for (const objectElement of Array.from(object.getElementsByTagName("*"))) {
+            const progid = objectElement.getAttribute("ProgID");
+            if (progid && /Equation/i.test(progid)) return true;
+        }
+        for (const shapetype of Array.from(object.getElementsByTagNameNS(VML, "shapetype"))) {
+            const id = shapetype.getAttribute("id") ?? "";
+            if (/^_x0000_tole_/i.test(id)) return true;
+        }
+    }
+    return false;
 }
 
 /** 按文档顺序提取全文行：段落加自动编号前缀，表格行用制表符连接单元格 */
@@ -185,20 +263,31 @@ function extractLines(document: Document, resolver: NumberingResolver, handlers:
 }
 
 /** 把题目文字中的 ⟦IMG:N⟧ 占位符替换为 [图片]，并收集该题的图片索引 */
-function replaceImagePlaceholders(text: string, images: string[]): { text: string; usedIndexes: number[] } {
+/**
+ * 把题目文字中的 ⟦IMG:N⟧ 占位符替换为对应占位文本（OLE 公式对象 → [公式]，其余 → [图片]），
+ * 并收集该题的图片索引
+ */
+function replaceImagePlaceholders(
+    text: string,
+    images: Array<{ dataUrl: string; alt?: string; oleEquation?: boolean }>,
+): { text: string; usedIndexes: number[] } {
     const usedIndexes: number[] = [];
     const replaced = text.replace(/⟦IMG:(\d+)⟧/g, (_match, idxStr: string) => {
         const idx = parseInt(idxStr, 10);
         if (idx >= 0 && idx < images.length && !usedIndexes.includes(idx)) {
             usedIndexes.push(idx);
         }
-        return IMAGE_DISPLAY_TEXT;
+        const image = idx >= 0 && idx < images.length ? images[idx] : undefined;
+        return image?.oleEquation ? EQUATION_DISPLAY_TEXT : IMAGE_DISPLAY_TEXT;
     });
     return { text: replaced, usedIndexes };
 }
 
 /** 给 SplitTextQuestion 的 text/material/answer/analysis 替换占位符并附加 images */
-function attachImagesToQuestion(question: SplitTextQuestion, allImages: string[]): SplitTextQuestion {
+function attachImagesToQuestion(
+    question: SplitTextQuestion,
+    allImages: Array<{ dataUrl: string; alt?: string; oleEquation?: boolean }>,
+): SplitTextQuestion {
     const allTexts = [question.text, question.material, question.answer, question.analysis];
     const allUsed: number[] = [];
     const replacedTexts = allTexts.map((t) => {
@@ -211,7 +300,7 @@ function attachImagesToQuestion(question: SplitTextQuestion, allImages: string[]
     const uniqueUsed = Array.from(new Set(allUsed)).sort((a, b) => a - b);
     const questionImages = uniqueUsed
         .filter((idx) => idx < allImages.length)
-        .map((idx) => ({ dataUrl: allImages[idx] }));
+        .map((idx) => allImages[idx]);
     return {
         ...question,
         text: replacedTexts[0] ?? question.text,
@@ -222,7 +311,7 @@ function attachImagesToQuestion(question: SplitTextQuestion, allImages: string[]
     };
 }
 
-/** SplitTextQuestion → parseQuestionFile 输入（复用规范化与上限校验） */
+/** SplitTextQuestion → parseQuestionFile 输入（复用规范化与上限校验）；images 由调用方在解析后挂回 */
 function toStructuredInput(question: SplitTextQuestion): Record<string, unknown> {
     const record: Record<string, unknown> = { text: question.text };
     if (question.material) record.material = question.material;
@@ -234,9 +323,6 @@ function toStructuredInput(question: SplitTextQuestion): Record<string, unknown>
     if (question.difficultyStars !== null && question.difficultyStars !== undefined) record.difficultyStars = question.difficultyStars;
     if (question.wrongAnswer) record.wrongAnswer = question.wrongAnswer;
     if (question.questionType) record.questionType = question.questionType;
-    // images 字段附加（parseQuestionFile 会校验 data URL 格式）
-    const images = (question as unknown as { images?: Array<{ dataUrl: string }> }).images;
-    if (images?.length) record.images = images;
     return record;
 }
 
@@ -246,12 +332,16 @@ function toStructuredInput(question: SplitTextQuestion): Record<string, unknown>
  * 损坏的 zip 或非 docx 返回 INVALID_DOCX（index 均为 -1）。
  *
  * Word 自带公式（OMML）默认转为 LaTeX：m:oMath 输出 $…$，m:oMathPara 输出独立一行 $$…$$；
- * MathType 等 OLE 公式对象不是 OMML，在 docx 中表现为图片，仍按图片占位并计数。
+ * MathType 等 OLE 公式对象不是 OMML，在 docx 中表现为 w:object/w:pict 内嵌图片，
+ * 按图片提取、正文输出「[公式]」占位并计数。
  *
- * 图片默认真实提取：w:drawing（a:blip r:embed）与 w:pict（v:imagedata r:id）按 rId 查找
- * word/media/* 文件；png/jpeg/gif/webp/bmp 转 data URL，emf/wmf/tiff 等浏览器无法渲染的
- * 格式跳过并计入 IMAGE_UNSUPPORTED 警告。正文中用 ⟦IMG:N⟧ 占位符标记位置，
- * 分题后替换为「[图片]」并把对应图片挂到该题的 images 上。
+ * 图片默认真实提取：w:drawing（a:blip r:embed）、w:pict（v:imagedata r:id）与 run 内直接的
+ * w:object（v:imagedata r:id）按 rId 查找 word/media/* 文件；
+ * png/jpeg/gif/webp/bmp 转 data URL；WMF/EMF 以「待渲染图片」
+ * 挂到题目 images（data:image/wmf|emf;base64,…，渲染目标尺寸在 alt 中），由浏览器
+ * 导入流程渲染为 PNG 后参与合成；tiff 等浏览器无法渲染的格式跳过并计入
+ * IMAGE_UNSUPPORTED 警告。正文中用 ⟦IMG:N⟧ 占位符标记位置，
+ * 分题后替换为「[公式]」（OLE 公式对象）或「[图片]」并把对应图片挂到该题的 images 上。
  */
 export async function parseDocx(
     buffer: ArrayBuffer,
@@ -270,8 +360,7 @@ export async function parseDocx(
     }
 
     const mathCollector: DocxMathCollector = { unsupported: new Set(), oleCount: 0 };
-    const imageCollector: ImageCollector = { images: [], unsupported: new Set() };
-    const defaultImage = defaultImageHandler(imageCollector);
+    const imageCollector: ImageCollector = { images: [], unsupported: new Set() };    const defaultImage = defaultImageHandler(imageCollector);
     const mergedImage = handlers.image
         ? (element: Element, ctx: DocxContext) => handlers.image!(element, ctx) ?? defaultImage(element, ctx)
         : defaultImage;
@@ -298,13 +387,26 @@ export async function parseDocx(
         warnings.push(`${IMAGE_UNSUPPORTED_WARNING}:${listed}`);
     }
 
-    // 替换图片占位符并挂接图片
+    // 替换图片占位符并挂接图片（含 WMF/EMF 待渲染图片）
     const questionsWithImages = split.questions.map((q) => attachImagesToQuestion(q, imageCollector.images));
 
-    const result = parseQuestionFile(questionsWithImages.map(toStructuredInput));
+    const parsed = parseQuestionFile(questionsWithImages.map(toStructuredInput));
+    // docx 提取的图片（含待渲染的 WMF/EMF）绕过 parseQuestionFile 的位图 data URL 校验，
+    // 按占位符归属直接挂回对应题；被 parseQuestionFile 丢弃的题不再挂图。
+    const imagesByQuestion = new Map<SplitTextQuestion, Array<{ dataUrl: string; alt?: string; oleEquation?: boolean }>>();
+    for (const q of questionsWithImages) {
+        const images = (q as unknown as { images?: Array<{ dataUrl: string; alt?: string; oleEquation?: boolean }> }).images;
+        if (images?.length) imagesByQuestion.set(q, images);
+    }
+    const resultQuestions = parsed.questions.map((question, index) => {
+        const source = questionsWithImages[index];
+        const images = source ? imagesByQuestion.get(source) : undefined;
+        // 挂回时去掉内部分类字段（oleEquation），只保留 dataUrl/alt
+        return images?.length ? { ...question, images: images.map(({ dataUrl, alt }) => (alt === undefined ? { dataUrl } : { dataUrl, alt })) } : question;
+    });
     return {
-        questions: result.questions,
-        errors: result.errors,
-        warnings: [...warnings, ...withoutExchangeFormatWarnings(result.warnings)],
+        questions: resultQuestions,
+        errors: parsed.errors,
+        warnings: [...warnings, ...withoutExchangeFormatWarnings(parsed.warnings)],
     };
 }

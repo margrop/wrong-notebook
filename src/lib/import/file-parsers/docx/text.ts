@@ -7,8 +7,8 @@
  * - 上标输出为 ^{…}（纯数字简写为 ^2，如 x^2），下标输出为 _{…}（同规则，如 _2）。
  * - 删除线（w:strike/w:dstrike）与隐藏文字（w:vanish）跳过；
  *   修订内容保留插入（w:ins）、跳过删除（w:del）。
- * - 图片（w:drawing/w:pict）与公式（m:oMath/m:oMathPara）默认输出占位符
- *   [图片]/[公式]，可通过 handlers 参数替换（扩展点，供后续任务提取真实内容）。
+ * - 图片（w:drawing/w:pict/w:object）与公式（m:oMath/m:oMathPara）默认输出占位符
+ *   [图片]/[公式]（OLE 公式对象的 w:object 输出 [公式]），可通过 handlers 参数替换（扩展点）。
  *
  * 纯函数库，不依赖 Node 专有模块与 Prisma，可在浏览器和服务端同时使用。
  */
@@ -95,11 +95,24 @@ function readRunProperties(rPr: Element | null, context: RunContext): void {
     }
 }
 
-/** 检测 w:object 是否为 OLE 公式对象（ProgID 含 Equation，如 MathType/Equation Editor） */
-function isOleEquationObject(object: Element): boolean {
-    for (const objectElement of Array.from(object.getElementsByTagName("*"))) {
-        const progid = objectElement.getAttribute("ProgID");
-        if (progid && /Equation/i.test(progid)) return true;
+/** 检测元素（w:object 或 w:pict）是否包含 OLE 公式对象 */
+function isOleEquationObject(element: Element): boolean {
+    const objects = element.localName === "object" && element.namespaceURI === W
+        ? [element]
+        : Array.from(element.getElementsByTagNameNS(W, "object"));
+    for (const object of objects) {
+        // OLE 公式编辑器：o:OLEObject 的 ProgID 含 Equation（MathType/Equation.DSMT4 等）
+        for (const objectElement of Array.from(object.getElementsByTagName("*"))) {
+            const progid = objectElement.getAttribute("ProgID");
+            if (progid && /Equation/i.test(progid)) return true;
+        }
+        // 部分文档（WPS 等）ProgID 为空；形状类型 id 为公式对象专用（_x0000_tole_*）也视为公式
+        if (object.getElementsByTagNameNS("urn:schemas-microsoft-com:vml", "shapetype").length > 0) {
+            for (const shapetype of Array.from(object.getElementsByTagNameNS("urn:schemas-microsoft-com:vml", "shapetype"))) {
+                const id = shapetype.getAttribute("id") ?? "";
+                if (/^_x0000_tole_/i.test(id)) return true;
+            }
+        }
     }
     return false;
 }
@@ -129,8 +142,10 @@ function runText(run: Element, context: RunContext): string {
             const charHex = child.getAttributeNS(W, "char") ?? "";
             const charCode = parseInt(charHex.replace(/^0x/i, ""), 16);
             extra += Number.isFinite(charCode) ? mapSymChar(font, charCode) : "[符号]";
-        } else if (isElement(child, W, "drawing") || isElement(child, W, "pict")) {
-            if (isElement(child, W, "pict") && isOleEquationObject(child) && context.docxContext.mathCollector) {
+        } else if (isElement(child, W, "drawing") || isElement(child, W, "pict") || isElement(child, W, "object")) {
+            // w:object（run 内直接放 OLE 对象，如 MathType/公式编辑器）与 w:pict/w:drawing 一样提取图片；
+            // 图片提取与占位都走 handlers.image（默认按 OLE 公式对象输出 [公式]，否则 [图片]）
+            if (isOleEquationObject(child) && context.docxContext.mathCollector) {
                 context.docxContext.mathCollector.oleCount += 1;
             }
             extra += context.handlers.image?.(child, context.docxContext) ?? DEFAULT_IMAGE_PLACEHOLDER;
@@ -164,8 +179,10 @@ function collectRuns(node: Node, context: RunContext, out: string[]): void {
             out.push(context.handlers.math?.(element, context.docxContext) ?? DEFAULT_MATH_PLACEHOLDER);
         } else if (isElement(element, W, "hyperlink") || isElement(element, W, "smartTag")) {
             collectRuns(element, context, out);
-        } else if (isElement(element, W, "pict") || isElement(element, W, "drawing")) {
-            if (isElement(element, W, "pict") && isOleEquationObject(element) && context.docxContext.mathCollector) {
+        } else if (isElement(element, W, "pict") || isElement(element, W, "drawing") || isElement(element, W, "object")) {
+            // 与 runText 中一致：w:object（OLE 对象）与 w:pict/w:drawing 提取图片，
+            // 占位走 handlers.image（默认按 OLE 公式对象输出 [公式]，否则 [图片]）
+            if (isOleEquationObject(element) && context.docxContext.mathCollector) {
                 context.docxContext.mathCollector.oleCount += 1;
             }
             out.push(context.handlers.image?.(element, context.docxContext) ?? DEFAULT_IMAGE_PLACEHOLDER);

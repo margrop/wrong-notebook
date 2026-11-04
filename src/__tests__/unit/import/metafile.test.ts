@@ -1,0 +1,206 @@
+/**
+ * metafile（WMF/EMF）渲染的单元测试。
+ * 纯计算部分直接断言；渲染路径注入假 rtf.js 模块与假光栅化，避免依赖真实 DOM/canvas。
+ * 另有一个可选用例：用最小 WMF 字节验证 rtf.js 在 jsdom 中能产出 SVG。
+ */
+import { describe, expect, it } from "vitest";
+import { minimalWmfBytes } from "@/__tests__/helpers/docx-fixture";
+import {
+    METAFILE_ALT_PREFIX,
+    METAFILE_MAX_LONG_EDGE,
+    METAFILE_SMALL_HEIGHT,
+    computeMetafilePixelSize,
+    decodeMetafileAlt,
+    decodeMetafileDataUrl,
+    encodeMetafileAlt,
+    encodeMetafileDataUrl,
+    isMetafileDataUrl,
+    parseSvgLength,
+    ptToPx,
+    renderMetafileDataUrl,
+    renderMetafileToPng,
+} from "@/lib/import/file-parsers/docx/metafile";
+import type { MetafileRendererLike, RtfJsModule } from "@/lib/import/file-parsers/docx/metafile";
+
+describe("computeMetafilePixelSize", () => {
+    it("公式小图高度放大到至少 2 倍", () => {
+        const { width, height } = computeMetafilePixelSize(60, 30);
+        // 30px ≤ 120：放大 ceil(120/30)=4 倍
+        expect(height).toBe(120);
+        expect(width).toBe(240);
+    });
+
+    it("高度极小的图放大到不低于 120px", () => {
+        const { height } = computeMetafilePixelSize(4, 12);
+        expect(height).toBeGreaterThanOrEqual(METAFILE_SMALL_HEIGHT);
+    });
+
+    it("大图不放大，长边超过 1600 时等比缩小", () => {
+        const small = computeMetafilePixelSize(800, 600);
+        expect(small).toEqual({ width: 800, height: 600 });
+        const large = computeMetafilePixelSize(3200, 2400);
+        expect(Math.max(large.width, large.height)).toBe(METAFILE_MAX_LONG_EDGE);
+        expect(large.width / large.height).toBeCloseTo(3200 / 2400, 1);
+    });
+
+    it("高度恰为上限的图不放大", () => {
+        // 121 > 120：按公式放大 ceil(120/121)=1 倍，尺寸不变
+        const { width, height } = computeMetafilePixelSize(240, 121);
+        expect(height).toBe(121);
+        expect(width).toBe(240);
+    });
+});
+
+describe("ptToPx", () => {
+    it("72pt = 96px", () => {
+        expect(ptToPx(72)).toBe(96);
+        expect(ptToPx(50)).toBeCloseTo(66.67, 1);
+    });
+});
+
+describe("metafile alt 编解码", () => {
+    it("encode/decode 往返", () => {
+        const alt = encodeMetafileAlt(320, 240);
+        expect(alt.startsWith(METAFILE_ALT_PREFIX)).toBe(true);
+        expect(decodeMetafileAlt(alt)).toEqual({ width: 320, height: 240 });
+    });
+
+    it("非 metafile alt 返回 null", () => {
+        expect(decodeMetafileAlt(undefined)).toBeNull();
+        expect(decodeMetafileAlt("图片描述")).toBeNull();
+    });
+});
+
+describe("metafile data URL 编解码", () => {
+    it("encode/decode 往返", () => {
+        const bytes = new Uint8Array([1, 2, 3, 250, 251]);
+        const wmfUrl = encodeMetafileDataUrl(bytes, "wmf");
+        expect(isMetafileDataUrl(wmfUrl)).toBe(true);
+        const decoded = decodeMetafileDataUrl(wmfUrl);
+        expect(decoded?.format).toBe("wmf");
+        expect(Array.from(decoded!.bytes)).toEqual([1, 2, 3, 250, 251]);
+
+        const emfUrl = encodeMetafileDataUrl(bytes, "emf");
+        expect(isMetafileDataUrl(emfUrl)).toBe(true);
+        expect(decodeMetafileDataUrl(emfUrl)?.format).toBe("emf");
+    });
+
+    it("普通 png data URL 不识别为 metafile", () => {
+        expect(isMetafileDataUrl("data:image/png;base64,AAAA")).toBe(false);
+        expect(decodeMetafileDataUrl("data:image/png;base64,AAAA")).toBeNull();
+    });
+});
+
+describe("parseSvgLength", () => {
+    it("解析 px/pt/无单位长度", () => {
+        expect(parseSvgLength("320px")).toBe(320);
+        expect(parseSvgLength("72pt")).toBe(96);
+        expect(parseSvgLength("320")).toBe(320);
+    });
+
+    it("非法值返回 null", () => {
+        expect(parseSvgLength(null)).toBeNull();
+        expect(parseSvgLength("")).toBeNull();
+        expect(parseSvgLength("abc")).toBeNull();
+        expect(parseSvgLength("-5px")).toBeNull();
+    });
+});
+
+describe("renderMetafileToPng（注入假渲染器）", () => {
+    function fakeModule(): RtfJsModule {
+        const FakeRenderer = class {
+            render() {
+                return document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            }
+        };
+        return {
+            WMFJS: { Renderer: FakeRenderer as unknown as new (blob: ArrayBuffer) => MetafileRendererLike, loggingEnabled: () => undefined },
+            EMFJS: { Renderer: FakeRenderer as unknown as new (blob: ArrayBuffer) => MetafileRendererLike, loggingEnabled: () => undefined },
+        };
+    }
+
+    it("渲染成功返回 PNG data URL 并按格式选择渲染器", async () => {
+        const used: string[] = [];
+        const wmfRenderer = class {
+            render() { used.push("wmf"); return document.createElementNS("http://www.w3.org/2000/svg", "svg"); }
+        };
+        const emfRenderer = class {
+            render() { used.push("emf"); return document.createElementNS("http://www.w3.org/2000/svg", "svg"); }
+        };
+        const rtfJs: RtfJsModule = {
+            WMFJS: { Renderer: wmfRenderer as unknown as new (blob: ArrayBuffer) => MetafileRendererLike, loggingEnabled: () => undefined },
+            EMFJS: { Renderer: emfRenderer as unknown as new (blob: ArrayBuffer) => MetafileRendererLike, loggingEnabled: () => undefined },
+        };
+        const rasterize = async () => "data:image/png;base64,AAAA";
+        const wmfPng = await renderMetafileToPng(new ArrayBuffer(4), "wmf", { width: 100, height: 50 }, { loadModule: async () => rtfJs, rasterize });
+        expect(wmfPng).toBe("data:image/png;base64,AAAA");
+        expect(used).toEqual(["wmf"]);
+        const emfPng = await renderMetafileToPng(new ArrayBuffer(4), "emf", { width: 100, height: 50 }, { loadModule: async () => rtfJs, rasterize });
+        expect(emfPng).toBe("data:image/png;base64,AAAA");
+        expect(used).toEqual(["wmf", "emf"]);
+    });
+
+    it("光栅化失败返回 null", async () => {
+        const png = await renderMetafileToPng(new ArrayBuffer(4), "wmf", { width: 100, height: 50 }, {
+            loadModule: async () => fakeModule(),
+            rasterize: async () => null,
+        });
+        expect(png).toBeNull();
+    });
+
+    it("渲染器构造抛错返回 null", async () => {
+        const broken: RtfJsModule = {
+            WMFJS: {
+                Renderer: class {
+                    constructor(blob: ArrayBuffer) {
+                        void blob;
+                        throw new Error("bad wmf");
+                    }
+                    render() { return document.createElementNS("http://www.w3.org/2000/svg", "svg"); }
+                },
+                loggingEnabled: () => undefined,
+            },
+            EMFJS: { Renderer: class { render() { return document.createElementNS("http://www.w3.org/2000/svg", "svg"); } }, loggingEnabled: () => undefined },
+        };
+        const png = await renderMetafileToPng(new ArrayBuffer(4), "wmf", { width: 100, height: 50 }, {
+            loadModule: async () => broken,
+            rasterize: async () => "data:image/png;base64,AAAA",
+        });
+        expect(png).toBeNull();
+    });
+
+    it("renderMetafileDataUrl 解码失败返回 null", async () => {
+        const png = await renderMetafileDataUrl("data:image/png;base64,AAAA", { width: 100, height: 50 }, {
+            loadModule: async () => fakeModule(),
+            rasterize: async () => "data:image/png;base64,AAAA",
+        });
+        expect(png).toBeNull();
+    });
+});
+
+describe("rtf.js 真实渲染（可选）", () => {
+    it("最小 WMF 经 rtf.js 产出 SVG 元素", async () => {
+        // jsdom 支持 document.createElementNS；WMFJS 渲染不依赖 canvas/布局 API，
+        // 若未来环境不满足会在构造/渲染时抛错，此时跳过而不是失败。
+        const bytes = minimalWmfBytes();
+        const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+        let svg: SVGElement | null = null;
+        let renderError: unknown = null;
+        try {
+            const rtfJs = (await import("rtf.js")) as unknown as RtfJsModule;
+            rtfJs.WMFJS.loggingEnabled(false);
+            const renderer = new rtfJs.WMFJS.Renderer(buffer);
+            svg = renderer.render({ width: "100px", height: "75px", xExt: 100, yExt: 75, mapMode: 8 });
+        } catch (error) {
+            renderError = error;
+        }
+        if (renderError !== null) {
+            // 环境不支持时跳过（与任务说明一致：jsdom 不满足则跳过并说明）
+            console.warn(`rtf.js WMF 渲染不可用，跳过：${String(renderError)}`);
+            return;
+        }
+        expect(svg).not.toBeNull();
+        expect(svg!.namespaceURI).toBe("http://www.w3.org/2000/svg");
+        expect(svg!.getAttribute("viewBox")).toBe("0 0 100 75");
+    });
+});

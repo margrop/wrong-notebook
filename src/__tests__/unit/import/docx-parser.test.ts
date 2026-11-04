@@ -21,6 +21,7 @@ import {
     oMathPara,
     oMathRun,
     oleEquationRun,
+    oleObjectRun,
     para,
     run,
     strikeRun,
@@ -32,6 +33,7 @@ import {
     vanishRun,
 } from "@/__tests__/helpers/docx-fixture";
 import { parseDocx } from "@/lib/import/file-parsers/docx";
+import { decodeMetafileAlt, encodeMetafileDataUrl, isMetafileDataUrl } from "@/lib/import/file-parsers/docx/metafile";
 import { toChineseNumber, toRoman } from "@/lib/import/file-parsers/docx/numbering";
 
 const t = (text: string) => run(text);
@@ -253,17 +255,114 @@ describe("docx 解析：图片真实提取（T18）", () => {
         expect(result.questions[0].images![0].dataUrl).toMatch(/^data:image\/jpeg;base64,/);
     });
 
-    it("不支持的格式（emf）跳过并计入 IMAGE_UNSUPPORTED 警告", async () => {
-        const emfRun = `<w:r><w:drawing><wp:inline><a:graphic><a:graphicData><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:blipFill><a:blip r:embed="rId7"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+    it("不支持的格式（tiff）跳过并计入 IMAGE_UNSUPPORTED 警告", async () => {
+        const tiffRun = `<w:r><w:drawing><wp:inline><a:graphic><a:graphicData><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:blipFill><a:blip r:embed="rId7"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
         const buffer = makeDocxBuffer({
-            body: para(t("1．如图") + emfRun + t("，求值")),
-            rels: '<Relationship Id="rId7" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.emf"/>',
-            extraFiles: { "word/media/image1.emf": new Uint8Array([0x01, 0x00, 0x00, 0x00]) },
+            body: para(t("1．如图") + tiffRun + t("，求值")),
+            rels: '<Relationship Id="rId7" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.tiff"/>',
+            extraFiles: { "word/media/image1.tiff": new Uint8Array([0x49, 0x49, 0x2a, 0x00]) },
         });
         const result = await parseDocx(buffer);
-        expect(result.warnings.some((w) => w.startsWith("IMAGE_UNSUPPORTED:") && w.includes("emf"))).toBe(true);
+        expect(result.warnings.some((w) => w.startsWith("IMAGE_UNSUPPORTED:") && w.includes("tiff"))).toBe(true);
         expect(result.questions[0].text).toContain("如图[图片]，求值");
         expect(result.questions[0].images).toBeUndefined();
+    });
+
+    it("OLE 公式对象（run 内 w:object 引用 WMF 预览图）解析为待渲染图片，正文保留 [公式] 占位", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("1．化简 ") + oleObjectRun() + t(" 的结果")),
+            rels: '<Relationship Id="rIdWmf" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.wmf"/>',
+            extraFiles: { "word/media/image1.wmf": new Uint8Array([0xd7, 0xcd, 0xc6, 0x9a, 1, 2, 3, 4]) },
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(1);
+        // 行内公式位置保留 [公式] 占位（w:object 含 OLE 公式对象）
+        expect(result.questions[0].text).toContain("化简 [公式] 的结果");
+        expect(result.questions[0].text).not.toContain("[图片]");
+        // 待渲染图片：wmf data URL + alt 携带渲染目标尺寸
+        const images = result.questions[0].images!;
+        expect(images).toHaveLength(1);
+        expect(isMetafileDataUrl(images[0].dataUrl)).toBe(true);
+        expect(images[0].dataUrl.startsWith("data:image/wmf;base64,")).toBe(true);
+        const target = decodeMetafileAlt(images[0].alt);
+        expect(target).not.toBeNull();
+        // 10pt×28pt → 显示高度 28pt×96/72 ≈ 37px，属公式小图，放大后 ≥120px
+        expect(target!.height).toBeGreaterThanOrEqual(120);
+        // OLE 公式对象计数
+        expect(result.warnings.some((w) => w === "OLE_EQUATION:1")).toBe(true);
+    });
+
+    it("run 内 w:object 的 EMF 预览图同样解析为待渲染图片，占位为 [公式]", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("1．") + oleObjectRun("rIdEmf", "rIdOle2", "width:20pt;height:14pt", "Equation.3") + t(" 求值")),
+            rels: '<Relationship Id="rIdEmf" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.emf"/>',
+            extraFiles: { "word/media/image1.emf": new Uint8Array([0x01, 0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00]) },
+        });
+        const result = await parseDocx(buffer);
+        const images = result.questions[0].images!;
+        expect(images).toHaveLength(1);
+        expect(images[0].dataUrl.startsWith("data:image/emf;base64,")).toBe(true);
+        expect(result.questions[0].text).toContain("[公式]");
+        // 无 IMAGE_UNSUPPORTED 中的 emf/wmf 警告（tiff 等才报）
+        expect(result.warnings.some((w) => w.startsWith("IMAGE_UNSUPPORTED:") && (w.includes("emf") || w.includes("wmf")))).toBe(false);
+    });
+
+    it("w:object 的 v:imagedata 指向普通位图时按图片处理，占位为 [公式]（OLE 公式对象）", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("1．如图 ") + oleObjectRun("rIdPng", "rIdOle3") + t("，求值")),
+            rels: '<Relationship Id="rIdPng" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>',
+            extraFiles: { "word/media/image1.png": pngBytes },
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("如图 [公式]，求值");
+        const images = result.questions[0].images!;
+        expect(images).toHaveLength(1);
+        expect(images[0].dataUrl).toMatch(/^data:image\/png;base64,/);
+    });
+
+    it("ProgID 为空的公式对象（WPS 形态，shapetype id 为 _x0000_tole_*）占位为 [公式]", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("1．化简 ") + oleObjectRun("rIdWmf", "rIdOle", "width:10pt;height:28pt", "") + t(" 的结果")),
+            rels: '<Relationship Id="rIdWmf" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.wmf"/>',
+            extraFiles: { "word/media/image1.wmf": new Uint8Array([0xd7, 0xcd, 0xc6, 0x9a, 9, 9]) },
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("化简 [公式] 的结果");
+        expect(result.questions[0].images).toHaveLength(1);
+        expect(result.warnings.some((w) => w === "OLE_EQUATION:1")).toBe(true);
+    });
+
+    it("多个 w:object 公式图片按出现顺序归属对应题目", async () => {
+        const wmfBytesA = new Uint8Array([0xd7, 0xcd, 0xc6, 0x9a, 1, 1]);
+        const wmfBytesB = new Uint8Array([0xd7, 0xcd, 0xc6, 0x9a, 2, 2]);
+        const buffer = makeDocxBuffer({
+            body: [
+                para(t("1．化简 ") + oleObjectRun("rIdA", "rIdOleA") + t("，再求 ") + oleObjectRun("rIdB", "rIdOleB") + t(" 的值")),
+                para(t("2．计算 ") + oleObjectRun("rIdC", "rIdOleC") + t(" 的结果")),
+            ].join(""),
+            rels: [
+                '<Relationship Id="rIdA" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.wmf"/>',
+                '<Relationship Id="rIdB" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image2.wmf"/>',
+                '<Relationship Id="rIdC" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image3.wmf"/>',
+            ].join(""),
+            extraFiles: {
+                "word/media/image1.wmf": wmfBytesA,
+                "word/media/image2.wmf": wmfBytesB,
+                "word/media/image3.wmf": new Uint8Array([0xd7, 0xcd, 0xc6, 0x9a, 3, 3]),
+            },
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(2);
+        // 第一题：两个公式占位、两张图按出现顺序
+        expect(result.questions[0].text).toContain("化简 [公式]，再求 [公式] 的值");
+        expect(result.questions[0].images).toHaveLength(2);
+        expect(result.questions[0].images![0].dataUrl).toContain(encodeMetafileDataUrl(wmfBytesA, "wmf").slice(30, 60));
+        // 第二题：一个公式占位、一张图（与第一题的图不同）
+        expect(result.questions[1].text).toContain("计算 [公式] 的结果");
+        expect(result.questions[1].images).toHaveLength(1);
+        expect(result.questions[1].images![0].dataUrl).not.toBe(result.questions[0].images![0].dataUrl);
+        // OLE 公式对象计数 = 3
+        expect(result.warnings.some((w) => w === "OLE_EQUATION:3")).toBe(true);
     });
 
     it("多图归属：每题只挂自己的图片", async () => {
@@ -305,7 +404,7 @@ describe("docx 解析：图片真实提取（T18）", () => {
         expect(result.questions[0].images).toHaveLength(1);
     });
 
-    it("MathType OLE 公式对象的预览图也作为图片导入", async () => {
+    it("MathType OLE 公式对象的预览图也作为图片导入，占位为 [公式]", async () => {
         const buffer = makeDocxBuffer({
             body: para(t("1．") + oleEquationRun()),
             rels: '<Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>',
@@ -314,7 +413,7 @@ describe("docx 解析：图片真实提取（T18）", () => {
         const result = await parseDocx(buffer);
         // OLE_EQUATION 计数与图片提取共存
         expect(result.warnings).toContain("OLE_EQUATION:1");
-        expect(result.questions[0].text).toContain("[图片]");
+        expect(result.questions[0].text).toContain("[公式]");
         expect(result.questions[0].images).toHaveLength(1);
     });
 

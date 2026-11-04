@@ -47,6 +47,15 @@ describe("describeWarning", () => {
         expect(describeWarning("UNKNOWN_COLUMN:备注", "zh")).toContain("备注");
     });
 
+    it("metafile 渲染警告解析参数", () => {
+        expect(describeWarning("METAFILE_RENDERED:3", "zh")).toContain("3");
+        expect(describeWarning("METAFILE_RENDERED:3", "en")).toContain("3");
+        expect(describeWarning("METAFILE_FAILED:1", "zh")).toContain("1");
+        expect(describeWarning("METAFILE_FAILED:1", "en")).toContain("1");
+        expect(describeWarning("METAFILE_TRUNCATED:2", "zh")).toContain("2");
+        expect(describeWarning("METAFILE_TRUNCATED:2", "en")).toContain("2");
+    });
+
     it("保留 xlsx 工作表前缀", () => {
         const text = describeWarning("[Sheet1] UNKNOWN_COLUMN:备注", "zh");
         expect(text).toContain("[Sheet1]");

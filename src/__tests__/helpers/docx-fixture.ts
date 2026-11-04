@@ -128,6 +128,51 @@ export function oleEquationRun(progId = "Equation.DSMT4"): string {
     return `<w:r><w:pict><v:shape xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" style="width:100pt;height:20pt"><w:object w:dxaOrig="1000" w:dyaOrig="200"><v:imagedata r:id="rId5"/><o:OLEObject Type="Embed" ProgID="${esc(progId)}"/></w:object></v:shape></w:pict></w:r>`;
 }
 
+/** OLE 公式对象（w:pict 形态，v:imagedata 引用 WMF），v:shape 指定 pt 显示尺寸 */
+export function oleEquationWmfRun(rid = "rIdWmf", style = "width:50pt;height:25pt"): string {
+    return `<w:r><w:pict><v:shape xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" style="${esc(style)}"><w:object w:dxaOrig="1000" w:dyaOrig="500"><v:imagedata r:id="${esc(rid)}"/><o:OLEObject Type="Embed" ProgID="Equation.DSMT4"/></w:object></v:shape></w:pict></w:r>`;
+}
+
+/**
+ * OLE 公式对象（真实文档形态：run 内直接放 w:object，MathType/公式编辑器 3.0）。
+ * w:object 内含 v:shapetype（公式专用 id _x0000_tole_*）、v:shape（style 指定显示尺寸）
+ * 与 o:OLEObject；v:imagedata 的 r:id 指向 word/media/imageN.wmf（rels 中 Type 为 image）。
+ * progId 传空字符串可模拟 WPS 等 ProgID 为空的文档。
+ */
+export function oleObjectRun(imageRid = "rIdWmf", objectRid = "rIdOle", style = "width:10pt;height:28pt", progId = "Equation.DSMT4"): string {
+    const progidAttr = progId ? ` ProgID="${esc(progId)}"` : ` ProgID=""`;
+    return `<w:r><w:object w:dxaOrig="200" w:dyaOrig="560"><v:shapetype xmlns:v="urn:schemas-microsoft-com:vml" id="_x0000_tole_${esc(objectRid)}" coordsize="21600,21600" o:spt="75" adj="16200" path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f"><v:formulas/><v:path/><o:lock xmlns:o="urn:schemas-microsoft-com:office:office" v:ext="edit"/></v:shapetype><v:shape xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" id="ole_${esc(objectRid)}" type="#_x0000_tole_${esc(objectRid)}" style="${esc(style)}" filled="f" o:ole=""><v:imagedata r:id="${esc(imageRid)}" o:title=""/></v:shape><o:OLEObject xmlns:o="urn:schemas-microsoft-com:office:office" Type="Embed"${progidAttr} ShapeID="ole_${esc(objectRid)}" r:id="${esc(objectRid)}"/></w:object></w:r>`;
+}
+
+/**
+ * 最小可用的 WMF 字节（placeable WMF：头 + 标准头 + SetWindowOrg + SetWindowExt + 矩形 + EOF）。
+ * 可被 rtf.js 的 WMFJS.Renderer 解析并渲染出一个黑色矩形 SVG，供测试真实渲染路径。
+ */
+export function minimalWmfBytes(): Uint8Array {
+    // 以 16 位小端字为单位依次写入
+    const words: number[] = [];
+    // placeable 头：key 0x9AC6CDD7、hmf、bbox(left,top,right,bottom)、inch、reserved、checksum
+    words.push(0xcdd7, 0x9ac6, 0, 0, 0, 400, 300, 0, 576, 0, 0, 0, 0);
+    // 标准 metafile 头（9 字）：type、headerSize、version、size(2 字)、objects、maxRecord(2 字)、numOfParams
+    words.push(1, 9, 0x0300, 0, 0, 0, 0x002c, 0, 0);
+    // SetWindowOrg(0, 0)：size=5、func=0x020B
+    words.push(5, 0x020b, 0, 0);
+    // SetWindowExt(400, 300)：size=5、func=0x020C
+    words.push(5, 0x020c, 400, 300);
+    // 矩形：MoveTo(0,0)、四次 LineTo
+    words.push(5, 0x0214, 0, 0);
+    words.push(5, 0x0213, 400, 0);
+    words.push(5, 0x0213, 400, 300);
+    words.push(5, 0x0213, 0, 300);
+    words.push(5, 0x0213, 0, 0);
+    // EOF：size=3、func=0
+    words.push(3, 0);
+    const bytes = new Uint8Array(words.length * 2);
+    const view = new DataView(bytes.buffer);
+    for (let i = 0; i < words.length; i++) view.setUint16(i * 2, words[i], true);
+    return bytes;
+}
+
 /** 普通段落 */
 export function para(runsXml: string, extraPPr = ""): string {
     const pPr = extraPPr ? `<w:pPr>${extraPPr}</w:pPr>` : "";
@@ -199,7 +244,7 @@ export function makeDocxBuffer(options: MinimalDocxOptions): ArrayBuffer {
             `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`
         ),
         "word/document.xml": new TextEncoder().encode(
-            `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>${options.body}</w:body></w:document>`
+            `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><w:body>${options.body}</w:body></w:document>`
         ),
     };
     if (options.numbering !== undefined) {

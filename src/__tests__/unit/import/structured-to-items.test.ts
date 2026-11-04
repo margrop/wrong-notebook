@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     countIgnoredFields,
+    limitQuestionImages,
     structuredQuestionToItem,
     structuredQuestionsToItems,
     structuredQuestionsToItemsAsync,
@@ -162,5 +163,112 @@ describe("structuredQuestionsToItemsAsync", () => {
         });
         expect(items[0].text).toBe("a");
         expect(items[0].image).toBeNull();
+    });
+});
+
+describe("structuredQuestionsToItemsAsync：metafile（WMF/EMF）渲染", () => {
+    const fakeRenderer: ImageRenderer = {
+        async renderComposite(images: SourceImage[], layout) {
+            return `composite:${layout.canvasWidth}x${layout.canvasHeight}:${images.length}`;
+        },
+        async renderSingle(image: SourceImage) {
+            return `single:${image.width}x${image.height}`;
+        },
+    };
+
+    /** 注入的假 metafile 渲染器：wmf/emf 一律渲染为固定 PNG */
+    const metafileDeps = {
+        loadModule: async () => ({
+            WMFJS: { Renderer: class { render() { return document.createElementNS("http://www.w3.org/2000/svg", "svg"); } }, loggingEnabled: () => undefined },
+            EMFJS: { Renderer: class { render() { return document.createElementNS("http://www.w3.org/2000/svg", "svg"); } }, loggingEnabled: () => undefined },
+        }),
+        rasterize: async () => "data:image/png;base64,METAFILEPNG",
+    };
+
+    // 本组用例专用的 decode：width = height = dataUrl.length
+    const squareDecode = async (dataUrl: string): Promise<SourceImage> => ({
+        source: {} as CanvasImageSource,
+        width: dataUrl.length,
+        height: dataUrl.length,
+    });
+
+    it("待渲染 metafile 图片先渲染为 PNG 再参与合成", async () => {
+        const questions: StructuredQuestion[] = [
+            {
+                text: "a",
+                images: [
+                    { dataUrl: "data:image/wmf;base64,AAAA", alt: "metafile;200x100" },
+                    { dataUrl: "data:image/emf;base64,BBBB", alt: "metafile;300x150" },
+                ],
+            },
+        ];
+        const counts = { rendered: 0, failed: 0 };
+        const items = await structuredQuestionsToItemsAsync(questions, {
+            renderer: fakeRenderer,
+            decodeFn: squareDecode,
+            metafileDeps,
+            metafileCounts: counts,
+        });
+        // 两张 metafile 都渲染为 data:image/png;base64,METAFILEPNG（长 33），
+        // 两张一起 composite：宽 33、高 33×2 + 16 = 82
+        expect(items[0].image).toBe("composite:33x82:2");
+        expect(counts).toEqual({ rendered: 2, failed: 0 });
+    });
+
+    it("metafile 渲染失败剔除并计入 failed，其余图片照常合成", async () => {
+        const questions: StructuredQuestion[] = [
+            {
+                text: "a",
+                images: [
+                    { dataUrl: "data:image/wmf;base64,BADWMF" },
+                    { dataUrl: "data:image/png;base64,AAAA" },
+                ],
+            },
+        ];
+        const counts = { rendered: 0, failed: 0 };
+        const failingDeps = { ...metafileDeps, rasterize: async () => null };
+        const items = await structuredQuestionsToItemsAsync(questions, {
+            renderer: fakeRenderer,
+            decodeFn: squareDecode,
+            metafileDeps: failingDeps,
+            metafileCounts: counts,
+        });
+        expect(items[0].image).toMatch(/^single:/);
+        expect(counts).toEqual({ rendered: 0, failed: 1 });
+    });
+
+    it("单题 metafile 超过 12 张只拼接前 12 张并计截断", async () => {
+        // base64 主体长度取 4 的倍数，保证 atob 可解码
+        const images = Array.from({ length: 14 }, (_, i) => ({
+            dataUrl: `data:image/wmf;base64,${"AAAA".repeat(i + 1)}`,
+            alt: "metafile;100x50",
+        }));
+        images.push({ dataUrl: "data:image/png;base64,QQ==", alt: "普通图" });
+        const questions: StructuredQuestion[] = [{ text: "a", images }];
+        const counts = { rendered: 0, failed: 0 };
+        const truncated = { count: 0 };
+        const items = await structuredQuestionsToItemsAsync(questions, {
+            renderer: fakeRenderer,
+            decodeFn: squareDecode,
+            metafileDeps,
+            metafileCounts: counts,
+            metafileTruncated: truncated,
+        });
+        // 12 张 metafile（渲染后为 data:image/png;base64,METAFILEPNG，长 33，等宽 33）
+        // + 1 张普通图 data:image/png;base64,QQ==（长 26，缩放宽 33 → 高 33）
+        // composite 宽 33；高 12×33 + 33 + 13×16 = 625（普通图缩放高度取整为 29）
+        expect(items[0].image).toBe("composite:33x621:13");
+        expect(counts.rendered).toBe(12);
+        expect(truncated.count).toBe(2);
+    });
+
+    it("limitQuestionImages：普通图片不受 metafile 上限限制", () => {
+        const images = [
+            ...Array.from({ length: 15 }, () => ({ dataUrl: "data:image/png;base64,AA" })),
+            ...Array.from({ length: 13 }, () => ({ dataUrl: "data:image/wmf;base64,AA" })),
+        ];
+        const { images: kept, truncatedMetafiles } = limitQuestionImages(images);
+        expect(kept).toHaveLength(15 + 12);
+        expect(truncatedMetafiles).toBe(1);
     });
 });

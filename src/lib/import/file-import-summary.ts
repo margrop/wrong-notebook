@@ -196,6 +196,18 @@ const WARNING_PARAMETERIZED_CODES: Record<string, { zh: (p: string) => string; e
         zh: (p) => `以下格式的图片暂不支持导入，已跳过：${p}`,
         en: (p) => `Image format(s) not supported, skipped: ${p}`,
     },
+    METAFILE_RENDERED: {
+        zh: (p) => `${p} 个公式预览图（WMF/EMF）已渲染为图片`,
+        en: (p) => `${p} equation preview image(s) (WMF/EMF) rendered`,
+    },
+    METAFILE_FAILED: {
+        zh: (p) => `${p} 个公式预览图（WMF/EMF）渲染失败，未包含在题目原图中`,
+        en: (p) => `${p} equation preview image(s) (WMF/EMF) failed to render and were left out`,
+    },
+    METAFILE_TRUNCATED: {
+        zh: (p) => `${p} 个公式小图超出单题拼接上限，未包含在题目原图中`,
+        en: (p) => `${p} small equation image(s) exceeded the per-question merge limit and were left out`,
+    },
     OLE_EQUATION: {
         zh: (p) => `${p} 个 MathType 公式对象按图片导入`,
         en: (p) => `${p} MathType equation object(s) imported as image(s)`,

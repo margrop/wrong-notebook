@@ -7,7 +7,7 @@ import { frontendLogger } from "@/lib/frontend-logger";
 import { getErrorMessage } from "@/lib/error-message";
 import type { ImportFileTypeDef } from "@/lib/import/file-read";
 import { getFileParser } from "@/lib/import/file-parsers";
-import { buildImportSummary } from "@/lib/import/file-import-summary";
+import { buildImportSummary, describeWarning } from "@/lib/import/file-import-summary";
 import type { FileImportSummary, ImportLanguage } from "@/lib/import/file-import-summary";
 import { structuredQuestionsToItemsAsync } from "@/lib/import/structured-to-items";
 import {
@@ -167,6 +167,8 @@ export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps, 
 
         // 有图片的题需要先合成压缩；通过 phase 切换显示进度
         const hasImages = questions.some((q) => q.images?.length);
+        const metafileCounts = { rendered: 0, failed: 0 };
+        const metafileTruncated = { count: 0 };
         let items;
         try {
             if (hasImages) {
@@ -174,6 +176,8 @@ export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps, 
                 items = await structuredQuestionsToItemsAsync(questions, {
                     renderer,
                     decodeFn: sourceImageFromDataUrl,
+                    metafileCounts,
+                    metafileTruncated,
                     onProgress: (done, total) => {
                         setPhase({ kind: "processingImages", fileName: phase.fileName, done, total });
                     },
@@ -190,6 +194,11 @@ export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps, 
         for (const warning of captureWarnings) {
             toast.warning(warning);
         }
+        // metafile（WMF/EMF 公式预览图）渲染结果：成功/失败/截断计数补进导入摘要
+        const extraWarnings: string[] = [];
+        if (metafileCounts.rendered > 0) extraWarnings.push(describeWarning(`METAFILE_RENDERED:${metafileCounts.rendered}`, language));
+        if (metafileCounts.failed > 0) extraWarnings.push(describeWarning(`METAFILE_FAILED:${metafileCounts.failed}`, language));
+        if (metafileTruncated.count > 0) extraWarnings.push(describeWarning(`METAFILE_TRUNCATED:${metafileTruncated.count}`, language));
         setPhase({ kind: "creating", fileName: phase.fileName, batchCount: Math.ceil(phase.summary.total / 60) });
         try {
             const { batches, failures } = await createStructuredImportBatches(items, {
