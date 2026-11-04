@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
     getServerSession: vi.fn(),
+    userFindUnique: vi.fn(),
     startDeviceLogin: vi.fn(),
     pollDeviceLogin: vi.fn(),
     fetchProfile: vi.fn(),
@@ -19,6 +20,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
+vi.mock('@/lib/prisma', () => ({ prisma: { user: { findUnique: mocks.userFindUnique } } }));
 vi.mock('@/lib/minimax-code/api', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/lib/minimax-code/api')>()),
     startDeviceLogin: mocks.startDeviceLogin,
@@ -36,8 +38,10 @@ import { GET as POLL, POST as START } from '@/app/api/minimax-code/login/route';
 import { MiniMaxCodeAuthError } from '@/lib/minimax-code/api';
 import { readMiniMaxCodeState, updateMiniMaxCodeState } from '@/lib/minimax-code/store';
 
-const adminSession = { user: { id: 'admin-1', role: 'admin' }, expires: '2099-01-01' };
-const userSession = { user: { id: 'user-1', role: 'user' }, expires: '2099-01-01' };
+const adminSession = { user: { id: 'admin-1', email: 'admin@localhost', role: 'admin' }, expires: '2099-01-01' };
+const userSession = { user: { id: 'user-1', email: 'user@localhost', role: 'user' }, expires: '2099-01-01' };
+const adminDbUser = { id: 'admin-1', email: 'admin@localhost', name: 'Admin', role: 'admin' };
+const userDbUser = { id: 'user-1', email: 'user@localhost', name: 'User', role: 'user' };
 
 let dir: string;
 const originalConfigDir = process.env.CONFIG_DIR;
@@ -60,6 +64,7 @@ beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'minimax-code-api-'));
     process.env.CONFIG_DIR = dir;
     mocks.getServerSession.mockResolvedValue(adminSession);
+    mocks.userFindUnique.mockResolvedValue(adminDbUser);
 });
 
 afterEach(() => {
@@ -72,6 +77,7 @@ describe('权限', () => {
         mocks.getServerSession.mockResolvedValue(null);
         expect((await GET()).status).toBe(401);
         mocks.getServerSession.mockResolvedValue(userSession);
+        mocks.userFindUnique.mockResolvedValue(userDbUser);
         expect((await GET()).status).toBe(403);
         expect((await DELETE()).status).toBe(403);
         expect((await START()).status).toBe(403);

@@ -6,19 +6,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
     getServerSession: vi.fn(),
     getAppConfig: vi.fn(() => ({ aiProvider: 'gemini', gemini: { apiKey: 'AIza-real-key', model: 'gemini-2.5-flash' } })),
+    userFindUnique: vi.fn(),
 }));
 
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.mock('@/lib/config', () => ({ getAppConfig: mocks.getAppConfig }));
+vi.mock('@/lib/prisma', () => ({ prisma: { user: { findUnique: mocks.userFindUnique } } }));
 
 import { DELETE, GET, POST } from '@/app/api/admin/debug-logs/route';
 import { GET as EXPORT } from '@/app/api/admin/debug-logs/export/route';
 import { clearDebugLogs, setDebugMode } from '@/lib/debug-log';
 import { createLogger } from '@/lib/logger';
 
-const admin = { user: { id: 'admin-1', role: 'admin' }, expires: '2099-01-01' };
-const user = { user: { id: 'user-1', role: 'user' }, expires: '2099-01-01' };
+const admin = { user: { id: 'admin-1', email: 'admin@localhost', role: 'admin' }, expires: '2099-01-01' };
+const user = { user: { id: 'user-1', email: 'user@localhost', role: 'user' }, expires: '2099-01-01' };
+const adminDbUser = { id: 'admin-1', email: 'admin@localhost', name: 'Admin', role: 'admin' };
+const userDbUser = { id: 'user-1', email: 'user@localhost', name: 'User', role: 'user' };
 
 function toggle(body: unknown) {
     return POST(new Request('http://localhost/api/admin/debug-logs', { method: 'POST', body: JSON.stringify(body) }));
@@ -28,6 +32,7 @@ describe('/api/admin/debug-logs', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mocks.getServerSession.mockResolvedValue(admin);
+        mocks.userFindUnique.mockResolvedValue(adminDbUser);
     });
 
     afterEach(() => {
@@ -39,6 +44,7 @@ describe('/api/admin/debug-logs', () => {
         mocks.getServerSession.mockResolvedValue(null);
         expect((await GET()).status).toBe(401);
         mocks.getServerSession.mockResolvedValue(user);
+        mocks.userFindUnique.mockResolvedValue(userDbUser);
         expect((await GET()).status).toBe(403);
         expect((await toggle({ enabled: true })).status).toBe(403);
         expect((await EXPORT()).status).toBe(403);

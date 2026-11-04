@@ -48,8 +48,17 @@ import { GET, PATCH } from '@/app/api/user/route';
 import type { Session } from 'next-auth';
 
 describe('/api/user', () => {
+    const defaultDbUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+        role: 'user',
+    };
+
     beforeEach(() => {
         vi.clearAllMocks();
+        // withUser 包装器通过 prisma 查询用户，设置默认返回值
+        mocks.mockPrismaUser.findUnique.mockResolvedValue(defaultDbUser);
     });
 
     describe('GET /api/user', () => {
@@ -488,7 +497,7 @@ describe('/api/user', () => {
             const data = await response.json();
 
             expect(response.status).toBe(401);
-            expect(data.message).toBe('Unauthorized');
+            expect(data.message).toBe('Authentication required');
         });
 
         it('session 中没有 email 的用户应该被拒绝', async () => {

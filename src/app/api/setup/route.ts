@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { requireAdmin } from "@/lib/auth-utils";
+import { withAdmin } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { getAppConfig, updateAppConfig } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
-import { forbidden, internalError, unauthorized } from "@/lib/api-errors";
+import { internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger('api:setup');
@@ -16,11 +15,7 @@ export const dynamic = 'force-dynamic';
  * 安装向导状态：未完成向导且还没有任何错题本时需要进入向导，
  * 已在使用的旧实例（已有错题本）升级后不会被打扰
  */
-export async function GET() {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return unauthorized("Authentication required");
-    if (!requireAdmin(session)) return forbidden("Admin access required");
-
+export const GET = withAdmin(async () => {
     try {
         const setupCompleted = !!getAppConfig().setupCompletedAt;
         const needsSetup = !setupCompleted && (await prisma.subject.count()) === 0;
@@ -29,17 +24,13 @@ export async function GET() {
         logger.error({ error }, 'Failed to get setup status');
         return internalError("Failed to get setup status");
     }
-}
+});
 
 /**
  * POST /api/setup
  * 完成或跳过安装向导，之后不再自动进入
  */
-export async function POST() {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return unauthorized("Authentication required");
-    if (!requireAdmin(session)) return forbidden("Admin access required");
-
+async function handlePost(_req: Request, { session }: AuthenticatedContext) {
     try {
         const setupCompletedAt = new Date().toISOString();
         updateAppConfig({ setupCompletedAt });
@@ -50,3 +41,5 @@ export async function POST() {
         return internalError("Failed to complete setup");
     }
 }
+
+export const POST = withAdmin(handlePost);

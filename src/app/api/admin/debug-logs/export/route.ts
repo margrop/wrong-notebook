@@ -1,9 +1,6 @@
 import os from "os";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { requireAdmin } from "@/lib/auth-utils";
-import { forbidden, unauthorized } from "@/lib/api-errors";
+import { withAdmin } from "@/lib/api-handler";
 import { getAppVersion } from "@/lib/app-version";
 import { getAppConfig } from "@/lib/config";
 import { getDebugLogEntries, getDebugLogStatus, sanitizeForDebug } from "@/lib/debug-log";
@@ -20,11 +17,7 @@ function describeDatabase(url: string | undefined): string {
  * GET /api/admin/debug-logs/export
  * 导出调试日志及运行环境、脱敏后的配置，供管理员发送给作者排查问题
  */
-export async function GET() {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return unauthorized();
-    if (!requireAdmin(session)) return forbidden("Admin access required");
-
+export const GET = withAdmin(async () => {
     const now = new Date();
     const memory = process.memoryUsage();
     const report = {
@@ -63,4 +56,4 @@ export async function GET() {
             'Cache-Control': 'no-store',
         },
     });
-}
+});

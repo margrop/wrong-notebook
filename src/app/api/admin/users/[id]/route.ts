@@ -1,23 +1,16 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { withAdmin } from "@/lib/api-handler"
+import type { AuthenticatedContext } from "@/lib/api-handler"
 import { prisma } from "@/lib/prisma"
-import { requireAdmin } from "@/lib/auth-utils"
-import { forbidden, badRequest, internalError } from "@/lib/api-errors"
+import { badRequest, internalError } from "@/lib/api-errors"
 import { createLogger } from "@/lib/logger"
 
 const logger = createLogger('api:admin:users:id');
 
-export async function PATCH(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    const { id } = await params;
-    const session = await getServerSession(authOptions)
+type RouteContext = { params: Promise<{ id: string }> };
 
-    if (!requireAdmin(session)) {
-        return forbidden("Admin access required")
-    }
+async function handlePatch(req: Request, { session, params }: RouteContext & AuthenticatedContext) {
+    const { id } = await params;
 
     try {
         const body = await req.json()
@@ -53,16 +46,8 @@ export async function PATCH(
     }
 }
 
-export async function DELETE(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+async function handleDelete(_req: Request, { session, params }: RouteContext & AuthenticatedContext) {
     const { id } = await params;
-    const session = await getServerSession(authOptions)
-
-    if (!requireAdmin(session)) {
-        return forbidden("Admin access required")
-    }
 
     try {
         // Prevent deleting self
@@ -93,3 +78,6 @@ export async function DELETE(
         return internalError("Failed to delete user")
     }
 }
+
+export const PATCH = withAdmin(handlePatch);
+export const DELETE = withAdmin(handleDelete);

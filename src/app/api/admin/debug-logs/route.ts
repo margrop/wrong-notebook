@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { withAdmin } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
-import { requireAdmin } from "@/lib/auth-utils";
-import { badRequest, forbidden, unauthorized } from "@/lib/api-errors";
+import { badRequest } from "@/lib/api-errors";
 import { clearDebugLogs, getDebugLogStatus, setDebugMode } from "@/lib/debug-log";
 import { createLogger } from "@/lib/logger";
 
@@ -13,25 +12,13 @@ const toggleSchema = z.object({ enabled: z.boolean() });
 
 export const dynamic = 'force-dynamic';
 
-async function checkAdmin() {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return { error: unauthorized() };
-    if (!requireAdmin(session)) return { error: forbidden("Admin access required") };
-    return { session };
-}
-
 /** 查询调试模式状态与已记录的日志条数 */
-export async function GET() {
-    const { error } = await checkAdmin();
-    if (error) return error;
+export const GET = withAdmin(async () => {
     return NextResponse.json(getDebugLogStatus());
-}
+});
 
 /** 开启或关闭调试模式；开启时清空上一轮的调试日志 */
-export async function POST(req: Request) {
-    const { error, session } = await checkAdmin();
-    if (error) return error;
-
+async function handlePost(req: Request, { session }: AuthenticatedContext) {
     const parsed = toggleSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return badRequest('INVALID_DEBUG_MODE');
 
@@ -43,10 +30,10 @@ export async function POST(req: Request) {
     return NextResponse.json(getDebugLogStatus());
 }
 
+export const POST = withAdmin(handlePost);
+
 /** 清空已记录的调试日志，不改变调试模式开关 */
-export async function DELETE() {
-    const { error } = await checkAdmin();
-    if (error) return error;
+export const DELETE = withAdmin(async () => {
     clearDebugLogs();
     return NextResponse.json(getDebugLogStatus());
-}
+});

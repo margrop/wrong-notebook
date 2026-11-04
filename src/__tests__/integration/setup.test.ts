@@ -8,13 +8,19 @@ const mocks = vi.hoisted(() => ({
     updateAppConfig: vi.fn(),
     subjectCount: vi.fn(),
     getServerSession: vi.fn(),
+    userFindUnique: vi.fn(),
 }));
 
 vi.mock('@/lib/config', () => ({
     getAppConfig: mocks.getAppConfig,
     updateAppConfig: mocks.updateAppConfig,
 }));
-vi.mock('@/lib/prisma', () => ({ prisma: { subject: { count: mocks.subjectCount } } }));
+vi.mock('@/lib/prisma', () => ({
+    prisma: {
+        subject: { count: mocks.subjectCount },
+        user: { findUnique: mocks.userFindUnique },
+    },
+}));
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 
@@ -24,11 +30,15 @@ const adminSession = { user: { id: 'admin-1', email: 'admin@localhost', role: 'a
 const userSession = { user: { id: 'user-1', email: 'user@localhost', role: 'user' }, expires: '2099-01-01' };
 
 describe('/api/setup', () => {
+    const adminDbUser = { id: 'admin-1', email: 'admin@localhost', name: 'Admin', role: 'admin' };
+    const userDbUser = { id: 'user-1', email: 'user@localhost', name: 'User', role: 'user' };
+
     beforeEach(() => {
         vi.clearAllMocks();
         mocks.getServerSession.mockResolvedValue(adminSession);
         mocks.getAppConfig.mockReturnValue({ aiProvider: 'minimax' });
         mocks.subjectCount.mockResolvedValue(0);
+        mocks.userFindUnique.mockResolvedValue(adminDbUser);
     });
 
     describe('访问控制', () => {
@@ -41,6 +51,7 @@ describe('/api/setup', () => {
 
         it('普通用户返回 403，且不能标记完成', async () => {
             mocks.getServerSession.mockResolvedValue(userSession);
+            mocks.userFindUnique.mockResolvedValue(userDbUser);
 
             expect((await GET()).status).toBe(403);
             expect((await POST()).status).toBe(403);

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { requireAdmin } from "@/lib/auth-utils";
-import { badRequest, forbidden, internalError, unauthorized } from "@/lib/api-errors";
+import { withAdmin } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
+import { badRequest, internalError } from "@/lib/api-errors";
 import { CNM_MAX_FILE_BYTES, cnmTopicsSchema, getCnmStatus, importCnmTopics } from "@/lib/tag-seed";
 import { createLogger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
@@ -11,25 +10,13 @@ const logger = createLogger('api:admin:cnm-tags');
 
 export const dynamic = 'force-dynamic';
 
-async function checkAdmin() {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return { error: unauthorized() };
-    if (!requireAdmin(session)) return { error: forbidden("Admin access required") };
-    return { session };
-}
-
 /** 查询已导入的人教版课标知识点数量 */
-export async function GET() {
-    const { error } = await checkAdmin();
-    if (error) return error;
+export const GET = withAdmin(async () => {
     return NextResponse.json(await getCnmStatus(prisma));
-}
+});
 
 /** 导入 cn-math-taxonomy 的 topics.json（请求体为 { topics: 文件内容 }），增量写入 cnm 标签体系 */
-export async function POST(req: Request) {
-    const { error, session } = await checkAdmin();
-    if (error) return error;
-
+async function handlePost(req: Request, { session }: AuthenticatedContext) {
     const contentLength = Number(req.headers.get('content-length') || 0);
     if (contentLength > CNM_MAX_FILE_BYTES) return badRequest('CNM_FILE_TOO_LARGE');
 
@@ -47,3 +34,5 @@ export async function POST(req: Request) {
         return internalError('CNM_IMPORT_FAILED');
     }
 }
+
+export const POST = withAdmin(handlePost);

@@ -43,8 +43,10 @@ vi.mock('@/lib/config', () => ({
 }));
 
 const mockGetServerSession = vi.hoisted(() => vi.fn());
+const mockUserFindUnique = vi.hoisted(() => vi.fn());
 vi.mock('next-auth', () => ({ getServerSession: mockGetServerSession }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
+vi.mock('@/lib/prisma', () => ({ prisma: { user: { findUnique: mockUserFindUnique } } }));
 
 // Import after mocks
 import { GET, POST } from '@/app/api/settings/route';
@@ -52,11 +54,14 @@ import type { AppConfig } from '@/lib/config';
 
 const adminSession = { user: { id: 'admin-1', email: 'admin@localhost', role: 'admin' }, expires: '2099-01-01' };
 const userSession = { user: { id: 'user-1', email: 'user@localhost', role: 'user' }, expires: '2099-01-01' };
+const adminDbUser = { id: 'admin-1', email: 'admin@localhost', name: 'Admin', role: 'admin' };
+const userDbUser = { id: 'user-1', email: 'user@localhost', name: 'User', role: 'user' };
 
 describe('/api/settings', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockGetServerSession.mockResolvedValue(adminSession);
+        mockUserFindUnique.mockResolvedValue(adminDbUser);
     });
 
     describe('访问控制', () => {
@@ -72,6 +77,7 @@ describe('/api/settings', () => {
 
         it('普通用户 GET 只拿到非敏感字段', async () => {
             mockGetServerSession.mockResolvedValue(userSession);
+            mockUserFindUnique.mockResolvedValue(userDbUser);
 
             const response = await GET();
             const data = await response.json();
@@ -98,6 +104,7 @@ describe('/api/settings', () => {
 
         it('普通用户 POST 返回 403，且不写配置', async () => {
             mockGetServerSession.mockResolvedValue(userSession);
+            mockUserFindUnique.mockResolvedValue(userDbUser);
 
             const response = await POST(new Request('http://localhost/api/settings', {
                 method: 'POST',
@@ -153,6 +160,7 @@ describe('/api/settings', () => {
 
         it('普通用户不能修改全局时区', async () => {
             mockGetServerSession.mockResolvedValue(userSession);
+            mockUserFindUnique.mockResolvedValue(userDbUser);
             const response = await POST(new Request('http://localhost/api/settings', { method: 'POST', body: JSON.stringify({ timeZone: 'UTC' }) }));
             expect(response.status).toBe(403);
             expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();

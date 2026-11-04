@@ -21,6 +21,12 @@ const mocks = vi.hoisted(() => ({
         },
         expires: '2025-12-31',
     },
+    adminDbUser: {
+        id: 'admin-id',
+        email: 'admin@localhost',
+        name: 'Admin',
+        role: 'admin',
+    },
 }));
 
 // Mock Prisma client
@@ -50,6 +56,8 @@ describe('/api/admin/users', () => {
         vi.clearAllMocks();
         // Reset session to admin by default
         vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
+        // withAdmin 包装器需要通过 prisma 查询用户
+        mocks.mockPrismaUser.findUnique.mockResolvedValue(mocks.adminDbUser);
     });
 
     describe('GET /api/admin/users', () => {
@@ -104,7 +112,7 @@ describe('/api/admin/users', () => {
 
             const response = await GET();
 
-            expect(response.status).toBe(403);
+            expect(response.status).toBe(401);
         });
     });
 

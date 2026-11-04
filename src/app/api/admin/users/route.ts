@@ -1,22 +1,14 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { withAdmin } from "@/lib/api-handler"
 import { prisma } from "@/lib/prisma"
-import { requireAdmin } from "@/lib/auth-utils"
-import { forbidden, internalError } from "@/lib/api-errors"
+import { internalError } from "@/lib/api-errors"
 import { createLogger } from "@/lib/logger"
 import { getAppTimeZone } from "@/lib/config"
 import { getDayRange } from "@/lib/date-time"
 
 const logger = createLogger('api:admin:users');
 
-export async function GET() {
-    const session = await getServerSession(authOptions)
-
-    if (!requireAdmin(session)) {
-        return forbidden("Admin access required")
-    }
-
+export const GET = withAdmin(async () => {
     try {
         const users = await prisma.user.findMany({
             orderBy: {
@@ -52,4 +44,4 @@ export async function GET() {
         logger.error({ error }, 'Error fetching users');
         return internalError("Failed to fetch users")
     }
-}
+})

@@ -1,25 +1,17 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { withAdmin } from "@/lib/api-handler"
 import { prisma } from "@/lib/prisma"
-import { requireAdmin } from "@/lib/auth-utils"
-import { forbidden, notFound, internalError } from "@/lib/api-errors"
+import { notFound, internalError } from "@/lib/api-errors"
 import { countByMasteryStatus } from "@/lib/mastery"
 import { PRACTICE_RECORD_COUNT, masteryStatusOf } from "@/lib/mastery-status"
 import { createLogger } from "@/lib/logger"
 
 const logger = createLogger('api:admin:users:id:detail')
 
-export async function GET(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    const { id } = await params;
-    const session = await getServerSession(authOptions)
+type RouteContext = { params: Promise<{ id: string }> };
 
-    if (!requireAdmin(session)) {
-        return forbidden("Admin access required")
-    }
+export const GET = withAdmin(async (_req: Request, { params }: RouteContext) => {
+    const { id } = await params;
 
     try {
         // 获取用户基本信息
@@ -143,4 +135,4 @@ export async function GET(
         logger.error({ error, userId: id }, 'Error fetching user detail');
         return internalError("Failed to fetch user detail")
     }
-}
+})

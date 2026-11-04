@@ -22,8 +22,8 @@ import { GET, POST } from '@/app/api/admin/cnm-tags/route';
 import { getNotebookCandidateTags } from '@/lib/ai/tag-service';
 import { CNM_TAG_SET, cnmGradeNodeName } from '@/lib/tag-seed';
 
-const admin = { user: { id: 'admin-1', role: 'admin' }, expires: '2099-01-01' };
-const user = { user: { id: 'user-1', role: 'user' }, expires: '2099-01-01' };
+const admin = { user: { id: 'admin-1', email: 'admin@localhost', role: 'admin' }, expires: '2099-01-01' };
+const user = { user: { id: 'user-1', email: 'user@localhost', role: 'user' }, expires: '2099-01-01' };
 
 const topics = [
     { id: 'cnm_p001', name: '1到5各数的认识', grade: 1, semester: '上', chapter: '一年级上册 第1单元' },
@@ -58,6 +58,12 @@ beforeEach(async () => {
     vi.clearAllMocks();
     mocks.getServerSession.mockResolvedValue(admin);
     await database.knowledgeTag.deleteMany();
+    // withAdmin 包装器通过 prisma 查询用户，需确保管理员用户存在
+    await database.user.upsert({
+        where: { email: 'admin@localhost' },
+        update: {},
+        create: { email: 'admin@localhost', name: 'Admin', role: 'admin', password: 'x' },
+    });
 });
 
 afterAll(async () => {
@@ -79,6 +85,12 @@ describe('/api/admin/cnm-tags', () => {
     it('未登录返回 401，普通用户返回 403', async () => {
         mocks.getServerSession.mockResolvedValue(null);
         expect((await GET()).status).toBe(401);
+        // 确保普通用户存在于数据库中，使 resolveUser 能找到该用户后再判 403
+        await database.user.upsert({
+            where: { email: 'user@localhost' },
+            update: {},
+            create: { email: 'user@localhost', name: 'User', role: 'user', password: 'x' },
+        });
         mocks.getServerSession.mockResolvedValue(user);
         expect((await GET()).status).toBe(403);
         expect((await importTopics({ topics })).status).toBe(403);
