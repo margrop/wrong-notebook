@@ -1,0 +1,35 @@
+{
+  "format": "wrong-notebook-questions",
+  "version": 1,
+  "exportedAt": "2025-11-04T10:30:00.000Z",
+  "generator": "wrong-notebook-example",
+  "questions": [
+    {
+      "text": "计算：$3^2 + 4^2 =$ ____。"
+    },
+    {
+      "text": "阅读下面的材料，回答问题。\n材料：某商店购进一批商品……",
+      "material": "某商店购进一批商品，每件进价 100 元，按 20% 的利润定价。",
+      "section": "三、解答题",
+      "label": "21",
+      "answer": "每件售价为 120 元。",
+      "analysis": "进价 100 元，利润率 20%，售价 = 100 × (1 + 20%) = 120 元。",
+      "knowledgePoints": ["一元一次方程", "利润问题"],
+      "difficultyStars": 3,
+      "wrongAnswer": "每件售价为 130 元。",
+      "subject": "数学",
+      "gradeSemester": "七年级上",
+      "source": "2025 期中",
+      "questionType": "解答题",
+      "images": [
+        {
+          "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+          "alt": "商品示意图"
+        }
+      ],
+      "extensions": {
+        "publisher": "示例出版社"
+      }
+    }
+  ]
+}
