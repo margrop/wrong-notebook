@@ -72,4 +72,4 @@ Knowledge points also live in the stats center: the **Knowledge Points** tab sho
 
 Dates and statistics boundaries use the [app time zone](Settings-and-Users-en). Changing the time zone affects daily and monthly grouping but does not shift the times stored in the database.
 
-Related code: [mastery evaluation](https://github.com/margrop/wrong-notebook/blob/main/src/lib/mastery.ts) · [exam papers](https://github.com/margrop/wrong-notebook/blob/main/src/lib/exam.ts).
+Related code: [mastery evaluation](https://github.com/margrop/wrong-notebook/blob/main/src/lib/mastery.ts) · [exam papers](https://github.com/margrop/wrong-notebook/blob/main/src/lib/exam/exam.ts).

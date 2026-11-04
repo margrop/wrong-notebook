@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { notFound, badRequest, conflict, validationError, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { EXAM_REGENERATE_MODES, regenerateExamQuestion } from "@/lib/exam";
+import { EXAM_REGENERATE_MODES, regenerateExamQuestion } from "@/lib/exam/exam";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
 import { withUser } from "@/lib/api-handler";

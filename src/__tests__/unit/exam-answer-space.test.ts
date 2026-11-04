@@ -13,7 +13,7 @@ import {
     getAnswerSpacePx,
     isAnswerSpaceMode,
     resolveQuestionAnswerSpacePx,
-} from '@/lib/exam-answer-space';
+} from '@/lib/exam/exam-answer-space';
 
 describe('detectQuestionKind', () => {
     it('识别逐行或同行排列的选项为选择题', () => {

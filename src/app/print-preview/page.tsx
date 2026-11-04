@@ -15,8 +15,8 @@ import { useSavedAnswerSpaces } from "@/lib/hooks/use-saved-answer-spaces";
 import type { AnswerSpaceChange } from "@/lib/hooks/use-saved-answer-spaces";
 import { PRINT_PREVIEW_PAGE_SIZE } from "@/lib/constants/pagination";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { loadAllImages } from "@/lib/print-images";
-import { DEFAULT_PRINT_OPTIONS, readStoredPrintOptions, writeStoredPrintOptions } from "@/lib/print-preview-options";
+import { loadAllImages } from "@/lib/print/print-images";
+import { DEFAULT_PRINT_OPTIONS, readStoredPrintOptions, writeStoredPrintOptions } from "@/lib/print/print-preview-options";
 import { usePaperGroups } from "@/lib/hooks/use-paper-groups";
 import {
     chunk,
@@ -25,7 +25,7 @@ import {
     getPrintPreviewEmptyState,
     getSelectedPrintItems,
     shouldReserveAnswerSpace,
-} from "@/lib/print-preview";
+} from "@/lib/print/print-preview";
 
 /** 保存错题打印时手动调整的单题留白；接口单次最多接收一页题目，超出时分批保存 */
 async function saveAnswerSpaces(changes: AnswerSpaceChange[]): Promise<void> {

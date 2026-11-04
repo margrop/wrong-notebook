@@ -7,7 +7,7 @@ import { createLogger } from "@/lib/logger";
 import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
 import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
-import { normalizeCustomAnswerSpacePx } from "@/lib/exam-answer-space";
+import { normalizeCustomAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import { exportSpeeches } from "@/lib/tts/speech-cache";
 import { sortTagsByParent } from "@/lib/tags/tag-hierarchy";
 import { collectExtensions } from "@/lib/backup-extensions";

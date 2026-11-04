@@ -1,4 +1,4 @@
-import { isAnswerSpaceMode } from "@/lib/exam-answer-space";
+import { isAnswerSpaceMode } from "@/lib/exam/exam-answer-space";
 import type { PrintDisplayOptions } from "@/components/print-preview/print-options";
 
 /** 错题打印显示选项在本机浏览器中的保存键 */

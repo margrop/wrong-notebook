@@ -13,7 +13,7 @@
 | `src/lib/ai/` | AI 提供商公共基类与四家提供商、提示词（`prompts/`）、结果结构与校验 |
 | `src/lib/config/` | 全局设置与配置文件读取 |
 | `src/lib/question/question-deduplication.ts` | 导入判重与重复作答记录 |
-| `src/lib/mastery.ts`、`src/lib/exam.ts` | 掌握评估与试卷生成 |
+| `src/lib/mastery.ts`、`src/lib/exam/exam.ts` | 掌握评估与试卷生成 |
 | `src/lib/date-time.ts` | 应用时区、显示与统计边界 |
 | `src/lib/translations.ts`、`src/lib/i18n/` | 界面文本（入口与按语言拆分的文案） |
 | `prisma/` | 数据模型、正式迁移和初始化数据 |

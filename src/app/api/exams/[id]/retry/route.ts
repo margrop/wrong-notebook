@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { notFound, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { generateExamPaper } from "@/lib/exam";
+import { generateExamPaper } from "@/lib/exam/exam";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";

@@ -2,8 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { isAnswerSpaceMode } from "@/lib/exam-answer-space";
-import type { AnswerSpaceMode } from "@/lib/exam-answer-space";
+import { isAnswerSpaceMode } from "@/lib/exam/exam-answer-space";
+import type { AnswerSpaceMode } from "@/lib/exam/exam-answer-space";
 
 export interface PrintDisplayOptions {
     showQuestionText: boolean;

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { badRequest, validationError, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { DEFAULT_EXAM_PICK_RULE, EXAM_DIFFICULTIES, EXAM_MODES, EXAM_PICK_RULES, EXAM_SCOPES, MAX_EXAM_QUESTIONS, generateExamPaper, selectSourceItems, snapshotOriginalQuestion } from "@/lib/exam";
+import { DEFAULT_EXAM_PICK_RULE, EXAM_DIFFICULTIES, EXAM_MODES, EXAM_PICK_RULES, EXAM_SCOPES, MAX_EXAM_QUESTIONS, generateExamPaper, selectSourceItems, snapshotOriginalQuestion } from "@/lib/exam/exam";
 import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
 import { consumeAiQuota } from "@/lib/ai-quota";

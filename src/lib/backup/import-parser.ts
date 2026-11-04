@@ -20,9 +20,9 @@ import { GRADE_SEMESTERS } from "@/lib/grade-options";
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { sanitizeFigureSvg } from "@/lib/figure-svg";
 import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
-import { normalizeCustomAnswerSpacePx } from "@/lib/exam-answer-space";
+import { normalizeCustomAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import { sanitizeSvgAnimation } from "@/lib/svg-animation";
-import { EXAM_DIFFICULTIES, EXAM_MODES, EXAM_SCOPES } from "@/lib/exam";
+import { EXAM_DIFFICULTIES, EXAM_MODES, EXAM_SCOPES } from "@/lib/exam/exam";
 import { isPracticeResult } from "@/lib/mastery";
 
 export type ImportData = ImportableBackupFile;

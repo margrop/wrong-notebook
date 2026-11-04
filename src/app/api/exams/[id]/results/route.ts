@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { notFound, validationError, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { recordExamResults } from "@/lib/exam";
+import { recordExamResults } from "@/lib/exam/exam";
 import { PRACTICE_RESULTS, scheduleMasteryEvaluation } from "@/lib/mastery";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";

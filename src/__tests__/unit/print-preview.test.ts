@@ -9,8 +9,8 @@ import {
     getPrintPreviewEmptyState,
     getSelectedPrintItems,
     shouldReserveAnswerSpace,
-} from '@/lib/print-preview';
-import { DEFAULT_PRINT_OPTIONS, parseStoredPrintOptions } from '@/lib/print-preview-options';
+} from '@/lib/print/print-preview';
+import { DEFAULT_PRINT_OPTIONS, parseStoredPrintOptions } from '@/lib/print/print-preview-options';
 
 describe('print preview helpers', () => {
     const items = [

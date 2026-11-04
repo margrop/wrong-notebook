@@ -6,8 +6,8 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('@/lib/prisma', () => ({ prisma: {} }));
 vi.mock('@/lib/ai', () => ({ getAIService: vi.fn() }));
 
-import { buildSourceWhere, pickLeastPracticed, sampleItems, snapshotOriginalQuestion, summarizePaperStatus, EXAM_MODES } from '@/lib/exam';
-import { buildExamHtmlDocument, examFileName, KATEX_CSS_URL } from '@/lib/exam-print';
+import { buildSourceWhere, pickLeastPracticed, sampleItems, snapshotOriginalQuestion, summarizePaperStatus, EXAM_MODES } from '@/lib/exam/exam';
+import { buildExamHtmlDocument, examFileName, KATEX_CSS_URL } from '@/lib/exam/exam-print';
 import { regionFromPoints } from '@/lib/image-crop';
 
 describe('buildSourceWhere', () => {

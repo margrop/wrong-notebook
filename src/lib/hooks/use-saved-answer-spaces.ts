@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { normalizeCustomAnswerSpacePx } from "@/lib/exam-answer-space";
+import { normalizeCustomAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import { frontendLogger } from "@/lib/frontend-logger";
 
 /** 一道题的留白改动；answerSpacePx 为 null 表示恢复按全局档位 */

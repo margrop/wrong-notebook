@@ -7,7 +7,7 @@ import {
     MAX_CUSTOM_ANSWER_SPACE_PX,
     MIN_CUSTOM_ANSWER_SPACE_PX,
     clampAnswerSpacePx,
-} from "@/lib/exam-answer-space";
+} from "@/lib/exam/exam-answer-space";
 
 interface AnswerSpaceControlProps {
     /** 当前生效的留白高度（px） */

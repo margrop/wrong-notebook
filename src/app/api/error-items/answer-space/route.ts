@@ -6,7 +6,7 @@ import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
 import { PRINT_PREVIEW_PAGE_SIZE } from "@/lib/constants/pagination";
-import { MAX_CUSTOM_ANSWER_SPACE_PX, MIN_CUSTOM_ANSWER_SPACE_PX } from "@/lib/exam-answer-space";
+import { MAX_CUSTOM_ANSWER_SPACE_PX, MIN_CUSTOM_ANSWER_SPACE_PX } from "@/lib/exam/exam-answer-space";
 
 const logger = createLogger('api:error-items:answer-space');
 

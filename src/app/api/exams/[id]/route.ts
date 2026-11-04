@@ -3,10 +3,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { notFound, validationError, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { generateExamPaper, isPaperGenerating } from "@/lib/exam";
+import { generateExamPaper, isPaperGenerating } from "@/lib/exam/exam";
 import { FIGURE_ALIGNS, MAX_FIGURE_SCALE, MIN_FIGURE_SCALE, normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import type { FigureAlign } from "@/lib/figure-scale";
-import { MAX_CUSTOM_ANSWER_SPACE_PX, MIN_CUSTOM_ANSWER_SPACE_PX, normalizeCustomAnswerSpacePx } from "@/lib/exam-answer-space";
+import { MAX_CUSTOM_ANSWER_SPACE_PX, MIN_CUSTOM_ANSWER_SPACE_PX, normalizeCustomAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 

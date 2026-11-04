@@ -51,7 +51,7 @@ import { POST as CREATE, GET as LIST } from '@/app/api/exams/route';
 import { GET as DETAIL, PATCH as UPDATE_SCALE, DELETE } from '@/app/api/exams/[id]/route';
 import { POST as RESULTS } from '@/app/api/exams/[id]/results/route';
 import { POST as REGENERATE } from '@/app/api/exams/[id]/questions/[questionId]/regenerate/route';
-import { generateExamPaper } from '@/lib/exam';
+import { generateExamPaper } from '@/lib/exam/exam';
 import { getAppTimeZone } from '@/lib/config';
 
 const json = (url: string, method: string, body: object) => new Request(url, {

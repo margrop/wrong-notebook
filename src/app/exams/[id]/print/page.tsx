@@ -14,14 +14,14 @@ import { AnswerSpaceControl } from "@/components/print-preview/answer-space-cont
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
 import { apiClient } from "@/lib/api-client";
-import { EXAM_PRINT_CSS, buildExamHtmlDocument, examFileName } from "@/lib/exam-print";
+import { EXAM_PRINT_CSS, buildExamHtmlDocument, examFileName } from "@/lib/exam/exam-print";
 import {
     ANSWER_SPACE_STORAGE_KEY,
     DEFAULT_ANSWER_SPACE_MODE,
     isAnswerSpaceMode,
     resolveQuestionAnswerSpacePx,
-} from "@/lib/exam-answer-space";
-import type { AnswerSpaceMode } from "@/lib/exam-answer-space";
+} from "@/lib/exam/exam-answer-space";
+import type { AnswerSpaceMode } from "@/lib/exam/exam-answer-space";
 import { useSavedAnswerSpaces } from "@/lib/hooks/use-saved-answer-spaces";
 import type { AnswerSpaceChange } from "@/lib/hooks/use-saved-answer-spaces";
 import type { FigureAlign } from "@/lib/figure-scale";

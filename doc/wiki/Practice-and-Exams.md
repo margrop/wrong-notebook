@@ -72,4 +72,4 @@
 
 日期和统计边界使用[应用时区](Settings-and-Users)。更改时区会影响按日或按月分组，但不会平移数据库中的时间。
 
-相关实现：[掌握评估](https://github.com/margrop/wrong-notebook/blob/main/src/lib/mastery.ts) · [试卷逻辑](https://github.com/margrop/wrong-notebook/blob/main/src/lib/exam.ts)。
+相关实现：[掌握评估](https://github.com/margrop/wrong-notebook/blob/main/src/lib/mastery.ts) · [试卷逻辑](https://github.com/margrop/wrong-notebook/blob/main/src/lib/exam/exam.ts)。

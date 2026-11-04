@@ -6,8 +6,8 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AnswerSpaceControl } from "@/components/print-preview/answer-space-control";
 import { QuestionFigure } from "@/components/question-figure";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { resolveQuestionAnswerSpacePx } from "@/lib/exam-answer-space";
-import { getPrintableItemTagNames } from "@/lib/print-preview";
+import { resolveQuestionAnswerSpacePx } from "@/lib/exam/exam-answer-space";
+import { getPrintableItemTagNames } from "@/lib/print/print-preview";
 import type { PrintableErrorItem } from "@/types/api";
 import type { PrintDisplayOptions } from "./print-options";
 

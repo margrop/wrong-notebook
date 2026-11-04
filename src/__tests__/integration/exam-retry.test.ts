@@ -21,7 +21,7 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.mock('@/lib/ai-quota', () => ({ consumeAiQuota: mocks.consumeAiQuota }));
-vi.mock('@/lib/exam', () => ({ generateExamPaper: mocks.generateExamPaper }));
+vi.mock('@/lib/exam/exam', () => ({ generateExamPaper: mocks.generateExamPaper }));
 vi.mock('@/lib/logger', () => ({ createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }) }));
 
 import { POST } from '@/app/api/exams/[id]/retry/route';

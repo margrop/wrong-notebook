@@ -13,7 +13,7 @@ The project uses the Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4
 | `src/lib/ai/` | AI providers, prompts, result schemas and validation |
 | `src/lib/config/` | Global settings and configuration file access |
 | `src/lib/question/question-deduplication.ts` | Import duplicate detection and repeated-attempt records |
-| `src/lib/mastery.ts`, `src/lib/exam.ts` | Mastery evaluation and exam generation |
+| `src/lib/mastery.ts`, `src/lib/exam/exam.ts` | Mastery evaluation and exam generation |
 | `src/lib/date-time.ts` | App time zone, display and statistics boundaries |
 | `src/lib/translations.ts`, `src/lib/i18n/` | Interface text (entry point and per-language strings) |
 | `prisma/` | Data model, formal migrations and seed data |

@@ -5,7 +5,7 @@ import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { applyPrintSelection, matchesPrintSearch } from "@/lib/print-preview";
+import { applyPrintSelection, matchesPrintSearch } from "@/lib/print/print-preview";
 import type { PrintableErrorItem } from "@/types/api";
 
 /** 题目超过该数量时默认收起列表，避免占满屏幕 */

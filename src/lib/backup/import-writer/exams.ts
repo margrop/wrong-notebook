@@ -1,10 +1,10 @@
 /**
  * 导入步骤：复习计划与试卷（含题目）。
  */
-import { summarizePaperStatus } from "@/lib/exam";
+import { summarizePaperStatus } from "@/lib/exam/exam";
 import { sanitizeFigureSvg } from "@/lib/figure-svg";
 import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
-import { normalizeCustomAnswerSpacePx } from "@/lib/exam-answer-space";
+import { normalizeCustomAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import { mapSubjectIds } from "@/lib/backup/import-parser";
 import type { ImportContext } from "./types";
 
