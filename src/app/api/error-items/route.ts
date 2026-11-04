@@ -2,8 +2,8 @@ import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { validationError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { importSchema, saveQuestionForUser } from "@/lib/question-save";
-import { questionSaveErrorResponse } from "@/lib/question-save-error-response";
+import { importSchema, saveQuestion } from "@/lib/question-save";
+import { questionSaveErrorResponse, saveQuestionResultToResponse } from "@/lib/question-save-response";
 
 const logger = createLogger('api:error-items');
 
@@ -33,7 +33,8 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
             hasGeogebraCommands: !!body.geogebraCommands,
         }, 'Request parameters received');
 
-        return await saveQuestionForUser(user, body);
+        const result = await saveQuestion(user, body);
+        return saveQuestionResultToResponse(result);
     } catch (error) {
         logger.error({
             error,

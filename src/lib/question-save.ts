@@ -1,14 +1,15 @@
 /**
- * 保存一道题目为错题：校验卷别、补充年级识别、判重与写入。
+ * 保存一道题目为错题的领域逻辑：校验卷别、补充年级识别、判重与写入。
  * 「添加错题」接口和识别导入任务共用，保证两条路径的验证、判重与年级/卷别规则一致。
+ * 本模块不依赖 HTTP 层，返回 SaveQuestionResult；HTTP 适配见 question-save-response.ts。
  */
-import { NextResponse } from "next/server";
 import type { Prisma, User } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { prepareImportGrade } from "@/lib/import-question-grade";
 import { needsQuestionGradeRecognition } from "@/lib/question-grade";
-import { validationError } from "@/lib/api-errors";
+import type { QuestionSaveFailure } from "@/lib/question-save-failure";
+import { classifyQuestionSaveError } from "@/lib/question-save-failure";
 import { createLogger } from "@/lib/logger";
 import { resolveOrCreateTags, inferTagScope } from "@/lib/tag-resolver";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
@@ -19,8 +20,6 @@ import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransa
 import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
 import { DEFAULT_FIGURE_ALIGN, DEFAULT_FIGURE_SCALE, FIGURE_ALIGNS, MAX_FIGURE_SCALE, MIN_FIGURE_SCALE } from "@/lib/figure-scale";
-import { questionSaveErrorResponse } from "@/lib/question-save-error-response";
-import type { QuestionSaveFailureStage } from "@/lib/question-save-error-response";
 
 const logger = createLogger('question-save');
 
@@ -58,24 +57,46 @@ export interface SaveQuestionOptions {
     extraErrorItemData?: Partial<Prisma.ErrorItemUncheckedCreateInput>;
 }
 
+/** 新题写入结果（ErrorItem 记录及其标签、错题本） */
+export type SavedQuestionItem = Prisma.ErrorItemGetPayload<{ include: { tags: true; subject: { select: { id: true; name: true } } } }>;
+
+/** 重复题写入结果：保留原有题目记录，并附带本次做错快照信息 */
+export type SavedDuplicateItem = SavedQuestionItem & {
+    duplicate: true;
+    similarity: number;
+    mistakeRecorded: true;
+    practiceRecordId: string;
+    message: string;
+};
+
+export type SaveQuestionResult =
+    | { ok: true; status: 'created'; item: SavedQuestionItem }
+    | { ok: true; status: 'duplicate'; item: SavedDuplicateItem }
+    | { ok: false; error: QuestionSaveFailure };
+
+function failure(error: unknown, stage: QuestionSaveFailure['stage']): SaveQuestionResult {
+    return { ok: false, error: classifyQuestionSaveError(error, stage) };
+}
+
 /**
- * 为指定用户保存题目，返回与「添加错题」接口一致的响应：新题 201、重复题 200，失败时为统一错误响应。
+ * 为指定用户保存题目，返回领域结果：新题 created、重复题 duplicate、失败时携带可公开错误分类。
+ * 失败时记录日志；调用方按需转换为 HTTP 响应（见 question-save-response.ts）。
  */
-export async function saveQuestionForUser(user: User, body: ImportQuestionInput, options: SaveQuestionOptions = {}): Promise<NextResponse> {
-    let failureStage: QuestionSaveFailureStage = 'save';
+export async function saveQuestion(user: User, body: ImportQuestionInput, options: SaveQuestionOptions = {}): Promise<SaveQuestionResult> {
+    let stage: QuestionSaveFailure['stage'] = 'save';
     try {
-        return await saveQuestion(user, body, options, (stage) => { failureStage = stage; });
+        return await saveQuestionInner(user, body, options, (next) => { stage = next; });
     } catch (error) {
         logger.error({
             error,
             errorMessage: error instanceof Error ? error.message : String(error),
             errorStack: error instanceof Error ? error.stack : undefined
         }, 'Error saving item');
-        return questionSaveErrorResponse(error, failureStage);
+        return failure(error, stage);
     }
 }
 
-async function saveQuestion(user: User, body: ImportQuestionInput, options: SaveQuestionOptions, setStage: (stage: QuestionSaveFailureStage) => void): Promise<NextResponse> {
+async function saveQuestionInner(user: User, body: ImportQuestionInput, options: SaveQuestionOptions, setStage: (stage: QuestionSaveFailure['stage']) => void): Promise<SaveQuestionResult> {
     const {
         questionText,
         answerText,
@@ -103,7 +124,15 @@ async function saveQuestion(user: User, body: ImportQuestionInput, options: Save
             select: { id: true },
         });
         if (!group) {
-            return validationError('QUESTION_SAVE_INVALID_PAPER_LEVEL');
+            return {
+                ok: false,
+                error: {
+                    code: 'QUESTION_SAVE_INVALID_PAPER_LEVEL',
+                    stage: 'save',
+                    status: 400,
+                    errorCode: 'VALIDATION_ERROR',
+                },
+            };
         }
         resolvedPaperLevel = group.id;
     }
@@ -113,7 +142,7 @@ async function saveQuestion(user: User, body: ImportQuestionInput, options: Save
     setStage(needsQuestionGradeRecognition(user, body) && !duplicateBeforeRecognition ? 'grade' : 'save');
     const gradeResult = await prepareImportGrade(user, body, duplicateBeforeRecognition !== null);
     setStage('save');
-    if (gradeResult.response) return gradeResult.response;
+    if (!gradeResult.ok) return { ok: false, error: gradeResult.failure };
 
     const write = async (tx: Prisma.TransactionClient) => {
         const duplicate = await findDuplicateQuestion(tx, user.id, body);
@@ -204,7 +233,9 @@ async function saveQuestion(user: User, body: ImportQuestionInput, options: Save
         await options.afterWrite?.(tx, { id: written.id, duplicate: 'duplicate' in written && written.duplicate === true });
         return written;
     });
-    const duplicate = 'duplicate' in result && result.duplicate;
+    const duplicate = 'duplicate' in result && result.duplicate === true;
     if (duplicate) scheduleMasteryEvaluation([result.id]);
-    return NextResponse.json(result, { status: duplicate ? 200 : 201 });
+    return duplicate
+        ? { ok: true, status: 'duplicate', item: result as SavedDuplicateItem }
+        : { ok: true, status: 'created', item: result };
 }

@@ -36,24 +36,31 @@ vi.mock('@/lib/question-save', async (importOriginal) => {
     const original = await importOriginal<typeof import('@/lib/question-save')>();
     return {
         ...original,
-        saveQuestionForUser: vi.fn(async (...[user, body, options]: Parameters<typeof original.saveQuestionForUser>) => {
+        saveQuestion: vi.fn(async (...[user, body, options]: Parameters<typeof original.saveQuestion>) => {
             if (mocks.saveGate) await mocks.saveGate;
             if (mocks.failNextSave) {
                 mocks.failNextSave = false;
-                const { createErrorResponse } = await import('@/lib/api-errors');
-                return createErrorResponse('QUESTION_SAVE_DATABASE_BUSY', 503, 'DATABASE_ERROR');
+                return {
+                    ok: false,
+                    error: {
+                        code: 'QUESTION_SAVE_DATABASE_BUSY',
+                        stage: 'save',
+                        status: 503,
+                        errorCode: 'DATABASE_ERROR',
+                    },
+                };
             }
             if (mocks.crashAfterWrite) {
                 mocks.crashAfterWrite = false;
                 // 模拟错题已写入、任务关联也已执行，但提交前进程崩溃
-                return original.saveQuestionForUser(user, body, {
+                return original.saveQuestion(user, body, {
                     afterWrite: async (tx, saved) => {
                         await options?.afterWrite?.(tx, saved);
                         throw new Error('SIMULATED_CRASH');
                     },
                 });
             }
-            return original.saveQuestionForUser(user, body, options);
+            return original.saveQuestion(user, body, options);
         }),
     };
 });

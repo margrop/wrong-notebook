@@ -5,7 +5,7 @@ import { createLogger } from "@/lib/logger";
 import { startBackgroundTask } from "@/lib/background-tasks";
 import type { BackgroundTaskHandle } from "@/lib/background-tasks";
 import { createErrorResponse, ErrorCode } from "@/lib/api-errors";
-import { importSchema, saveQuestionForUser } from "@/lib/question-save";
+import { importSchema, saveQuestion } from "@/lib/question-save";
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { getErrorMessage } from "@/lib/error-message";
 
@@ -317,7 +317,7 @@ export async function POST(req: Request) {
                     continue;
                 }
 
-                const response = await saveQuestionForUser(dbUser, payload.data, {
+                const saveResult = await saveQuestion(dbUser, payload.data, {
                     extraErrorItemData: {
                         ocrText: parsed.questionText || null,
                         errorType: parsed.errorType || null,
@@ -325,20 +325,16 @@ export async function POST(req: Request) {
                     },
                 });
 
-                if (!response.ok) {
-                    const errorBody = await response.json().catch(() => ({}));
-                    const message = typeof errorBody === 'object' && errorBody !== null && 'message' in errorBody
-                        ? String((errorBody as { message?: unknown }).message)
-                        : 'QUESTION_SAVE_FAILED';
+                if (!saveResult.ok) {
                     results.push({
                         success: false,
                         index: i,
-                        error: message === 'AI_DAILY_LIMIT_EXCEEDED' ? 'AI_DAILY_LIMIT_EXCEEDED' : `导入失败: ${message}`,
+                        error: saveResult.error.code === 'AI_DAILY_LIMIT_EXCEEDED' ? 'AI_DAILY_LIMIT_EXCEEDED' : `导入失败: ${saveResult.error.code}`,
                     });
                     continue;
                 }
 
-                const errorItem = await response.json();
+                const errorItem = saveResult.item;
 
                 results.push({
                     success: true,

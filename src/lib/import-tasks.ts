@@ -31,7 +31,10 @@ import { parsedQuestionToSavePayload } from "@/lib/parsed-question-payload";
 import { serializeWrite } from "@/lib/db-write-queue";
 import { prisma } from "@/lib/prisma";
 import { analyzeQuestionForUser, analyzeQuestionTextForUser, mapAnalysisError } from "@/lib/question-analysis";
-import { importSchema, saveQuestionForUser } from "@/lib/question-save";
+import { importSchema, saveQuestion } from "@/lib/question-save";
+import type { SaveQuestionResult } from "@/lib/question-save";
+import { questionSaveFailureToResponse } from "@/lib/question-save-response";
+import type { QuestionSaveFailure } from "@/lib/question-save-failure";
 
 const logger = createLogger('import-tasks');
 
@@ -265,7 +268,7 @@ export async function markFailed(id: string, fromStatus: ImportTaskStatus, error
 
 type SaveOutcome =
     | { ok: true; status: number; body: Record<string, unknown> }
-    | { ok: false; response: NextResponse; error: string };
+    | { ok: false; failure: QuestionSaveFailure };
 
 /**
  * 把任务结果写入错题（任务须已被本进程抢占为 saving）。成功时标记 saved 并清空图片；
@@ -274,11 +277,8 @@ type SaveOutcome =
 async function saveTask(task: ImportTask, user: User, input: unknown): Promise<SaveOutcome> {
     const started = Date.now();
     const parsed = importSchema.safeParse(input);
-    let response: NextResponse;
-    if (!parsed.success) {
-        response = validationError('QUESTION_SAVE_INVALID_INPUT', parsed.error.issues);
-    } else {
-        response = await saveQuestionForUser(user, parsed.data, {
+    const result: SaveQuestionResult = parsed.success
+        ? await saveQuestion(user, parsed.data, {
             // 与错题写入同一事务：任务已不在保存中（被丢弃或判为中断）时整笔回滚，不留下未关联的错题
             afterWrite: async (tx, saved) => {
                 const linked = await tx.importTask.updateMany({
@@ -291,25 +291,34 @@ async function saveTask(task: ImportTask, user: User, input: unknown): Promise<S
                 });
                 if (linked.count === 0) throw new Error('IMPORT_TASK_STATE_CHANGED');
             },
-        });
-    }
-    const body = await response.clone().json().catch(() => ({})) as Record<string, unknown>;
+        })
+        : {
+            ok: false,
+            error: {
+                code: 'QUESTION_SAVE_INVALID_INPUT',
+                stage: 'save',
+                status: 400,
+                errorCode: 'VALIDATION_ERROR',
+                details: parsed.error.issues,
+            },
+        };
     const saveMs = Date.now() - started;
     const timings = mergeTimings(task.timings, { server: { save: saveMs } });
 
-    if (response.ok && typeof body.id === 'string') {
+    if (result.ok) {
+        const body = result.item as unknown as Record<string, unknown>;
         logger.info({ taskId: task.id, errorItemId: body.id, duplicate: body.duplicate === true, saveMs }, 'Import task saved');
-        return { ok: true, status: response.status, body };
+        return { ok: true, status: result.status === 'duplicate' ? 200 : 201, body };
     }
 
-    const error = typeof body.message === 'string' ? body.message : 'QUESTION_SAVE_FAILED';
+    const error = result.error.code;
     const fallback = task.mode === 'auto' ? 'failed' : 'review';
     await serializeWrite(() => prisma.importTask.updateMany({
         where: { id: task.id, status: 'saving' },
         data: { status: fallback, error: error.slice(0, 200), finishedAt: new Date(), timings, readAt: null },
     }));
     logger.warn({ taskId: task.id, error, saveMs }, 'Import task save failed');
-    return { ok: false, response, error };
+    return { ok: false, failure: result.error };
 }
 
 /** 自动入库：用识别结果直接保存 */
@@ -574,7 +583,7 @@ export async function confirmImportTask(user: User, id: string, raw: unknown): P
     }
     try {
         const outcome = await saveTask(task, user, { ...parsed.data, subjectId, originalImageUrl: task.imageData });
-        if (!outcome.ok) return outcome.response;
+        if (!outcome.ok) return questionSaveFailureToResponse(outcome.failure);
         const saved = await prisma.importTask.findUniqueOrThrow({ where: { id }, include: withItem });
         return NextResponse.json({ ...outcome.body, importTask: toSummary(saved) }, { status: outcome.status });
     } catch (error) {
