@@ -121,7 +121,7 @@ describe('POST /api/error-items/export-questions', () => {
         expect(data.questions.map((q: { text: string }) => q.text)).toEqual(['题目二', '题目一']);
     });
 
-    it('空题干的题被跳过并计入 warnings', async () => {
+    it('空题干的题被跳过，跳过数通过响应头返回，文件内容保持交换格式', async () => {
         await database.errorItem.create({
             data: { id: 'item-empty', userId: 'user-1', originalImageUrl: '', questionText: '' },
         });
@@ -130,7 +130,8 @@ describe('POST /api/error-items/export-questions', () => {
         const data = await response.json();
         expect(data.questions).toHaveLength(2);
         expect(data.questions.map((q: { text: string }) => q.text)).toEqual(['题目一', '题目二']);
-        expect(data.warnings).toContain('EMPTY_QUESTION_TEXT_SKIPPED');
+        expect(response.headers.get('X-Export-Skipped')).toBe('1');
+        expect(data.warnings).toBeUndefined();
     });
 
     it('includeImages=false 时不含图片', async () => {

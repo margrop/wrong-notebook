@@ -20,6 +20,7 @@ function makeSource(overrides: Partial<ErrorItemExportSource> = {}): ErrorItemEx
         analysis: '基础加法',
         wrongAnswerText: '3',
         difficultyStars: 3,
+        questionType: 'fill_blank',
         gradeSemester: '初一，上期',
         source: '期中考试',
         figureSvg: '<svg xmlns="http://www.w3.org/2000/svg"/>',
@@ -46,6 +47,7 @@ describe('fromErrorItem', () => {
         expect(result!.analysis).toBe('基础加法');
         expect(result!.wrongAnswer).toBe('3');
         expect(result!.difficultyStars).toBe(3);
+        expect(result!.questionType).toBe('fill_blank');
         expect(result!.gradeSemester).toBe('初一，上期');
         expect(result!.source).toBe('期中考试');
         expect(result!.figureSvg).toBe('<svg xmlns="http://www.w3.org/2000/svg"/>');

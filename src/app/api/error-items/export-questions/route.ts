@@ -35,6 +35,7 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
                 analysis: true,
                 wrongAnswerText: true,
                 difficultyStars: true,
+                questionType: true,
                 gradeSemester: true,
                 source: true,
                 figureSvg: true,
@@ -52,8 +53,8 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
             return (ia ?? 0) - (ib ?? 0);
         });
 
-        const warnings: string[] = [];
-        const questions: ReturnType<typeof fromErrorItem>[] = [];
+        let skipped = 0;
+        const questions: NonNullable<ReturnType<typeof fromErrorItem>>[] = [];
         for (const item of items) {
             const mapped = fromErrorItem({
                 id: item.id,
@@ -62,6 +63,7 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
                 analysis: item.analysis,
                 wrongAnswerText: item.wrongAnswerText,
                 difficultyStars: item.difficultyStars,
+                questionType: item.questionType,
                 gradeSemester: item.gradeSemester,
                 source: item.source,
                 figureSvg: item.figureSvg,
@@ -70,21 +72,18 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
                 tags: item.tags,
             }, includeImages);
             if (mapped === null) {
-                warnings.push("EMPTY_QUESTION_TEXT_SKIPPED");
+                skipped += 1;
             } else {
                 questions.push(mapped);
             }
         }
 
-        const filteredQuestions = questions.filter((q): q is NonNullable<typeof q> => q !== null);
-
-        const file = serializeQuestions(filteredQuestions, {
+        const file = serializeQuestions(questions, {
             exportedAt: new Date().toISOString(),
             generator: "wrong-notebook",
         });
-        // 将导出警告附加到响应中，便于调用方知晓被跳过的题目
-        const responseBody = { ...file, warnings };
-        const jsonString = JSON.stringify(responseBody, null, 2);
+        // 文件内容严格符合交换格式；题干为空而跳过的题数放在响应头中
+        const jsonString = JSON.stringify(file, null, 2);
 
         const dateStr = formatDateTime(new Date(), "yyyy-MM-dd", getAppTimeZone());
         const filename = `wrong-notebook-questions-${dateStr.replace(/-/g, "")}.json`;
@@ -92,8 +91,8 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
         logger.info({
             userId: user.id,
             requestedCount: ids.length,
-            exportedCount: filteredQuestions.length,
-            skippedCount: warnings.length,
+            exportedCount: questions.length,
+            skippedCount: skipped,
             includeImages: includeImages ?? false,
         }, "Export questions completed");
 
@@ -101,6 +100,7 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
             headers: {
                 "Content-Type": "application/json; charset=utf-8",
                 "Content-Disposition": `attachment; filename="${filename}"`,
+                "X-Export-Skipped": String(skipped),
             },
         });
     } catch (error) {

@@ -13,6 +13,7 @@ export interface ErrorItemExportSource {
     analysis: string | null;
     wrongAnswerText: string | null;
     difficultyStars: number | null;
+    questionType?: string | null;
     gradeSemester: string | null;
     source: string | null;
     figureSvg: string | null;
@@ -39,6 +40,7 @@ export function fromErrorItem(item: ErrorItemExportSource, includeImages?: boole
     if (item.analysis) question.analysis = item.analysis;
     if (item.wrongAnswerText) question.wrongAnswer = item.wrongAnswerText;
     if (item.difficultyStars !== null && item.difficultyStars !== undefined) question.difficultyStars = item.difficultyStars;
+    if (item.questionType) question.questionType = item.questionType;
     if (item.subjectName) question.subject = item.subjectName;
     if (item.gradeSemester) question.gradeSemester = item.gradeSemester;
     if (item.source) question.source = item.source;
