@@ -163,6 +163,9 @@ export const en = {
             splitAnyway: "Split into {count} questions anyway",
             overflowHint: "At most 60 questions per batch; the other {count} will be listed as not counted.",
             textTooLong: "The text exceeds 20,000 characters. Please enter it in several parts.",
+            importFileReplaceConfirm: "The text box already has content. Replace it with the file, or append the file to the end?",
+            importFileReplace: "Replace",
+            importFileAppend: "Append",
         },
         wrongAnswerStats: {
             title: "Wrong Answer Statistics",
@@ -198,6 +201,12 @@ export const en = {
             recentNoPractice: "Not practiced recently",
             loadError: "Failed to load weak knowledge points",
             empty: "No weak knowledge points in this range.",
+        },
+        importFile: {
+            button: "Import from file",
+            unsupportedType: "Unsupported file type. Please use a TXT or Markdown file.",
+            tooLarge: "The file is too large. Maximum size is {max} MB.",
+            readFailed: "Failed to read the file. Please try again.",
         },
         upload: {
             // dragDrop: "Click or drag image to upload", // Moved to app

@@ -4,9 +4,14 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { Layers, Loader2, PenLine, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ImportFileButton } from "@/components/import-file-button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { confirmDialog, toast } from "@/lib/feedback";
+import { IMPORT_FILE_TYPES, decodeTextFile } from "@/lib/import/file-read";
+import { frontendLogger } from "@/lib/frontend-logger";
+import { getErrorMessage } from "@/lib/error-message";
 import { MAX_SPLIT_TEXT_LENGTH, splitQuestionText } from "@/lib/question-split/text";
 
 interface TextInputZoneProps {
@@ -42,6 +47,25 @@ export function TextInputZone({ onSubmit, isAnalyzing, defaultNotebookName, onCr
         await onCreateBatch(questionText, splitter, forceNumbered);
     };
 
+    /** 从文件导入：TXT / Markdown 内容填入文字框；已有内容时询问替换或追加 */
+    const handleImportFile = async (file: File) => {
+        let content: string;
+        try {
+            const buffer = await file.arrayBuffer();
+            content = decodeTextFile(buffer).text;
+        } catch (error) {
+            frontendLogger.error("text-input-zone", "Failed to read import file", { error: getErrorMessage(error) });
+            toast.error(t.importFile.readFailed);
+            return;
+        }
+        if (questionText.trim()) {
+            const replace = await confirmDialog(t.app.importFileReplaceConfirm, { confirmText: t.app.importFileReplace, cancelText: t.app.importFileAppend });
+            setQuestionText(replace ? content : questionText + "\n" + content);
+        } else {
+            setQuestionText(content);
+        }
+    };
+
     // 「用 AI 分题」入口：没检测到多题时用于未编号的题；检测到多题时用于本地规则分错（如 OCR 认错题号）
     const aiSplitEntry = (label: string) => onCreateBatch && text ? (
         <div className="text-center">
@@ -71,7 +95,14 @@ export function TextInputZone({ onSubmit, isAnalyzing, defaultNotebookName, onCr
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="question-text">{t.editor?.question || "Question Text"}</Label>
+                    <div className="flex items-center justify-between gap-2">
+                        <Label htmlFor="question-text">{t.editor?.question || "Question Text"}</Label>
+                        <ImportFileButton
+                            types={IMPORT_FILE_TYPES}
+                            onFile={handleImportFile}
+                            disabled={busy}
+                        />
+                    </div>
                     <Textarea
                         id="question-text"
                         value={questionText}

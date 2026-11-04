@@ -163,6 +163,9 @@ export const zh = {
             splitAnyway: "仍按 {count} 题分题预览",
             overflowHint: "每批最多 60 题，其余 {count} 题会列入「未计入题目的内容」。",
             textTooLong: "文字超过 20000 字，请分几次录入。",
+            importFileReplaceConfirm: "文字框已有内容，用文件内容替换，还是追加到末尾？",
+            importFileReplace: "替换",
+            importFileAppend: "追加到末尾",
         },
         wrongAnswerStats: {
             title: "错题统计",
@@ -198,6 +201,12 @@ export const zh = {
             recentNoPractice: "近期未练习",
             loadError: "薄弱知识点加载失败",
             empty: "该范围内暂无薄弱知识点。",
+        },
+        importFile: {
+            button: "从文件导入",
+            unsupportedType: "不支持的文件类型，请使用 TXT 或 Markdown 文件。",
+            tooLarge: "文件过大，最大支持 {max} MB。",
+            readFailed: "文件读取失败，请重试。",
         },
         upload: {
             // dragDrop: "点击或拖拽上传图片", // Moved to app
