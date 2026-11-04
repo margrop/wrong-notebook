@@ -14,7 +14,7 @@ import {
     GEOGRAPHY_CURRICULUM, GEOGRAPHY_GRADE_ORDER,
     POLITICS_CURRICULUM, POLITICS_GRADE_ORDER
 } from '../src/lib/tags/data';
-import { seedMath, seedStandardSubject } from '../src/lib/tags/seed';
+import { seedMath, seedStandardSubject } from '../src/lib/tags/seed/rebuild';
 
 const prisma = new PrismaClient();
 

@@ -6,7 +6,7 @@
 import { PrismaClient } from '@prisma/client';
 import { getErrorMessage } from '../src/lib/error-message';
 import { createLogger } from '../src/lib/logger';
-import { seedChineseTags } from '../src/lib/tags/seed';
+import { seedChineseTags } from '../src/lib/tags/seed/seed-chinese-tags';
 
 const logger = createLogger('seed-chinese-tags');
 

@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
-import { CHINESE_CURRICULUM, CHINESE_GRADE_ORDER } from '@/lib/tags/data/chinese';
+// Docker 与安装包构建时用 tsc 单独编译种子脚本（不读取 tsconfig 路径别名），本文件及其依赖只能用相对路径导入
+import { CHINESE_CURRICULUM, CHINESE_GRADE_ORDER } from '../data/chinese';
 
 /** 增量补齐内置语文标签，保留已有标签 ID、题目关联和其他标签体系。 */
 export async function seedChineseTags(prisma: PrismaClient) {
