@@ -11,7 +11,20 @@ import { usePracticeSession } from '@/lib/hooks/use-practice-session';
 
 const mocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 
-vi.mock('@/lib/api-client', () => ({ apiClient: { get: mocks.get, post: mocks.post } }));
+vi.mock('@/lib/api-client', () => ({
+    apiClient: { get: mocks.get, post: mocks.post },
+    ApiError: class ApiError extends Error {
+        status: number;
+        statusText: string;
+        data: unknown;
+        constructor(status: number, statusText: string, data: unknown) {
+            super('ApiError');
+            this.status = status;
+            this.statusText = statusText;
+            this.data = data;
+        }
+    },
+}));
 vi.mock('@/lib/frontend-logger', () => ({ frontendLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 
 type Session = ReturnType<typeof usePracticeSession>;
@@ -38,7 +51,9 @@ async function render(id: string | null = 'item-1') {
 /** 按地址返回设置和上次练习 */
 function mockGet(practice: unknown = null) {
     mocks.get.mockImplementation(async (url: string) => (
-        url === '/api/settings' ? { timeouts: { analyze: 60000 } } : { practice }
+        url === '/api/settings' ? { timeouts: { analyze: 60000 } }
+            : url === '/api/tasks' ? { tasks: [] }
+            : { practice }
     ));
 }
 

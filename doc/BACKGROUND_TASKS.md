@@ -6,12 +6,18 @@
 
 | 功能 | 路由 | target |
 | --- | --- | --- |
-| AI 修正文字（fix-text，分题预览） | `POST /api/import-batches/:id/text-fix` | `import-batch:<id>:fix-text` |
+| AI 修正文字（分题预览） | `POST /api/import-batches/:id/fix-text` | `import-batch:<id>:fix-text` |
 | 重新解答（错题详情页） | `POST /api/error-items/:id/reanswer` | `error-item:<id>:reanswer` |
 | 修复 LaTeX（错题详情页） | `POST /api/error-items/:id/fix-latex` | `error-item:<id>:fix-latex` |
 | 单题重新标注（错题详情页） | `POST /api/error-items/:id/retag` | `error-item:<id>:retag` |
+| 重绘配图 | `POST /api/error-items/:id/figure` | `error-item:<id>:figure` |
+| SVG 动画讲解 | `POST /api/error-items/:id/svg-animation` | `error-item:<id>:svg-animation:<语言>` |
+| 讲解稿 | `POST /api/error-items/:id/svg-animation/narration` | `error-item:<id>:svg-narration:<语言>` |
+| 云端语音 | `POST /api/tts/batch`（带错题 id 时） | `error-item:<id>:tts-voice:<语言>` |
+| GeoGebra 演示 | `POST /api/error-items/:id/geogebra` | `error-item:<id>:geogebra` |
+| 举一反三 | `POST /api/practice/generate` | `error-item:<id>:practice` |
 
-后续接入点（生成动画讲解等）按本文照做即可。
+未接入：`/api/reanswer`（录入校对页对未入库题目的文字解题）与 `/api/geogebra-analyze`（未保存草稿）没有稳定的对象标识；不带错题 id 的云端语音请求同理。
 
 ## 约定
 
@@ -88,7 +94,22 @@ const { running, refresh } = useRunningTask(target);
   并发唯一、不同用户/不同 target 互不影响、结束后可再次预占）、
   `src/__tests__/integration/background-tasks.test.ts`（/api/tasks 返回 target）。
 - 前端：`src/__tests__/unit/background-task-store.test.ts`（轮询节奏、可见性暂停、refresh）、
-  `src/__tests__/unit/use-running-task.test.tsx`（running 查询、结束置空、target=null 不请求）。
+  `src/__tests__/unit/use-running-task.test.tsx`（running 查询、结束置空、target=null 不请求）、
+  `src/__tests__/unit/regenerate-figure-button.test.tsx`（代表性按钮：running 时禁用、结束后刷新数据、收到 409 进入等待）。
+
+## 已接入功能及 target
+
+| 功能 | target | 服务端路由 | 前端组件/Hook |
+| --- | --- | --- | --- |
+| AI 修正文字 | `import-batch:<id>:fix-text` | `src/lib/import/import-batch-text-fix.ts` | `src/lib/hooks/use-draft-text-fix.ts` |
+| 重绘配图 | `error-item:<id>:figure` | `src/app/api/error-items/[id]/figure/route.ts` | `src/components/regenerate-figure-button.tsx` |
+| SVG 动画讲解 | `error-item:<id>:svg-animation:<lang>` | `src/app/api/error-items/[id]/svg-animation/route.ts` | `src/components/svg-animation-explainer.tsx` |
+| 讲解稿 | `error-item:<id>:svg-narration:<lang>` | `src/app/api/error-items/[id]/svg-animation/narration/route.ts` | `src/components/svg-animation-explainer.tsx` |
+| 云端语音 | `error-item:<id>:tts-voice:<lang>`（仅传 errorItemId 时） | `src/app/api/tts/batch/route.ts` | `src/components/svg-animation/regenerate-voice-button.tsx` |
+| GeoGebra | `error-item:<id>:geogebra` | `src/app/api/error-items/[id]/geogebra/route.ts` | `src/components/error-detail/geogebra-section.tsx` |
+| 举一反三 | `error-item:<id>:practice` | `src/app/api/practice/generate/route.ts` | `src/lib/hooks/use-practice-session.ts` |
+
+注：`/api/geogebra-analyze` 用于未保存的草稿，无稳定对象标识，未接入 target 防重复。
 
 ---
 

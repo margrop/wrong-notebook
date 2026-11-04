@@ -3,10 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { getAIService } from "@/lib/ai";
-import { badRequest, notFound, internalError } from "@/lib/api-errors";
+import { badRequest, notFound, internalError, taskAlreadyRunning } from "@/lib/api-errors";
 import { generatePracticeSchema } from "@/lib/schemas/practice";
 import { createLogger } from "@/lib/logger";
-import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
+import { describeQuestion, findRunningTask, reserveBackgroundTask, runReservedTask } from "@/lib/background-tasks";
+import { serializeWrite } from "@/lib/db-write-queue";
 import { parseLastPractice, serializeLastPractice } from "@/lib/last-practice";
 import type { LastPractice } from "@/lib/last-practice";
 import { consumeAiQuota } from "@/lib/ai-quota";
@@ -69,13 +70,28 @@ async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
             tags = [];
         }
 
-        const limited = await consumeAiQuota(user, 'practice');
-        if (limited) return limited;
+        // 按目标防重复：同一错题同一时刻只允许一个「举一反三」任务（reserve 失败返回 409，不扣额度、不调用 AI）
+        const target = `error-item:${errorItemId}:practice`;
+        const handle = reserveBackgroundTask({
+            userId: user.id,
+            kind: 'practice',
+            subject: describeQuestion(errorItemWithSubject),
+            link: `/error-items/${errorItemId}`,
+            target,
+        });
+        if (!handle) {
+            return taskAlreadyRunning(findRunningTask(user.id, target) ?? { id: '', kind: 'practice', startedAt: '', target });
+        }
+
+        const limited = await serializeWrite(() => consumeAiQuota(user, 'practice'));
+        if (limited) {
+            handle.cancel();
+            return limited;
+        }
 
         const aiService = getAIService();
-        const similarQuestion = await trackBackgroundTask(
-            { userId: user.id, kind: 'practice', subject: describeQuestion(errorItemWithSubject), link: `/error-items/${errorItemId}` },
-            () => aiService.generateSimilarQuestion(
+        const similarQuestion = await runReservedTask(handle, () =>
+            aiService.generateSimilarQuestion(
                 errorItemWithSubject.questionText || "",
                 tags,
                 language,

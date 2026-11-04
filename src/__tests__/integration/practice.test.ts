@@ -36,6 +36,7 @@ const mocks = vi.hoisted(() => ({
         email: 'user@example.com',
         name: 'Test User',
     },
+    consumeAiQuota: vi.fn(),
 }));
 
 // Mock Prisma client
@@ -51,6 +52,12 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/lib/ai', () => ({
     getAIService: vi.fn(() => mocks.mockAIService),
 }));
+
+// Mock AI quota
+vi.mock('@/lib/ai-quota', () => ({ consumeAiQuota: mocks.consumeAiQuota }));
+
+// Mock db write queue
+vi.mock('@/lib/db-write-queue', () => ({ serializeWrite: (fn: () => Promise<unknown>) => fn() }));
 
 // Mock next-auth
 vi.mock('next-auth', () => ({
@@ -74,12 +81,15 @@ import { POST as RECORD_POST } from '@/app/api/practice/record/route';
 import { DELETE as RECORD_DELETE } from '@/app/api/practice/record/[id]/route';
 import { getServerSession } from 'next-auth';
 import type { Session } from 'next-auth';
+import { resetBackgroundTasksForTest } from '@/lib/background-tasks';
 
 describe('/api/practice', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
         mocks.mockPrismaUser.findUnique.mockResolvedValue(mocks.mockUser);
+        mocks.consumeAiQuota.mockResolvedValue(null);
+        resetBackgroundTasksForTest();
     });
 
     describe('GET /api/practice/generate (读取暂存的举一反三题目)', () => {
@@ -546,6 +556,78 @@ describe('/api/practice', () => {
 
             expect(response.status).toBe(500);
             expect(data.message).toBe('AI service unavailable');
+        });
+
+        it('同一错题并发两次，第二个返回 409 且只扣一次额度、只调用一次 AI', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
+            let finish!: (value: unknown) => void;
+            mocks.mockAIService.generateSimilarQuestion.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+
+            const request = () => new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({ errorItemId: 'error-item-1', language: 'zh', difficulty: 'medium' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const first = GENERATE_POST(request());
+            await vi.waitFor(() => expect(mocks.mockAIService.generateSimilarQuestion).toHaveBeenCalledTimes(1));
+
+            const second = await GENERATE_POST(request());
+            expect(second.status).toBe(409);
+            expect((await second.json()).code).toBe('TASK_ALREADY_RUNNING');
+            expect(mocks.consumeAiQuota).toHaveBeenCalledTimes(1);
+            expect(mocks.mockAIService.generateSimilarQuestion).toHaveBeenCalledTimes(1);
+
+            finish({ questionText: '题', answerText: '答', analysis: '析', knowledgePoints: [], subject: '数学' });
+            expect((await first).status).toBe(200);
+        });
+
+        it('任务结束后可再次发起', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
+            mocks.mockAIService.generateSimilarQuestion.mockResolvedValue({
+                questionText: '求解 3x = 9',
+                answerText: 'x = 3',
+                analysis: '两边除以 3',
+                knowledgePoints: ['一元一次方程'],
+                subject: '数学',
+            });
+
+            const request = () => new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({ errorItemId: 'error-item-1', language: 'zh', difficulty: 'medium' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            expect((await GENERATE_POST(request())).status).toBe(200);
+            expect((await GENERATE_POST(request())).status).toBe(200);
+            expect(mocks.consumeAiQuota).toHaveBeenCalledTimes(2);
+            expect(mocks.mockAIService.generateSimilarQuestion).toHaveBeenCalledTimes(2);
+        });
+
+        it('额度不足时 cancel 预占，不调用 AI，之后可再次发起', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
+            mocks.consumeAiQuota.mockResolvedValueOnce(new Response(null, { status: 429 }));
+            mocks.mockAIService.generateSimilarQuestion.mockResolvedValue({
+                questionText: '求解 3x = 9',
+                answerText: 'x = 3',
+                analysis: '两边除以 3',
+                knowledgePoints: ['一元一次方程'],
+                subject: '数学',
+            });
+
+            const request = () => new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({ errorItemId: 'error-item-1', language: 'zh', difficulty: 'medium' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const limited = await GENERATE_POST(request());
+            expect(limited.status).toBe(429);
+            expect(mocks.mockAIService.generateSimilarQuestion).not.toHaveBeenCalled();
+
+            // 预占已 cancel，可再次发起
+            expect((await GENERATE_POST(request())).status).toBe(200);
+            expect(mocks.mockAIService.generateSimilarQuestion).toHaveBeenCalledTimes(1);
         });
     });
 

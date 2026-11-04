@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { forbidden, notFound, badRequest, internalError } from "@/lib/api-errors";
+import { forbidden, notFound, badRequest, internalError, taskAlreadyRunning } from "@/lib/api-errors";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
-import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
+import { describeQuestion, findRunningTask, reserveBackgroundTask, runReservedTask } from "@/lib/background-tasks";
+import { serializeWrite } from "@/lib/db-write-queue";
 import { getAIService } from "@/lib/ai";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
@@ -58,23 +59,39 @@ async function handlePost(
             });
         }
 
-        const limited = await consumeAiQuota(user, 'geogebra');
-        if (limited) return limited;
+        // 按目标防重复：同一错题同一时刻只允许一个「GeoGebra 演示」任务（reserve 失败返回 409，不扣额度、不调用 AI）
+        const target = `error-item:${id}:geogebra`;
+        const handle = reserveBackgroundTask({
+            userId: user.id,
+            kind: 'geogebra',
+            subject: describeQuestion(errorItem),
+            link: `/error-items/${id}`,
+            target,
+        });
+        if (!handle) {
+            return taskAlreadyRunning(findRunningTask(user.id, target) ?? { id: '', kind: 'geogebra', startedAt: '', target });
+        }
+
+        const limited = await serializeWrite(() => consumeAiQuota(user, 'geogebra'));
+        if (limited) {
+            handle.cancel();
+            return limited;
+        }
 
         const aiService = getAIService();
 
         // Use frontend-provided data if available (more up-to-date), fall back to DB
         const parsed = geogebraAnalyzeSchema.safeParse(await req.json().catch(() => ({})));
         if (!parsed.success) {
+            handle.cancel();
             return badRequest("Invalid request body");
         }
         const { questionText: bodyQuestionText, answerText: bodyAnswerText, previousErrors } = parsed.data;
         const questionText = bodyQuestionText || errorItem.questionText;
         const answerText = bodyAnswerText || errorItem.answerText || "";
 
-        const result = await trackBackgroundTask(
-            { userId: user.id, kind: 'geogebra', subject: describeQuestion(errorItem), link: `/error-items/${id}` },
-            () => aiService.analyzeForGeogebra(questionText, answerText, errorItem.analysis || "", previousErrors)
+        const result = await runReservedTask(handle, () =>
+            aiService.analyzeForGeogebra(questionText, answerText, errorItem.analysis || "", previousErrors)
         );
 
         // If suitable, save the commands to the database

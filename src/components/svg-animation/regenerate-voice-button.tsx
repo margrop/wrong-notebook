@@ -8,6 +8,8 @@ import { getSpeechMode, regenerateSpeech } from "@/lib/cloud-speech";
 import { getApiErrorDetails, getApiErrorMessage, getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { useRunningTask } from "@/lib/hooks/use-running-task";
+import { ApiError } from "@/lib/api-client";
 import { extractSubtitleNarration, getEmbeddedNarration } from "@/lib/svg-animation";
 import type { NarrationSegment } from "@/lib/svg-animation";
 
@@ -40,6 +42,9 @@ export function RegenerateVoiceButton({ svg, errorItemId, disabled, onBusyChange
     const [cloud, setCloud] = useState(false);
     const [regenerating, setRegenerating] = useState(false);
     const segments = useMemo(() => narrationOf(svg), [svg]);
+    // 云端语音只有关联到具体错题时才按 target 防重复
+    const target = errorItemId ? `error-item:${errorItemId}:tts-voice:${language}` : null;
+    const { running: taskRunning, refresh } = useRunningTask(target);
 
     useEffect(() => {
         let active = true;
@@ -60,30 +65,36 @@ export function RegenerateVoiceButton({ svg, errorItemId, disabled, onBusyChange
             await regenerateSpeech(segments.map((segment) => segment.text), language, errorItemId);
             toast.success(t.svgAnimation.voiceRegenerateDone);
         } catch (err) {
-            const code = getApiErrorMessage(err) || "";
-            frontendLogger.error("[SvgAnimation]", "Failed to regenerate cloud voice", { code, error: getErrorMessage(err) });
-            // 管理员会收到服务商的原始报错，附在提示后面
-            const detail = getApiErrorDetails(err);
-            const message = code === "TTS_DISABLED" ? t.svgAnimation.voiceRegenerateDisabled : t.svgAnimation.voiceRegenerateFailed;
-            toast.error(detail ? `${message} (${detail})` : message);
+            if (err instanceof ApiError && err.status === 409 && (err.data as { code?: string })?.code === "TASK_ALREADY_RUNNING") {
+                toast.info(t.errors.TASK_ALREADY_RUNNING);
+                await refresh();
+            } else {
+                const code = getApiErrorMessage(err) || "";
+                frontendLogger.error("[SvgAnimation]", "Failed to regenerate cloud voice", { code, error: getErrorMessage(err) });
+                // 管理员会收到服务商的原始报错，附在提示后面
+                const detail = getApiErrorDetails(err);
+                const message = code === "TTS_DISABLED" ? t.svgAnimation.voiceRegenerateDisabled : t.svgAnimation.voiceRegenerateFailed;
+                toast.error(detail ? `${message} (${detail})` : message);
+            }
         } finally {
             setRegenerating(false);
             onBusyChange(false);
         }
     };
 
+    const busy = regenerating || !!taskRunning;
     return (
         <Button
             variant="ghost"
             size="sm"
             className="h-7 px-2 text-xs gap-1"
             onClick={handleClick}
-            disabled={disabled || regenerating}
+            disabled={disabled || busy}
             title={t.svgAnimation.voiceRegenerateHint}
         >
-            {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
             <span>
-                {regenerating ? t.svgAnimation.voiceRegenerating : t.svgAnimation.voiceRegenerate}
+                {busy ? t.svgAnimation.voiceRegenerating : t.svgAnimation.voiceRegenerate}
             </span>
         </Button>
     );

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, ApiError } from "@/lib/api-client";
 import { matchAnswer } from "@/lib/answer-match";
 import { getApiErrorMessage } from "@/lib/error-message";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { toast } from "@/lib/feedback";
+import { useRunningTask } from "@/lib/hooks/use-running-task";
 import type { ParsedQuestion } from "@/lib/ai/types";
 import type { LastPractice } from "@/lib/last-practice";
 import type { AppConfig, PracticeResult } from "@/types/api";
@@ -91,6 +93,42 @@ export function usePracticeSession(errorItemId: string | null) {
 
     const timeout = config?.timeouts?.analyze || DEFAULT_TIMEOUT;
 
+    // 按目标防重复：同一错题同一时刻只允许一个「举一反三」任务
+    const target = errorItemId ? `error-item:${errorItemId}:practice` : null;
+    const { running: taskRunning, refresh } = useRunningTask(target);
+    // 任务结束后重新加载该错题最近一次生成的题目（结果已由服务端写入数据库）
+    const wasRunning = useRef(false);
+    useEffect(() => {
+        if (!errorItemId) return;
+        if (taskRunning) {
+            wasRunning.current = true;
+            return;
+        }
+        if (wasRunning.current) {
+            wasRunning.current = false;
+            apiClient.get<{ practice: LastPractice | null }>(`/api/practice/generate?errorItemId=${encodeURIComponent(errorItemId)}`)
+                .then(({ practice }) => {
+                    if (!practice) return;
+                    setQuestion(prev => prev ?? {
+                        questionText: practice.questionText,
+                        answerText: practice.answerText,
+                        analysis: practice.analysis,
+                        subject: (practice.subject || "其他") as ParsedQuestion["subject"],
+                        knowledgePoints: [],
+                        wrongAnswerText: "",
+                        mistakeAnalysis: "",
+                        mistakeStatus: "unknown",
+                        requiresImage: false,
+                        figureSvg: practice.figureSvg ?? null,
+                    });
+                    setDifficulty(practice.difficulty);
+                    setGeneratedDifficulty(practice.difficulty);
+                    setGeneratedAt(practice.generatedAt);
+                })
+                .catch(err => frontendLogger.warn('[Practice]', 'Failed to reload last practice question', { error: err }));
+        }
+    }, [taskRunning, errorItemId]);
+
     const generateQuestion = async () => {
         if (!errorItemId) return;
 
@@ -115,11 +153,16 @@ export function usePracticeSession(errorItemId: string | null) {
             setGeneratedAt(data.generatedAt ?? null);
             setQuestionVersion(v => v + 1);
         } catch (err) {
-            frontendLogger.error('[Practice]', 'Failed to generate practice question', { error: err });
-            const msg = getApiErrorMessage(err) || "";
-            const matched = AI_ERROR_KEYS.find(([code]) => msg.includes(code));
-            const fallback = t.practice.errors?.default || "Failed to generate";
-            setError((matched && t.errors?.[matched[1]]) || fallback);
+            if (err instanceof ApiError && err.status === 409 && (err.data as { code?: string })?.code === "TASK_ALREADY_RUNNING") {
+                toast.info(t.errors.TASK_ALREADY_RUNNING);
+                await refresh();
+            } else {
+                frontendLogger.error('[Practice]', 'Failed to generate practice question', { error: err });
+                const msg = getApiErrorMessage(err) || "";
+                const matched = AI_ERROR_KEYS.find(([code]) => msg.includes(code));
+                const fallback = t.practice.errors?.default || "Failed to generate";
+                setError((matched && t.errors?.[matched[1]]) || fallback);
+            }
         } finally {
             setLoading(false);
         }
@@ -165,7 +208,7 @@ export function usePracticeSession(errorItemId: string | null) {
     const suggestedResult: PracticeResult | null = isCorrect === null ? null : isCorrect ? "correct" : "wrong";
 
     return {
-        question, loading, loadingCached, error, generatedAt,
+        question, loading: loading || !!taskRunning, loadingCached, error, generatedAt,
         difficulty, setDifficulty, generatedDifficulty, questionVersion,
         userAnswer, setUserAnswer, notes, setNotes,
         isSubmitted, isCorrect, grading, gradeReason, gradeFailed, showAnswer, suggestedResult,

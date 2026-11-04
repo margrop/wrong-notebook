@@ -11,20 +11,20 @@ const mocks = vi.hoisted(() => ({
     generateSvgNarration: vi.fn(),
     analyzeForGeogebra: vi.fn(),
     consumeAiQuota: vi.fn(),
-    trackBackgroundTask: vi.fn(),
     session: { user: { email: 'user@example.com' }, expires: '2099-01-01' } as { user: { email: string }; expires: string } | null,
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: { user: mocks.user, errorItem: mocks.errorItem } }));
 vi.mock('@/lib/ai', () => ({ getAIService: vi.fn(() => ({ generateSvgAnimation: mocks.generateSvgAnimation, generateSvgNarration: mocks.generateSvgNarration, analyzeForGeogebra: mocks.analyzeForGeogebra })) }));
 vi.mock('@/lib/ai-quota', () => ({ consumeAiQuota: mocks.consumeAiQuota }));
-vi.mock('@/lib/background-tasks', () => ({ describeQuestion: vi.fn(() => '题目'), trackBackgroundTask: mocks.trackBackgroundTask }));
+vi.mock('@/lib/db-write-queue', () => ({ serializeWrite: (fn: () => Promise<unknown>) => fn() }));
 vi.mock('next-auth', () => ({ getServerSession: vi.fn(() => Promise.resolve(mocks.session)) }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 
 import { POST, DELETE } from '@/app/api/error-items/[id]/svg-animation/route';
 import { DELETE as DELETE_GEOGEBRA, POST as POST_GEOGEBRA } from '@/app/api/error-items/[id]/geogebra/route';
 import { POST as POST_NARRATION } from '@/app/api/error-items/[id]/svg-animation/narration/route';
+import { resetBackgroundTasksForTest } from '@/lib/background-tasks';
 
 const context = { params: Promise.resolve({ id: 'e1' }) };
 const generate = (body?: unknown) => POST(new Request('http://localhost', { method: 'POST', ...(body ? { body: JSON.stringify(body) } : {}) }), context);
@@ -40,7 +40,7 @@ describe('SVG 动画讲解接口', () => {
         mocks.errorItem.findUnique.mockResolvedValue({ userId: 'user-1', questionText: '求面积', answerText: '6', analysis: '底乘高', figureSvg: '<svg/>' });
         mocks.errorItem.update.mockResolvedValue({});
         mocks.consumeAiQuota.mockResolvedValue(null);
-        mocks.trackBackgroundTask.mockImplementation(async (_meta: unknown, fn: () => Promise<unknown>) => fn());
+        resetBackgroundTasksForTest();
     });
 
     it('POST 把题目、答案、解析和配图交给 AI，未指定语言时生成并保存中文版动画', async () => {
@@ -103,6 +103,52 @@ describe('SVG 动画讲解接口', () => {
         expect((await response.json()).message).toBe('AI_TIMEOUT_ERROR');
     });
 
+    it('同一错题同一语言并发两次，第二个返回 409 且只扣一次额度、只调用一次 AI', async () => {
+        let finish!: (value: string) => void;
+        mocks.generateSvgAnimation.mockReturnValue(new Promise<string>((resolve) => { finish = resolve; }));
+
+        const first = generate();
+        await vi.waitFor(() => expect(mocks.generateSvgAnimation).toHaveBeenCalledTimes(1));
+
+        const second = await generate();
+        expect(second.status).toBe(409);
+        expect((await second.json()).code).toBe('TASK_ALREADY_RUNNING');
+        expect(mocks.consumeAiQuota).toHaveBeenCalledTimes(1);
+        expect(mocks.generateSvgAnimation).toHaveBeenCalledTimes(1);
+
+        finish(svg);
+        expect((await first).status).toBe(200);
+    });
+
+    it('任务结束后可再次发起', async () => {
+        mocks.generateSvgAnimation.mockResolvedValue(svg);
+
+        expect((await generate()).status).toBe(200);
+        expect((await generate()).status).toBe(200);
+        expect(mocks.consumeAiQuota).toHaveBeenCalledTimes(2);
+        expect(mocks.generateSvgAnimation).toHaveBeenCalledTimes(2);
+    });
+
+    it('额度不足时 cancel 预占，不调用 AI，之后可再次发起', async () => {
+        mocks.consumeAiQuota.mockResolvedValueOnce(new Response(null, { status: 429 }));
+        mocks.generateSvgAnimation.mockResolvedValue(svg);
+
+        const limited = await generate();
+        expect(limited.status).toBe(429);
+        expect(mocks.generateSvgAnimation).not.toHaveBeenCalled();
+
+        // 预占已 cancel，可再次发起
+        expect((await generate()).status).toBe(200);
+        expect(mocks.generateSvgAnimation).toHaveBeenCalledTimes(1);
+    });
+
+    it('不同语言互不影响', async () => {
+        mocks.generateSvgAnimation.mockResolvedValue(svg);
+
+        expect((await generate({ language: 'zh' })).status).toBe(200);
+        expect((await generate({ language: 'en' })).status).toBe(200);
+    });
+
     it('DELETE 未指定语言时清空中文版动画', async () => {
         const response = await remove();
 
@@ -142,7 +188,7 @@ describe('POST /api/error-items/:id/svg-animation/narration', () => {
         mocks.errorItem.findUnique.mockResolvedValue({ userId: 'user-1', questionText: '求面积', answerText: '6', analysis: '底乘高', svgAnimation: svg, svgAnimationEn: null });
         mocks.errorItem.update.mockResolvedValue({});
         mocks.consumeAiQuota.mockResolvedValue(null);
-        mocks.trackBackgroundTask.mockImplementation(async (_meta: unknown, fn: () => Promise<unknown>) => fn());
+        resetBackgroundTasksForTest();
     });
 
     it('为中文版动画补写讲解稿，写入 SVG 后保存，画面不变', async () => {
@@ -175,6 +221,32 @@ describe('POST /api/error-items/:id/svg-animation/narration', () => {
         expect(response.status).toBe(400);
         expect((await response.json()).message).toBe('NO_VALID_NARRATION');
         expect(mocks.errorItem.update).not.toHaveBeenCalled();
+    });
+
+    it('同一错题同一语言并发两次，第二个返回 409 且只扣一次额度、只调用一次 AI', async () => {
+        let finish!: (value: unknown) => void;
+        mocks.generateSvgNarration.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+
+        const first = narrate();
+        await vi.waitFor(() => expect(mocks.generateSvgNarration).toHaveBeenCalledTimes(1));
+
+        const second = await narrate();
+        expect(second.status).toBe(409);
+        expect((await second.json()).code).toBe('TASK_ALREADY_RUNNING');
+        expect(mocks.consumeAiQuota).toHaveBeenCalledTimes(1);
+        expect(mocks.generateSvgNarration).toHaveBeenCalledTimes(1);
+
+        finish(narration);
+        expect((await first).status).toBe(200);
+    });
+
+    it('任务结束后可再次发起', async () => {
+        mocks.generateSvgNarration.mockResolvedValue(narration);
+
+        expect((await narrate()).status).toBe(200);
+        expect((await narrate()).status).toBe(200);
+        expect(mocks.consumeAiQuota).toHaveBeenCalledTimes(2);
+        expect(mocks.generateSvgNarration).toHaveBeenCalledTimes(2);
     });
 
     it('未登录返回 401，不能操作他人的题目', async () => {
@@ -226,7 +298,7 @@ describe('POST /api/error-items/:id/geogebra', () => {
         mocks.errorItem.findUnique.mockResolvedValue({ userId: 'user-1', questionText: '求面积', subject: { name: '数学' }, answerText: '6', analysis: '底乘高' });
         mocks.errorItem.update.mockResolvedValue({});
         mocks.consumeAiQuota.mockResolvedValue(null);
-        mocks.trackBackgroundTask.mockImplementation(async (_meta: unknown, fn: () => Promise<unknown>) => fn());
+        resetBackgroundTasksForTest();
         mocks.analyzeForGeogebra.mockResolvedValue({ suitable: true, commands: ['A=(0,0)'], description: '' });
     });
 
@@ -245,5 +317,29 @@ describe('POST /api/error-items/:id/geogebra', () => {
         const response = await postGeogebra({});
         expect(response.status).toBe(200);
         expect(mocks.analyzeForGeogebra).toHaveBeenCalled();
+    });
+
+    it('同一错题并发两次，第二个返回 409 且只扣一次额度、只调用一次 AI', async () => {
+        let finish!: (value: unknown) => void;
+        mocks.analyzeForGeogebra.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+
+        const first = postGeogebra({});
+        await vi.waitFor(() => expect(mocks.analyzeForGeogebra).toHaveBeenCalledTimes(1));
+
+        const second = await postGeogebra({});
+        expect(second.status).toBe(409);
+        expect((await second.json()).code).toBe('TASK_ALREADY_RUNNING');
+        expect(mocks.consumeAiQuota).toHaveBeenCalledTimes(1);
+        expect(mocks.analyzeForGeogebra).toHaveBeenCalledTimes(1);
+
+        finish({ suitable: true, commands: ['A=(0,0)'], description: '' });
+        expect((await first).status).toBe(200);
+    });
+
+    it('任务结束后可再次发起', async () => {
+        expect((await postGeogebra({})).status).toBe(200);
+        expect((await postGeogebra({})).status).toBe(200);
+        expect(mocks.consumeAiQuota).toHaveBeenCalledTimes(2);
+        expect(mocks.analyzeForGeogebra).toHaveBeenCalledTimes(2);
     });
 });

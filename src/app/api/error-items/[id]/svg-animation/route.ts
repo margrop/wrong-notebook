@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAIService } from "@/lib/ai";
-import { notFound, badRequest, internalError } from "@/lib/api-errors";
+import { notFound, badRequest, internalError, taskAlreadyRunning } from "@/lib/api-errors";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
-import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
+import { describeQuestion, findRunningTask, reserveBackgroundTask, runReservedTask } from "@/lib/background-tasks";
+import { serializeWrite } from "@/lib/db-write-queue";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
 import { svgAnimationSchema } from "@/lib/schemas/error-items";
@@ -53,19 +54,32 @@ async function handlePost(req: Request, { user, params }: RouteContext & Authent
         }
 
         const questionText = item.questionText;
-        // 页面关闭后服务端仍会继续生成并保存，后台任务弹框中可查看进度
-        const limited = await consumeAiQuota(user, 'animation');
-        if (limited) return limited;
+        // 按目标防重复：同一错题同一语言同一时刻只允许一个「生成动画讲解」任务（reserve 失败返回 409，不扣额度、不调用 AI）
+        const target = `error-item:${id}:svg-animation:${language}`;
+        const handle = reserveBackgroundTask({
+            userId: user.id,
+            kind: 'svg_animation',
+            subject: describeQuestion(item),
+            link: `/error-items/${id}`,
+            target,
+        });
+        if (!handle) {
+            return taskAlreadyRunning(findRunningTask(user.id, target) ?? { id: '', kind: 'svg_animation', startedAt: '', target });
+        }
 
-        const svgAnimation = await trackBackgroundTask(
-            { userId: user.id, kind: 'svg_animation', subject: describeQuestion(item), link: `/error-items/${id}` },
-            async () => {
-                const svg = await getAIService().generateSvgAnimation(questionText, item.answerText || "", item.analysis || "", item.figureSvg, language);
-                if (!svg) throw new Error("NO_VALID_ANIMATION");
-                await prisma.errorItem.update({ where: { id }, data: { [animationField(language)]: svg } });
-                return svg;
-            }
-        ).catch((error: unknown) => {
+        const limited = await serializeWrite(() => consumeAiQuota(user, 'animation'));
+        if (limited) {
+            handle.cancel();
+            return limited;
+        }
+
+        // 页面关闭后服务端仍会继续生成并保存，后台任务弹框中可查看进度
+        const svgAnimation = await runReservedTask(handle, async () => {
+            const svg = await getAIService().generateSvgAnimation(questionText, item.answerText || "", item.analysis || "", item.figureSvg, language);
+            if (!svg) throw new Error("NO_VALID_ANIMATION");
+            await prisma.errorItem.update({ where: { id }, data: { [animationField(language)]: svg } });
+            return svg;
+        }).catch((error: unknown) => {
             if (error instanceof Error && error.message === "NO_VALID_ANIMATION") return null;
             throw error;
         });

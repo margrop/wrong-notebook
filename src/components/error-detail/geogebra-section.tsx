@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Loader2 } from "lucide-react";
 import { GeogebraDemo } from "@/components/geogebra-demo";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, ApiError } from "@/lib/api-client";
 import { getApiErrorMessage, getErrorMessage } from "@/lib/error-message";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { toast } from "@/lib/feedback";
+import { useRunningTask } from "@/lib/hooks/use-running-task";
 import type { UpdateErrorItem } from "./types";
 
 interface GeogebraSectionProps {
@@ -21,6 +23,24 @@ export function GeogebraSection({ errorItemId, commands, onUpdate }: GeogebraSec
     const { t } = useLanguage();
     const [analyzing, setAnalyzing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const target = `error-item:${errorItemId}:geogebra`;
+    const { running: taskRunning, refresh } = useRunningTask(target);
+    // 任务结束后重新加载数据（结果已由服务端写入数据库）
+    const wasRunning = useRef(false);
+    useEffect(() => {
+        if (taskRunning) {
+            wasRunning.current = true;
+            return;
+        }
+        if (wasRunning.current) {
+            wasRunning.current = false;
+            apiClient.get<{ geogebraCommands?: string | null }>(`/api/error-items/${errorItemId}`)
+                .then((item) => {
+                    if (item.geogebraCommands) onUpdate({ geogebraCommands: item.geogebraCommands });
+                })
+                .catch((err) => frontendLogger.warn('[ErrorDetail]', 'Failed to reload GeoGebra commands', { error: err }));
+        }
+    }, [taskRunning, errorItemId, onUpdate]);
 
     const handleAnalyze = async () => {
         setAnalyzing(true);
@@ -33,14 +53,19 @@ export function GeogebraSection({ errorItemId, commands, onUpdate }: GeogebraSec
                 setError(result.description || t.geogebra.notSuitable);
             }
         } catch (err) {
-            frontendLogger.error('[ErrorDetail]', 'GeoGebra analysis failed', { error: err });
-            const msg = getApiErrorMessage(err) || getErrorMessage(err);
-            if (msg.includes("AI_AUTH_ERROR")) {
-                setError(t.geogebra.authFailed);
-            } else if (msg.includes("AI_CONNECTION")) {
-                setError(t.geogebra.connectionFailed);
+            if (err instanceof ApiError && err.status === 409 && (err.data as { code?: string })?.code === "TASK_ALREADY_RUNNING") {
+                toast.info(t.errors.TASK_ALREADY_RUNNING);
+                await refresh();
             } else {
-                setError(t.geogebra.analyzeFailed);
+                frontendLogger.error('[ErrorDetail]', 'GeoGebra analysis failed', { error: err });
+                const msg = getApiErrorMessage(err) || getErrorMessage(err);
+                if (msg.includes("AI_AUTH_ERROR")) {
+                    setError(t.geogebra.authFailed);
+                } else if (msg.includes("AI_CONNECTION")) {
+                    setError(t.geogebra.connectionFailed);
+                } else {
+                    setError(t.geogebra.analyzeFailed);
+                }
             }
         } finally {
             setAnalyzing(false);
@@ -62,12 +87,13 @@ export function GeogebraSection({ errorItemId, commands, onUpdate }: GeogebraSec
         return <GeogebraDemo commands={commands} height={700} showToolBar={true} showAlgebraInput={false} showMenuBar={false} onRegenerate={handleAnalyze} onSaveCommands={handleSaveCommands} onDelete={handleDelete} />;
     }
 
+    const busy = analyzing || !!taskRunning;
     return (
         <div className="rounded-lg border border-dashed p-4">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground"><Box className="h-4 w-4" /><span>{t.geogebra.title}</span></div>
-                <Button variant="outline" size="sm" onClick={handleAnalyze} disabled={analyzing}>
-                    {analyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t.geogebra.analyzing}</> : <><Box className="mr-2 h-4 w-4" />{t.geogebra.generate}</>}
+                <Button variant="outline" size="sm" onClick={handleAnalyze} disabled={busy}>
+                    {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t.geogebra.analyzing}</> : <><Box className="mr-2 h-4 w-4" />{t.geogebra.generate}</>}
                 </Button>
             </div>
             {error && <p className="text-xs text-muted-foreground mt-2">{error}</p>}

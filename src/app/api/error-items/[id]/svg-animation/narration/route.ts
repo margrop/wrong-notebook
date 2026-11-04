@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAIService } from "@/lib/ai";
-import { notFound, badRequest, internalError } from "@/lib/api-errors";
+import { notFound, badRequest, internalError, taskAlreadyRunning } from "@/lib/api-errors";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
-import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
+import { describeQuestion, findRunningTask, reserveBackgroundTask, runReservedTask } from "@/lib/background-tasks";
+import { serializeWrite } from "@/lib/db-write-queue";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { embedNarration } from "@/lib/svg-animation";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
@@ -39,19 +40,32 @@ async function handlePost(req: Request, { user, params }: RouteContext & Authent
             return badRequest("NO_ANIMATION");
         }
 
-        const limited = await consumeAiQuota(user, 'animation');
-        if (limited) return limited;
+        // 按目标防重复：同一错题同一语言同一时刻只允许一个「补写讲解稿」任务（reserve 失败返回 409，不扣额度、不调用 AI）
+        const target = `error-item:${id}:svg-narration:${language}`;
+        const handle = reserveBackgroundTask({
+            userId: user.id,
+            kind: 'svg_narration',
+            subject: describeQuestion(item),
+            link: `/error-items/${id}`,
+            target,
+        });
+        if (!handle) {
+            return taskAlreadyRunning(findRunningTask(user.id, target) ?? { id: '', kind: 'svg_narration', startedAt: '', target });
+        }
 
-        const updated = await trackBackgroundTask(
-            { userId: user.id, kind: 'svg_narration', subject: describeQuestion(item), link: `/error-items/${id}` },
-            async () => {
-                const narration = await getAIService().generateSvgNarration(item.questionText || "", item.answerText || "", item.analysis || "", svgAnimation, language);
-                if (!narration) throw new Error("NO_VALID_NARRATION");
-                const svg = embedNarration(svgAnimation, narration);
-                await prisma.errorItem.update({ where: { id }, data: { [field]: svg } });
-                return svg;
-            }
-        ).catch((error: unknown) => {
+        const limited = await serializeWrite(() => consumeAiQuota(user, 'animation'));
+        if (limited) {
+            handle.cancel();
+            return limited;
+        }
+
+        const updated = await runReservedTask(handle, async () => {
+            const narration = await getAIService().generateSvgNarration(item.questionText || "", item.answerText || "", item.analysis || "", svgAnimation, language);
+            if (!narration) throw new Error("NO_VALID_NARRATION");
+            const svg = embedNarration(svgAnimation, narration);
+            await prisma.errorItem.update({ where: { id }, data: { [field]: svg } });
+            return svg;
+        }).catch((error: unknown) => {
             if (error instanceof Error && error.message === "NO_VALID_NARRATION") return null;
             throw error;
         });

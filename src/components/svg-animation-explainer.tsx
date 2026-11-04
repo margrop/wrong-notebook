@@ -1,15 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, Clapperboard, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SvgAnimationPlayer } from "@/components/svg-animation-player";
 import { RegenerateVoiceButton } from "@/components/svg-animation/regenerate-voice-button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, ApiError } from "@/lib/api-client";
 import { getApiErrorMessage, getErrorMessage } from "@/lib/error-message";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { toast, confirmDialog } from "@/lib/feedback";
+import { useRunningTask } from "@/lib/hooks/use-running-task";
 import { getEmbeddedNarration } from "@/lib/svg-animation";
 import type { Language } from "@/lib/translations";
 
@@ -42,6 +43,40 @@ export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLangu
     const [error, setError] = useState<string | null>(null);
     const hasNarration = useMemo(() => !!svgAnimation && !!getEmbeddedNarration(svgAnimation), [svgAnimation]);
 
+    const generateTarget = `error-item:${errorItemId}:svg-animation:${language}`;
+    const narrationTarget = `error-item:${errorItemId}:svg-narration:${language}`;
+    const { running: generateRunning, refresh: refreshGenerate } = useRunningTask(generateTarget);
+    const { running: narrationRunning, refresh: refreshNarration } = useRunningTask(narrationTarget);
+
+    // 任务从进行中变为结束后重新加载该语言的动画数据（结果已由服务端写入数据库）
+    const wasGenerateRunning = useRef(false);
+    const wasNarrationRunning = useRef(false);
+    useEffect(() => {
+        if (generateRunning) {
+            wasGenerateRunning.current = true;
+            return;
+        }
+        if (wasGenerateRunning.current) {
+            wasGenerateRunning.current = false;
+            apiClient.get<{ svgAnimation?: string | null; svgAnimationEn?: string | null }>(`/api/error-items/${errorItemId}`)
+                .then((item) => onChange(language, language === 'en' ? item.svgAnimationEn ?? null : item.svgAnimation ?? null))
+                .catch((err) => frontendLogger.warn('[SvgAnimation]', 'Failed to reload animation', { error: err }));
+        }
+    }, [generateRunning, errorItemId, language, onChange]);
+
+    useEffect(() => {
+        if (narrationRunning) {
+            wasNarrationRunning.current = true;
+            return;
+        }
+        if (wasNarrationRunning.current) {
+            wasNarrationRunning.current = false;
+            apiClient.get<{ svgAnimation?: string | null; svgAnimationEn?: string | null }>(`/api/error-items/${errorItemId}`)
+                .then((item) => onChange(language, language === 'en' ? item.svgAnimationEn ?? null : item.svgAnimation ?? null))
+                .catch((err) => frontendLogger.warn('[SvgAnimation]', 'Failed to reload narration', { error: err }));
+        }
+    }, [narrationRunning, errorItemId, language, onChange]);
+
     const errorText = (code: string, fallback: string) => {
         const mapped = (t.errors as Record<string, unknown>)[code];
         return typeof mapped === "string" ? mapped : fallback;
@@ -54,13 +89,18 @@ export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLangu
             const result = await apiClient.post<{ svgAnimation: string }>(`/api/error-items/${errorItemId}/svg-animation`, { language }, { timeout: GENERATE_TIMEOUT_MS, recoverable: true });
             onChange(language, result.svgAnimation);
         } catch (err) {
-            const code = getApiErrorMessage(err) || "";
-            frontendLogger.error('[SvgAnimation]', 'Failed to generate SVG animation', { code, error: getErrorMessage(err) });
-            setError(
-                code === "NO_QUESTION_TEXT" ? t.svgAnimation.noQuestionText
-                    : code === "NO_VALID_ANIMATION" ? t.svgAnimation.invalid
-                        : errorText(code, t.svgAnimation.failed)
-            );
+            if (err instanceof ApiError && err.status === 409 && (err.data as { code?: string })?.code === "TASK_ALREADY_RUNNING") {
+                toast.info(t.errors.TASK_ALREADY_RUNNING);
+                await refreshGenerate();
+            } else {
+                const code = getApiErrorMessage(err) || "";
+                frontendLogger.error('[SvgAnimation]', 'Failed to generate SVG animation', { code, error: getErrorMessage(err) });
+                setError(
+                    code === "NO_QUESTION_TEXT" ? t.svgAnimation.noQuestionText
+                        : code === "NO_VALID_ANIMATION" ? t.svgAnimation.invalid
+                            : errorText(code, t.svgAnimation.failed)
+                );
+            }
         } finally {
             setGenerating(false);
         }
@@ -74,9 +114,14 @@ export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLangu
             onChange(language, result.svgAnimation);
             toast.success(t.svgAnimation.narrationDone);
         } catch (err) {
-            const code = getApiErrorMessage(err) || "";
-            frontendLogger.error('[SvgAnimation]', 'Failed to generate SVG narration', { code, error: getErrorMessage(err) });
-            setError(code === "NO_VALID_NARRATION" ? t.svgAnimation.narrationInvalid : errorText(code, t.svgAnimation.narrationFailed));
+            if (err instanceof ApiError && err.status === 409 && (err.data as { code?: string })?.code === "TASK_ALREADY_RUNNING") {
+                toast.info(t.errors.TASK_ALREADY_RUNNING);
+                await refreshNarration();
+            } else {
+                const code = getApiErrorMessage(err) || "";
+                frontendLogger.error('[SvgAnimation]', 'Failed to generate SVG narration', { code, error: getErrorMessage(err) });
+                setError(code === "NO_VALID_NARRATION" ? t.svgAnimation.narrationInvalid : errorText(code, t.svgAnimation.narrationFailed));
+            }
         } finally {
             setNarrating(false);
         }
@@ -105,9 +150,9 @@ export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLangu
                         <Clapperboard className="h-4 w-4" />
                         <span>{t.svgAnimation.title}</span>
                     </div>
-                    <Button variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
-                        {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clapperboard className="mr-2 h-4 w-4" />}
-                        {generating ? t.svgAnimation.generating : t.svgAnimation.generate}
+                    <Button variant="outline" size="sm" onClick={handleGenerate} disabled={generating || !!generateRunning}>
+                        {generating || !!generateRunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clapperboard className="mr-2 h-4 w-4" />}
+                        {generating || !!generateRunning ? t.svgAnimation.generating : t.svgAnimation.generate}
                     </Button>
                 </div>
                 {error && <p className="text-xs text-destructive mt-2">{error}</p>}
@@ -116,7 +161,7 @@ export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLangu
         );
     }
 
-    const busy = generating || deleting || narrating || voicing;
+    const busy = generating || !!generateRunning || deleting || narrating || !!narrationRunning || voicing;
     return (
         <div className="rounded-lg border bg-card">
             <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b bg-muted/30">
@@ -133,13 +178,13 @@ export function SvgAnimationExplainer({ errorItemId, svgAnimation, hasOtherLangu
                         disabled={busy}
                         title={t.svgAnimation.narrationHint}
                     >
-                        {narrating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <AudioLines className="h-3.5 w-3.5" />}
-                        <span>{narrating ? t.svgAnimation.narrationGenerating : hasNarration ? t.svgAnimation.narrationRegenerate : t.svgAnimation.narrationGenerate}</span>
+                        {narrating || !!narrationRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <AudioLines className="h-3.5 w-3.5" />}
+                        <span>{narrating || !!narrationRunning ? t.svgAnimation.narrationGenerating : hasNarration ? t.svgAnimation.narrationRegenerate : t.svgAnimation.narrationGenerate}</span>
                     </Button>
                     <RegenerateVoiceButton svg={svgAnimation} errorItemId={errorItemId} disabled={busy} onBusyChange={setVoicing} />
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={handleGenerate} disabled={busy}>
-                        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                        <span>{generating ? t.svgAnimation.generating : t.svgAnimation.regenerate}</span>
+                        {generating || !!generateRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                        <span>{generating || !!generateRunning ? t.svgAnimation.generating : t.svgAnimation.regenerate}</span>
                     </Button>
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 text-destructive hover:text-destructive" onClick={handleDelete} disabled={busy}>
                         <Trash2 className="h-3.5 w-3.5" />
