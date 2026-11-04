@@ -59,7 +59,9 @@ test('[E2E-F4-1] 文字版 PDF（1 页 3 题）：摘要 3 题、生产构建下
     await expect(items.nth(2)).toContainText('原题号 3');
     await expect(items.nth(2)).toContainText('Calculate 6 + 7.');
 
-    await page.getByRole('button', { name: '解析并导入 3 题' }).click();
+    // 按原样入库：本用例验证 PDF 解析与入库，不经 AI（带原图的题用 AI 完整解析时会按图片识别，见 P2）
+    await page.getByTestId('draft-analysis-none').click();
+    await page.getByRole('button', { name: /按原样导入 3 题/ }).click();
     await expect(page.getByTestId('batch-progress')).toBeVisible();
     await expect.poll(() => scenario.db.errorItem.count({ where: { userId: scenario.user.id } }), { timeout: 30000 }).toBe(3);
     const saved = await scenario.db.errorItem.findMany({ where: { userId: scenario.user.id } });
@@ -80,7 +82,9 @@ test('[E2E-F4-2] 文字版 PDF（2 页跨页 3 题）：摘要 3 题、批次 3 
     await expect(page.getByTestId('draft-summary')).toHaveText(/识别出 3 题/);
     await expect(page.getByTestId('draft-item')).toHaveCount(3);
 
-    await page.getByRole('button', { name: '解析并导入 3 题' }).click();
+    // 按原样入库：本用例验证 PDF 解析与入库，不经 AI（带原图的题用 AI 完整解析时会按图片识别，见 P2）
+    await page.getByTestId('draft-analysis-none').click();
+    await page.getByRole('button', { name: /按原样导入 3 题/ }).click();
     await expect.poll(() => scenario.db.errorItem.count({ where: { userId: scenario.user.id } }), { timeout: 30000 }).toBe(3);
 });
 
