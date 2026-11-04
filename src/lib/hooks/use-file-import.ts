@@ -16,6 +16,7 @@ import {
 } from "@/lib/import/structured-batches";
 import { createCanvasRenderer, sourceImageFromDataUrl } from "@/lib/import/question-images";
 import { loadPdfjsBrowser } from "@/lib/import/file-parsers/pdf/load-pdfjs";
+import { getPdfjsDefaultParams } from "@/lib/import/file-parsers/pdf/load-pdfjs";
 import { renderPdfPages } from "@/lib/import/file-parsers/pdf/render-pages";
 import type { PdfDocumentProxyLike, RenderedPdfPage } from "@/lib/import/file-parsers/pdf/render-pages";
 import { captureQuestionImage } from "@/lib/import/file-parsers/pdf/capture";
@@ -282,7 +283,7 @@ async function defaultRenderPages(
     onProgress: (done: number, total: number) => void,
 ): Promise<RenderedPdfPage[]> {
     const pdfjs = await loadPdfjsBrowser();
-    const doc = (await pdfjs.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise) as unknown as PdfDocumentProxyLike;
+    const doc = (await pdfjs.getDocument({ data: new Uint8Array(buffer.slice(0)), ...getPdfjsDefaultParams() }).promise) as unknown as PdfDocumentProxyLike;
     return renderPdfPages(doc, { pages, onProgress });
 }
 
@@ -380,5 +381,5 @@ async function capturePdfQuestionImages(
 /** 默认加载 pdfjs 文档 */
 async function defaultLoadDocument(buffer: ArrayBuffer): Promise<PdfDocumentProxyLike> {
     const pdfjs = await loadPdfjsBrowser();
-    return (await pdfjs.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise) as unknown as PdfDocumentProxyLike;
+    return (await pdfjs.getDocument({ data: new Uint8Array(buffer.slice(0)), ...getPdfjsDefaultParams() }).promise) as unknown as PdfDocumentProxyLike;
 }

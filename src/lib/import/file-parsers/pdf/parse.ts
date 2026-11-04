@@ -20,7 +20,8 @@ import { splitQuestionText } from "@/lib/question-split/text";
 import { linesToText, normalizePdfText, reconstructLines } from "@/lib/import/file-parsers/pdf/layout";
 import type { PdfLine, PdfTextItem } from "@/lib/import/file-parsers/pdf/layout";
 import { loadPdfjsBrowser } from "@/lib/import/file-parsers/pdf/load-pdfjs";
-import type { PdfjsModule } from "@/lib/import/file-parsers/pdf/load-pdfjs";
+import type { PdfjsModule, PdfGetDocumentParams } from "@/lib/import/file-parsers/pdf/load-pdfjs";
+import { getPdfjsDefaultParams } from "@/lib/import/file-parsers/pdf/load-pdfjs";
 import { computeAllQuestionRegions } from "@/lib/import/file-parsers/pdf/regions";
 import type { PdfQuestionRegions } from "@/lib/import/file-parsers/pdf/regions";
 import { extractGraphicsFromOperatorList } from "@/lib/import/file-parsers/pdf/graphics";
@@ -92,7 +93,13 @@ export async function parsePdf(buffer: ArrayBuffer, options: ParsePdfOptions = {
     const data = new Uint8Array(buffer.slice(0));
     let doc;
     try {
-        doc = await pdfjs.getDocument(options.standardFontDataUrl ? { data, standardFontDataUrl: options.standardFontDataUrl, verbosity: 0 } : { data }).promise;
+        // 浏览器端统一带上 CMap 与标准字体路径；测试/Node 环境由调用方通过 options 注入
+        const docParams: PdfGetDocumentParams = options.pdfjs
+            ? (options.standardFontDataUrl
+                ? { data, standardFontDataUrl: options.standardFontDataUrl, verbosity: 0 }
+                : { data, verbosity: 0 })
+            : { data, ...getPdfjsDefaultParams(), verbosity: 0 };
+        doc = await pdfjs.getDocument(docParams).promise;
     } catch (error) {
         const name = error instanceof Error ? error.name : "";
         if (name === "PasswordException") {

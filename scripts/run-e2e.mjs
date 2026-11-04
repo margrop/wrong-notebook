@@ -80,6 +80,8 @@ try {
         cpSync(sharedCache, join(app, '.next/cache'), { recursive: true, mode: constants.COPYFILE_FICLONE });
     }
     process.stdout.write('构建隔离应用…\n');
+    // 与 npm run build 的 prebuild 一致：复制 pdfjs 的 CMap 与标准字体到 public/pdfjs
+    await run(process.execPath, ['scripts/copy-pdfjs-assets.mjs']);
     await run(process.execPath, ['node_modules/next/dist/bin/next', 'build']);
     built = true;
     const server = spawn(process.execPath, ['--require', join(root, 'e2e/support/network-guard.cjs'), 'node_modules/next/dist/bin/next', 'start', '-H', '127.0.0.1', '-p', String(port)],

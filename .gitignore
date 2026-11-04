@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# pdfjs 静态资源（构建前由 scripts/copy-pdfjs-assets.mjs 从 pdfjs-dist 复制）
+/public/pdfjs/
+
 # production
 /build
 

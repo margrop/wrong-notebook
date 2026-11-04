@@ -114,6 +114,8 @@ node scripts/package/build.mjs android                # 单机版和客户端版
 
 桌面版使用 Electron 45（内置 Node.js 24）和 electron-builder 26，服务端由 Electron 自带的 Node 运行。electron-builder 26 复制 `extraResources` 时总会跳过来源目录根层的 `node_modules`，因此 `packaging/desktop/package.json` 把 `server/node_modules` 单独列为一项；打包后 `build.mjs` 会检查 Prisma Client 等关键文件是否进入安装包。
 
+PDF 导入的浏览器端解析需要 pdfjs-dist 的 CMap 与标准字体数据（`public/pdfjs/`），`npm run build` 前会通过 `prebuild` 自动从 `pdfjs-dist` 包内复制到 `public/pdfjs/`（约 2.5MB），无需手动处理。
+
 安卓 APK 构建需要 JDK 17、Android SDK（`ANDROID_HOME`，compileSdk 35、build-tools 35.0.0）和 Gradle 8.11（PATH 中的 `gradle`，或用环境变量 `GRADLE` 指定）。客户端版不依赖 `bundle`；单机版还需要：
 
 - `dist/bundle`：与其他安装包相同的服务端。

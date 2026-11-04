@@ -182,6 +182,8 @@ function buildBundle() {
 
     if (!flags.skipBuild) {
         log('构建 Next.js 应用');
+        // 与 npm run build 的 prebuild 一致：复制 pdfjs 的 CMap 与标准字体到 public/pdfjs
+        run(process.execPath, [path.join(ROOT, 'scripts', 'copy-pdfjs-assets.mjs')]);
         runNodeBin('next/dist/bin/next', ['build']);
     }
     const standalone = path.join(ROOT, '.next', 'standalone');

@@ -15,11 +15,27 @@ export interface PdfjsModule {
     PDFWorker: typeof PDFWorker;
 }
 
-/** getDocument 参数：pdfjs 官方 DocumentParameters 只用到这两个外加 standardFontDataUrl/verbosity */
+/** getDocument 参数：pdfjs 官方 DocumentParameters 只用到这三个外加 verbosity */
 export interface PdfGetDocumentParams {
     data: Uint8Array;
+    cMapUrl?: string;
+    cMapPacked?: boolean;
     standardFontDataUrl?: string;
     verbosity?: number;
+}
+
+/**
+ * 浏览器端 getDocument 默认参数：CMap 与标准字体数据放在 public/pdfjs/ 下（构建前由
+ * scripts/copy-pdfjs-assets.mjs 从 pdfjs-dist 包内复制），供 pdfjs worker 按需加载。
+ * 使用预定义中文 CMap（如 UniGB-UCS2-H）且未内嵌 ToUnicode 的 PDF 需要 cMapUrl 才能正确解码；
+ * 非内嵌标准字体的渲染需要 standardFontDataUrl 提供字形数据。
+ */
+export function getPdfjsDefaultParams(): Pick<PdfGetDocumentParams, "cMapUrl" | "cMapPacked" | "standardFontDataUrl"> {
+    return {
+        cMapUrl: "/pdfjs/cmaps/",
+        cMapPacked: true,
+        standardFontDataUrl: "/pdfjs/standard_fonts/",
+    };
 }
 
 /** 惰性创建浏览器端缓存，避免模块顶层副作用（如被服务端组件误引） */
