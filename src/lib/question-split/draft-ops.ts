@@ -2,7 +2,7 @@
  * 分题草稿的编辑操作（纯函数）：选择、编辑、拆分、合并、移动、删除、恢复忽略内容、调整区域、AI 修正建议的采用与放弃。
  * 每个操作返回新的草稿，不修改原对象，便于撤销。
  */
-import { MAX_DRAFT_TEXT_LENGTH, MAX_ITEM_REGIONS, newItemKey } from "@/lib/question-split/draft";
+import { MAX_DRAFT_TEXT_LENGTH, MAX_ITEM_KNOWLEDGE_POINTS, MAX_ITEM_REGIONS, MAX_KNOWLEDGE_POINT_LENGTH, newItemKey } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftItem, DraftRegion, DraftTextFix } from "@/lib/question-split/draft";
 import { MAX_SPLIT_QUESTIONS } from "@/lib/question-split/text";
 
@@ -22,7 +22,7 @@ export function setAllSelected(draft: BatchDraft, selected: boolean, canSelect: 
     return updateItems(draft, draft.items.map((item) => ({ ...item, selected: selected && canSelect(item) })));
 }
 
-export function updateItem(draft: BatchDraft, key: string, patch: Partial<Pick<DraftItem, "text" | "material" | "regions" | "selected">>): BatchDraft {
+export function updateItem(draft: BatchDraft, key: string, patch: Partial<Pick<DraftItem, "text" | "material" | "regions" | "selected" | "answer" | "analysis" | "knowledgePoints" | "difficultyStars" | "wrongAnswer">>): BatchDraft {
     return updateItems(draft, draft.items.map((item) => {
         if (item.key !== key) return item;
         const next = { ...item, ...patch };
@@ -31,6 +31,11 @@ export function updateItem(draft: BatchDraft, key: string, patch: Partial<Pick<D
             // 手工改了题目文字，基于旧文字的修正建议不再适用
             if (next.text !== item.text) next.fix = null;
         }
+        if (patch.answer !== undefined) next.answer = patch.answer?.slice(0, MAX_DRAFT_TEXT_LENGTH) ?? null;
+        if (patch.analysis !== undefined) next.analysis = patch.analysis?.slice(0, MAX_DRAFT_TEXT_LENGTH) ?? null;
+        if (patch.knowledgePoints !== undefined) next.knowledgePoints = patch.knowledgePoints.slice(0, MAX_ITEM_KNOWLEDGE_POINTS).map((point) => point.slice(0, MAX_KNOWLEDGE_POINT_LENGTH));
+        if (patch.difficultyStars !== undefined) next.difficultyStars = patch.difficultyStars;
+        if (patch.wrongAnswer !== undefined) next.wrongAnswer = patch.wrongAnswer?.slice(0, MAX_DRAFT_TEXT_LENGTH) ?? null;
         if (patch.regions !== undefined) {
             next.regions = patch.regions.slice(0, MAX_ITEM_REGIONS);
             // 补上区域后不再是「未定位」
@@ -55,7 +60,13 @@ export function moveItem(draft: BatchDraft, key: string, offset: -1 | 1): BatchD
     return updateItems(draft, items);
 }
 
-/** 与上一题合并：文字按段落拼接，区域合并，公共材料取上一题已有的 */
+/** 拼接两个可空文本字段（按换行），两边都为空时结果为 null */
+function joinField(a: string | null | undefined, b: string | null | undefined): string | null {
+    const joined = [a, b].filter((value) => value?.trim()).join("\n").trim();
+    return joined || null;
+}
+
+/** 与上一题合并：文字按段落拼接，区域合并，公共材料取上一题已有的；结构化字段合并保留 */
 export function mergeWithPrevious(draft: BatchDraft, key: string): BatchDraft {
     const index = indexOf(draft, key);
     if (index <= 0) return draft;
@@ -69,6 +80,11 @@ export function mergeWithPrevious(draft: BatchDraft, key: string): BatchDraft {
         regions: [...previous.regions, ...current.regions].slice(0, MAX_ITEM_REGIONS),
         hasFigure: previous.hasFigure || current.hasFigure,
         flags: [...new Set([...previous.flags, ...current.flags])].filter((flag) => flag !== "unlocated" || previous.regions.length + current.regions.length === 0),
+        answer: joinField(previous.answer, current.answer)?.slice(0, MAX_DRAFT_TEXT_LENGTH) ?? null,
+        analysis: joinField(previous.analysis, current.analysis)?.slice(0, MAX_DRAFT_TEXT_LENGTH) ?? null,
+        knowledgePoints: [...new Set([...(previous.knowledgePoints ?? []), ...(current.knowledgePoints ?? [])])].slice(0, MAX_ITEM_KNOWLEDGE_POINTS),
+        difficultyStars: previous.difficultyStars ?? current.difficultyStars,
+        wrongAnswer: joinField(previous.wrongAnswer, current.wrongAnswer)?.slice(0, MAX_DRAFT_TEXT_LENGTH) ?? null,
         fix: null,
     };
     const items = [...draft.items];
@@ -95,6 +111,12 @@ export function splitItemAt(draft: BatchDraft, key: string, offset: number): Bat
         regions: [],
         flags: item.regions.length > 0 ? ["unlocated"] : [],
         selected: item.regions.length > 0 ? false : item.selected,
+        // 结构化字段留在第一部分
+        answer: null,
+        analysis: null,
+        knowledgePoints: undefined,
+        difficultyStars: null,
+        wrongAnswer: null,
         fix: null,
     };
     const items = [...draft.items];

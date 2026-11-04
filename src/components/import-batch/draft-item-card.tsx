@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronUp, Copy, Crop, FilePlus2, Loader2, Merge, Scissors, Sparkles, Trash2 } from "lucide-react";
+import { DraftItemFields } from "@/components/import-batch/draft-item-fields";
 import { RegionThumbnail } from "@/components/import-batch/region-thumbnail";
 import { TextFixPanel } from "@/components/import-batch/text-fix-panel";
 import { Badge } from "@/components/ui/badge";
@@ -144,6 +145,7 @@ export function DraftItemCard({ item, index, total, source, expanded, onToggleEx
                                 className="min-h-28 font-mono text-sm"
                             />
                             <p className="text-xs text-muted-foreground">{t.importBatch.splitHint}</p>
+                            <DraftItemFields item={item} onEdit={(change) => onEdit(change)} />
                         </>
                     ) : (
                         <>

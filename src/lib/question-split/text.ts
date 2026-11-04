@@ -13,12 +13,22 @@
 export interface SplitTextQuestion {
     /** 原文中的题号，如 "1"；没有时为 null */
     label: string | null;
-    /** 题目正文（已去掉顶层题号） */
+    /** 题目正文（已去掉顶层题号与行首标记段落） */
     text: string;
     /** 公共材料（阅读材料、题组说明），解析时拼在题干前 */
     material: string | null;
     /** 所在大题的分组标题，如「一、选择题」，只用于显示 */
     section: string | null;
+    /** 参考答案（识别自【答案】等行首标记） */
+    answer?: string | null;
+    /** 参考解析（识别自【解析】等行首标记，多个标记分段落合并） */
+    analysis?: string | null;
+    /** 知识点名称（识别自【知识点】等行首标记） */
+    knowledgePoints?: string[];
+    /** 难度星级（识别自【难度】等行首标记，1～5） */
+    difficultyStars?: number | null;
+    /** 学生的错误作答（识别自【错答】等行首标记） */
+    wrongAnswer?: string | null;
 }
 
 export interface TextSplitResult {
@@ -238,14 +248,43 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
 
     const whole = joinLines(lines.slice(0, end));
     const ignoredTail = end < lines.length ? paragraphs(lines.slice(end)) : [];
+    /** 单题时取题干首行的题号作为 label，便于答案区条目按题号回填 */
+    const singleLabel = (() => {
+        const match = matchQuestionNumber(lines[chain[0]?.line ?? 0] ?? '');
+        return match ? match.label : null;
+    })();
     const single = (ambiguous: boolean): TextSplitResult => ({
-        questions: whole ? [{ label: null, text: whole, material: null, section: null }] : [],
+        questions: whole ? [{ label: singleLabel, text: whole, material: null, section: null }] : [],
         ignored: ignoredTail, detected: false, ambiguous, candidateCount: ambiguous ? chain.length : whole ? 1 : 0, overflow: 0, tooLong,
     });
-    if (chain.length < 2) return single(false);
+    if (chain.length < 2) {
+        if (!whole) return single(false);
+        // 单题时也识别行首标记（如整份答案粘进来作为一道题）
+        const marked = extractMarkedFields(whole.split('\n'));
+        const result = single(false);
+        if (result.questions.length > 0 && Object.keys(marked.fields).length > 0) {
+            result.questions[0] = { ...result.questions[0], text: stripQuestionNumber(marked.text), ...marked.fields };
+        }
+        // 单题时也尝试把答案区按题号回填（如「1. 2.5」「1-5：BCA」）
+        if (result.questions.length > 0 && ignoredTail.length) {
+            const [remaining, matchedAny] = fillAnswersFromTail(ignoredTail, result.questions);
+            result.ignored = remaining;
+            if (!matchedAny) result.ignored = ignoredTail;
+        }
+        return result;
+    }
 
     const chainFamily = chain[0].family;
-    if (!options.forceNumbered && looksLikeSubQuestions(lines, chain[0].line, chainFamily, matches)) return single(true);
+    if (!options.forceNumbered && looksLikeSubQuestions(lines, chain[0].line, chainFamily, matches)) {
+        const ambiguousResult = single(true);
+        if (ambiguousResult.questions.length > 0 && whole) {
+            const marked = extractMarkedFields(whole.split('\n'));
+            if (Object.keys(marked.fields).length > 0) {
+                ambiguousResult.questions[0] = { ...ambiguousResult.questions[0], text: stripQuestionNumber(marked.text), ...marked.fields };
+            }
+        }
+        return ambiguousResult;
+    }
     const chainLines = new Set(chain.map((candidate) => candidate.line));
     const ignored: string[] = [];
     const questions: SplitTextQuestion[] = [];
@@ -306,11 +345,13 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
         const text = trailing.length ? bodyParagraphs.join('\n') : joinLines(body);
         const value = chain[position].value;
         const applicable = materialsForSection.filter((material) => !material.range || (value >= material.range.from && value <= material.range.to));
+        const marked = extractMarkedFields(stripQuestionNumber(text).split('\n'));
         questions.push({
             label: chain[position].label,
-            text: stripQuestionNumber(text),
+            text: marked.text,
             material: applicable.length ? applicable.map((material) => material.text).join('\n\n') : null,
             section,
+            ...marked.fields,
         });
         for (const paragraph of trailing) pendingMaterials.push({ text: paragraph, range: materialRange(paragraph) });
         if (nextSection !== null) {
@@ -319,17 +360,244 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
             takeInterlude(lines.slice(bodyEnd + 1, stop), false);
         }
     }
+    // 答案区按题号回填：「参考答案」标题后带题号的条目填入对应题目，匹配不上的留在 ignored
+    const [remainingIgnoredTail] = fillAnswersFromTail(ignoredTail, questions);
+
     // 超出上限的题不静默丢弃：原文列入未计入内容，并给出数量
     const overflow = questions.slice(MAX_SPLIT_QUESTIONS);
     return {
         questions: questions.slice(0, MAX_SPLIT_QUESTIONS),
-        ignored: [...ignored, ...ignoredTail, ...overflow.map((question) => composeQuestionInput(question))],
+        ignored: [...ignored, ...remainingIgnoredTail, ...overflow.map((question) => composeQuestionInput(question))],
         detected: true,
         ambiguous: false,
         candidateCount: questions.length,
         overflow: overflow.length,
         tooLong,
     };
+}
+
+// ── 行首标记识别（答案、解析、知识点、难度、错答） ──────────────────────────
+
+const MARK_PATTERNS = {
+    answer: /^(?:【\s*(?:参考答案|答案)\s*】|(?:参考答案|答案)\s*[:：]|Answer\s*[:：])\s*(.*)$/i,
+    analysis: /^(?:【\s*(?:解析|分析|详解|解答|点评)\s*】|(?:解析|分析|详解|解答|点评)\s*[:：])\s*(.*)$/,
+    knowledge: /^(?:【\s*(?:知识点|考点)\s*】|(?:知识点|考点)\s*[:：])\s*(.*)$/,
+    difficulty: /^(?:【\s*难度\s*】|难度\s*[:：])\s*(.*)$/,
+    wrongAnswer: /^(?:【\s*错答\s*】|我的答案\s*[:：]|学生答案\s*[:：])\s*(.*)$/,
+} as const;
+
+const DIFFICULTY_WORDS: Record<string, number> = { '易': 1, '较易': 2, '中等': 3, '较难': 4, '难': 5 };
+
+/** 把难度文字解析为 1～5 的整数；无法识别时返回 null */
+function parseDifficulty(raw: string): number | null {
+    const text = raw.trim();
+    if (!text) return null;
+    const numeric = text.match(/^(\d{1,2})\s*(?:星|级)?$/);
+    if (numeric) {
+        const value = Number(numeric[1]);
+        return value >= 1 && value <= 5 ? value : null;
+    }
+    if (/^[★☆]{1,5}$/.test(text)) {
+        const filled = (text.match(/★/g) ?? []).length;
+        return filled >= 1 ? filled : null;
+    }
+    if (text in DIFFICULTY_WORDS) return DIFFICULTY_WORDS[text];
+    return null;
+}
+
+/** 把知识点文字按顿号、中英文逗号/分号拆成数组，去掉空项 */
+function parseKnowledgePoints(raw: string): string[] {
+    return raw.split(/[、，,；;]/).map((point) => point.trim()).filter(Boolean);
+}
+
+interface ParsedFields {
+    answer?: string | null;
+    analysis?: string | null;
+    knowledgePoints?: string[];
+    difficultyStars?: number | null;
+    wrongAnswer?: string | null;
+}
+
+/**
+ * 识别一题内部的行首标记，把标记后的内容提取到对应字段并从题干中移除。
+ * 无标记时返回空对象，题目文字原样保留。
+ */
+function extractMarkedFields(lines: string[]): { text: string; fields: ParsedFields } {
+    type FieldKey = keyof typeof MARK_PATTERNS;
+    const collected: Record<FieldKey, string[]> = { answer: [], analysis: [], knowledge: [], difficulty: [], wrongAnswer: [] };
+    const body: string[] = [];
+    let currentKey: FieldKey | null = null;
+
+    for (const line of lines) {
+        let matchedKey: FieldKey | null = null;
+        for (const key of Object.keys(MARK_PATTERNS) as FieldKey[]) {
+            const match = line.match(MARK_PATTERNS[key]);
+            if (!match) continue;
+            matchedKey = key;
+            currentKey = key;
+            const rest = match[1].trim();
+            if (rest) collected[key].push(rest);
+            break;
+        }
+        if (!matchedKey) {
+            if (currentKey && line.trim()) {
+                // 同一标记的后续行并入该字段
+                collected[currentKey].push(line.trim());
+            } else {
+                body.push(line);
+            }
+        }
+    }
+
+    const fields: ParsedFields = {};
+    const answer = collected.answer.join('\n').trim();
+    if (answer) fields.answer = answer;
+    const analysis = collected.analysis.join('\n').trim();
+    if (analysis) fields.analysis = analysis;
+    const knowledge = collected.knowledge.flatMap(parseKnowledgePoints);
+    if (knowledge.length) fields.knowledgePoints = knowledge;
+    const difficultyText = collected.difficulty.join(' ').trim();
+    const difficulty = difficultyText ? parseDifficulty(difficultyText) : null;
+    if (difficulty !== null) fields.difficultyStars = difficulty;
+    const wrongAnswer = collected.wrongAnswer.join('\n').trim();
+    if (wrongAnswer) fields.wrongAnswer = wrongAnswer;
+
+    return { text: joinLines(body), fields };
+}
+
+/** 答案区条目：识别「1. B」「2．答案：12 解析：……」这类按题号列答案的写法（小数如「1. 2.5」的答案也接受） */
+const ANSWER_ENTRY_PATTERN = /^(\d{1,3})\s*[.．、，,)]\s*(\S[\s\S]*)$/;
+/** 一行多题片段里答案的最大长度；超过视为该段不是「短答案」，整行回退到单条解析 */
+const MULTI_ENTRY_ANSWER_MAX_LENGTH = 30;
+
+/** 区间写法：「1～5 BCADB」「1-5：BCADB」「1—5.BCADB」（连字符放字符类末尾避免被当作范围） */
+const ANSWER_RANGE_PATTERN = /^(\d{1,3})\s*[~～—–-]\s*(\d{1,3})\s*[:：.．、]?\s*([A-Za-z]+)$/;
+
+/** 把区间写法拆成多条（字母个数等于区间长度才逐题分配，否则返回 null） */
+function parseAnswerRangeLine(line: string): Array<{ label: string; text: string }> | null {
+    const match = line.trim().match(ANSWER_RANGE_PATTERN);
+    if (!match) return null;
+    const from = Number(match[1]);
+    const to = Number(match[2]);
+    const letters = match[3];
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from <= 0 || to <= from || to - from + 1 > 60) return null;
+    const width = to - from + 1;
+    // 字母个数必须与区间长度一致，否则不按区间处理（保留在 ignored，由用户人工处理）
+    if (letters.length !== width) return null;
+    return Array.from({ length: width }, (_, index) => ({
+        label: String(from + index),
+        text: letters[index],
+    }));
+}
+
+/**
+ * 一行内多个「题号 + 短答案」片段：「1.B 2.C 3.A」「1．B　2．C」「1、A；2、D」。
+ * 要求同一行 ≥2 个片段、每段答案 ≤30 字、不含完整句子标点；
+ * 题号按递增顺序排列，但允许中间缺号（缺号的片段返回 null label，由调用方决定是否保留）。
+ */
+function parseMultiEntryLine(line: string): Array<{ label: string | null; text: string }> | null {
+    const trimmed = line.trim();
+    // 用「题号+分隔符」作锚点切分；分隔符集不含空格，空格留给答案内部
+    const fragmentPattern = /(\d{1,3})\s*[.．、，,；;]\s*/g;
+    const anchors: Array<{ index: number; label: string; afterIndex: number }> = [];
+    for (const match of trimmed.matchAll(fragmentPattern)) {
+        const index = match.index ?? 0;
+        // 小数（如 2.5）不当题号：分隔符后紧跟数字时跳过
+        const afterSeparator = trimmed[index + match[0].length];
+        if (afterSeparator && /\d/.test(afterSeparator)) continue;
+        anchors.push({ index, label: match[1], afterIndex: index + match[0].length });
+    }
+    if (anchors.length < 2) return null;
+    // 题号必须严格递增
+    for (let i = 1; i < anchors.length; i++) {
+        if (Number(anchors[i].label) <= Number(anchors[i - 1].label)) return null;
+    }
+    const fragments: Array<{ label: string | null; text: string }> = [];
+    for (let i = 0; i < anchors.length; i++) {
+        const start = anchors[i].afterIndex;
+        const end = i + 1 < anchors.length ? anchors[i + 1].index : trimmed.length;
+        // 片段末尾可能残留「；;」等分隔符（如「1、A；2、D」中「A；」的「；」）
+        const text = trimmed.slice(start, end).trim().replace(/[；;]+$/, '').trim();
+        // 片段之间应仅靠空白或题号分隔；若包含完整句子标点则不像「一行多题」
+        if (!text || text.length > MULTI_ENTRY_ANSWER_MAX_LENGTH) return null;
+        if (/[。！？!?]/.test(text)) return null;
+        fragments.push({ label: anchors[i].label, text });
+    }
+    return fragments;
+}
+
+/**
+ * 解析答案区的一行：优先区间写法，其次一行多题，最后单条。
+ * 返回 null 表示该行不是按题号的条目。
+ */
+function parseAnswerLine(line: string): Array<{ label: string; text: string }> | null {
+    const trimmed = line.trim();
+    if (!trimmed) return null;
+    const range = parseAnswerRangeLine(trimmed);
+    if (range) return range;
+    const multi = parseMultiEntryLine(trimmed);
+    if (multi) return multi.map((entry) => ({ label: entry.label ?? '', text: entry.text })).filter((entry) => entry.label);
+    const match = trimmed.match(ANSWER_ENTRY_PATTERN);
+    if (!match) return null;
+    const value = Number(match[1]);
+    if (!Number.isFinite(value) || value <= 0) return null;
+    return [{ label: match[1], text: match[2].trim() }];
+}
+
+/** 解析答案区条目的内容，识别其中的解析标记（如「答案：12 解析：因为…」） */
+function parseAnswerEntryContent(text: string): { answer: string; analysis?: string } {
+    const analysisMatch = text.match(/^(.*?)(?:【?\s*(?:解析|分析|详解|解答|点评)\s*】?\s*[:：])([\s\S]*)$/);
+    if (analysisMatch) {
+        const answer = analysisMatch[1].replace(/^(?:【?\s*(?:参考答案|答案)\s*】?\s*[:：])\s*/, '').trim();
+        const analysis = analysisMatch[2].trim();
+        return analysis ? { answer, analysis } : { answer: text.trim() };
+    }
+    const answer = text.replace(/^(?:【?\s*(?:参考答案|答案)\s*】?\s*[:：])\s*/, '').trim();
+    return { answer: answer || text.trim() };
+}
+
+/**
+ * 把答案区的段落按题号回填到对应题目：能匹配上的条目不再放入 ignored，匹配不上的留在 ignored。
+ * 返回 [剩余 ignored 段落, 是否有任何条目被匹配]。
+ */
+function fillAnswersFromTail(ignoredTail: string[], questions: SplitTextQuestion[]): [string[], boolean] {
+    const remaining: string[] = [];
+    let matchedAny = false;
+    for (const paragraph of ignoredTail) {
+        const paragraphMatched = { value: false };
+        const unmatchedLines: string[] = [];
+        for (const line of paragraph.split('\n')) {
+            const entries = line.trim() ? parseAnswerLine(line) : null;
+            if (!entries) {
+                if (line.trim()) unmatchedLines.push(line);
+                continue;
+            }
+            let lineMatched = false;
+            for (const entry of entries) {
+                const target = questions.find((question) => question.label === entry.label);
+                if (!target) {
+                    unmatchedLines.push(line);
+                    break;
+                }
+                lineMatched = true;
+                paragraphMatched.value = true;
+                const parsed = parseAnswerEntryContent(entry.text);
+                if (parsed.answer && !target.answer) target.answer = parsed.answer;
+                if (parsed.analysis) {
+                    target.analysis = target.analysis ? `${target.analysis}\n${parsed.analysis}` : parsed.analysis;
+                }
+            }
+            if (!lineMatched && !unmatchedLines.includes(line) && line.trim()) {
+                // 整行没有任何条目匹配上时保留（此前 unmatchedLines 可能已含该行，避免重复）
+                if (!unmatchedLines.includes(line)) unmatchedLines.push(line);
+            }
+        }
+        matchedAny = matchedAny || paragraphMatched.value;
+        // 段落里没有任何条目匹配上题目时，原样保留；有匹配时未匹配的零散行保留
+        if (!paragraphMatched.value) remaining.push(paragraph);
+        else if (unmatchedLines.length) remaining.push(unmatchedLines.join('\n'));
+    }
+    return [remaining, matchedAny];
 }
 
 /**
@@ -351,9 +619,18 @@ function looksLikeSubQuestions(lines: string[], firstLine: number, family: Numbe
     return /[：:]$/.test(stem) && SUB_QUESTION_STEM.test(stem);
 }
 
-/** 题目送去解析的完整文字：公共材料在前，题干在后 */
-export function composeQuestionInput(question: Pick<SplitTextQuestion, 'text' | 'material'>): string {
+/**
+ * 题目送去解析的完整文字：公共材料在前，题干在后；自带答案/解析/错答时附在末尾供 AI 参考。
+ * 小节标题固定为中文（「参考答案：」「参考解析：」「学生作答：」），AI 能理解，不做翻译。
+ */
+export function composeQuestionInput(question: Pick<SplitTextQuestion, 'text' | 'material' | 'answer' | 'analysis' | 'wrongAnswer'>): string {
     const text = question.text.trim();
     const material = question.material?.trim();
-    return material ? `${material}\n\n${text}` : text;
+    const base = material ? `${material}\n\n${text}` : text;
+    const sections: string[] = [];
+    if (question.answer?.trim()) sections.push(`参考答案：${question.answer.trim()}`);
+    if (question.analysis?.trim()) sections.push(`参考解析：${question.analysis.trim()}`);
+    if (question.wrongAnswer?.trim()) sections.push(`学生作答：${question.wrongAnswer.trim()}`);
+    if (!sections.length) return base;
+    return `${base}\n\n${sections.join('\n\n')}`;
 }

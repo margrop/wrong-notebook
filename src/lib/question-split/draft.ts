@@ -25,6 +25,10 @@ export type DraftRegion = z.infer<typeof draftRegionSchema>;
 export const DRAFT_ITEM_FLAGS = ['unclear', 'partial', 'unlocated'] as const;
 export type DraftItemFlag = typeof DRAFT_ITEM_FLAGS[number];
 
+/** 一题最多关联的知识点个数；单个知识点名称的上限 */
+export const MAX_ITEM_KNOWLEDGE_POINTS = 100;
+export const MAX_KNOWLEDGE_POINT_LENGTH = 200;
+
 /** AI 修正文字的建议：基于 original 生成，用户接受前题目仍按原文解析 */
 export const draftTextFixSchema = z.object({
     /** 生成建议时的题目原文；题目文字已改动时建议作废 */
@@ -48,6 +52,16 @@ export const draftItemSchema = z.object({
     flags: z.array(z.enum(DRAFT_ITEM_FLAGS)).max(DRAFT_ITEM_FLAGS.length),
     /** 待确认的 AI 修正建议（只用于文字批次）；旧草稿没有此字段 */
     fix: draftTextFixSchema.nullish(),
+    /** 参考答案（题库文件自带时按原样带入，不调用 AI）；旧草稿没有此字段 */
+    answer: z.string().max(MAX_DRAFT_TEXT_LENGTH).nullish(),
+    /** 参考解析；旧草稿没有此字段 */
+    analysis: z.string().max(MAX_DRAFT_TEXT_LENGTH).nullish(),
+    /** 知识点名称列表；旧草稿没有此字段 */
+    knowledgePoints: z.array(z.string().max(MAX_KNOWLEDGE_POINT_LENGTH)).max(MAX_ITEM_KNOWLEDGE_POINTS).optional(),
+    /** 难度星级（1～5）；旧草稿没有此字段 */
+    difficultyStars: z.number().int().min(1).max(5).nullish(),
+    /** 学生的错误作答；旧草稿没有此字段 */
+    wrongAnswer: z.string().max(MAX_DRAFT_TEXT_LENGTH).nullish(),
 });
 export type DraftItem = z.infer<typeof draftItemSchema>;
 
@@ -93,6 +107,11 @@ export function draftFromTextSplit(questions: SplitTextQuestion[], ignored: stri
             regions: [],
             hasFigure: false,
             flags: [],
+            answer: question.answer ?? null,
+            analysis: question.analysis ?? null,
+            knowledgePoints: question.knowledgePoints?.slice(0, MAX_ITEM_KNOWLEDGE_POINTS),
+            difficultyStars: question.difficultyStars ?? null,
+            wrongAnswer: question.wrongAnswer ?? null,
         };
     });
     return { items, ignored: ignored.slice(0, 200), warnings: overflow > 0 || questions.length > MAX_SPLIT_QUESTIONS ? ['tooMany'] : [] };

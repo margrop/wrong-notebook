@@ -96,7 +96,11 @@ describe('本地文字分题', () => {
     it('答案页之后的内容不参与分题', () => {
         const result = splitQuestionText('1．计算 1 + 1。\n2．计算 2 + 2。\n参考答案\n1．2\n2．4');
         expect(result.questions).toHaveLength(2);
-        expect(result.ignored.join('\n')).toContain('1．2');
+        // 答案区按题号回填到对应题目（T01 新增行为），匹配上的条目不再列入 ignored
+        expect(result.questions[0].answer).toBe('2');
+        expect(result.questions[1].answer).toBe('4');
+        expect(result.ignored.join('\n')).not.toContain('1．2');
+        expect(result.ignored.join('\n')).not.toContain('2．4');
     });
 
     it('题号识别与去除', () => {
