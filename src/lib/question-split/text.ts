@@ -204,7 +204,37 @@ interface Candidate extends NumberMatch {
     line: number;
 }
 
-/** 从每个候选出发，取同一写法、编号逐个加一的最长序列；分组标题后允许重新从 1 开始 */
+/**
+ * 判断一行是否是「短分组标题」：无题号、字数少、不像正文的一行（如「兴趣篇」「Part B」）。
+ * 为避免把题干内的普通短句误判（如「练习」），要求以明确的结构词结尾（篇/章/节/部分/组）
+ * 或为「Part X」「Section X」格式，且其后紧接新一段的 1 号题时才确认。
+ */
+function isShortSectionHeading(line: string, followingLines: string[] = []): boolean {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.length > 12) return false;
+    // 不以标点结尾（题号、句读、括号都不像标题）
+    if (/[。！？!?,，、；;:：.．()（）【】\[\]{}]$/.test(trimmed)) return false;
+    // 不含阿拉伯数字（题号）与编号标记
+    if (/\d/.test(trimmed)) return false;
+    // 不像正文：不含完整句子标点（题目正文通常有句读或较长）
+    if (/[。！？!?；;，,]/.test(trimmed)) return false;
+    // 必须以明确的结构词结尾或以「Part/Section X」格式出现，避免把普通短句（如「练习」）误判
+    const isStructuralHeading = /(篇|章|节|部分|组)$/.test(trimmed) || /^(Part|Section)\s+[A-Z0-9]+$/i.test(trimmed);
+    if (!isStructuralHeading) return false;
+    // 其后必须紧接新一段从 1 开始的题号（跳过多行材料说明）
+    if (followingLines.length) {
+        return followingLines.some((next) => {
+            const match = matchQuestionNumber(next);
+            return match !== null && match.value === 1;
+        });
+    }
+    return true;
+}
+
+/**
+ * 从每个候选出发，取同一写法、编号逐个加一的最长序列；分组标题后允许重新从 1 开始。
+ * 允许多段编号链：一条链结束后出现分组标题，之后同写法的题号重新从 1 开始递增时开启新段。
+ */
 function longestChain(candidates: Candidate[], sectionLines: Set<number>): Candidate[] {
     let best: Candidate[] = [];
     for (let start = 0; start < candidates.length; start++) {
@@ -227,6 +257,153 @@ function isSectionLine(line: string, match: NumberMatch | null, chainFamily: Num
     // 有阿拉伯题号时，「一、选择题」这样的汉字序号是大题标题
     return !!match && match.family === 'cn' && chainFamily !== 'cn' && chainFamily !== null
         && (line.length <= 40 || SECTION_KEYWORD.test(line.slice(0, 20)));
+}
+
+/**
+ * 把一条链按分组标题切成多段：每当题号回到 1 且前面有分组标题行时开启新段。
+ * 返回各段链与段首的分组标题；单段时 sectionHeading 可能为 null（标题由主循环 preamble 处理）。
+ */
+function collectSegments(
+    chain: Candidate[],
+    allCandidates: Candidate[],
+    lines: string[],
+    matches: Array<NumberMatch | null>,
+    sectionLines: Set<number>,
+): Array<{ chain: Candidate[]; sectionHeading: string | null }> {
+    if (chain.length < 2) return [];
+    const family = chain[0].family;
+    // 找出链中所有「题号从 1 开始」的位置（除第一个外）
+    const segmentStarts: number[] = [0];
+    for (let i = 1; i < chain.length; i++) {
+        if (chain[i].value === 1) segmentStarts.push(i);
+    }
+    if (segmentStarts.length < 2) {
+        // 单段：检测段首是否有短分组标题
+        const heading = findHeadingBefore(chain[0].line, lines, matches, family, sectionLines);
+        return heading !== null ? [{ chain, sectionHeading: heading }] : [];
+    }
+    // 验证每个分段点前面都有分组标题，否则不拆（保持原有单段行为）
+    const segments: Array<{ chain: Candidate[]; sectionHeading: string | null }> = [];
+    for (let s = 0; s < segmentStarts.length; s++) {
+        const chainStart = segmentStarts[s];
+        const chainEnd = s + 1 < segmentStarts.length ? segmentStarts[s + 1] : chain.length;
+        const segmentChain = chain.slice(chainStart, chainEnd);
+        const heading = s === 0
+            ? findHeadingBefore(chain[0].line, lines, matches, family, sectionLines)
+            : findHeadingBetween(chain[chainStart - 1].line, chain[chainStart].line, lines, matches, family, sectionLines);
+        if (heading === null && s > 0) {
+            // 分段点没有分组标题：不拆，把剩余部分并入前一段
+            const lastSegment = segments[segments.length - 1];
+            lastSegment.chain.push(...segmentChain);
+            continue;
+        }
+        segments.push({ chain: segmentChain, sectionHeading: heading });
+    }
+    return segments.filter((segment) => segment.chain.length > 0);
+}
+
+/** 在一行之前找分组标题（向上扫描） */
+function findHeadingBefore(
+    lineIndex: number,
+    lines: string[],
+    matches: Array<NumberMatch | null>,
+    family: NumberFamily,
+    sectionLines: Set<number>,
+): string | null {
+    for (let i = lineIndex - 1; i >= 0; i--) {
+        if (!lines[i]) continue;
+        if (sectionLines.has(i) || isSectionLine(lines[i], matches[i], family) || isShortSectionHeading(lines[i])) {
+            return lines[i];
+        }
+        // 遇到非空非标题行就停止（标题应紧挨题号）
+        break;
+    }
+    return null;
+}
+
+/** 在两行之间找分组标题 */
+function findHeadingBetween(
+    afterLine: number,
+    beforeLine: number,
+    lines: string[],
+    matches: Array<NumberMatch | null>,
+    family: NumberFamily,
+    sectionLines: Set<number>,
+): string | null {
+    for (let i = afterLine + 1; i < beforeLine; i++) {
+        if (!lines[i]) continue;
+        if (sectionLines.has(i) || isSectionLine(lines[i], matches[i], family) || isShortSectionHeading(lines[i])) {
+            return lines[i];
+        }
+    }
+    return null;
+}
+
+/**
+ * 答案区也按段分组时，把答案区条目按段匹配到对应题目。
+ * 返回未匹配的段落。
+ */
+function fillAnswersFromSegmentedTail(
+    ignoredTail: string[],
+    segments: Array<{ chain: Candidate[]; sectionHeading: string | null }>,
+    questions: SplitTextQuestion[],
+): string[] {
+    const remaining: string[] = [];
+    // 按段首题号在 questions 中的位置切分 questions
+    let questionOffset = 0;
+    const segmentQuestions: SplitTextQuestion[][] = segments.map((segment) => {
+        const segmentQuestionsSlice = questions.slice(questionOffset, questionOffset + segment.chain.length);
+        questionOffset += segment.chain.length;
+        return segmentQuestionsSlice;
+    });
+    // 扫描 tail，按分组标题切段
+    let currentSegmentIndex = -1;
+    for (const paragraph of ignoredTail) {
+        const paragraphLines = paragraph.split('\n');
+        const unmatchedLines: string[] = [];
+        let paragraphMatched = false;
+        for (const line of paragraphLines) {
+            const trimmed = line.trim();
+            if (!trimmed) {
+                unmatchedLines.push(line);
+                continue;
+            }
+            // 检查是否是分组标题行
+            const headingIndex = segments.findIndex((segment) => segment.sectionHeading && trimmed.includes(segment.sectionHeading));
+            if (headingIndex >= 0) {
+                currentSegmentIndex = headingIndex;
+                continue;
+            }
+            const entries = parseAnswerLine(trimmed);
+            if (!entries) {
+                unmatchedLines.push(line);
+                continue;
+            }
+            // 单段或找不到对应段时，尝试所有题
+            const targetQuestions = currentSegmentIndex >= 0 ? segmentQuestions[currentSegmentIndex] : questions;
+            let lineMatched = false;
+            for (const entry of entries) {
+                const target = targetQuestions.find((question) => question.label === entry.label);
+                if (!target) {
+                    unmatchedLines.push(line);
+                    break;
+                }
+                lineMatched = true;
+                paragraphMatched = true;
+                const parsed = parseAnswerEntryContent(entry.text);
+                if (parsed.answer && !target.answer) target.answer = parsed.answer;
+                if (parsed.analysis) {
+                    target.analysis = target.analysis ? `${target.analysis}\n${parsed.analysis}` : parsed.analysis;
+                }
+            }
+            if (!lineMatched && !unmatchedLines.includes(line)) {
+                unmatchedLines.push(line);
+            }
+        }
+        if (!paragraphMatched) remaining.push(paragraph);
+        else if (unmatchedLines.length) remaining.push(unmatchedLines.join('\n'));
+    }
+    return remaining;
 }
 
 /** 把一段文字中的材料范围解析为题号集合；没有写范围时返回 null（作用到本组结束） */
@@ -268,13 +445,20 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
     }
     const sectionCandidates = new Set<number>();
     for (let index = 0; index < end; index++) {
-        if (SECTION_PATTERN.test(lines[index]) || matches[index]?.family === 'cn') sectionCandidates.add(index);
+        if (SECTION_PATTERN.test(lines[index]) || matches[index]?.family === 'cn' || isShortSectionHeading(lines[index], lines.slice(index + 1, index + 5))) sectionCandidates.add(index);
     }
-    let chain = longestChain(arabic, sectionCandidates);
-    if (chain.length < 2) {
+    // 多段编号链：段内同写法连续递增，段间由分组标题分隔且题号重新从 1 开始
+    let segments: Array<{ chain: Candidate[]; sectionHeading: string | null }> = [];
+    const initialChain = longestChain(arabic, sectionCandidates);
+    if (initialChain.length < 2) {
         const cnChain = longestChain(chinese, new Set());
-        if (cnChain.length >= 2) chain = cnChain;
+        if (cnChain.length >= 2) {
+            segments = [{ chain: cnChain, sectionHeading: null }];
+        }
+    } else {
+        segments = collectSegments(initialChain, arabic, lines, matches, sectionCandidates);
     }
+    const chain = segments.length ? segments.flatMap((segment) => segment.chain) : initialChain;
 
     const whole = joinLines(lines.slice(0, end));
     const ignoredTail = end < lines.length ? paragraphs(lines.slice(end)) : [];
@@ -337,7 +521,7 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
     // 首题之前：分组标题、材料、标题/姓名栏
     const preamble: string[] = [];
     for (let index = 0; index < firstLine; index++) {
-        if (lines[index] && isSectionLine(lines[index], matches[index], chainFamily)) {
+        if (lines[index] && (isSectionLine(lines[index], matches[index], chainFamily) || isShortSectionHeading(lines[index], lines.slice(index + 1, index + 5)))) {
             takeInterlude(preamble.splice(0), true);
             section = lines[index];
             materialsForSection = [];
@@ -347,9 +531,30 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
     }
     takeInterlude(preamble, true);
 
+    // 多段时各段的题号会重复，按题号回填会混淆；若答案区也按段分组则按段匹配，否则不回填
+    const isMultiSegment = segments.length > 1;
+    const segmentForPosition = (position: number): number => {
+        if (!isMultiSegment) return -1;
+        let count = 0;
+        for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+            count += segments[segmentIndex].chain.length;
+            if (position < count) return segmentIndex;
+        }
+        return segments.length - 1;
+    };
+
     for (let position = 0; position < chain.length; position++) {
         const start = chain[position].line;
         const stop = position + 1 < chain.length ? chain[position + 1].line : end;
+        // 新的一段开始时重置分组与材料
+        const segmentIndex = segmentForPosition(position);
+        if (isMultiSegment && segmentIndex >= 0) {
+            const segmentHeading = segments[segmentIndex].sectionHeading;
+            if (segmentHeading !== null) {
+                section = segmentHeading;
+                materialsForSection = [];
+            }
+        }
         // 新的材料从这一题起生效
         if (pendingMaterials.length) {
             materialsForSection = [...materialsForSection.filter((material) => material.range), ...pendingMaterials];
@@ -391,8 +596,22 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
             takeInterlude(lines.slice(bodyEnd + 1, stop), false);
         }
     }
-    // 答案区按题号回填：「参考答案」标题后带题号的条目填入对应题目，匹配不上的留在 ignored
-    const [remainingIgnoredTail] = fillAnswersFromTail(ignoredTail, questions);
+    // 答案区回填：单段时按题号匹配；多段时若答案区也按段分组（同样的分组标题后跟题号）则按段匹配，否则不回填并保留在 ignored
+    let remainingIgnoredTail: string[];
+    if (isMultiSegment && ignoredTail.length) {
+        const sectionHeadings = segments.map((segment) => segment.sectionHeading).filter((heading): heading is string => heading !== null);
+        const tailText = ignoredTail.join('\n');
+        const tailHasGrouping = sectionHeadings.some((heading) => tailText.includes(heading));
+        if (tailHasGrouping) {
+            // 答案区也按段分组：把 tail 按分组标题切段，每段内按题号匹配到对应 segment 的题
+            remainingIgnoredTail = fillAnswersFromSegmentedTail(ignoredTail, segments, questions);
+        } else {
+            // 答案区未按段分组：为避免题号重复混淆，不回填，全部保留在 ignored
+            remainingIgnoredTail = ignoredTail;
+        }
+    } else {
+        remainingIgnoredTail = fillAnswersFromTail(ignoredTail, questions)[0];
+    }
 
     // 超出上限的题不静默丢弃：原文列入未计入内容，并给出数量
     const overflow = questions.slice(maxQuestions);

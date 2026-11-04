@@ -164,3 +164,128 @@ describe('全角题号后紧跟数字', () => {
         expect(matchQuestionNumber('2．3×4=')).toMatchObject({ value: 2, label: '2' });
     });
 });
+
+describe('分组后题号重新从 1 开始（多段编号链）', () => {
+    it('三段（兴趣篇/拓展篇/超越篇）各 3~4 题、题号各从 1 开始：分出全部题且 section 正确', () => {
+        const text = [
+            '兴趣篇',
+            '1．计算 1 + 1。',
+            '2．计算 2 + 2。',
+            '3．计算 3 + 3。',
+            '拓展篇',
+            '1．计算 4 + 4。',
+            '2．计算 5 + 5。',
+            '3．计算 6 + 6。',
+            '4．计算 7 + 7。',
+            '超越篇',
+            '1．计算 8 + 8。',
+            '2．计算 9 + 9。',
+            '3．计算 10 + 10。',
+        ].join('\n');
+        const result = splitQuestionText(text);
+        expect(result.detected).toBe(true);
+        expect(result.questions).toHaveLength(10);
+        expect(result.questions.map((question) => question.label)).toEqual(['1', '2', '3', '1', '2', '3', '4', '1', '2', '3']);
+        expect(result.questions[0].section).toBe('兴趣篇');
+        expect(result.questions[2].section).toBe('兴趣篇');
+        expect(result.questions[3].section).toBe('拓展篇');
+        expect(result.questions[6].section).toBe('拓展篇');
+        expect(result.questions[7].section).toBe('超越篇');
+        expect(result.questions[9].section).toBe('超越篇');
+        expect(result.questions[0].text).toBe('计算 1 + 1。');
+        expect(result.questions[3].text).toBe('计算 4 + 4。');
+        expect(result.questions[7].text).toBe('计算 8 + 8。');
+    });
+
+    it('「一、选择题 1. 2. 二、填空题 1. 2.」分出 4 题', () => {
+        const text = [
+            '一、选择题',
+            '1．计算 1 + 1。',
+            '2．计算 2 + 2。',
+            '二、填空题',
+            '1．计算 3 + 3。',
+            '2．计算 4 + 4。',
+        ].join('\n');
+        const result = splitQuestionText(text);
+        expect(result.questions).toHaveLength(4);
+        expect(result.questions[0].section).toBe('一、选择题');
+        expect(result.questions[1].section).toBe('一、选择题');
+        expect(result.questions[2].section).toBe('二、填空题');
+        expect(result.questions[3].section).toBe('二、填空题');
+    });
+
+    it('没有分组标题时编号回到 1 不拆（保持现有行为）', () => {
+        // 编号 1,2,1 没有分组标题，仍是同一段内的连续递增（1→2），不回拆
+        const text = '1．计算 1 + 1。\n2．计算 2 + 2。\n1．计算 3 + 3。';
+        const result = splitQuestionText(text);
+        expect(result.questions).toHaveLength(2);
+        expect(result.questions[0].label).toBe('1');
+        expect(result.questions[1].label).toBe('2');
+    });
+
+    it('多段时答案区按段回填：答案区有分组标题时按段匹配', () => {
+        const text = [
+            '兴趣篇',
+            '1．计算 1 + 1。',
+            '2．计算 2 + 2。',
+            '拓展篇',
+            '1．计算 3 + 3。',
+            '2．计算 4 + 4。',
+            '参考答案',
+            '兴趣篇',
+            '1．2',
+            '2．4',
+            '拓展篇',
+            '1．6',
+            '2．8',
+        ].join('\n');
+        const result = splitQuestionText(text);
+        expect(result.questions).toHaveLength(4);
+        expect(result.questions[0].answer).toBe('2');
+        expect(result.questions[1].answer).toBe('4');
+        expect(result.questions[2].answer).toBe('6');
+        expect(result.questions[3].answer).toBe('8');
+        expect(result.ignored.join('\n')).not.toContain('1．2');
+        expect(result.ignored.join('\n')).not.toContain('1．6');
+    });
+
+    it('多段时答案区不按段分组则不回填：答案保留在 ignored，避免题号混淆', () => {
+        const text = [
+            '兴趣篇',
+            '1．计算 1 + 1。',
+            '2．计算 2 + 2。',
+            '拓展篇',
+            '1．计算 3 + 3。',
+            '2．计算 4 + 4。',
+            '参考答案',
+            '1．2',
+            '2．4',
+            '1．6',
+            '2．8',
+        ].join('\n');
+        const result = splitQuestionText(text);
+        expect(result.questions).toHaveLength(4);
+        expect(result.questions[0].answer ?? null).toBeNull();
+        expect(result.questions[1].answer ?? null).toBeNull();
+        expect(result.questions[2].answer ?? null).toBeNull();
+        expect(result.questions[3].answer ?? null).toBeNull();
+        expect(result.ignored.join('\n')).toContain('1．2');
+        expect(result.ignored.join('\n')).toContain('1．6');
+    });
+
+    it('长文字自动分批（MAX_CLIENT_SPLIT_*）下多段也能正确分题', () => {
+        const filler = '字'.repeat(500);
+        const text = [
+            '兴趣篇',
+            '1．计算 1 + 1。' + filler,
+            '2．计算 2 + 2。' + filler,
+            '拓展篇',
+            '1．计算 3 + 3。' + filler,
+            '2．计算 4 + 4。' + filler,
+        ].join('\n');
+        const result = splitQuestionText(text, { maxLength: 10000, maxQuestions: 100 });
+        expect(result.questions).toHaveLength(4);
+        expect(result.questions[0].section).toBe('兴趣篇');
+        expect(result.questions[2].section).toBe('拓展篇');
+    });
+});
