@@ -1,0 +1,437 @@
+/**
+ * docx 题库解析器单元测试。
+ * 用 fflate 的 zipSync 动态构造最小 docx 作为夹具（见 src/__tests__/helpers/docx-fixture.ts）。
+ */
+import { describe, expect, it } from "vitest";
+import {
+    abstractNum,
+    brRun,
+    delRun,
+    drawingRun,
+    dstrikeRun,
+    insRun,
+    makeDocxBuffer,
+    makeLegacyDocBuffer,
+    num,
+    numPara,
+    oMathRun,
+    para,
+    run,
+    strikeRun,
+    subRun,
+    supRun,
+    symRun,
+    tabRun,
+    tbl,
+    vanishRun,
+} from "@/__tests__/helpers/docx-fixture";
+import { parseDocx } from "@/lib/import/file-parsers/docx";
+import { toChineseNumber, toRoman } from "@/lib/import/file-parsers/docx/numbering";
+
+const t = (text: string) => run(text);
+const tab = () => tabRun();
+const br = () => brRun();
+
+describe("docx 解析：段落文字", () => {
+    it("普通段落按顺序拼接，tab 变制表符、br 变换行", async () => {
+        const buffer = makeDocxBuffer({
+            body: [
+                para(t("1．计算：") + tab() + t("24 × 3 =")),
+                para(t("过程：先乘后加") + br() + t("注意进位")),
+            ].join(""),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.errors).toEqual([]);
+        expect(result.questions).toHaveLength(1);
+        expect(result.questions[0].text).toContain("计算：\t24 × 3 =");
+        expect(result.questions[0].text).toContain("过程：先乘后加\n注意进位");
+    });
+
+    it("上标输出 ^2、非数字用 ^{…}；下标同理", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("x") + supRun("2") + t(" + x") + subRun("1") + t("，a") + supRun("n+1")),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("x^2 + x_1");
+        expect(result.questions[0].text).toContain("a^{n+1}");
+    });
+
+    it("删除线与隐藏文字跳过", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("保留") + strikeRun("删除线") + t("正文") + vanishRun("隐藏")),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("保留正文");
+        expect(result.questions[0].text).not.toContain("删除线");
+        expect(result.questions[0].text).not.toContain("隐藏");
+    });
+
+    it("w:val 关闭时删除线与隐藏文字保留", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("保留") + strikeRun("伪删除线", "0") + t("正文") + vanishRun("伪隐藏", "false")),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("保留伪删除线正文伪隐藏");
+    });
+
+    it("双删除线跳过，w:val 关闭时保留", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(dstrikeRun("双删") + t("，") + dstrikeRun("保留双删", "off")),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).not.toContain("，双删，");
+        expect(result.questions[0].text).toContain("保留双删");
+    });
+
+    it("修订：保留插入、跳过删除", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("原题") + delRun("被删除", 1) + insRun(t("新插入"), 2)),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("新插入");
+        expect(result.questions[0].text).not.toContain("被删除");
+    });
+
+    it("w:sym 映射常见符号，未识别输出 [符号]", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("选") + symRun("Wingdings", "F0FC") + t("或") + symRun("Wingdings", "0061")),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("选✓或[符号]");
+    });
+
+    it("全角空格转为半角空格", async () => {
+        const buffer = makeDocxBuffer({ body: para(t("A　B")) });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("A B");
+    });
+});
+
+describe("docx 解析：自动编号", () => {
+    it("decimal 编号加在段首", async () => {
+        const buffer = makeDocxBuffer({
+            body: [numPara("1", 0, t("第一题")), numPara("1", 0, t("第二题"))].join(""),
+            numbering: abstractNum("10", [{ numFmt: "decimal", lvlText: "%1." }]) + num("1", "10"),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(2);
+        expect(result.questions[0].label).toBe("1");
+        expect(result.questions[0].text).toContain("第一题");
+        expect(result.questions[1].label).toBe("2");
+    });
+
+    it("chineseCounting 两级编号与 startOverride", async () => {
+        const buffer = makeDocxBuffer({
+            body: [
+                numPara("2", 0, t("大题一，第 1 小题")),
+                numPara("2", 1, t("选项 A 正确")),
+                numPara("2", 1, t("选项 B 正确")),
+                numPara("2", 0, t("大题二")),
+                numPara("2", 1, t("选项 C 正确")),
+            ].join(""),
+            numbering:
+                abstractNum("20", [
+                    { numFmt: "chineseCounting", lvlText: "%1、" },
+                    { numFmt: "chineseCounting", lvlText: "（%2）" },
+                ]) + num("2", "20", [{ ilvl: 1, start: 3 }]),
+        });
+        const result = await parseDocx(buffer);
+        const text = result.questions.map((question) => question.text).join("\n");
+        expect(text).toContain("一、大题一，第 1 小题");
+        expect(text).toContain("（三）选项 A 正确");
+        expect(text).toContain("（四）选项 B 正确");
+        expect(text).toContain("二、大题二");
+        // 上级变化后下级重置为 startOverride=3
+        expect(text).toContain("（三）选项 C 正确");
+    });
+
+    it("编号从 5 开始的 startOverride", async () => {
+        const buffer = makeDocxBuffer({
+            body: [numPara("3", 0, t("甲")), numPara("3", 0, t("乙"))].join(""),
+            numbering: abstractNum("30", [{ numFmt: "decimal", lvlText: "%1." }]) + num("3", "30", [{ ilvl: 0, start: 5 }]),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].label).toBe("5");
+        expect(result.questions[1].label).toBe("6");
+    });
+
+    it("编号样式链接（pStyle 引用带 numPr 的样式）", async () => {
+        const buffer = makeDocxBuffer({
+            body: [
+                para(t("样式题一"), '<w:pStyle w:val="ListParagraph"/>'),
+                para(t("样式题二"), '<w:pStyle w:val="ListParagraph"/>'),
+            ].join(""),
+            numbering: abstractNum("40", [{ numFmt: "decimal", lvlText: "%1." }]) + num("4", "40"),
+            styles: '<w:style w:type="paragraph" w:styleId="ListParagraph"><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="4"/></w:numPr></w:pPr></w:style>',
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].label).toBe("1");
+        expect(result.questions[1].label).toBe("2");
+    });
+
+    it("decimalEnclosedCircle 编号以圈码加在段首（① 不识别为题号，作为一题）", async () => {
+        const buffer = makeDocxBuffer({
+            body: [numPara("5", 0, t("圈 1")), numPara("5", 0, t("圈 2"))].join(""),
+            numbering: abstractNum("50", [{ numFmt: "decimalEnclosedCircle", lvlText: "%1" }]) + num("5", "50"),
+        });
+        const result = await parseDocx(buffer);
+        // ① 不在 splitQuestionText 的题号格式中，整篇作为一道题返回
+        expect(result.questions[0].text).toContain("① 圈 1");
+        expect(result.questions[0].text).toContain("② 圈 2");
+        expect(result.warnings).toContain("SINGLE_QUESTION");
+    });
+
+    it("编号与手打题号混合时最长链优先，编号取递增序列", async () => {
+        const buffer = makeDocxBuffer({
+            body: [
+                numPara("6", 0, t("自动题一")),
+                numPara("6", 0, t("自动题二")),
+                numPara("6", 0, t("自动题三")),
+            ].join(""),
+            numbering: abstractNum("60", [{ numFmt: "decimal", lvlText: "%1." }]) + num("6", "60"),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions.map((question) => question.label)).toEqual(["1", "2", "3"]);
+    });
+});
+
+describe("docx 解析：表格", () => {
+    it("单元格用制表符连接，多段用空格连接", async () => {
+        const buffer = makeDocxBuffer({
+            body: tbl([
+                ["题号", "题目", "答案"],
+                ["1", "计算 2+3", "5"],
+            ]),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.errors).toEqual([]);
+        expect(result.questions[0].text).toContain("题号\t题目\t答案");
+        expect(result.questions[0].text).toContain("1\t计算 2+3\t5");
+    });
+
+    it("嵌套表格展开为行", async () => {
+        const buffer = makeDocxBuffer({
+            body: `<w:tbl><w:tr><w:tc><w:p>${t("外层")}</w:p><w:tbl><w:tr><w:tc><w:p>${t("内层 1")}</w:p></w:tc><w:tc><w:p>${t("内层 2")}</w:p></w:tc></w:tr></w:tbl></w:tc></w:tr></w:tbl>`,
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("外层 内层 1\t内层 2");
+    });
+});
+
+describe("docx 解析：图片与公式占位", () => {
+    it("图片输出 [图片]，公式输出 [公式]", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("如图") + drawingRun() + t("，已知") + oMathRun() + t("，求值")),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("如图[图片]，已知[公式]，求值");
+    });
+
+    it("handlers 可替换占位符（扩展点）", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("如图") + drawingRun() + t("，") + oMathRun()),
+        });
+        const result = await parseDocx(buffer, {
+            image: () => "[IMG]",
+            math: () => "[MATH]",
+        });
+        expect(result.questions[0].text).toContain("[IMG]");
+        expect(result.questions[0].text).toContain("[MATH]");
+    });
+
+    it("handlers 能收到对应元素与上下文（含 relationships/files）", async () => {
+        const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+        const buffer = makeDocxBuffer({
+            body: para(t("如图") + drawingRun() + t("，") + oMathRun()),
+            rels: '<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>',
+            extraFiles: { "word/media/image1.png": pngBytes },
+        });
+        const captured: { imageElement: Element | null; mathElement: Element | null; imageCtx: { relationships: Record<string, string>; files: Record<string, Uint8Array> } | null } = {
+            imageElement: null,
+            mathElement: null,
+            imageCtx: null,
+        };
+        const result = await parseDocx(buffer, {
+            image: (element, ctx) => {
+                captured.imageElement = element;
+                captured.imageCtx = ctx;
+                return undefined;
+            },
+            math: (element) => {
+                captured.mathElement = element;
+                return undefined;
+            },
+        });
+        expect(result.questions[0].text).toContain("[图片]");
+        expect(result.questions[0].text).toContain("[公式]");
+        expect(captured.imageElement?.localName).toBe("drawing");
+        expect(captured.mathElement?.localName).toBe("oMath");
+        expect(captured.imageCtx?.relationships["rId4"]).toBe("media/image1.png");
+        expect(captured.imageCtx?.files["word/media/image1.png"]).toEqual(pngBytes);
+    });
+
+    it("handlers 能按 rId 从 relationships 找到媒体文件", async () => {
+        const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+        const buffer = makeDocxBuffer({
+            body: para(t("如图") + drawingRun()),
+            rels: '<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>',
+            extraFiles: { "word/media/image1.png": pngBytes },
+        });
+        let found: Uint8Array | null = null;
+        await parseDocx(buffer, {
+            image: (element, ctx) => {
+                const blip = element.getElementsByTagNameNS("http://schemas.openxmlformats.org/drawingml/2006/main", "blip")[0];
+                const embed = blip?.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "embed");
+                if (embed) {
+                    const target = ctx.relationships[embed];
+                    if (target) found = ctx.files[`word/${target}`] ?? null;
+                }
+                return undefined;
+            },
+        });
+        expect(found).toEqual(pngBytes);
+    });
+});
+
+describe("docx 解析：答案解析标记与答案区回填", () => {
+    it("【答案】【解析】行首标记与难度知识点", async () => {
+        const buffer = makeDocxBuffer({
+            body: [
+                para(t("1．某题")),
+                para(t("【答案】B")),
+                para(t("【解析】因为……")),
+                para(t("【知识点】分数、计算")),
+                para(t("【难度】3")),
+            ].join(""),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(1);
+        const [question] = result.questions;
+        expect(question.answer).toBe("B");
+        expect(question.analysis).toBe("因为……");
+        expect(question.knowledgePoints).toEqual(["分数", "计算"]);
+        expect(question.difficultyStars).toBe(3);
+        expect(question.text).not.toContain("【答案】");
+    });
+
+    it("答案区按题号回填", async () => {
+        const buffer = makeDocxBuffer({
+            body: [
+                para(t("1．题一")),
+                para(t("2．题二")),
+                para(t("参考答案")),
+                para(t("1. B")),
+                para(t("2. C")),
+            ].join(""),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].answer).toBe("B");
+        expect(result.questions[1].answer).toBe("C");
+        // 标题与答案条目不进入 ignored 之外的正文
+        for (const question of result.questions) {
+            expect(question.text).not.toContain("参考答案");
+            expect(question.text).not.toContain("1. B");
+        }
+    });
+});
+
+describe("docx 解析：错误与警告", () => {
+    it("整篇一道题时给 SINGLE_QUESTION 警告", async () => {
+        const buffer = makeDocxBuffer({ body: para(t("这是一道单独的题，没有任何题号。")) });
+        const result = await parseDocx(buffer);
+        expect(result.warnings).toContain("SINGLE_QUESTION");
+        expect(result.questions).toHaveLength(1);
+    });
+
+    it("标题、姓名栏等未计入内容给 IGNORED_PARAGRAPHS:N 警告", async () => {
+        const buffer = makeDocxBuffer({
+            body: [
+                para(t("数学期中试卷")),
+                para(t("姓名：___ 班级：___")),
+                para(t("1．第一题")),
+                para(t("2．第二题")),
+            ].join(""),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(2);
+        expect(result.warnings.some((warning) => /^IGNORED_PARAGRAPHS:\d+$/.test(warning))).toBe(true);
+    });
+
+    it("损坏的 zip 返回 INVALID_DOCX", async () => {
+        const garbage = new Uint8Array([1, 2, 3, 4, 5]);
+        const result = await parseDocx(garbage.buffer.slice(garbage.byteOffset, garbage.byteOffset + garbage.byteLength) as ArrayBuffer);
+        expect(result.errors).toEqual([{ index: -1, reason: "INVALID_DOCX" }]);
+        expect(result.questions).toEqual([]);
+    });
+
+    it("缺 word/document.xml 的 zip 返回 INVALID_DOCX", async () => {
+        const { zipSync } = await import("fflate");
+        const files: Record<string, Uint8Array> = {
+            "word/styles.xml": new TextEncoder().encode("<w:styles/>"),
+        };
+        const zipped = zipSync(files);
+        const result = await parseDocx(zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength) as ArrayBuffer);
+        expect(result.errors).toEqual([{ index: -1, reason: "INVALID_DOCX" }]);
+    });
+
+    it("旧版 .doc 返回 LEGACY_DOC_NOT_SUPPORTED", async () => {
+        const result = await parseDocx(makeLegacyDocBuffer());
+        expect(result.errors).toEqual([{ index: -1, reason: "LEGACY_DOC_NOT_SUPPORTED" }]);
+    });
+});
+
+describe("docx 解析：上限与规范化", () => {
+    it("整篇超长时截断到 20000 字并分出多题", async () => {
+        // 超过 MAX_SPLIT_TEXT_LENGTH(20000) 时截断：第二题被截断但仍保留题号
+        const longText = "长".repeat(15000);
+        const buffer = makeDocxBuffer({
+            body: [para(t("1．") + t(longText)), para(t("2．") + t(longText))].join(""),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions.length).toBeGreaterThanOrEqual(1);
+        expect(result.questions[0].label).toBe("1");
+    });
+
+    it("ignored 数量计入 warnings，分题结果不再出现原文", async () => {
+        const buffer = makeDocxBuffer({
+            body: [
+                para(t("共 2 道")),
+                para(t("1．甲")),
+                para(t("2．乙")),
+            ].join(""),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(2);
+        expect(result.warnings).toContain("IGNORED_PARAGRAPHS:1");
+        for (const question of result.questions) {
+            expect(question.text).not.toContain("共 2 道");
+        }
+    });
+});
+
+describe("docx 编号工具函数", () => {
+    it("toChineseNumber 基本转换", () => {
+        expect(toChineseNumber(1)).toBe("一");
+        expect(toChineseNumber(5)).toBe("五");
+        expect(toChineseNumber(10)).toBe("十");
+        expect(toChineseNumber(15)).toBe("十五");
+        expect(toChineseNumber(20)).toBe("二十");
+        expect(toChineseNumber(42)).toBe("四十二");
+        expect(toChineseNumber(100)).toBe("一百");
+        expect(toChineseNumber(105)).toBe("一百零五");
+        expect(toChineseNumber(120)).toBe("一百二十");
+        expect(toChineseNumber(1000)).toBe("一千");
+        expect(toChineseNumber(1234)).toBe("一千二百三十四");
+    });
+
+    it("toRoman 基本转换", () => {
+        expect(toRoman(1)).toBe("i");
+        expect(toRoman(4)).toBe("iv");
+        expect(toRoman(9)).toBe("ix");
+        expect(toRoman(40)).toBe("xl");
+        expect(toRoman(90)).toBe("xc");
+        expect(toRoman(400)).toBe("cd");
+        expect(toRoman(900)).toBe("cm");
+        expect(toRoman(1994)).toBe("mcmxciv");
+    });
+});

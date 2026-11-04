@@ -30,6 +30,16 @@ The crop preview uses a thumbnail; after you confirm, the crop is taken from the
 
 After enabling "Review before import" in "Settings → General", you can correct the recognition on the review page before saving. The AI may misread numbers, symbols and figure relationships, so check against the original before saving.
 
+### Import question files
+
+Word (.docx) question bank files are supported, up to 50 MB.
+
+- **Supported content**: normal paragraphs, auto-numbered paragraphs, tables (cells joined with tabs), inline tags such as 【答案】 (answer), 【解析】 (analysis), 【知识点】 (knowledge points), 【难度】 (difficulty) and 【错答】 (wrong answer), as well as an "参考答案" answer section filled back by question number.
+- **Auto numbering**: numbers from Word auto-numbering are not in the text; the parser computes them from `numbering.xml` (e.g. "1.", "一、", "（三）"). Common formats include decimal, Chinese counting (一、二、三…), enclosed circle digits (①②③), upper/lowercase letters and Roman numerals.
+- **Superscripts and subscripts**: superscripts are output as `^{…}` (pure digits as `^2`, e.g. x^2), and subscripts as `_{…}` (same rule, e.g. `a_{n+1}`).
+- **Not yet supported**: images and formulas currently output the placeholders "[图片]" and "[公式]"; support is planned for a later version. Legacy .doc binary files must first be saved as .docx in Word before importing.
+- **Strikethrough and hidden text**: skipped during parsing; revisions keep insertions and skip deletions.
+
 ### Multiple questions
 
 You do not need to paste or crop questions one at a time:

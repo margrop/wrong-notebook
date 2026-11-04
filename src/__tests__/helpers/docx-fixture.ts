@@ -1,0 +1,196 @@
+/**
+ * 测试用最小 docx 构造工具：用 fflate 的 zipSync 动态打包 XML 部件。
+ * 只生成与题库解析相关的三个部件（document/numbering/styles），
+ * 供 docx 解析器与后续任务复用。
+ */
+import { zipSync } from "fflate";
+
+const XML_ESCAPE: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+};
+
+/** XML 转义（文本节点用） */
+export function esc(text: string): string {
+    return text.replace(/[&<>"]/g, (char) => XML_ESCAPE[char]);
+}
+
+/** 一个最小 run：纯文本 */
+export function run(text: string, extra = ""): string {
+    return `<w:r>${extra}<w:t xml:space="preserve">${esc(text)}</w:t></w:r>`;
+}
+
+/** 上标 run */
+export function supRun(text: string): string {
+    return `<w:r><w:rPr><w:vertAlign w:val="superscript"/></w:rPr><w:t xml:space="preserve">${esc(text)}</w:t></w:r>`;
+}
+
+/** 下标 run */
+export function subRun(text: string): string {
+    return `<w:r><w:rPr><w:vertAlign w:val="subscript"/></w:rPr><w:t xml:space="preserve">${esc(text)}</w:t></w:r>`;
+}
+
+/** 删除线 run（可指定 w:val，如 "0" 表示关闭） */
+export function strikeRun(text: string, val?: string): string {
+    const valAttr = val !== undefined ? ` w:val="${val}"` : "";
+    return `<w:r><w:rPr><w:strike${valAttr}/></w:rPr><w:t xml:space="preserve">${esc(text)}</w:t></w:r>`;
+}
+
+/** 双删除线 run */
+export function dstrikeRun(text: string, val?: string): string {
+    const valAttr = val !== undefined ? ` w:val="${val}"` : "";
+    return `<w:r><w:rPr><w:dstrike${valAttr}/></w:rPr><w:t xml:space="preserve">${esc(text)}</w:t></w:r>`;
+}
+
+/** 隐藏文字 run（可指定 w:val，如 "0" 表示关闭） */
+export function vanishRun(text: string, val?: string): string {
+    const valAttr = val !== undefined ? ` w:val="${val}"` : "";
+    return `<w:r><w:rPr><w:vanish${valAttr}/></w:rPr><w:t xml:space="preserve">${esc(text)}</w:t></w:r>`;
+}
+
+/** 制表符 run */
+export function tabRun(): string {
+    return "<w:r><w:tab/></w:r>";
+}
+
+/** 软换行 run */
+export function brRun(): string {
+    return "<w:r><w:br/></w:r>";
+}
+
+/** w:sym 符号 run */
+export function symRun(font: string, charCodeHex: string): string {
+    return `<w:r><w:sym w:font="${font}" w:char="${charCodeHex}"/></w:r>`;
+}
+
+/** 修订插入（保留） */
+export function insRun(runsXml: string, id: number, author = "test"): string {
+    return `<w:ins w:id="${id}" w:author="${author}" w:date="2026-01-01T00:00:00Z">${runsXml}</w:ins>`;
+}
+
+/** 修订删除（跳过） */
+export function delRun(text: string, id: number, author = "test"): string {
+    return `<w:del w:id="${id}" w:author="${author}" w:date="2026-01-01T00:00:00Z"><w:r><w:delText xml:space="preserve">${esc(text)}</w:delText></w:r></w:del>`;
+}
+
+/** 图片占位 run（w:drawing，含 a:blip 引用 rId4） */
+export function drawingRun(): string {
+    return `<w:r><w:drawing><wp:inline><a:graphic><a:graphicData><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:blipFill><a:blip r:embed="rId4"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+}
+
+/** 公式占位（m:oMath） */
+export function oMathRun(): string {
+    return `<m:oMath><m:r><w:t>x+y</w:t></m:r></m:oMath>`;
+}
+
+/** 普通段落 */
+export function para(runsXml: string, extraPPr = ""): string {
+    const pPr = extraPPr ? `<w:pPr>${extraPPr}</w:pPr>` : "";
+    return `<w:p>${pPr}${runsXml}</w:p>`;
+}
+
+/** 带自动编号的段落（numId + ilvl） */
+export function numPara(numId: string, ilvl: number, runsXml: string): string {
+    return `<w:p><w:pPr><w:numPr><w:ilvl w:val="${ilvl}"/><w:numId w:val="${numId}"/></w:numPr></w:pPr>${runsXml}</w:p>`;
+}
+
+/** 表格：rows 为单元格文字数组 */
+export function tbl(rows: string[][]): string {
+    const rowsXml = rows
+        .map(
+            (cells) =>
+                `<w:tr>${cells.map((cell) => `<w:tc><w:p>${run(cell)}</w:p></w:tc>`).join("")}</w:tr>`
+        )
+        .join("");
+    return `<w:tbl><w:tblPr/><w:tblGrid/>${rowsXml}</w:tbl>`;
+}
+
+/** numbering.xml 的 abstractNum 片段：levels 按 ilvl 顺序给出 */
+export function abstractNum(id: string, levels: Array<{ numFmt: string; lvlText: string; start?: number }>): string {
+    const levelsXml = levels
+        .map(
+            (level, index) =>
+                `<w:lvl w:ilvl="${index}"><w:start w:val="${level.start ?? 1}"/><w:numFmt w:val="${level.numFmt}"/><w:lvlText w:val="${esc(level.lvlText)}"/></w:lvl>`
+        )
+        .join("");
+    return `<w:abstractNum w:abstractNumId="${id}">${levelsXml}</w:abstractNum>`;
+}
+
+/** numbering.xml 的 num 片段（含可选 lvlOverride） */
+export function num(numId: string, abstractNumId: string, overrides: Array<{ ilvl: number; start?: number; numFmt?: string; lvlText?: string }> = []): string {
+    const overridesXml = overrides
+        .map((override) => {
+            const parts: string[] = [];
+            if (override.start !== undefined) parts.push(`<w:startOverride w:val="${override.start}"/>`);
+            if (override.numFmt !== undefined || override.lvlText !== undefined) {
+                const lvlParts: string[] = [];
+                if (override.numFmt !== undefined) lvlParts.push(`<w:numFmt w:val="${override.numFmt}"/>`);
+                if (override.lvlText !== undefined) lvlParts.push(`<w:lvlText w:val="${esc(override.lvlText)}"/>`);
+                parts.push(`<w:lvl>${lvlParts.join("")}</w:lvl>`);
+            }
+            return `<w:lvlOverride w:ilvl="${override.ilvl}">${parts.join("")}</w:lvlOverride>`;
+        })
+        .join("");
+    return `<w:num w:numId="${numId}"><w:abstractNumId w:val="${abstractNumId}"/>${overridesXml}</w:num>`;
+}
+
+export interface MinimalDocxOptions {
+    /** word/document.xml 的 w:body 子元素 XML（段落、表格等） */
+    body: string;
+    /** numbering.xml 的 w:abstractNum 与 w:num 片段（可选部件） */
+    numbering?: string;
+    /** styles.xml 的 w:style 片段（可选部件） */
+    styles?: string;
+    /** word/_rels/document.xml.rels 的 Relationship 片段（可选部件），如 <Relationship Id="rId4" Target="media/image1.png"/> */
+    rels?: string;
+    /** 额外 zip 条目（如 word/media/image1.png），key 为完整文件名 */
+    extraFiles?: Record<string, Uint8Array>;
+}
+
+/** 构造最小 docx 的 ArrayBuffer（供 parseDocx 直接消费） */
+export function makeDocxBuffer(options: MinimalDocxOptions): ArrayBuffer {
+    const files: Record<string, Uint8Array> = {
+        "[Content_Types].xml": new TextEncoder().encode(
+            `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`
+        ),
+        "word/document.xml": new TextEncoder().encode(
+            `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>${options.body}</w:body></w:document>`
+        ),
+    };
+    if (options.numbering !== undefined) {
+        files["word/numbering.xml"] = new TextEncoder().encode(
+            `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${options.numbering}</w:numbering>`
+        );
+    }
+    if (options.styles !== undefined) {
+        files["word/styles.xml"] = new TextEncoder().encode(
+            `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${options.styles}</w:styles>`
+        );
+    }
+    if (options.rels !== undefined) {
+        files["word/_rels/document.xml.rels"] = new TextEncoder().encode(
+            `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${options.rels}</Relationships>`
+        );
+    }
+    if (options.extraFiles) {
+        for (const [name, data] of Object.entries(options.extraFiles)) {
+            files[name] = data;
+        }
+    }
+    const zipped = zipSync(files, { level: 0 });
+    // zipSync 返回 Uint8Array；包一层 ArrayBuffer 视图保证类型一致
+    return zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength) as ArrayBuffer;
+}
+
+/** 旧版 .doc（OLE2）文件头构造（前 8 字节） */
+export function makeLegacyDocBuffer(): ArrayBuffer {
+    const bytes = new Uint8Array(16);
+    bytes[0] = 0xd0;
+    bytes[1] = 0xcf;
+    bytes[2] = 0x11;
+    bytes[3] = 0xe0;
+    for (let i = 4; i < 16; i++) bytes[i] = i;
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
