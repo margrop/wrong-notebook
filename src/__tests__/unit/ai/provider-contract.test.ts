@@ -5,13 +5,9 @@
  * 只 mock 各自的 SDK 客户端，验证行为一致：
  * - analyzeImage 解析 XML 标签得到相同字段
  * - 空响应 / 缺少必需标签时抛错
- * - analysis 标签被截断（缺少闭合标签）时解析行为
+ * - analysis 标签被截断（缺少闭合标签）时读取到文本末尾
  * - gradeAnswer / evaluateMastery 正常路径
  * - SDK 抛错时错误向上抛出
- *
- * 注意：analysis 截断用例中，Azure 与 Gemini 的 extractTag 在闭合标签
- * 缺失时返回 null（导致 analyzeImage 抛错），而 OpenAI 与 Anthropic 会
- * 读取到文本末尾。待 A1 统一解析逻辑后，四个提供商应一致读取到末尾。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -209,25 +205,12 @@ describe.each(providers)('AI 提供商契约：$name', (providerCase) => {
             await expect(providerCase.make().analyzeImage('aGVsbG8=')).rejects.toThrow();
         });
 
-        // 截断行为差异：OpenAI 与 Anthropic 的 extractTag 在 analysis 闭合标签
-        // 缺失时读取到文本末尾；Azure 与 Gemini 直接返回 null 导致抛错。
-        // 待 A1 统一解析逻辑后，四个提供商都应读取到末尾。
-        const tolerantTruncation = providerCase.name === 'OpenAI' || providerCase.name === 'Anthropic';
-        if (tolerantTruncation) {
-            it('analysis 闭合标签缺失（截断）时读取到文本末尾', async () => {
-                providerCase.mockText(TRUNCATED_ANALYSIS_XML);
-                const result = await providerCase.make().analyzeImage('aGVsbG8=');
-                expect(result.analysis).toContain('二次函数');
-                expect(result.analysis).toContain('最小值为 0');
-            });
-        } else {
-            // TODO(A1): 统一解析逻辑后，Azure 与 Gemini 也应读取到末尾
-            it.skip('analysis 闭合标签缺失（截断）时读取到文本末尾（待 A1 统一解析逻辑）', async () => {
-                providerCase.mockText(TRUNCATED_ANALYSIS_XML);
-                const result = await providerCase.make().analyzeImage('aGVsbG8=');
-                expect(result.analysis).toContain('二次函数');
-            });
-        }
+        it('analysis 闭合标签缺失（截断）时读取到文本末尾', async () => {
+            providerCase.mockText(TRUNCATED_ANALYSIS_XML);
+            const result = await providerCase.make().analyzeImage('aGVsbG8=');
+            expect(result.analysis).toContain('二次函数');
+            expect(result.analysis).toContain('最小值为 0');
+        });
     });
 
     describe('gradeAnswer', () => {

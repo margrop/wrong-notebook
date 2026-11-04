@@ -6,7 +6,8 @@ import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
 import { getAppConfig } from '../config';
-import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, extractJsonObject, parseDifficultyStars, parseFigure, stripThinkingTags } from './schema';
+import { parseGradeRecognition, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, extractJsonObject, parseDifficultyStars, parseFigure } from './schema';
+import { extractTag, parseQuestionResponse, splitKnowledgePoints } from './response-parser';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
 import { trimTrailingSlashes } from '../utils';
@@ -50,65 +51,6 @@ function imageBlock(base64: string, mimeType?: string): Anthropic.ImageBlockPara
             data: match ? match[2] : base64,
         },
     };
-}
-
-/** 提取 <tag>…</tag> 内容；analysis 未闭合时视为被截断，读取到末尾 */
-function extractTag(text: string, tagName: string): string | null {
-    const cleaned = stripThinkingTags(text);
-    const startTag = `<${tagName}>`;
-    const endTag = `</${tagName}>`;
-    const startIndex = cleaned.indexOf(startTag);
-    if (startIndex === -1) {
-        return null;
-    }
-
-    const contentStartIndex = startIndex + startTag.length;
-    const endIndex = cleaned.lastIndexOf(endTag);
-    if (endIndex === -1 && tagName === 'analysis') {
-        logger.warn({ tagName }, 'Tag was verified unclosed, treating as truncated and reading to end');
-        return cleaned.substring(contentStartIndex).trim();
-    }
-    if (endIndex === -1 || contentStartIndex >= endIndex) {
-        return null;
-    }
-    return cleaned.substring(contentStartIndex, endIndex).trim();
-}
-
-function splitKnowledgePoints(raw: string | null): string[] {
-    return (raw || '').split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
-}
-
-function parseQuestionResponse(text: string): ParsedQuestion {
-    const questionText = extractTag(text, "question_text");
-    const answerText = extractTag(text, "answer_text");
-    const analysis = extractTag(text, "analysis");
-    if (!questionText || !answerText || !analysis) {
-        logger.error({ rawTextSample: text.substring(0, 500) }, 'Missing critical XML tags');
-        throw new Error("Invalid AI response: Missing critical XML tags (<question_text>, <answer_text>, or <analysis>)");
-    }
-
-    const wrongAnswerText = extractTag(text, "wrong_answer_text") || "";
-    const result: ParsedQuestion = {
-        questionText,
-        answerText,
-        analysis,
-        wrongAnswerText,
-        mistakeAnalysis: extractTag(text, "mistake_analysis") || "",
-        mistakeStatus: normalizeMistakeStatusForSave(extractTag(text, "mistake_status"), wrongAnswerText),
-        subject: normalizeSubject(extractTag(text, "subject")) || '其他',
-        knowledgePoints: splitKnowledgePoints(extractTag(text, "knowledge_points")),
-        requiresImage: extractTag(text, "requires_image")?.toLowerCase().trim() === 'true',
-        gradeSemester: parseRecognizedGrade(extractTag(text, "grade_semester")),
-        difficultyStars: parseDifficultyStars(extractTag(text, "difficulty_stars")),
-        ...parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg")),
-    };
-
-    const validation = safeParseParsedQuestion(result);
-    if (!validation.success) {
-        logger.warn({ validationError: validation.error.format() }, 'Schema validation warning');
-        return result;
-    }
-    return validation.data;
 }
 
 /** 兼容接口沿用的 API 版本：SDK 1.x 默认发送 2026-10-21，第三方兼容接口未必支持 */

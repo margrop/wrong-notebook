@@ -54,11 +54,9 @@ vi.mock('@/lib/ai/tag-service', () => ({
 
 // Delayed import to ensure mocks are applied
 import { AzureOpenAIProvider } from '@/lib/ai/azure-provider';
-import type { ParsedQuestion } from '@/lib/ai/types';
+import { extractTag, parseQuestionResponse } from '@/lib/ai/response-parser';
 
 type PrivateAzureProvider = {
-    parseResponse(text: string): ParsedQuestion;
-    extractTag(text: string, tagName: string): string | null;
     handleError(error: unknown): never;
 };
 
@@ -221,18 +219,11 @@ describe('Azure OpenAI Provider 初始化', () => {
 });
 
 describe('Azure OpenAI Provider 响应解析', () => {
-    let provider: AzureOpenAIProvider;
-
     beforeEach(() => {
         vi.clearAllMocks();
-        provider = new AzureOpenAIProvider({
-            apiKey: 'test-key',
-            endpoint: 'https://test.openai.azure.com',
-            deploymentName: 'gpt-4o',
-        });
     });
 
-    describe('parseResponse', () => {
+    describe('parseQuestionResponse', () => {
         it('应该正确解析包含所有必需标签的响应', () => {
             const mockResponse = `
 <question_text>求函数 f(x) = x^2 的最小值</question_text>
@@ -243,8 +234,7 @@ describe('Azure OpenAI Provider 响应解析', () => {
 <requires_image>true</requires_image>
             `.trim();
 
-            // Access private method via type assertion
-            const result = asPrivateProvider(provider).parseResponse(mockResponse);
+            const result = parseQuestionResponse(mockResponse);
 
             expect(result.questionText).toBe('求函数 f(x) = x^2 的最小值');
             expect(result.answerText).toBe('最小值为 0');
@@ -263,7 +253,7 @@ describe('Azure OpenAI Provider 响应解析', () => {
 <requires_image>false</requires_image>
             `.trim();
 
-            const result = asPrivateProvider(provider).parseResponse(mockResponse);
+            const result = parseQuestionResponse(mockResponse);
 
             expect(result.requiresImage).toBe(false);
         });
@@ -278,7 +268,7 @@ describe('Azure OpenAI Provider 响应解析', () => {
 <mistake_analysis>移项后没有正确处理常数项。</mistake_analysis>
             `.trim();
 
-            const result = asPrivateProvider(provider).parseResponse(mockResponse);
+            const result = parseQuestionResponse(mockResponse);
 
             expect(result.wrongAnswerText).toBe('x = 4');
             expect(result.mistakeStatus).toBe('wrong_attempt');
@@ -292,7 +282,7 @@ describe('Azure OpenAI Provider 响应解析', () => {
 <analysis>测试解析</analysis>
             `.trim();
 
-            const result = asPrivateProvider(provider).parseResponse(mockResponse);
+            const result = parseQuestionResponse(mockResponse);
 
             expect(result.wrongAnswerText).toBe('');
             expect(result.mistakeAnalysis).toBe('');
@@ -307,7 +297,7 @@ describe('Azure OpenAI Provider 响应解析', () => {
 <subject>无效学科</subject>
             `.trim();
 
-            const result = asPrivateProvider(provider).parseResponse(mockResponse);
+            const result = parseQuestionResponse(mockResponse);
 
             expect(result.subject).toBe('其他');
         });
@@ -320,7 +310,7 @@ describe('Azure OpenAI Provider 响应解析', () => {
 <knowledge_points>知识点1, 知识点2, 知识点3</knowledge_points>
             `.trim();
 
-            const result = asPrivateProvider(provider).parseResponse(mockResponse);
+            const result = parseQuestionResponse(mockResponse);
 
             expect(result.knowledgePoints).toHaveLength(3);
             expect(result.knowledgePoints).toContain('知识点1');
@@ -336,7 +326,7 @@ describe('Azure OpenAI Provider 响应解析', () => {
 <knowledge_points>知识点1,知识点2,知识点3</knowledge_points>
             `.trim();
 
-            const result = asPrivateProvider(provider).parseResponse(mockResponse);
+            const result = parseQuestionResponse(mockResponse);
 
             expect(result.knowledgePoints).toHaveLength(3);
         });
@@ -347,28 +337,28 @@ describe('Azure OpenAI Provider 响应解析', () => {
 <answer_text>测试答案</answer_text>
             `.trim();
 
-            expect(() => asPrivateProvider(provider).parseResponse(mockResponse)).toThrow('Missing critical XML tags');
+            expect(() => parseQuestionResponse(mockResponse)).toThrow('Missing critical XML tags');
         });
     });
 
     describe('extractTag', () => {
         it('应该正确提取标签内容', () => {
             const text = '<test>content</test>';
-            const result = asPrivateProvider(provider).extractTag(text, 'test');
+            const result = extractTag(text, 'test');
 
             expect(result).toBe('content');
         });
 
         it('应该去除首尾空格', () => {
             const text = '<test>  content with spaces  </test>';
-            const result = asPrivateProvider(provider).extractTag(text, 'test');
+            const result = extractTag(text, 'test');
 
             expect(result).toBe('content with spaces');
         });
 
         it('标签不存在时应该返回 null', () => {
             const text = '<other>content</other>';
-            const result = asPrivateProvider(provider).extractTag(text, 'test');
+            const result = extractTag(text, 'test');
 
             expect(result).toBeNull();
         });
@@ -381,7 +371,7 @@ line 2
 line 3
 </test>
             `.trim();
-            const result = asPrivateProvider(provider).extractTag(text, 'test');
+            const result = extractTag(text, 'test');
 
             expect(result).toContain('line 1');
             expect(result).toContain('line 2');

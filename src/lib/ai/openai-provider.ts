@@ -7,7 +7,8 @@ import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
 import { getAppConfig } from '../config';
-import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure, stripThinkingTags } from './schema';
+import { parseGradeRecognition, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure } from './schema';
+import { extractTag, parseQuestionResponse, splitKnowledgePoints } from './response-parser';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
 import { AI_OUTPUT_TRUNCATED, outputTokenLimit, withModelOutputLimit } from './truncation';
@@ -94,100 +95,6 @@ export class OpenAIProvider implements AIService {
             }
             return msg;
         });
-    }
-
-    private extractTag(text: string, tagName: string): string | null {
-        const cleaned = stripThinkingTags(text);
-        const startTag = `<${tagName}>`;
-        const endTag = `</${tagName}>`;
-        const startIndex = cleaned.indexOf(startTag);
-
-        // 如果找不到开始标签，返回 null
-        if (startIndex === -1) {
-            return null;
-        }
-
-        const contentStartIndex = startIndex + startTag.length;
-        const endIndex = cleaned.lastIndexOf(endTag);
-
-        // 特殊处理：如果闭合标签丢失（通常主要发生在最后的 analysis 标签被截断时）
-        // 我们尝试读取到字符串末尾
-        if (endIndex === -1 && tagName === 'analysis') {
-            logger.warn({ tagName }, 'Tag was verified unclosed, treating as truncated and reading to end');
-            return cleaned.substring(contentStartIndex).trim();
-        }
-
-        if (endIndex === -1 || contentStartIndex >= endIndex) {
-            return null;
-        }
-
-        return cleaned.substring(contentStartIndex, endIndex).trim();
-    }
-
-    private parseResponse(text: string): ParsedQuestion {
-        logger.debug({ textLength: text.length }, 'Parsing AI response');
-
-        const questionText = this.extractTag(text, "question_text");
-        const answerText = this.extractTag(text, "answer_text");
-        const analysis = this.extractTag(text, "analysis");
-        const subjectRaw = this.extractTag(text, "subject");
-        const knowledgePointsRaw = this.extractTag(text, "knowledge_points");
-        const requiresImageRaw = this.extractTag(text, "requires_image");
-        const wrongAnswerText = this.extractTag(text, "wrong_answer_text") || "";
-        const mistakeAnalysis = this.extractTag(text, "mistake_analysis") || "";
-        const mistakeStatusRaw = this.extractTag(text, "mistake_status");
-
-        // Basic Validation
-        if (!questionText || !answerText || !analysis) {
-            logger.error({ rawTextSample: text.substring(0, 500) }, 'Missing critical XML tags');
-            throw new Error("Invalid AI response: Missing critical XML tags (<question_text>, <answer_text>, or <analysis>)");
-        }
-
-        // Process Subject
-        let subject: ParsedQuestion['subject'] = '其他';
-        const validSubjects: ParsedQuestion['subject'][] = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"];
-        if (subjectRaw && (validSubjects as string[]).includes(subjectRaw)) {
-            subject = subjectRaw as ParsedQuestion['subject'];
-        }
-
-        // Process Knowledge Points
-        let knowledgePoints: string[] = [];
-        if (knowledgePointsRaw) {
-            // Split by comma or newline, trim whitespaces
-            knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
-        }
-
-        // Process requiresImage (default to false if not present or unrecognized)
-        const requiresImage = requiresImageRaw?.toLowerCase().trim() === 'true';
-        const mistakeStatus = normalizeMistakeStatusForSave(mistakeStatusRaw, wrongAnswerText);
-
-        // Construct Result
-        const result: ParsedQuestion = {
-            questionText,
-            answerText,
-            analysis,
-            wrongAnswerText,
-            mistakeAnalysis,
-            mistakeStatus,
-            subject,
-            knowledgePoints,
-            requiresImage,
-            gradeSemester: parseRecognizedGrade(this.extractTag(text, "grade_semester")),
-            difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")),
-            ...parseFigure(this.extractTag(text, "has_figure"), this.extractTag(text, "figure_svg")),
-        };
-
-        // Final Schema Validation (just to be safe, though likely compliant by now)
-        const validation = safeParseParsedQuestion(result);
-        if (validation.success) {
-            logger.debug('Validated successfully via XML tags');
-            return validation.data;
-        } else {
-            logger.warn({ validationError: validation.error.format() }, 'Schema validation warning');
-            // We still return it as we trust our extraction more than the schema at this point (or we can throw)
-            // Let's return the extracted data to be permissive
-            return result;
-        }
     }
 
     async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: GradeLevel | null, subject?: string | null, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ParsedQuestion> {
@@ -320,7 +227,7 @@ export class OpenAIProvider implements AIService {
             logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error("Empty response from AI");
-            const parsedResult = normalizeAiQuestionTags(this.parseResponse(text), tagOptions);
+            const parsedResult = normalizeAiQuestionTags(parseQuestionResponse(text), tagOptions);
 
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
@@ -378,7 +285,7 @@ export class OpenAIProvider implements AIService {
             logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error("Empty response from AI");
-            const parsedResult = this.parseResponse(text);
+            const parsedResult = parseQuestionResponse(text);
 
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
@@ -458,20 +365,19 @@ export class OpenAIProvider implements AIService {
             if (!text) throw new Error("Empty response from AI");
 
             // 解析响应
-            const answerText = this.extractTag(text, "answer_text") || "";
-            const analysis = this.extractTag(text, "analysis") || "";
-            const knowledgePointsRaw = this.extractTag(text, "knowledge_points") || "";
-            const knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
-            const wrongAnswerText = this.extractTag(text, "wrong_answer_text") || "";
-            const mistakeAnalysis = this.extractTag(text, "mistake_analysis") || "";
+            const answerText = extractTag(text, "answer_text") || "";
+            const analysis = extractTag(text, "analysis") || "";
+            const knowledgePoints = splitKnowledgePoints(extractTag(text, "knowledge_points"));
+            const wrongAnswerText = extractTag(text, "wrong_answer_text") || "";
+            const mistakeAnalysis = extractTag(text, "mistake_analysis") || "";
             const mistakeStatus = normalizeMistakeStatusForSave(
-                this.extractTag(text, "mistake_status"),
+                extractTag(text, "mistake_status"),
                 wrongAnswerText
             );
 
             logger.info('Reanswer parsed successfully');
 
-            return normalizeAiQuestionTags({ answerText, analysis, knowledgePoints, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(this.extractTag(text, "subject")), gradeSemester: parseRecognizedGrade(this.extractTag(text, "grade_semester")), difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")) }, { candidateTags });
+            return normalizeAiQuestionTags({ answerText, analysis, knowledgePoints, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(extractTag(text, "subject")), gradeSemester: parseRecognizedGrade(extractTag(text, "grade_semester")), difficultyStars: parseDifficultyStars(extractTag(text, "difficulty_stars")) }, { candidateTags });
 
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
@@ -653,7 +559,7 @@ export class OpenAIProvider implements AIService {
             logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
 
             if (!text) throw new Error("Empty response from AI");
-            return parseFigure(this.extractTag(text, "has_figure"), this.extractTag(text, "figure_svg"));
+            return parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during figure SVG generation');
             this.handleError(error);
@@ -705,7 +611,7 @@ export class OpenAIProvider implements AIService {
             logger.debug({ rawResponse: text }, 'SVG animation AI raw response');
 
             if (!text) throw new Error("Empty response from AI");
-            return sanitizeSvgAnimation(this.extractTag(text, "svg_animation") || text);
+            return sanitizeSvgAnimation(extractTag(text, "svg_animation") || text);
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG animation generation');
             this.handleError(error);
@@ -731,7 +637,7 @@ export class OpenAIProvider implements AIService {
             logger.debug({ rawResponse: text }, 'SVG narration AI raw response');
 
             if (!text) throw new Error("Empty response from AI");
-            return parseNarration(this.extractTag(text, "narration") || text);
+            return parseNarration(extractTag(text, "narration") || text);
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG narration generation');
             this.handleError(error);

@@ -50,11 +50,9 @@ vi.mock('@/lib/ai/tag-service', () => ({
 
 // Delayed import to ensure mocks are applied
 import { GeminiProvider } from '@/lib/ai/gemini-provider';
-import type { ParsedQuestion } from '@/lib/ai/types';
+import { parseQuestionResponse } from '@/lib/ai/response-parser';
 
 type PrivateGeminiProvider = {
-    parseResponse(text: string): ParsedQuestion;
-    extractTag(text: string, tagName: string): string | null;
     handleError(error: unknown): never;
 };
 
@@ -72,17 +70,12 @@ describe('Gemini Provider 响应解析', () => {
         mockGenerateContent.mockResolvedValue(response('求和。\nA. 2\nB. 4'));
         await expect(provider.generateSimilarQuestion('原题', [])).rejects.toThrow('AI_RESPONSE_ERROR');
     });
-    let provider: GeminiProvider;
 
     beforeEach(() => {
         vi.clearAllMocks();
-        provider = new GeminiProvider({
-            apiKey: 'test-key',
-            model: 'gemini-2.0-flash',
-        });
     });
 
-    describe('parseResponse', () => {
+    describe('parseQuestionResponse', () => {
         it('应该正确解析包含所有必需标签的响应', () => {
             const mockResponse = `
 <question_text>求函数 f(x) = x^2 的最小值</question_text>
@@ -93,7 +86,7 @@ describe('Gemini Provider 响应解析', () => {
 <requires_image>true</requires_image>
             `.trim();
 
-            const result = asPrivateProvider(provider).parseResponse(mockResponse);
+            const result = parseQuestionResponse(mockResponse);
 
             expect(result.questionText).toBe('求函数 f(x) = x^2 的最小值');
             expect(result.answerText).toBe('最小值为 0');
@@ -114,7 +107,7 @@ describe('Gemini Provider 响应解析', () => {
 <mistake_analysis>移项后没有正确处理常数项。</mistake_analysis>
             `.trim();
 
-            const result = asPrivateProvider(provider).parseResponse(mockResponse);
+            const result = parseQuestionResponse(mockResponse);
 
             expect(result.wrongAnswerText).toBe('x = 4');
             expect(result.mistakeStatus).toBe('wrong_attempt');
@@ -128,7 +121,7 @@ describe('Gemini Provider 响应解析', () => {
 <analysis>测试解析</analysis>
             `.trim();
 
-            const result = asPrivateProvider(provider).parseResponse(mockResponse);
+            const result = parseQuestionResponse(mockResponse);
 
             expect(result.wrongAnswerText).toBe('');
             expect(result.mistakeAnalysis).toBe('');
@@ -144,7 +137,7 @@ describe('Gemini Provider 响应解析', () => {
 <mistake_status>unknown</mistake_status>
             `.trim();
 
-            const result = asPrivateProvider(provider).parseResponse(mockResponse);
+            const result = parseQuestionResponse(mockResponse);
 
             expect(result.wrongAnswerText).toBe('错误解答');
             expect(result.mistakeStatus).toBe('wrong_attempt');
@@ -156,7 +149,7 @@ describe('Gemini Provider 响应解析', () => {
 <answer_text>测试答案</answer_text>
             `.trim();
 
-            expect(() => asPrivateProvider(provider).parseResponse(mockResponse)).toThrow('Missing critical XML tags');
+            expect(() => parseQuestionResponse(mockResponse)).toThrow('Missing critical XML tags');
         });
     });
 });

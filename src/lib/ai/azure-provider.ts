@@ -6,7 +6,8 @@ import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
 import { getAppConfig } from '../config';
-import { parseGradeRecognition, safeParseParsedQuestion, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure, stripThinkingTags } from './schema';
+import { parseGradeRecognition, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure } from './schema';
+import { extractTag, parseQuestionResponse, splitKnowledgePoints } from './response-parser';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
 import { AI_OUTPUT_TRUNCATED, withModelOutputLimit } from './truncation';
@@ -77,83 +78,6 @@ export class AzureOpenAIProvider implements AIService {
         }, 'Azure AI Provider initialized');
     }
 
-    private extractTag(text: string, tagName: string): string | null {
-        const cleaned = stripThinkingTags(text);
-        const startTag = `<${tagName}>`;
-        const endTag = `</${tagName}>`;
-        const startIndex = cleaned.indexOf(startTag);
-        const endIndex = cleaned.lastIndexOf(endTag);
-
-        if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
-            return null;
-        }
-
-        return cleaned.substring(startIndex + startTag.length, endIndex).trim();
-    }
-
-    private parseResponse(text: string): ParsedQuestion {
-        logger.debug({ textLength: text.length }, 'Parsing AI response');
-
-        const questionText = this.extractTag(text, "question_text");
-        const answerText = this.extractTag(text, "answer_text");
-        const analysis = this.extractTag(text, "analysis");
-        const subjectRaw = this.extractTag(text, "subject");
-        const knowledgePointsRaw = this.extractTag(text, "knowledge_points");
-        const requiresImageRaw = this.extractTag(text, "requires_image");
-        const wrongAnswerText = this.extractTag(text, "wrong_answer_text") || "";
-        const mistakeAnalysis = this.extractTag(text, "mistake_analysis") || "";
-        const mistakeStatusRaw = this.extractTag(text, "mistake_status");
-
-        // Basic Validation
-        if (!questionText || !answerText || !analysis) {
-            logger.error({ rawTextSample: text.substring(0, 500) }, 'Missing critical XML tags');
-            throw new Error("Invalid AI response: Missing critical XML tags (<question_text>, <answer_text>, or <analysis>)");
-        }
-
-        // Process Subject
-        let subject: ParsedQuestion['subject'] = '其他';
-        const validSubjects: ParsedQuestion['subject'][] = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"];
-        if (subjectRaw && (validSubjects as string[]).includes(subjectRaw)) {
-            subject = subjectRaw as ParsedQuestion['subject'];
-        }
-
-        // Process Knowledge Points
-        let knowledgePoints: string[] = [];
-        if (knowledgePointsRaw) {
-            knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
-        }
-
-        // Process requiresImage
-        const requiresImage = requiresImageRaw?.toLowerCase().trim() === 'true';
-        const mistakeStatus = normalizeMistakeStatusForSave(mistakeStatusRaw, wrongAnswerText);
-
-        // Construct Result
-        const result: ParsedQuestion = {
-            questionText,
-            answerText,
-            analysis,
-            wrongAnswerText,
-            mistakeAnalysis,
-            mistakeStatus,
-            subject,
-            knowledgePoints,
-            requiresImage,
-            gradeSemester: parseRecognizedGrade(this.extractTag(text, "grade_semester")),
-            difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")),
-            ...parseFigure(this.extractTag(text, "has_figure"), this.extractTag(text, "figure_svg")),
-        };
-
-        // Final Schema Validation
-        const validation = safeParseParsedQuestion(result);
-        if (validation.success) {
-            logger.debug('Validated successfully via XML tags');
-            return validation.data;
-        } else {
-            logger.warn({ validationError: validation.error.format() }, 'Schema validation warning');
-            return result;
-        }
-    }
-
     async analyzeImage(
         imageBase64: string,
         mimeType: string = 'image/jpeg',
@@ -221,7 +145,7 @@ export class AzureOpenAIProvider implements AIService {
             logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error("Empty response from AI");
-            const parsedResult = normalizeAiQuestionTags(this.parseResponse(text), tagOptions);
+            const parsedResult = normalizeAiQuestionTags(parseQuestionResponse(text), tagOptions);
 
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
@@ -292,7 +216,7 @@ export class AzureOpenAIProvider implements AIService {
             logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error("Empty response from AI");
-            const parsedResult = this.parseResponse(text);
+            const parsedResult = parseQuestionResponse(text);
 
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
@@ -368,20 +292,19 @@ export class AzureOpenAIProvider implements AIService {
             if (!text) throw new Error("Empty response from AI");
 
             // 解析响应
-            const answerText = this.extractTag(text, "answer_text") || "";
-            const analysis = this.extractTag(text, "analysis") || "";
-            const knowledgePointsRaw = this.extractTag(text, "knowledge_points") || "";
-            const knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
-            const wrongAnswerText = this.extractTag(text, "wrong_answer_text") || "";
-            const mistakeAnalysis = this.extractTag(text, "mistake_analysis") || "";
+            const answerText = extractTag(text, "answer_text") || "";
+            const analysis = extractTag(text, "analysis") || "";
+            const knowledgePoints = splitKnowledgePoints(extractTag(text, "knowledge_points"));
+            const wrongAnswerText = extractTag(text, "wrong_answer_text") || "";
+            const mistakeAnalysis = extractTag(text, "mistake_analysis") || "";
             const mistakeStatus = normalizeMistakeStatusForSave(
-                this.extractTag(text, "mistake_status"),
+                extractTag(text, "mistake_status"),
                 wrongAnswerText
             );
 
             logger.info('Reanswer parsed successfully');
 
-            return normalizeAiQuestionTags({ answerText, analysis, knowledgePoints, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(this.extractTag(text, "subject")), gradeSemester: parseRecognizedGrade(this.extractTag(text, "grade_semester")), difficultyStars: parseDifficultyStars(this.extractTag(text, "difficulty_stars")) }, { candidateTags });
+            return normalizeAiQuestionTags({ answerText, analysis, knowledgePoints, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(extractTag(text, "subject")), gradeSemester: parseRecognizedGrade(extractTag(text, "grade_semester")), difficultyStars: parseDifficultyStars(extractTag(text, "difficulty_stars")) }, { candidateTags });
 
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
@@ -564,7 +487,7 @@ export class AzureOpenAIProvider implements AIService {
             logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
 
             if (!text) throw new Error("Empty response from AI");
-            return parseFigure(this.extractTag(text, "has_figure"), this.extractTag(text, "figure_svg"));
+            return parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during figure SVG generation');
             this.handleError(error);
@@ -616,7 +539,7 @@ export class AzureOpenAIProvider implements AIService {
             logger.debug({ rawResponse: text }, 'SVG animation AI raw response');
 
             if (!text) throw new Error("Empty response from AI");
-            return sanitizeSvgAnimation(this.extractTag(text, "svg_animation") || text);
+            return sanitizeSvgAnimation(extractTag(text, "svg_animation") || text);
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG animation generation');
             this.handleError(error);
@@ -642,7 +565,7 @@ export class AzureOpenAIProvider implements AIService {
             logger.debug({ rawResponse: text }, 'SVG narration AI raw response');
 
             if (!text) throw new Error("Empty response from AI");
-            return parseNarration(this.extractTag(text, "narration") || text);
+            return parseNarration(extractTag(text, "narration") || text);
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG narration generation');
             this.handleError(error);
