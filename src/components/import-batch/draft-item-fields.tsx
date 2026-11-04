@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { BatchDraft, DraftItem } from "@/lib/question-split/draft";
 import { updateItem } from "@/lib/question-split/draft-ops";
+import { normalizeQuestionType, NO_QUESTION_TYPE, QUESTION_TYPES } from "@/lib/question/question-type";
 
 interface DraftItemFieldsProps {
     item: DraftItem;
@@ -16,6 +17,9 @@ interface DraftItemFieldsProps {
 }
 
 const DIFFICULTY_OPTIONS = [1, 2, 3, 4, 5] as const;
+
+/** 题型选择：未设置（清除）+ 全部标准题型 */
+const QUESTION_TYPE_SELECT_OPTIONS = [NO_QUESTION_TYPE, ...QUESTION_TYPES] as const;
 
 /** 一道题的结构化字段（答案、解析、知识点、难度、错答）的可折叠编辑区 */
 export function DraftItemFields({ item, onEdit }: DraftItemFieldsProps) {
@@ -40,6 +44,24 @@ export function DraftItemFields({ item, onEdit }: DraftItemFieldsProps) {
 
             {open && (
                 <div className="mt-2 space-y-3">
+                    <div className="space-y-1">
+                        <Label htmlFor={`${item.key}-type`} className="text-xs">{t.questionType.label}</Label>
+                        <Select
+                            value={item.questionType ?? NO_QUESTION_TYPE}
+                            onValueChange={(value) => onEdit((draft) => updateItem(draft, item.key, { questionType: value === NO_QUESTION_TYPE ? null : normalizeQuestionType(value) }))}
+                        >
+                            <SelectTrigger className="h-8 w-full text-sm" aria-label={t.questionType.label}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {QUESTION_TYPE_SELECT_OPTIONS.map((key) => (
+                                    <SelectItem key={key} value={key}>
+                                        {key === NO_QUESTION_TYPE ? t.questionType.notSet : t.questionType.names[key]}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
                     <div className="space-y-1">
                         <Label htmlFor={`${item.key}-answer`} className="text-xs">{t.importBatch.fields.answer}</Label>
                         <Textarea

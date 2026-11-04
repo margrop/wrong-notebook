@@ -14,6 +14,10 @@ export interface CreateImportBatchInput {
     /** 编号像小问时仍按编号分题 */
     forceNumbered?: boolean;
     text?: string;
+    /** 结构化题目（与 text 互斥；服务端直接构造草稿，不调用 AI） */
+    items?: Array<Record<string, unknown>>;
+    /** 结构化批次来源说明（文件名与格式） */
+    origin?: { fileName?: string; format?: string };
     imageBase64?: string;
     imageInfo?: ImportImageInfo;
     language: "zh" | "en";
@@ -53,6 +57,8 @@ export async function createImportBatch(input: CreateImportBatchInput, clientReq
         subjectId: input.subjectId || undefined,
         targetSubjectId: input.targetSubjectId || undefined,
         paperLevel: input.paperLevel || undefined,
+        items: input.items?.map((item) => ({ ...item })),
+        origin: input.origin,
     }, { timeout: UPLOAD_TIMEOUT_MS }));
     notifyImportTasksChanged();
     return batch;

@@ -9,6 +9,8 @@ import { getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { createImportBatch } from "@/lib/import/import-batch-client";
+import { createStructuredImportBatches, needsAutoSplit, splitLongTextToStructuredItems } from "@/lib/import/structured-batches";
+import { MAX_SPLIT_QUESTIONS, splitQuestionText } from "@/lib/question-split/text";
 import { saveParsedQuestion } from "@/lib/import/question-import";
 import type { ImportedQuestion } from "@/lib/import/question-import";
 import {
@@ -86,11 +88,42 @@ export function useTextImportFlow(deps: TextFlowDeps) {
         }
     };
 
-    /** 多题文字：创建批次（本地规则分题不调用 AI；splitter 为 ai 时由模型分题），进入分题预览 */
+    /**
+     * 多题文字：创建批次（本地规则分题不调用 AI；splitter 为 ai 时由模型分题），进入分题预览。
+     * 超出单批上限（60 题 / 20000 字）时自动拆成多个结构化批次
+     */
     const createTextBatch = async (text: string, splitter: "local" | "ai", forceNumbered = false) => {
         deps.clearSaveError();
         setCreatingBatch(true);
         try {
+            if (splitter === 'local') {
+                const detection = splitQuestionText(text, { forceNumbered });
+                if (needsAutoSplit(detection)) {
+                    frontendLogger.info(logPrefix, 'Auto-splitting long text', { candidateCount: detection.candidateCount, overflow: detection.overflow, tooLong: detection.tooLong });
+                    let structuredItems;
+                    try {
+                        structuredItems = splitLongTextToStructuredItems(text, { forceNumbered });
+                    } catch (error) {
+                        frontendLogger.error(logPrefix, 'Auto-split failed', { error: getErrorMessage(error) });
+                        toast.error(getErrorMessage(error));
+                        return;
+                    }
+                    const { batches, failures } = await createStructuredImportBatches(structuredItems, {
+                        language,
+                        subjectId: analyzeSubjectId ?? textNotebook?.id,
+                        targetSubjectId: targetCtx.fixedSubjectId ?? (targetCtx.confirmBeforeImport ? null : targetCtx.importSubjectId ?? null),
+                    });
+                    frontendLogger.info(logPrefix, 'Auto-split batches created', { count: batches.length, failures: failures.length });
+                    if (batches.length > 0) {
+                        toast.success(t.app.autoSplitHint.replace('{count}', String(batches.length)).replace('{max}', String(MAX_SPLIT_QUESTIONS)));
+                        router.push(`/import-batches/${batches[0].id}`);
+                    }
+                    for (const failure of failures) {
+                        toast.error(t.app.autoSplitFailed.replace('{index}', String(failure.index + 1)).replace('{error}', getErrorMessage(failure.error)));
+                    }
+                    return;
+                }
+            }
             const batch = await createImportBatch(buildTextBatchParams(
                 { text, splitter, forceNumbered, language, analyzeSubjectId, textNotebookId: textNotebook?.id },
                 targetCtx,

@@ -36,9 +36,10 @@ import { parsedQuestionToSavePayload } from "@/lib/question/parsed-question-payl
 import { runSerializedTransaction, serializeWrite } from "@/lib/db-write-queue";
 import { prisma } from "@/lib/prisma";
 import { mapAnalysisError, parseImageDataUrl, splitQuestionsForUser } from "@/lib/question/question-analysis";
-import { batchDraftSchema, draftFromTextSplit, newItemKey, readyItems } from "@/lib/question-split/draft";
+import { batchDraftSchema, draftFromTextSplit, MAX_DRAFT_TEXT_LENGTH, MAX_ITEM_KNOWLEDGE_POINTS, newItemKey, readyItems } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftItem } from "@/lib/question-split/draft";
-import { compactLines, composeQuestionInput, MAX_SPLIT_TEXT_LENGTH, splitQuestionText } from "@/lib/question-split/text";
+import { compactLines, composeQuestionInput, MAX_SPLIT_QUESTIONS, MAX_SPLIT_TEXT_LENGTH, splitQuestionText } from "@/lib/question-split/text";
+import { normalizeQuestionType } from "@/lib/question/question-type";
 
 const logger = createLogger('import-batches');
 
@@ -62,6 +63,20 @@ const imageInfoSchema = z.object({
     quality: z.number().min(0).max(1).optional(),
 }).strip();
 
+/** 结构化题目条目（浏览器端解析题库文件后按草稿字段提交；宽松接受 null 与空串） */
+const structuredItemSchema = z.object({
+    text: z.string().max(MAX_DRAFT_TEXT_LENGTH),
+    material: z.string().max(MAX_DRAFT_TEXT_LENGTH).nullish(),
+    section: z.string().max(500).nullish(),
+    label: z.string().max(20).nullish(),
+    answer: z.string().max(MAX_DRAFT_TEXT_LENGTH).nullish(),
+    analysis: z.string().max(MAX_DRAFT_TEXT_LENGTH).nullish(),
+    knowledgePoints: z.array(z.string().max(200)).max(MAX_ITEM_KNOWLEDGE_POINTS).nullish(),
+    difficultyStars: z.number().int().min(1).max(5).nullish(),
+    wrongAnswer: z.string().max(MAX_DRAFT_TEXT_LENGTH).nullish(),
+    questionType: z.string().max(100).nullish(),
+}).strip();
+
 export const createImportBatchSchema = z.object({
     clientRequestId: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/),
     source: z.enum(['text', 'image']),
@@ -70,6 +85,16 @@ export const createImportBatchSchema = z.object({
     /** 编号像小问时，用户明确选择仍按编号分题 */
     forceNumbered: z.boolean().optional(),
     text: z.string().optional(),
+    /**
+     * 结构化题目列表：与 text 互斥；条目按草稿字段校验。
+     * 服务端直接构造草稿（不调用 AI、不计额度），供题库文件导入使用
+     */
+    items: z.array(structuredItemSchema).min(1).max(MAX_SPLIT_QUESTIONS).optional(),
+    /** 结构化批次来源说明（文件名与格式） */
+    origin: z.object({
+        fileName: z.string().max(300).optional(),
+        format: z.string().max(30).optional(),
+    }).strip().optional(),
     imageBase64: z.string().max(MAX_IMAGE_DATA_LENGTH).regex(IMAGE_DATA_PATTERN).optional(),
     imageInfo: imageInfoSchema.optional(),
     language: z.enum(['zh', 'en']).default('zh'),
@@ -77,8 +102,12 @@ export const createImportBatchSchema = z.object({
     targetSubjectId: z.string().max(100).nullish(),
     paperLevel: z.string().max(30).nullish(),
 }).superRefine((input, context) => {
-    if (input.source === 'text' && !input.text?.trim()) context.addIssue({ code: 'custom', path: ['text'], message: 'TEXT_REQUIRED' });
+    if (input.source === 'text' && !input.text?.trim() && !input.items?.length) context.addIssue({ code: 'custom', path: ['text'], message: 'TEXT_REQUIRED' });
+    if (input.source === 'text' && input.text?.trim() && input.items?.length) {
+        context.addIssue({ code: 'custom', path: ['items'], message: 'ITEMS_TEXT_EXCLUSIVE' });
+    }
     if (input.source === 'image' && !input.imageBase64) context.addIssue({ code: 'custom', path: ['imageBase64'], message: 'IMAGE_REQUIRED' });
+    if (input.origin && !input.items?.length) context.addIssue({ code: 'custom', path: ['origin'], message: 'ORIGIN_REQUIRES_ITEMS' });
 });
 
 const updateDraftSchema = z.object({ version: z.number().int().min(1), draft: batchDraftSchema });
@@ -282,8 +311,10 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
     const parsed = createImportBatchSchema.safeParse(raw);
     if (!parsed.success) return { response: validationError('IMPORT_BATCH_INVALID_INPUT', parsed.error.issues) };
     const input = parsed.data;
-    // 超出上限的文字不截断处理，明确拒绝，由用户分次录入
-    if (input.source === 'text' && ((input.text?.length ?? 0) > MAX_SPLIT_TEXT_LENGTH || (input.splitter === 'ai' && compactLines(input.text ?? '').length > MAX_SPLIT_LINES))) {
+    const structuredItems = input.source === 'text' ? input.items ?? [] : [];
+    // 超出上限的文字不截断处理，明确拒绝，由用户分次录入（结构化条目走客户端分批，不受单批文字上限限制）
+    if (input.source === 'text' && !structuredItems.length
+        && ((input.text?.length ?? 0) > MAX_SPLIT_TEXT_LENGTH || (input.splitter === 'ai' && compactLines(input.text ?? '').length > MAX_SPLIT_LINES))) {
         return { response: validationError('IMPORT_BATCH_TEXT_TOO_LONG', { maxLength: MAX_SPLIT_TEXT_LENGTH, maxLines: MAX_SPLIT_LINES }) };
     }
 
@@ -298,7 +329,36 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
 
     const splitter: ImportBatchSplitter = input.source === 'image' ? 'ai' : input.splitter;
     let draft: BatchDraft | null = null;
-    if (splitter === 'local') {
+    if (structuredItems.length > 0) {
+        // 结构化题目直接构造草稿：不调用 AI、不计额度；题干非空默认选中
+        const keys: string[] = [];
+        draft = {
+            items: structuredItems.map((item): DraftItem => {
+                const key = newItemKey(keys);
+                keys.push(key);
+                return {
+                    key,
+                    label: item.label?.slice(0, 20) || null,
+                    text: item.text.slice(0, MAX_DRAFT_TEXT_LENGTH),
+                    material: item.material?.slice(0, MAX_DRAFT_TEXT_LENGTH) || null,
+                    section: item.section?.slice(0, 500) || null,
+                    selected: item.text.trim().length > 0,
+                    regions: [],
+                    hasFigure: false,
+                    flags: [],
+                    answer: item.answer?.slice(0, MAX_DRAFT_TEXT_LENGTH) || null,
+                    analysis: item.analysis?.slice(0, MAX_DRAFT_TEXT_LENGTH) || null,
+                    knowledgePoints: item.knowledgePoints?.slice(0, MAX_ITEM_KNOWLEDGE_POINTS),
+                    difficultyStars: item.difficultyStars ?? null,
+                    wrongAnswer: item.wrongAnswer?.slice(0, MAX_DRAFT_TEXT_LENGTH) || null,
+                    questionType: normalizeQuestionType(item.questionType),
+                };
+            }),
+            ignored: [],
+            warnings: [],
+        };
+        if (draft.items.length === 0) return { response: validationError('IMPORT_BATCH_EMPTY') };
+    } else if (splitter === 'local') {
         const split = splitQuestionText(input.text ?? '', { forceNumbered: input.forceNumbered });
         if (split.questions.length === 0) return { response: validationError('IMPORT_BATCH_EMPTY') };
         draft = draftFromTextSplit(split.questions, split.ignored, split.overflow);
@@ -306,6 +366,16 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
 
     const id = randomUUID().replace(/-/g, '');
     const release = splitter === 'ai' ? register(id) : () => undefined;
+    // 结构化批次：sourceText 存可读的拼接文本或文件名说明（不超现有列的合理长度）
+    let sourceText = input.source === 'text' ? input.text ?? null : null;
+    if (structuredItems.length > 0) {
+        if (input.origin?.fileName) {
+            sourceText = `文件导入：${input.origin.fileName}${input.origin.format ? `（${input.origin.format}）` : ''}`;
+        } else {
+            const excerpt = structuredItems[0].text.trim().slice(0, 100);
+            sourceText = excerpt ? `${structuredItems.length} 道结构化题目：${excerpt}${structuredItems.length > 1 ? '…' : ''}` : null;
+        }
+    }
     let batch: BatchWithTasks;
     try {
         batch = await serializeWrite(() => prisma.importBatch.create({
@@ -320,7 +390,7 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
                 subjectId: input.subjectId || null,
                 targetSubjectId: input.targetSubjectId || null,
                 paperLevel: input.paperLevel || null,
-                sourceText: input.source === 'text' ? input.text ?? null : null,
+                sourceText,
                 imageData: input.imageBase64 ?? '',
                 imageInfo: input.imageInfo ? JSON.stringify(input.imageInfo) : null,
                 draft: draft ? JSON.stringify(draft) : null,

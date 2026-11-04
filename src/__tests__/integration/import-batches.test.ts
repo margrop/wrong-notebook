@@ -246,6 +246,48 @@ describe('文字多题批次', () => {
         expect(await database.aiUsage.count()).toBe(0);
     });
 
+    it('结构化题目批次：直接构造草稿，不调用 AI、不计额度，与 text 互斥', async () => {
+        const items = [
+            { text: '1．计算 1 + 1。', answer: '2', analysis: '1+1=2', questionType: 'single_choice', label: '1' },
+            { text: '2．计算 2 + 2。', answer: null, questionType: '未知题型' },
+            { text: '', answer: '' },
+        ];
+        const body = { clientRequestId: 'structured-req-001', source: 'text', splitter: 'local', items, language: 'zh', targetSubjectId: 'math' };
+        const first = await CREATE(json(body));
+        expect(first.status).toBe(201);
+        const { batch } = await first.json();
+        expect(batch).toMatchObject({ status: 'draft', phase: 'draft', itemCount: 3, selectedCount: 2 });
+        expect(batch.draft.items[0]).toMatchObject({ text: '1．计算 1 + 1。', answer: '2', analysis: '1+1=2', questionType: 'single_choice', label: '1', selected: true });
+        expect(batch.draft.items[1]).toMatchObject({ text: '2．计算 2 + 2。', questionType: null, selected: true });
+        expect(batch.draft.items[2]).toMatchObject({ text: '', selected: false });
+        // 不调用 AI、不计额度
+        expect(mocks.splitQuestions).not.toHaveBeenCalled();
+        expect(await database.aiUsage.count()).toBe(0);
+        // 幂等：重复提交返回同一批次
+        const again = await CREATE(json(body));
+        expect(again.status).toBe(200);
+        expect((await again.json()).batch.id).toBe(batch.id);
+        expect(await database.importBatch.count()).toBe(1);
+
+        // 与 text 互斥
+        const both = await CREATE(json({ ...body, clientRequestId: 'structured-req-002', text: '1．计算 1 + 1。' }));
+        expect(both.status).toBe(400);
+        expect((await both.json()).message).toBe('IMPORT_BATCH_INVALID_INPUT');
+
+        // 超过单批上限拒绝
+        const tooMany = await CREATE(json({ ...body, clientRequestId: 'structured-req-003', items: Array.from({ length: 61 }, (_, i) => ({ text: `题目 ${i + 1}` })) }));
+        expect(tooMany.status).toBe(400);
+        expect((await tooMany.json()).message).toBe('IMPORT_BATCH_INVALID_INPUT');
+
+        // origin 字段写入 sourceText
+        const withOrigin = await CREATE(json({ ...body, clientRequestId: 'structured-req-004', origin: { fileName: '题库.xlsx', format: 'xlsx' } }));
+        expect(withOrigin.status).toBe(201);
+        const { batch: originBatch } = await withOrigin.json();
+        expect(originBatch).toMatchObject({ itemCount: 3 });
+        const raw = await database.importBatch.findUnique({ where: { id: originBatch.id } });
+        expect(raw?.sourceText).toContain('题库.xlsx');
+    });
+
     it('草稿版本冲突时返回最新内容，不静默覆盖', async () => {
         const { batch } = await create({ source: 'text', text: '1．计算 1 + 1。\n2．计算 2 + 2。' });
         const a = structuredClone(batch.draft);

@@ -2,6 +2,7 @@
  * 多题批次的分题草稿：预览页编辑、服务端保存与开始解析共用的结构和校验（不依赖数据库，可在浏览器中引用）。
  */
 import { z } from "zod";
+import { normalizeQuestionType } from "@/lib/question/question-type";
 import { MAX_SPLIT_QUESTIONS } from "@/lib/question-split/text";
 import type { SplitTextQuestion } from "@/lib/question-split/text";
 
@@ -113,7 +114,7 @@ export function draftFromTextSplit(questions: SplitTextQuestion[], ignored: stri
             analysis: question.analysis ?? null,
             knowledgePoints: question.knowledgePoints?.slice(0, MAX_ITEM_KNOWLEDGE_POINTS),
             difficultyStars: question.difficultyStars ?? null,
-            questionType: question.questionType ?? null,
+            questionType: normalizeQuestionType(question.questionType),
             wrongAnswer: question.wrongAnswer ?? null,
         };
     });

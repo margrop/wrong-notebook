@@ -55,11 +55,28 @@ export interface TextSplitResult {
 export interface TextSplitOptions {
     /** 即使编号像小问也按编号分题（用户在提示后明确选择） */
     forceNumbered?: boolean;
+    /**
+     * 文字长度上限（默认 MAX_SPLIT_TEXT_LENGTH）。
+     * 仅浏览器端本地分题可显式放大到 MAX_CLIENT_SPLIT_TEXT_LENGTH，服务端 createImportBatch 不传此参数
+     */
+    maxLength?: number;
+    /**
+     * 题数上限（默认 MAX_SPLIT_QUESTIONS）。
+     * 仅浏览器端本地分题可显式放大到 MAX_CLIENT_SPLIT_QUESTIONS，服务端 createImportBatch 不传此参数
+     */
+    maxQuestions?: number;
 }
 
-/** 单次分题最多处理的文字长度与题数 */
+/** 单次分题最多处理的文字长度与题数（服务端建批次的默认上限） */
 export const MAX_SPLIT_TEXT_LENGTH = 20000;
 export const MAX_SPLIT_QUESTIONS = 60;
+
+/**
+ * 客户端（浏览器端）本地分题的绝对上限：只在浏览器端分批时使用，
+ * 服务端 createImportBatch 不得传入超过服务端默认值的参数
+ */
+export const MAX_CLIENT_SPLIT_TEXT_LENGTH = 1_000_000;
+export const MAX_CLIENT_SPLIT_QUESTIONS = 2000;
 
 const LEADING_SPACE = /^[\s　 ]+/;
 const CHINESE_DIGITS = '一二三四五六七八九十';
@@ -218,8 +235,14 @@ function materialRange(material: string): { from: number; to: number } | null {
 
 /** 本地规则分题 */
 export function splitQuestionText(raw: string, options: TextSplitOptions = {}): TextSplitResult {
-    const tooLong = raw.length > MAX_SPLIT_TEXT_LENGTH;
-    const lines = normalizeLines(raw.slice(0, MAX_SPLIT_TEXT_LENGTH));
+    const maxLength = options.maxLength === undefined
+        ? MAX_SPLIT_TEXT_LENGTH
+        : Math.min(Math.max(options.maxLength, 1000), MAX_CLIENT_SPLIT_TEXT_LENGTH);
+    const maxQuestions = options.maxQuestions === undefined
+        ? MAX_SPLIT_QUESTIONS
+        : Math.min(Math.max(options.maxQuestions, 2), MAX_CLIENT_SPLIT_QUESTIONS);
+    const tooLong = raw.length > maxLength;
+    const lines = normalizeLines(raw.slice(0, maxLength));
     const matches = lines.map((line) => (line ? matchQuestionNumber(line) : null));
 
     // 答案页之后的内容不参与分题
@@ -366,9 +389,9 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
     const [remainingIgnoredTail] = fillAnswersFromTail(ignoredTail, questions);
 
     // 超出上限的题不静默丢弃：原文列入未计入内容，并给出数量
-    const overflow = questions.slice(MAX_SPLIT_QUESTIONS);
+    const overflow = questions.slice(maxQuestions);
     return {
-        questions: questions.slice(0, MAX_SPLIT_QUESTIONS),
+        questions: questions.slice(0, maxQuestions),
         ignored: [...ignored, ...remainingIgnoredTail, ...overflow.map((question) => composeQuestionInput(question))],
         detected: true,
         ambiguous: false,

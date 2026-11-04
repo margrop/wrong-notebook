@@ -43,7 +43,9 @@ export function TextInputZone({ onSubmit, isAnalyzing, defaultNotebookName, onCr
         await onSubmit(text);
     };
     const preview = async (splitter: "local" | "ai", forceNumbered = false) => {
-        if (!text || !onCreateBatch || tooLong) return;
+        if (!text || !onCreateBatch) return;
+        // 本地分题超过上限时由服务端拒绝；AI 分题文字超长时禁用入口
+        if (splitter === "ai" && tooLong) return;
         await onCreateBatch(questionText, splitter, forceNumbered);
     };
 
@@ -132,7 +134,7 @@ export function TextInputZone({ onSubmit, isAnalyzing, defaultNotebookName, onCr
                             <p className="text-xs text-amber-700 dark:text-amber-300">{t.app.overflowHint.replace("{count}", String(detection?.overflow))}</p>
                         )}
                         <div className="flex flex-col gap-2 sm:flex-row">
-                            <Button onClick={() => preview("local")} disabled={busy || tooLong} size="lg" className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-500 font-medium text-white hover:from-indigo-700 hover:to-violet-600">
+                            <Button onClick={() => preview("local")} disabled={busy} size="lg" className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-500 font-medium text-white hover:from-indigo-700 hover:to-violet-600">
                                 {creatingBatch ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Layers className="mr-2 h-4 w-4" />}
                                 {creatingBatch ? t.app.creatingBatch : t.app.splitPreview.replace("{count}", String(Math.min(multi, 60)))}
                             </Button>
