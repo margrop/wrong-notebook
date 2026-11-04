@@ -89,12 +89,13 @@ bash scripts/ci.sh          # 完整 CI（要求 Node.js 22 及以上，含生�
 - 新增需要备份的用户数据（偏好设置、自定义标签等）
 
 **必须同步修改的文件：**
+- `src/lib/backup/format.ts` — 备份格式的单一来源：`BACKUP_VERSION` 常量、备份文件的 TypeScript 类型与 `parseBackupFile` 顶层校验
 - `src/app/api/export/route.ts` — 导出接口，确保新字段被正确序列化
 - `src/app/api/import/route.ts` — 导入接口，确保新字段被正确解析和写入，并处理旧版导出文件的兼容性
 - `src/__tests__/integration/data-backup.test.ts` — 数据备份测试，验证导出后导入能完整还原
 
 **导入导出格式约定：**
-- 导出文件 `version` 字段：新增字段时版本号 +1（当前 version 8）
+- 导出文件 `version` 字段定义在 `src/lib/backup/format.ts` 的 `BACKUP_VERSION` 常量：新增字段时版本号 +1（当前 version 8）
 - 旧版导出文件没有的新字段，导入时必须有默认值或跳过逻辑
 - 多标签体系数据（`tagSet`）需按体系分组导出和导入，避免混淆
 

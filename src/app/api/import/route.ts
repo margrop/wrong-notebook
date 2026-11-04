@@ -28,181 +28,12 @@ import { EXAM_DIFFICULTIES, EXAM_MODES, EXAM_SCOPES, summarizePaperStatus } from
 import type { Prisma } from "@prisma/client";
 import { importImportBatches, importImportTasks } from "@/lib/import-task-backup";
 import { importExtensions } from "@/lib/backup-extensions";
+import { parseBackupFile } from "@/lib/backup/format";
+import type { ImportableBackupFile } from "@/lib/backup/format";
 
 const logger = createLogger('api:import');
 
-interface ImportData {
-    version: number;
-    exportedAt: string;
-    scope?: string;
-    user: {
-        id: string;
-        email: string;
-        name: string | null;
-        educationStage: string | null;
-        enrollmentYear: number | null;
-        role: string;
-        // version 2 起导出的偏好设置
-        confirmBeforeImport?: boolean;
-        gradeRecognitionMode?: string;
-        fixedGradeSemester?: string | null;
-        questionDuplicateThreshold?: number;
-        masteryThreshold?: number;
-        enableGeogebra?: boolean;
-        enableSvgAnimation?: boolean;
-        themePreference?: string;
-    };
-    subjects: Array<{
-        id: string;
-        name: string;
-        stage?: string | null;      // 旧版导出文件没有
-        subjectKey?: string | null; // 旧版导出文件没有
-        tagSet?: string;            // 旧版导出文件没有，缺省 default
-        userId: string;
-        createdAt: string;
-        updatedAt: string;
-    }>;
-    systemTags?: Array<{ // version 3 起导出
-        id: string;
-        name: string;
-        subject: string;
-        parentId: string | null;
-        order: number;
-        code: string | null;
-        isSystem: boolean;
-        tagSet: string;
-        createdAt: string;
-        updatedAt: string;
-    }>;
-    customTags: Array<{
-        id: string;
-        name: string;
-        subject: string;
-        parentId: string | null;
-        order: number;
-        code: string | null;
-        isSystem: boolean;
-        tagSet?: string;            // 旧版导出文件没有，缺省 default
-        userId: string;
-        createdAt: string;
-        updatedAt: string;
-    }>;
-    errorItems: Array<{
-        id: string;
-        shortId?: string | null;
-        userId: string;
-        subjectId: string | null;
-        originalImageUrl: string;
-        ocrText: string | null;
-        questionText: string | null;
-        answerText: string | null;
-        analysis: string | null;
-        wrongAnswerText: string | null;
-        mistakeAnalysis: string | null;
-        mistakeStatus: string | null;
-        knowledgePoints: string | null;
-        source: string | null;
-        errorType: string | null;
-        userNotes: string | null;
-        masteryLevel: number;
-        gradeSemester: string | null;
-        paperLevel: string | null;
-        difficultyStars?: number | null; // 旧版导出文件没有该字段
-        hasFigure?: boolean;             // 旧版导出文件没有该字段
-        figureSvg?: string | null;       // 旧版导出文件没有该字段
-        figureScale?: number;           // 旧版备份缺省为 100%
-        figureAlign?: string;           // 旧版备份缺省为居中
-        answerSpacePx?: number | null;  // version 4 起导出，旧版备份缺省为按全局留白档位
-        // 以下字段 version 2 起导入，version 1 文件中即使有也按同样规则处理
-        geogebraCommands?: string | null;
-        svgAnimation?: string | null;
-        svgAnimationEn?: string | null;
-        lastPractice?: string | null;
-        masteryProbability?: number | null;
-        masteryReason?: string | null;
-        masterySource?: string | null;
-        masteryEvaluatedAt?: string | null;
-        createdAt: string;
-        updatedAt: string;
-        tags: Array<{ id: string; name: string; subject: string }>;
-    }>;
-    reviewSchedules: Array<{
-        id: string;
-        errorItemId: string;
-        scheduledFor: string;
-        completedAt: string | null;
-        isCorrect: boolean | null;
-        createdAt: string;
-    }>;
-    practiceRecords: Array<{
-        id: string;
-        userId: string;
-        subject: string | null;
-        difficulty: string | null;
-        isCorrect: boolean | null;
-        errorItemId?: string | null;
-        result?: string | null;
-        questionText?: string | null;
-        answerText?: string | null;
-        analysis?: string | null;
-        wrongAnswerText?: string | null;
-        mistakeAnalysis?: string | null;
-        originalImageUrl?: string | null;
-        figureSvg?: string | null;
-        source?: string;
-        examQuestionId?: string | null;
-        createdAt: string;
-    }>;
-    examPapers?: Array<{ // version 2 起导出
-        id: string;
-        userId: string;
-        title: string;
-        status: string;
-        scope: string;
-        difficulty: string;
-        mode?: string;              // version 8 起导出，旧版缺省 generate
-        requestedCount: number;
-        subjectIds: string;
-        tagNames: string | null;
-        resultsRecordedAt: string | null;
-        createdAt: string;
-        updatedAt: string;
-        questions: Array<{
-            id: string;
-            order: number;
-            errorItemId: string | null;
-            sourceShortId: string;
-            status: string;
-            questionText: string | null;
-            answerText: string | null;
-            analysis: string | null;
-            figureSvg: string | null;
-            figureScale?: number;           // 旧版备份缺省为 100%
-            figureAlign?: string;           // 旧版备份缺省为居中
-            answerSpacePx?: number | null;  // version 4 起导出，旧版备份缺省为按全局留白档位
-            error: string | null;
-        }>;
-    }>;
-    /** 卷别分组，version 3 起导出 */
-    paperGroups?: Array<{
-        id: string;
-        userId: string;
-        key: string | null;
-        name: string;
-        order: number;
-        isActive: boolean;
-        createdAt: string;
-        updatedAt: string;
-    }>;
-    /** 动画讲解的云端语音（服务商、模型、音色、文字与 Base64 编码的 MP3），写入语音缓存 */
-    ttsSpeeches?: unknown;
-    /** 未处理的识别导入任务（待校对草稿、失败可重试），version 5 起导出 */
-    importTasks?: unknown;
-    /** 未完成的多题批次，version 6 起导出；任务通过 batchId 关联 */
-    importBatches?: unknown;
-    /** fork 扩展数据，version 7 起导出；未注册 key 安全跳过 */
-    extensions?: unknown;
-}
+type ImportData = ImportableBackupFile;
 
 // 与用户设置接口的取值范围一致，单项不合法时只跳过该项
 const PREFERENCE_SCHEMAS = {
@@ -291,12 +122,12 @@ export async function POST(req: Request) {
             return badRequest("Request body too large (max 50MB)");
         }
 
-        const body = await req.json() as ImportData;
-
-        // 验证数据格式
-        if (!body.version || !body.user || !Array.isArray(body.errorItems)) {
+        const rawBody: unknown = await req.json();
+        const parsed = parseBackupFile(rawBody);
+        if (!parsed.success) {
             return badRequest("Invalid import data format");
         }
+        const body: ImportData = parsed.data;
 
         // 非管理员模式：验证导出数据属于当前用户
         if (!importAll && body.user.email !== user.email) {

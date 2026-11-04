@@ -11,6 +11,8 @@ import { normalizeCustomAnswerSpacePx } from "@/lib/exam-answer-space";
 import { exportSpeeches } from "@/lib/tts/speech-cache";
 import { sortTagsByParent } from "@/lib/tag-hierarchy";
 import { collectExtensions } from "@/lib/backup-extensions";
+import { BACKUP_VERSION } from "@/lib/backup/format";
+import type { BackupFile } from "@/lib/backup/format";
 
 const logger = createLogger('api:export');
 
@@ -119,7 +121,7 @@ export async function GET(req: Request) {
         const extensions = await collectExtensions({ userIds: exportAll ? null : [user.id] });
 
         const exportData = {
-            version: 8,
+            version: BACKUP_VERSION,
             exportedAt: new Date().toISOString(),
             scope: exportAll ? 'all' : 'user',
             user: {
@@ -163,7 +165,7 @@ export async function GET(req: Request) {
             importTasks,
             importBatches,
             extensions,
-        };
+        } satisfies BackupFile;
 
         logger.info({
             userId: user.id,
