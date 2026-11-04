@@ -5,7 +5,7 @@ import { GradeSemesterSelect } from "@/components/grade-semester-select";
 import { PaperGroupSelect } from "@/components/paper-group-select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
-import { usePaperGroups } from "@/lib/use-paper-groups";
+import { usePaperGroups } from "@/lib/hooks/use-paper-groups";
 import { EditButton, SaveCancelButtons, SectionHeader } from "./edit-controls";
 import type { ErrorItemDetail } from "./types";
 import { useEditableField } from "./use-editable-field";

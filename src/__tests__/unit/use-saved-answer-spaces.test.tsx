@@ -5,8 +5,8 @@ import { act, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useSavedAnswerSpaces } from '@/lib/use-saved-answer-spaces';
-import type { AnswerSpaceChange } from '@/lib/use-saved-answer-spaces';
+import { useSavedAnswerSpaces } from '@/lib/hooks/use-saved-answer-spaces';
+import type { AnswerSpaceChange } from '@/lib/hooks/use-saved-answer-spaces';
 
 type Spaces = ReturnType<typeof useSavedAnswerSpaces>;
 

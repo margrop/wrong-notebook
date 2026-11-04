@@ -10,7 +10,7 @@ import { frontendLogger } from "@/lib/frontend-logger";
 import { createImportTask, fetchImportTask, markImportTaskRead, retryImportTask } from "@/lib/import-task-client";
 import type { ImportTaskDetail } from "@/lib/import-task-types";
 import type { ImportedQuestion } from "@/lib/question-import";
-import type { BatchImage } from "@/lib/use-question-import";
+import type { BatchImage } from "@/lib/hooks/use-question-import";
 
 interface BatchImportPanelProps {
     /** 已从原图裁剪并压缩好的各题图片 */

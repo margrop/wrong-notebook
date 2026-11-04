@@ -24,8 +24,8 @@ import type { ImportTaskSummary } from "@/lib/import-task-types";
 import { usePageTitle } from "@/lib/page-title";
 import { fetchConfirmBeforeImport } from "@/lib/question-import";
 import { readyItems } from "@/lib/question-split/draft";
-import { useImportBatch } from "@/lib/use-import-batch";
-import { usePageImage } from "@/lib/use-page-image";
+import { useImportBatch } from "@/lib/hooks/use-import-batch";
+import { usePageImage } from "@/lib/hooks/use-page-image";
 
 /**
  * 多题批次页：分题中 → 预览与调整 → 开始后的统一进度。刷新、锁屏、换设备打开都从服务端取回同一批次；

@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useStatsData } from "@/lib/use-stats-data";
+import { useStatsData } from "@/lib/hooks/use-stats-data";
 import { ActivityStatsData } from "@/types/api";
 import { Loader2 } from "lucide-react";
 

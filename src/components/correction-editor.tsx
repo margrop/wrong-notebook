@@ -19,7 +19,7 @@ import { frontendLogger } from "@/lib/frontend-logger";
 import { getFixedQuestionGrade } from "@/lib/question-grade";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
-import { usePaperGroups } from "@/lib/use-paper-groups";
+import { usePaperGroups } from "@/lib/hooks/use-paper-groups";
 import { getReanswerErrorMessage } from "@/lib/reanswer-error";
 import { buildReanswerRequestBody } from "@/lib/reanswer-request";
 import type { CorrectionDraft } from "@/components/correction-editor/types";

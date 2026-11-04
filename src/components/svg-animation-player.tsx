@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { buildSvgAnimationDocument, extractSubtitleNarration, getEmbeddedNarration, getSvgAnimationDuration, getSvgAspectRatio } from "@/lib/svg-animation";
 import type { NarrationSegment } from "@/lib/svg-animation";
-import { useSvgNarration } from "@/lib/use-svg-narration";
+import { useSvgNarration } from "@/lib/hooks/use-svg-narration";
 import { cn } from "@/lib/utils";
 
 interface SvgAnimationPlayerProps {

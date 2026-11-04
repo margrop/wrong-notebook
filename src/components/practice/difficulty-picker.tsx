@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { PracticeDifficulty } from "@/lib/use-practice-session";
+import type { PracticeDifficulty } from "@/lib/hooks/use-practice-session";
 
 interface DifficultyPickerProps {
     value: PracticeDifficulty;

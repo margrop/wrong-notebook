@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, RotateCcw, Award } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { WeakTagsData } from "@/types/api";
-import { useStatsData } from "@/lib/use-stats-data";
+import { useStatsData } from "@/lib/hooks/use-stats-data";
 
 interface WeakTagsCardProps {
     url: string;

@@ -6,10 +6,10 @@ import { frontendLogger } from "@/lib/frontend-logger";
 import { fetchConfirmBeforeImport } from "@/lib/question-import";
 import type { ProgressStatus } from "@/components/ui/progress-feedback";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useImageImportFlow } from "@/lib/use-image-import-flow";
-import { useTextImportFlow } from "@/lib/use-text-import-flow";
-import { useImportTask } from "@/lib/use-import-tasks";
-import { useQuestionSaver } from "@/lib/use-question-saver";
+import { useImageImportFlow } from "@/lib/hooks/use-image-import-flow";
+import { useTextImportFlow } from "@/lib/hooks/use-text-import-flow";
+import { useImportTask } from "@/lib/hooks/use-import-tasks";
+import { useQuestionSaver } from "@/lib/hooks/use-question-saver";
 import type { BatchImage, ReviewedQuestion } from "@/lib/question-import-flow";
 import type { AppConfig } from "@/types/api";
 

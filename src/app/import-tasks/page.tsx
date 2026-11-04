@@ -10,9 +10,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageLoading } from "@/components/ui/page-loading";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
-import { useImportTaskActions } from "@/lib/use-import-task-actions";
-import { useImportTaskList } from "@/lib/use-import-tasks";
-import { useNow } from "@/lib/use-now";
+import { useImportTaskActions } from "@/lib/hooks/use-import-task-actions";
+import { useImportTaskList } from "@/lib/hooks/use-import-tasks";
+import { useNow } from "@/lib/hooks/use-now";
 
 /** 识别任务列表：执行中、待校对、失败与最近保存的任务；多题批次作为一批显示，不拆成零散任务 */
 export default function ImportTasksPage() {

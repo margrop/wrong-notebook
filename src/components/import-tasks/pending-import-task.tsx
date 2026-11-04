@@ -6,8 +6,8 @@ import { ImportTaskCard } from "@/components/import-tasks/import-task-card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { ImportTaskSummary } from "@/lib/import-task-types";
-import { useImportTaskActions } from "@/lib/use-import-task-actions";
-import { useNow } from "@/lib/use-now";
+import { useImportTaskActions } from "@/lib/hooks/use-import-task-actions";
+import { useNow } from "@/lib/hooks/use-now";
 
 interface PendingImportTaskProps {
     task: ImportTaskSummary;

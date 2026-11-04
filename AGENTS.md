@@ -54,7 +54,7 @@ bash scripts/ci.sh          # 完整 CI（要求 Node.js 22 及以上，含生�
 
 - TypeScript：避免 `any`，用 `unknown` 或具体类型；类型导入使用 `import type`。捕获的错误用 `@/lib/error-message` 的 `getErrorMessage` / `getApiErrorMessage` 取文本。
 - Lint 必须零警告。确需忽略规则时，只在调用处用 `eslint-disable-next-line` 并写明原因（如 effect 中的数据请求），不要整文件关闭。
-- React：组件需有 Props 类型；超过约 200 行的组件应拆分，子组件放在以页面或功能命名的目录（如 `src/components/settings/`、`error-detail/`），可复用逻辑抽成 `src/lib/use-*.ts` hook。
+- React：组件需有 Props 类型；超过约 200 行的组件应拆分，子组件放在以页面或功能命名的目录（如 `src/components/settings/`、`error-detail/`），可复用逻辑抽成 `src/lib/hooks/use-*.ts` hook。
 - 导入顺序：React/Next → 第三方 → `@/components` → `@/lib` → types → styles。
 - 路径别名 `@/` 指向 `src/`。
 - API 错误使用 `@/lib/api-errors`；日志后端用 `@/lib/logger`，前端用 `@/lib/frontend-logger`，不要直接 `console.log`。

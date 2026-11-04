@@ -15,9 +15,9 @@ import type { ImportBatchDetail } from "@/lib/import-batch-types";
 import { isItemReady } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftRegion } from "@/lib/question-split/draft";
 import { acceptTextFixes, addImageItem, pendingTextFixes, restoreIgnored, setAllSelected, updateItem } from "@/lib/question-split/draft-ops";
-import { canContinueOnNextPage, useBatchContinuation } from "@/lib/use-batch-continuation";
-import { useDraftTextFix } from "@/lib/use-draft-text-fix";
-import type { DraftSaveState } from "@/lib/use-import-batch";
+import { canContinueOnNextPage, useBatchContinuation } from "@/lib/hooks/use-batch-continuation";
+import { useDraftTextFix } from "@/lib/hooks/use-draft-text-fix";
+import type { DraftSaveState } from "@/lib/hooks/use-import-batch";
 
 interface BatchDraftEditorProps {
     batch: Pick<ImportBatchDetail, "id" | "source" | "subjectId" | "targetSubjectId" | "paperLevel">;

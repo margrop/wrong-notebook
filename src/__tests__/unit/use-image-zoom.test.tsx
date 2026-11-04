@@ -5,7 +5,7 @@ import { act, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MAX_ZOOM, useImageZoom } from '@/lib/use-image-zoom';
+import { MAX_ZOOM, useImageZoom } from '@/lib/hooks/use-image-zoom';
 
 type Zoom = ReturnType<typeof useImageZoom>;
 const FIT = { maxHeight: '70vh', maxWidth: '100%' };

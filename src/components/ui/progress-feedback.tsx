@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
-import { useIsClient } from "@/lib/use-is-client";
+import { useIsClient } from "@/lib/hooks/use-is-client";
 
 export type ProgressStatus = 'reading' | 'converting' | 'compressing' | 'uploading' | 'analyzing' | 'processing' | 'saving' | 'idle';
 

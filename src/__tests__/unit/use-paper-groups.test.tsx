@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
-import { invalidatePaperGroupsCache, usePaperGroups } from '@/lib/use-paper-groups';
+import { invalidatePaperGroupsCache, usePaperGroups } from '@/lib/hooks/use-paper-groups';
 
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: vi.fn() } }));
 vi.mock('@/lib/frontend-logger', () => ({ frontendLogger: { error: vi.fn() } }));

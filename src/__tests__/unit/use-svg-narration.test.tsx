@@ -35,7 +35,7 @@ vi.mock('@/lib/cloud-speech', () => ({
     unlockSpeechAudio: cloud.unlock,
 }));
 
-import { resetSpeechUnlockForTest, segmentIndexAt, useSvgNarration } from '@/lib/use-svg-narration';
+import { resetSpeechUnlockForTest, segmentIndexAt, useSvgNarration } from '@/lib/hooks/use-svg-narration';
 import type { NarrationSegment } from '@/lib/svg-animation';
 
 type Narration = ReturnType<typeof useSvgNarration>;

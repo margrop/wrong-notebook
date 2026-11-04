@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ImportBatchDetail } from '@/lib/import-batch-types';
 import type { BatchDraft } from '@/lib/question-split/draft';
 import { updateItem } from '@/lib/question-split/draft-ops';
-import { useImportBatch } from '@/lib/use-import-batch';
+import { useImportBatch } from '@/lib/hooks/use-import-batch';
 
 const server = vi.hoisted(() => ({
     version: 1,

@@ -19,7 +19,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { usePageTitle } from "@/lib/page-title";
-import { MAX_QUESTION_PARTS, useQuestionImport } from "@/lib/use-question-import";
+import { MAX_QUESTION_PARTS, useQuestionImport } from "@/lib/hooks/use-question-import";
 import type { Notebook } from "@/types/api";
 
 export default function AddErrorPage() {

@@ -12,15 +12,15 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageLoading } from "@/components/ui/page-loading";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { ReviewedQuestion } from "@/lib/use-question-import";
+import type { ReviewedQuestion } from "@/lib/hooks/use-question-import";
 import { apiClient } from "@/lib/api-client";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { confirmImportTask, fetchImportTask } from "@/lib/import-task-client";
 import { usePageTitle } from "@/lib/page-title";
-import { useImportTaskActions } from "@/lib/use-import-task-actions";
-import { useImportTask } from "@/lib/use-import-tasks";
-import { useNow } from "@/lib/use-now";
-import { useQuestionSaver } from "@/lib/use-question-saver";
+import { useImportTaskActions } from "@/lib/hooks/use-import-task-actions";
+import { useImportTask } from "@/lib/hooks/use-import-tasks";
+import { useNow } from "@/lib/hooks/use-now";
+import { useQuestionSaver } from "@/lib/hooks/use-question-saver";
 import type { Notebook } from "@/types/api";
 
 /** 单个识别任务：待校对时显示校对页，其余状态显示进度与可用操作。刷新或换设备打开都取回同一结果。 */

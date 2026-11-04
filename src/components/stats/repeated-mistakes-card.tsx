@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, RotateCcw, Repeat } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { MasteryStatus } from "@/lib/mastery-status";
-import { useStatsData } from "@/lib/use-stats-data";
+import { useStatsData } from "@/lib/hooks/use-stats-data";
 import { cn } from "@/lib/utils";
 
 export interface RepeatedMistakesItem {

@@ -4,7 +4,7 @@ import {
     extractImageFromPasteEvent,
     isClipboardReadSupported,
     isScreenshotSupported,
-} from "@/lib/use-upload-files";
+} from "@/lib/hooks/use-upload-files";
 
 describe("use-upload-files 纯函数", () => {
     describe("clipboardImageToFile", () => {

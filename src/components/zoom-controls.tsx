@@ -2,7 +2,7 @@
 
 import { ZoomIn, ZoomOut } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { MAX_ZOOM, MIN_ZOOM } from "@/lib/use-image-zoom";
+import { MAX_ZOOM, MIN_ZOOM } from "@/lib/hooks/use-image-zoom";
 
 interface ZoomControlsProps {
     zoom: number;

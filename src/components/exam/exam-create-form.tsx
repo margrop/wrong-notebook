@@ -12,7 +12,7 @@ import { TagInput } from "@/components/tag-input";
 import { ExamModeToggle } from "@/components/exam/exam-mode-toggle";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
-import { usePaperGroups } from "@/lib/use-paper-groups";
+import { usePaperGroups } from "@/lib/hooks/use-paper-groups";
 import type { ExamMode, ExamPickRule, ExamScope, Notebook } from "@/types/api";
 
 const SCOPES: ExamScope[] = ["unmastered", "mastered", "all"];

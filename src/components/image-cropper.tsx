@@ -13,7 +13,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { cropImageRegions, toSafeImageSrc } from "@/lib/image-crop";
 import type { ImageRegion } from "@/lib/image-crop";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { useImageZoom } from "@/lib/use-image-zoom";
+import { useImageZoom } from "@/lib/hooks/use-image-zoom";
 
 type CropMode = "single" | "auto" | "multi";
 

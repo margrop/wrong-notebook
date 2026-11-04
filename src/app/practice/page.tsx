@@ -15,7 +15,7 @@ import { GenerateButton } from "@/components/practice/generate-button";
 import { PracticeFeedback } from "@/components/practice/practice-feedback";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
-import { usePracticeSession } from "@/lib/use-practice-session";
+import { usePracticeSession } from "@/lib/hooks/use-practice-session";
 
 export const dynamic = 'force-dynamic';
 

@@ -11,13 +11,13 @@ import { apiClient } from "@/lib/api-client";
 import type { PaginatedResponse, PrintableErrorItem } from "@/types/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
-import { useSavedAnswerSpaces } from "@/lib/use-saved-answer-spaces";
-import type { AnswerSpaceChange } from "@/lib/use-saved-answer-spaces";
+import { useSavedAnswerSpaces } from "@/lib/hooks/use-saved-answer-spaces";
+import type { AnswerSpaceChange } from "@/lib/hooks/use-saved-answer-spaces";
 import { PRINT_PREVIEW_PAGE_SIZE } from "@/lib/constants/pagination";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { loadAllImages } from "@/lib/print-images";
 import { DEFAULT_PRINT_OPTIONS, readStoredPrintOptions, writeStoredPrintOptions } from "@/lib/print-preview-options";
-import { usePaperGroups } from "@/lib/use-paper-groups";
+import { usePaperGroups } from "@/lib/hooks/use-paper-groups";
 import {
     chunk,
     fetchAllPages,

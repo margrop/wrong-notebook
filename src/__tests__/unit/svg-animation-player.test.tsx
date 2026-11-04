@@ -6,7 +6,7 @@ import { SvgAnimationPlayer } from '@/components/svg-animation-player';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 
 const narration = vi.hoisted(() => ({ stop: vi.fn(), update: vi.fn(), prime: vi.fn() }));
-vi.mock('@/lib/use-svg-narration', () => ({
+vi.mock('@/lib/hooks/use-svg-narration', () => ({
     useSvgNarration: () => ({ ...narration, enabled: true, holding: false, speaking: false }),
 }));
 

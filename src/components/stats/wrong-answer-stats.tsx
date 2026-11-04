@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, BookOpen, Clock, RefreshCw, Inbox } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AnalyticsData } from "@/types/api";
-import { useStatsData } from "@/lib/use-stats-data";
+import { useStatsData } from "@/lib/hooks/use-stats-data";
 import { StatCard } from "./stat-card";
 import { StatsEmpty, StatsError } from "./stats-state";
 import { WeakTagsCard } from "./weak-tags-card";

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Loader2, ScanText } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/lib/feedback";
-import { useImportTaskList } from "@/lib/use-import-tasks";
+import { useImportTaskList } from "@/lib/hooks/use-import-tasks";
 import { cn } from "@/lib/utils";
 
 interface ImportTasksIndicatorProps {

@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { usePaperGroups } from "@/lib/use-paper-groups";
+import { usePaperGroups } from "@/lib/hooks/use-paper-groups";
 
 interface PaperLevelFilterProps {
     value: string;

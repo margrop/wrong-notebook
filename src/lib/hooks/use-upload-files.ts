@@ -6,7 +6,7 @@ import { useDropzone } from "react-dropzone";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getAndroidAppBridge } from "@/lib/android-app";
 import { toast } from "@/lib/feedback";
-import { useIsClient } from "@/lib/use-is-client";
+import { useIsClient } from "@/lib/hooks/use-is-client";
 import { frontendLogger } from "@/lib/frontend-logger";
 
 /**

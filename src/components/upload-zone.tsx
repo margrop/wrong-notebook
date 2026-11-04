@@ -1,6 +1,6 @@
 "use client";
 
-import { useUploadZone, isScreenshotSupported } from "@/lib/use-upload-files";
+import { useUploadZone, isScreenshotSupported } from "@/lib/hooks/use-upload-files";
 import { DragDropArea } from "./upload-zone/drag-drop-area";
 import { HiddenFileInputs, ImageSourceButtons } from "./upload-zone/image-source-buttons";
 import { PasteButton, ScreenshotButton } from "./upload-zone/paste-screenshot-buttons";

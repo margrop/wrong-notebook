@@ -7,7 +7,7 @@ import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { translations } from '@/lib/translations';
-import { usePracticeSession } from '@/lib/use-practice-session';
+import { usePracticeSession } from '@/lib/hooks/use-practice-session';
 
 const mocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 

@@ -11,7 +11,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { APP_BRAND, NAV_ITEMS, isBarePath } from "@/lib/app-navigation";
-import { useSetupRedirect } from "@/lib/use-setup-redirect";
+import { useSetupRedirect } from "@/lib/hooks/use-setup-redirect";
 import { cn } from "@/lib/utils";
 
 /** 全局导航外壳：桌面端顶部导航栏，移动端顶部标题栏 + 底部标签栏 */

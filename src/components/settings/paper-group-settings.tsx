@@ -10,7 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
 import { toast, confirmDialog } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { usePaperGroups } from "@/lib/use-paper-groups";
+import { usePaperGroups } from "@/lib/hooks/use-paper-groups";
 
 /** 卷别分组管理：增删改查、停用启用 */
 export function PaperGroupSettings() {

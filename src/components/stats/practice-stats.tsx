@@ -7,7 +7,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Loader2, TrendingUp, BookOpen, Target, ClipboardList } from "lucide-react";
 import { PracticeStatsData } from "@/types/api";
-import { useStatsData } from "@/lib/use-stats-data";
+import { useStatsData } from "@/lib/hooks/use-stats-data";
 import { StatCard } from "./stat-card";
 import { ChartTooltip } from "./chart-tooltip";
 import { SubjectPieChart } from "./subject-pie-chart";

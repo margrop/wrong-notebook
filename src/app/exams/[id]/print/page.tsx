@@ -22,8 +22,8 @@ import {
     resolveQuestionAnswerSpacePx,
 } from "@/lib/exam-answer-space";
 import type { AnswerSpaceMode } from "@/lib/exam-answer-space";
-import { useSavedAnswerSpaces } from "@/lib/use-saved-answer-spaces";
-import type { AnswerSpaceChange } from "@/lib/use-saved-answer-spaces";
+import { useSavedAnswerSpaces } from "@/lib/hooks/use-saved-answer-spaces";
+import type { AnswerSpaceChange } from "@/lib/hooks/use-saved-answer-spaces";
 import type { FigureAlign } from "@/lib/figure-scale";
 import type { ExamPaperDetail } from "@/types/api";
 

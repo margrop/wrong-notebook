@@ -9,7 +9,7 @@ import { MiniMaxCodeCheckin } from "@/components/settings/minimax-code-checkin";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DEFAULT_MINIMAX_CODE_MODEL, MINIMAX_CODE_MODELS } from "@/lib/minimax-code/constants";
 import type { MiniMaxCodeConfig } from "@/lib/minimax-code/constants";
-import { useMiniMaxCodeAccount } from "@/lib/use-minimax-code-account";
+import { useMiniMaxCodeAccount } from "@/lib/hooks/use-minimax-code-account";
 
 interface MiniMaxCodeSettingsProps {
     value?: MiniMaxCodeConfig;
