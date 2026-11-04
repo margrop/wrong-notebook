@@ -18,7 +18,7 @@ Export JSON from the data management section in the settings and keep it safe. W
 
 ### Export JSON (Question Exchange Format)
 
-The error list's multi-select bar provides an "Export JSON" feature that exports selected error items as a [Question Exchange JSON v1](../QUESTION_FORMAT.md) file. Unlike a full backup, the exchange format contains only question content (question text, answer, analysis, knowledge points, difficulty, figures, etc.) and does not include practice records, review schedules, exam papers, user preferences, or other data.
+The error list's multi-select bar provides an "Export JSON" feature that exports selected error items as a [Question Exchange JSON v1](../QUESTION_FORMAT.en.md) file. Unlike a full backup, the exchange format contains only question content (question text, answer, analysis, knowledge points, difficulty, figures, etc.) and does not include practice records, review schedules, exam papers, user preferences, or other data.
 
 - Only error items belonging to the current user are exported; ids not owned by the user are silently ignored.
 - Optional "Include original images": when enabled, if the original image is a base64 inline image (PNG/JPEG/WebP), it is placed into the `images` field.

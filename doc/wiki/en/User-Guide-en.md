@@ -18,7 +18,7 @@ The notebook list shows only each name and question count; click one to open its
 | Clipboard paste | Copied screenshots or images, with `Ctrl/⌘+V` |
 | Screenshot | The browser supports screen sharing and the page runs in a secure context |
 | AI solve | You already have the question text; Markdown and LaTeX are supported; tap **Import from file** to load a TXT / Markdown file |
-| Import question file | Existing question bank files (JSON / Word / Excel / CSV), parsed and imported in batches |
+| Import question file | Existing question bank files (JSON / Word / Excel / CSV / PDF), parsed and imported in batches |
 | Direct entry | Manually record a known question, answer and analysis |
 
 Images can be cropped first. While cropping or selecting several questions, zoom with the mouse wheel, a two-finger pinch or the buttons at the top right (100%–500%; click the percentage to reset). When one image contains several questions, choose **Auto split** to let AI find each question (see "Multiple questions" below), or **Draw boxes** to select them for a batch import. Keep the full question, any required figure and the student's work, and avoid blurry images or cut-off conditions.
@@ -48,7 +48,7 @@ The **Import question file** entry on the home page imports existing question ba
 - **Templates**: Excel / CSV templates (with sample data and column descriptions) can be downloaded from the import page; column names accept Chinese and English.
 - **Not yet supported**: image formats browsers cannot render (EMF/WMF/TIFF, etc.) are skipped with a warning; legacy .doc binary files must first be saved as .docx in Word before importing.
 
-The JSON question exchange format is documented in the [question exchange format spec](../QUESTION_FORMAT.md).
+The JSON question exchange format is documented in the [question exchange format spec](../QUESTION_FORMAT.en.md).
 
 #### Word (.docx) content
 

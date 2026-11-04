@@ -27,6 +27,7 @@ This Wiki covers [margrop/wrong-notebook](https://github.com/margrop/wrong-noteb
 - AI recognizes the question, answer, analysis, mistake cause, subject, knowledge points and a 1–5 star difficulty.
 - Duplicate detection by question similarity; a repeated import records another wrong attempt on the original question.
 - Markdown, LaTeX, SVG figures, SVG animated explanations with voice narration and optional GeoGebra interactive demos.
+- Question bank file import (JSON / Word / Excel / CSV / PDF, with an as-is mode that skips AI calls) and exporting selected questions as JSON, Excel or Word.
 - Similar-question practice with AI grading, daily review, exam papers built from mistakes, answer history, mastery probability, statistics and print export.
 - Per-user data isolation, daily AI limits, admin settings, personal preferences and Openclaw batch import.
 - Fresh installs set up the admin with a one-time setup link (the install wizard on fnOS) instead of a fixed default password, then the setup wizard helps configure AI and create a notebook.
