@@ -66,6 +66,8 @@ export function useDraftTextFix(batchId: string, draft: BatchDraft, onEdit: (cha
     const initiatedHere = useRef(false);
     // 任务结束后是否已提示过「其他页面完成」
     const notifiedOtherDevice = useRef(false);
+    // 刷新后是否已通过 requestId 取回结果
+    const recoveredHere = useRef(false);
 
     const applyResult = useCallback((result: { fixes: TextFixSuggestion[]; unchanged: string[]; failed: string[] }) => {
         if (result.fixes.length > 0) onEdit((current) => applyTextFixes(current, result.fixes));
@@ -115,6 +117,7 @@ export function useDraftTextFix(batchId: string, draft: BatchDraft, onEdit: (cha
                 new Error("REQUEST_NOT_FOUND"),
             )
                 .then((result) => {
+                    recoveredHere.current = true;
                     applyResult(result);
                     clearStoredFixRequest(batchId);
                 })
@@ -125,18 +128,24 @@ export function useDraftTextFix(batchId: string, draft: BatchDraft, onEdit: (cha
         }
     }, [running, batchId, applyResult]);
 
-    // 任务结束后：清除 sessionStorage；若非本页发起且未提示过，提示「其他页面完成」
+    // 任务从进行中变为结束时：清除 sessionStorage；若非本页发起且未取回结果，提示「其他页面完成」。
+    // 只在「进行中 → 结束」的转换时处理：页面刚加载、任务状态尚未取回时 running 也为 null，不能当作结束。
+    const wasRunning = useRef(false);
     useEffect(() => {
         if (running) {
+            wasRunning.current = true;
             notifiedOtherDevice.current = false;
             return;
         }
+        if (!wasRunning.current) return;
+        wasRunning.current = false;
         clearStoredFixRequest(batchId);
-        if (!initiatedHere.current && !notifiedOtherDevice.current) {
+        if (!initiatedHere.current && !recoveredHere.current && !notifiedOtherDevice.current) {
             notifiedOtherDevice.current = true;
             toast.info(t.importBatch.fixText.waitingOtherDevice);
         }
         initiatedHere.current = false;
+        recoveredHere.current = false;
     }, [running, batchId, t]);
 
     return { fix, fixingKeys, fixing: fixingKeys.length > 0 || !!running };
