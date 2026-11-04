@@ -16,7 +16,7 @@
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
-import { CNM_TOPICS_URL, cnmTopicsSchema, getCnmStatus, importCnmTopics } from '../src/lib/cnm-tags';
+import { CNM_TOPICS_URL, cnmTopicsSchema, getCnmStatus, importCnmTopics } from '../src/lib/tag-seed';
 
 const prisma = new PrismaClient();
 

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { requireAdmin } from "@/lib/auth-utils";
 import { badRequest, forbidden, internalError, unauthorized } from "@/lib/api-errors";
-import { CNM_MAX_FILE_BYTES, cnmTopicsSchema, getCnmStatus, importCnmTopics } from "@/lib/cnm-tags";
+import { CNM_MAX_FILE_BYTES, cnmTopicsSchema, getCnmStatus, importCnmTopics } from "@/lib/tag-seed";
 import { createLogger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 

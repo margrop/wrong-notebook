@@ -14,6 +14,7 @@ import {
     GEOGRAPHY_CURRICULUM, GEOGRAPHY_GRADE_ORDER,
     POLITICS_CURRICULUM, POLITICS_GRADE_ORDER
 } from '../src/lib/tag-data';
+import { seedMath, seedStandardSubject } from '../src/lib/tag-seed';
 
 const prisma = new PrismaClient();
 
@@ -21,110 +22,6 @@ interface TagAssociation {
     errorItemId: string;
     tagName: string;
     subject: string;
-}
-
-async function seedMath(tx: any, curriculum: any, gradeOrder: any) {
-    let count = 0;
-    for (const [gradeSemester, chapters] of Object.entries(curriculum) as any) {
-        const gradeNode = await tx.knowledgeTag.create({
-            data: {
-                name: gradeSemester,
-                subject: 'math',
-                parentId: null,
-                isSystem: true,
-                order: gradeOrder[gradeSemester] || 99,
-            },
-        });
-        count++;
-
-        for (let chapterIdx = 0; chapterIdx < chapters.length; chapterIdx++) {
-            const chapter = chapters[chapterIdx];
-            const chapterNode = await tx.knowledgeTag.create({
-                data: {
-                    name: chapter.chapter,
-                    subject: 'math',
-                    parentId: gradeNode.id,
-                    isSystem: true,
-                    order: chapterIdx + 1,
-                },
-            });
-            count++;
-
-            for (let sectionIdx = 0; sectionIdx < chapter.sections.length; sectionIdx++) {
-                const section = chapter.sections[sectionIdx];
-                const sectionNode = await tx.knowledgeTag.create({
-                    data: {
-                        name: section.section,
-                        subject: 'math',
-                        parentId: chapterNode.id,
-                        isSystem: true,
-                        order: sectionIdx + 1,
-                    },
-                });
-                count++;
-
-                for (let tagIdx = 0; tagIdx < section.tags.length; tagIdx++) {
-                    const tagName = section.tags[tagIdx];
-                    await tx.knowledgeTag.create({
-                        data: {
-                            name: tagName,
-                            subject: 'math',
-                            parentId: sectionNode.id,
-                            isSystem: true,
-                            order: tagIdx + 1,
-                        },
-                    });
-                    count++;
-                }
-            }
-        }
-    }
-    return count;
-}
-
-async function seedStandardSubject(tx: any, subject: string, curriculum: any, gradeOrder: any) {
-    let count = 0;
-    for (const [gradeSemester, chapters] of Object.entries(curriculum) as any) {
-        const gradeNode = await tx.knowledgeTag.create({
-            data: {
-                name: gradeSemester,
-                subject: subject,
-                parentId: null,
-                isSystem: true,
-                order: gradeOrder[gradeSemester] || 99,
-            },
-        });
-        count++;
-
-        for (let chapterIdx = 0; chapterIdx < chapters.length; chapterIdx++) {
-            const chapter = chapters[chapterIdx];
-            const chapterNode = await tx.knowledgeTag.create({
-                data: {
-                    name: chapter.chapter,
-                    subject: subject,
-                    parentId: gradeNode.id,
-                    isSystem: true,
-                    order: chapterIdx + 1,
-                },
-            });
-            count++;
-
-            for (let tagIdx = 0; tagIdx < chapter.tags.length; tagIdx++) {
-                const tagName = chapter.tags[tagIdx];
-                await tx.knowledgeTag.create({
-                    data: {
-                        name: tagName,
-                        subject: subject,
-                        parentId: chapterNode.id,
-                        isSystem: true,
-                        order: tagIdx + 1,
-                    },
-                });
-                count++;
-            }
-        }
-    }
-    return count;
 }
 
 async function main() {

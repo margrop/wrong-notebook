@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-import { CHINESE_CURRICULUM, CHINESE_GRADE_ORDER } from './tag-data/chinese';
+import { CHINESE_CURRICULUM, CHINESE_GRADE_ORDER } from '@/lib/tag-data/chinese';
 
 /** 增量补齐内置语文标签，保留已有标签 ID、题目关联和其他标签体系。 */
 export async function seedChineseTags(prisma: PrismaClient) {

@@ -14,14 +14,9 @@ import {
     GEOGRAPHY_CURRICULUM, GEOGRAPHY_GRADE_ORDER,
     POLITICS_CURRICULUM, POLITICS_GRADE_ORDER
 } from "@/lib/tag-data";
+import { seedMath, seedStandardSubject } from "@/lib/tag-seed";
 import { createLogger } from "@/lib/logger";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
-import type { Prisma } from "@prisma/client";
-
-/** 数学：年级 → 章 → 节 → 知识点 */
-type SectionedCurriculum = Record<string, Array<{ chapter: string; sections: Array<{ section: string; tags: string[] }> }>>;
-/** 其他学科：年级 → 章 → 知识点 */
-type ChapterCurriculum = Record<string, Array<{ chapter: string; tags: string[] }>>;
 
 const logger = createLogger('api:admin:migrate-tags');
 
@@ -234,108 +229,4 @@ export async function POST() {
         logger.error({ error }, 'Tag migration error');
         return internalError("Failed to migrate tags");
     }
-}
-
-async function seedMath(tx: Prisma.TransactionClient, curriculum: SectionedCurriculum, gradeOrder: Record<string, number>) {
-    let count = 0;
-    for (const [gradeSemester, chapters] of Object.entries(curriculum)) {
-        const gradeNode = await tx.knowledgeTag.create({
-            data: {
-                name: gradeSemester,
-                subject: 'math',
-                parentId: null,
-                isSystem: true,
-                order: gradeOrder[gradeSemester] || 99,
-            },
-        });
-        count++;
-
-        for (let chapterIdx = 0; chapterIdx < chapters.length; chapterIdx++) {
-            const chapter = chapters[chapterIdx];
-            const chapterNode = await tx.knowledgeTag.create({
-                data: {
-                    name: chapter.chapter,
-                    subject: 'math',
-                    parentId: gradeNode.id,
-                    isSystem: true,
-                    order: chapterIdx + 1,
-                },
-            });
-            count++;
-
-            for (let sectionIdx = 0; sectionIdx < chapter.sections.length; sectionIdx++) {
-                const section = chapter.sections[sectionIdx];
-                const sectionNode = await tx.knowledgeTag.create({
-                    data: {
-                        name: section.section,
-                        subject: 'math',
-                        parentId: chapterNode.id,
-                        isSystem: true,
-                        order: sectionIdx + 1,
-                    },
-                });
-                count++;
-
-                for (let tagIdx = 0; tagIdx < section.tags.length; tagIdx++) {
-                    const tagName = section.tags[tagIdx];
-                    await tx.knowledgeTag.create({
-                        data: {
-                            name: tagName,
-                            subject: 'math',
-                            parentId: sectionNode.id,
-                            isSystem: true,
-                            order: tagIdx + 1,
-                        },
-                    });
-                    count++;
-                }
-            }
-        }
-    }
-    return count;
-}
-
-async function seedStandardSubject(tx: Prisma.TransactionClient, subject: string, curriculum: ChapterCurriculum, gradeOrder: Record<string, number>) {
-    let count = 0;
-    for (const [gradeSemester, chapters] of Object.entries(curriculum)) {
-        const gradeNode = await tx.knowledgeTag.create({
-            data: {
-                name: gradeSemester,
-                subject: subject,
-                parentId: null,
-                isSystem: true,
-                order: gradeOrder[gradeSemester] || 99,
-            },
-        });
-        count++;
-
-        for (let chapterIdx = 0; chapterIdx < chapters.length; chapterIdx++) {
-            const chapter = chapters[chapterIdx];
-            const chapterNode = await tx.knowledgeTag.create({
-                data: {
-                    name: chapter.chapter,
-                    subject: subject,
-                    parentId: gradeNode.id,
-                    isSystem: true,
-                    order: chapterIdx + 1,
-                },
-            });
-            count++;
-
-            for (let tagIdx = 0; tagIdx < chapter.tags.length; tagIdx++) {
-                const tagName = chapter.tags[tagIdx];
-                await tx.knowledgeTag.create({
-                    data: {
-                        name: tagName,
-                        subject: subject,
-                        parentId: chapterNode.id,
-                        isSystem: true,
-                        order: tagIdx + 1,
-                    },
-                });
-                count++;
-            }
-        }
-    }
-    return count;
 }
