@@ -10,8 +10,8 @@ import { prepareImportGrade } from "@/lib/import-question-grade";
 import { needsQuestionGradeRecognition } from "@/lib/question-grade";
 import { validationError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
+import { resolveOrCreateTags } from "@/lib/tag-resolver";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
 import { generateUniqueShortId } from "@/lib/short-id";
 import { resolveNotebookForSubject } from "@/lib/notebook-resolver";
@@ -132,55 +132,21 @@ async function saveQuestion(user: User, body: ImportQuestionInput, options: Save
 
         const finalGradeSemester = gradeResult.gradeSemester;
 
-        // 处理知识点标签
+        // 处理知识点标签（限定在当前错题本的标签体系内）
         const tagNames: string[] = Array.isArray(knowledgePoints) ? knowledgePoints : [];
-        const tagConnections: { id: string }[] = [];
 
         // 推断学科
         const subject = await tx.subject.findUnique({ where: { id: subjectId || '' } });
         const subjectKey = inferSubjectFromName(subject?.name ?? null) || 'other';
         logger.debug({ subjectId, subjectName: subject?.name, subjectKey }, 'Subject inferred');
 
-        // 处理每个标签（限定在当前错题本的标签体系内）
-        const notebookTagSet = subject?.tagSet || 'default';
-        for (const tagName of tagNames) {
-            try {
-                let tag = await tx.knowledgeTag.findFirst({
-                    where: {
-                        name: tagName,
-                        tagSet: notebookTagSet,
-                        OR: [
-                            { isSystem: true },
-                            { userId: user.id },
-                        ],
-                    },
-                });
-
-                if (!tag) {
-                    const parentId = await findParentTagIdForGrade(finalGradeSemester, subjectKey, tx, notebookTagSet);
-                    logger.debug({ tagName, parentId, subjectKey, tagSet: notebookTagSet }, 'Creating new custom tag');
-
-                    tag = await tx.knowledgeTag.create({
-                        data: {
-                            name: tagName,
-                            subject: subjectKey,
-                            isSystem: false,
-                            userId: user.id,
-                            parentId: parentId,
-                            tagSet: notebookTagSet,
-                        },
-                    });
-                    logger.debug({ tagId: tag.id, tagName }, 'Custom tag created');
-                } else {
-                    logger.debug({ tagId: tag.id, tagName, isSystem: tag.isSystem }, 'Existing tag found');
-                }
-
-                tagConnections.push({ id: tag.id });
-            } catch (tagError) {
-                logger.error({ tagName, error: tagError }, 'Error processing tag');
-                throw tagError;
-            }
-        }
+        const tagConnections = await resolveOrCreateTags(tx, {
+            userId: user.id,
+            tagNames,
+            subjectKey,
+            tagSet: subject?.tagSet || 'default',
+            gradeSemester: finalGradeSemester,
+        });
 
         logger.info({ tagNames, tagConnectionsCount: tagConnections.length }, 'Creating ErrorItem with tags');
 
