@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import { unauthorized, notFound, badRequest, validationError } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
+import { notFound, badRequest, validationError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger('api:paper-groups:id');
@@ -14,16 +14,14 @@ const updateSchema = z.object({
     isActive: z.boolean().optional(),
 });
 
-export async function PATCH(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    const { id } = await params;
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return unauthorized("Not authenticated");
+type RouteContext = { params: Promise<{ id: string }> };
 
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return unauthorized("User not found");
+async function handlePatch(
+    req: Request,
+    ctx: AuthenticatedContext & RouteContext
+) {
+    const { user } = ctx;
+    const { id } = await ctx.params;
 
     const group = await prisma.paperGroup.findUnique({ where: { id } });
     if (!group || group.userId !== user.id) return notFound("Group not found");
@@ -54,16 +52,14 @@ export async function PATCH(
     return NextResponse.json(updated);
 }
 
-export async function DELETE(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    const { id } = await params;
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return unauthorized("Not authenticated");
+export const PATCH = withUser<RouteContext>(handlePatch);
 
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return unauthorized("User not found");
+async function handleDelete(
+    req: Request,
+    ctx: AuthenticatedContext & RouteContext
+) {
+    const { user } = ctx;
+    const { id } = await ctx.params;
 
     const group = await prisma.paperGroup.findUnique({ where: { id } });
     if (!group || group.userId !== user.id) return notFound("Group not found");
@@ -98,3 +94,5 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true });
 }
+
+export const DELETE = withUser<RouteContext>(handleDelete);

@@ -15,6 +15,9 @@ const mocks = vi.hoisted(() => ({
         findUnique: vi.fn(),
         delete: vi.fn(),
     },
+    mockPrismaUser: {
+        findUnique: vi.fn(),
+    },
     getCurrentUser: vi.fn(),
     scheduleMasteryEvaluation: vi.fn(),
     mockAIService: {
@@ -28,6 +31,11 @@ const mocks = vi.hoisted(() => ({
         },
         expires: '2025-12-31',
     },
+    mockUser: {
+        id: 'user-123',
+        email: 'user@example.com',
+        name: 'Test User',
+    },
 }));
 
 // Mock Prisma client
@@ -35,6 +43,7 @@ vi.mock('@/lib/prisma', () => ({
     prisma: {
         errorItem: mocks.mockPrismaErrorItem,
         practiceRecord: mocks.mockPrismaPracticeRecord,
+        user: mocks.mockPrismaUser,
     },
 }));
 
@@ -70,6 +79,7 @@ describe('/api/practice', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
+        mocks.mockPrismaUser.findUnique.mockResolvedValue(mocks.mockUser);
     });
 
     describe('GET /api/practice/generate (读取暂存的举一反三题目)', () => {
@@ -667,7 +677,7 @@ describe('/api/practice', () => {
             const data = await response.json();
 
             expect(response.status).toBe(401);
-            expect(data.message).toBe('Unauthorized');
+            expect(data.message).toBe('Authentication required');
         });
 
         it('应该拒绝 session 中没有 user 的请求', async () => {
@@ -690,7 +700,7 @@ describe('/api/practice', () => {
             const data = await response.json();
 
             expect(response.status).toBe(401);
-            expect(data.message).toBe('Unauthorized');
+            expect(data.message).toBe('Authentication required');
         });
 
         it('应该处理数据库错误', async () => {
@@ -744,6 +754,7 @@ describe('/api/practice', () => {
 
         it('未登录返回 401', async () => {
             mocks.getCurrentUser.mockResolvedValue(null);
+            vi.mocked(getServerSession).mockResolvedValue(null);
 
             const response = await RECORD_DELETE(new Request('http://localhost'), params('record-1'));
 

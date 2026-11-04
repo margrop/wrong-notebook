@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
     session: { user: { id: 'user-1', email: 'user@example.com' }, expires: '2099-01-01' } as { user: { id: string; email: string }; expires: string } | null,
 }));
 
-vi.mock('@/lib/prisma', () => ({ prisma: { errorItem: mocks.errorItem, user: { findUnique: vi.fn(async () => ({ masteryThreshold: 50 })) } } }));
+vi.mock('@/lib/prisma', () => ({ prisma: { errorItem: mocks.errorItem, user: { findUnique: vi.fn(async () => ({ id: 'user-1', masteryThreshold: 50 })) } } }));
 vi.mock('next-auth', () => ({ getServerSession: vi.fn(() => Promise.resolve(mocks.session)) }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.mock('@/lib/config', () => ({ getAppTimeZone: () => 'Asia/Shanghai' }));

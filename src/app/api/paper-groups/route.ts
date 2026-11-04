@@ -1,22 +1,16 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import { unauthorized, validationError } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
+import { validationError } from "@/lib/api-errors";
 
 const createSchema = z.object({
     name: z.string().trim().min(1).max(30),
     order: z.number().int().optional(),
 });
 
-export async function GET() {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return unauthorized("Not authenticated");
-
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return unauthorized("User not found");
-
+async function handleGet(_req: Request, { user }: AuthenticatedContext) {
     const groups = await prisma.paperGroup.findMany({
         where: { userId: user.id },
         orderBy: [{ order: "asc" }, { createdAt: "asc" }],
@@ -26,13 +20,9 @@ export async function GET() {
     return NextResponse.json(groups);
 }
 
-export async function POST(req: Request) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return unauthorized("Not authenticated");
+export const GET = withUser(handleGet);
 
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return unauthorized("User not found");
-
+async function handlePost(req: Request, { user }: AuthenticatedContext) {
     const parsed = createSchema.safeParse(await req.json());
     if (!parsed.success) return validationError("Invalid request", parsed.error.issues);
 
@@ -60,3 +50,5 @@ export async function POST(req: Request) {
 
     return NextResponse.json(group, { status: 201 });
 }
+
+export const POST = withUser(handlePost);

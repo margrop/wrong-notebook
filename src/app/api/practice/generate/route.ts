@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { getAIService } from "@/lib/ai";
-import { notFound, internalError, unauthorized } from "@/lib/api-errors";
+import { notFound, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { parseLastPractice, serializeLastPractice } from "@/lib/last-practice";
@@ -19,13 +19,7 @@ const DIFFICULTIES = ['easy', 'medium', 'hard', 'harder'] as const;
  * GET /api/practice/generate?errorItemId=xxx
  * 读取该错题最近一次生成的举一反三题目，没有时返回 { practice: null }
  */
-export async function GET(req: Request) {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user) {
-        return unauthorized("Authentication required");
-    }
-
+async function handleGet(req: Request, { user }: AuthenticatedContext) {
     try {
         const errorItemId = new URL(req.url).searchParams.get("errorItemId");
         if (!errorItemId) {
@@ -36,7 +30,7 @@ export async function GET(req: Request) {
             where: { id: errorItemId },
             select: { userId: true, lastPractice: true }
         });
-        if (!item || item.userId !== session.user.id) {
+        if (!item || item.userId !== user.id) {
             return notFound("Item not found");
         }
 
@@ -47,13 +41,9 @@ export async function GET(req: Request) {
     }
 }
 
-async function handlePost(req: Request) {
-    const session = await getServerSession(authOptions);
+export const GET = withUser(handleGet);
 
-    if (!session?.user) {
-        return unauthorized("Authentication required");
-    }
-
+async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
     try {
         const { errorItemId, language, difficulty } = await req.json();
 
@@ -63,7 +53,7 @@ async function handlePost(req: Request) {
         });
 
         // 只能基于自己的错题生成，否则等于间接读取他人题目
-        if (!errorItemWithSubject || errorItemWithSubject.userId !== session.user.id) {
+        if (!errorItemWithSubject || errorItemWithSubject.userId !== user.id) {
             return notFound("Item not found");
         }
 
@@ -74,12 +64,12 @@ async function handlePost(req: Request) {
             tags = [];
         }
 
-        const limited = await consumeAiQuota(session.user, 'practice');
+        const limited = await consumeAiQuota(user, 'practice');
         if (limited) return limited;
 
         const aiService = getAIService();
         const similarQuestion = await trackBackgroundTask(
-            { userId: session.user.id, kind: 'practice', subject: describeQuestion(errorItemWithSubject), link: `/error-items/${errorItemId}` },
+            { userId: user.id, kind: 'practice', subject: describeQuestion(errorItemWithSubject), link: `/error-items/${errorItemId}` },
             () => aiService.generateSimilarQuestion(
                 errorItemWithSubject.questionText || "",
                 tags,
@@ -123,4 +113,4 @@ async function handlePost(req: Request) {
 }
 
 /** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
-export const POST = withRecoverableResponse(handlePost);
+export const POST = withRecoverableResponse(withUser(handlePostInner));

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { internalError, unauthorized } from "@/lib/api-errors";
-import { authOptions } from "@/lib/auth";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
+import { internalError } from "@/lib/api-errors";
 import { getAppTimeZone } from "@/lib/config";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/lib/constants/pagination";
 import { createLogger } from "@/lib/logger";
@@ -13,12 +13,7 @@ import { getReviewPlan, isReviewDue } from "@/lib/review-schedule";
 const logger = createLogger('api:review:due');
 
 /** 今日待复习：按作答历史推算到期的错题，最早到期的排在前面 */
-export async function GET(req: Request) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-        return unauthorized();
-    }
-
+async function handleGet(req: Request, { user }: AuthenticatedContext) {
     const { searchParams } = new URL(req.url);
     const subjectId = searchParams.get("subjectId");
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
@@ -29,7 +24,7 @@ export async function GET(req: Request) {
         const now = new Date();
         // 先只取计算计划所需的字段，到期的再查询完整内容
         const candidates = await prisma.errorItem.findMany({
-            where: { userId: session.user.id, ...(subjectId ? { subjectId } : {}) },
+            where: { userId: user.id, ...(subjectId ? { subjectId } : {}) },
             select: {
                 id: true,
                 createdAt: true,
@@ -37,7 +32,7 @@ export async function GET(req: Request) {
             },
         });
 
-        const masteryThreshold = await getMasteryThreshold(session.user.id);
+        const masteryThreshold = await getMasteryThreshold(user.id);
         const due = candidates
             .map((item) => ({ id: item.id, plan: getReviewPlan(item.createdAt, item.practiceRecords, timeZone) }))
             .filter(({ plan }) => isReviewDue(plan, timeZone, now))
@@ -76,3 +71,5 @@ export async function GET(req: Request) {
         return internalError("Failed to list due reviews");
     }
 }
+
+export const GET = withUser(handleGet);

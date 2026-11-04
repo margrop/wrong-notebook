@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
-import { unauthorized, internalError, notFound, validationError } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
+import { internalError, notFound, validationError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { PRACTICE_RESULTS, scheduleMasteryEvaluation } from "@/lib/mastery";
 import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
@@ -25,13 +25,7 @@ const recordSchema = z.object({
     takenAt: z.string().datetime({ offset: true }).optional(),
 });
 
-export async function POST(req: Request) {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user) {
-        return unauthorized();
-    }
-
+async function handlePost(req: Request, { user }: AuthenticatedContext) {
     try {
         const parsed = recordSchema.safeParse(await req.json());
         if (!parsed.success) {
@@ -45,7 +39,7 @@ export async function POST(req: Request) {
         const result = parsed.data.result
             ?? (parsed.data.isCorrect === true ? 'correct' : parsed.data.isCorrect === false ? 'wrong' : undefined);
 
-        const userId = session.user.id;
+        const userId = user.id;
 
         // 关联原题时校验归属，防止写入他人的错题
         if (errorItemId) {
@@ -90,3 +84,5 @@ export async function POST(req: Request) {
         return internalError("Failed to save record");
     }
 }
+
+export const POST = withUser(handlePost);
