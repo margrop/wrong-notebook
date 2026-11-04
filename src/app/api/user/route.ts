@@ -5,9 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { z } from "zod";
-import { hash } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import type { Prisma } from "@prisma/client";
-import { unauthorized, notFound, badRequest, validationError, internalError } from "@/lib/api-errors";
+import { unauthorized, notFound, badRequest, forbidden, validationError, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { isDefaultAdminPassword } from "@/lib/default-admin";
 import { syncMasteryLevels } from "@/lib/mastery";
@@ -173,3 +173,34 @@ async function handlePatch(req: Request, { session }: AuthenticatedContext) {
 }
 
 export const PATCH = withUser(handlePatch);
+
+const deleteAccountSchema = z.object({
+    password: z.string().min(1),
+});
+
+/**
+ * DELETE /api/user
+ * 普通用户注销自己的账号：校验密码后删除用户，名下数据由数据库级联删除。
+ * 管理员不能自助注销，避免实例失去管理员；清空数据请使用系统初始化。
+ */
+async function handleDelete(req: Request, { user }: AuthenticatedContext) {
+    if (user.role === 'admin') {
+        return forbidden("Administrators cannot delete their own account");
+    }
+
+    const parsed = deleteAccountSchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+        return validationError("Invalid input", parsed.error.issues);
+    }
+
+    if (!(await compare(parsed.data.password, user.password))) {
+        return badRequest("Incorrect password");
+    }
+
+    await prisma.user.delete({ where: { id: user.id } });
+    logger.info({ userId: user.id }, 'User deleted own account');
+
+    return NextResponse.json({ success: true });
+}
+
+export const DELETE = withUser(handleDelete);

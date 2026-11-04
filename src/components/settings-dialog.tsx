@@ -21,6 +21,7 @@ import { AccountSettings } from "@/components/settings/account-settings";
 import { AiProviderSettings } from "@/components/settings/ai-provider-settings";
 import { CnmTagImportSettings } from "@/components/settings/cnm-tag-import-settings";
 import { DangerZoneSettings } from "@/components/settings/danger-zone-settings";
+import { DeleteAccountSettings } from "@/components/settings/delete-account-settings";
 import { DataBackupSettings } from "@/components/settings/data-backup-settings";
 import { DebugLogSettings } from "@/components/settings/debug-log-settings";
 import { GeneralSettings } from "@/components/settings/general-settings";
@@ -202,6 +203,7 @@ export function SettingsDialog() {
                         <div className="space-y-3">
                             <DataBackupSettings isAdmin={isAdmin} userId={userId} />
                             <DangerZoneSettings isAdmin={isAdmin} />
+                            <DeleteAccountSettings isAdmin={isAdmin} />
                         </div>
                     </TabsContent>
 

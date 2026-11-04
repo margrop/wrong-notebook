@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     mockPrismaUser: {
         findUnique: vi.fn(),
         update: vi.fn(),
+        delete: vi.fn(),
     },
     mockPrismaErrorItem: {
         updateMany: vi.fn(async () => ({ count: 0 })),
@@ -41,10 +42,11 @@ vi.mock('@/lib/auth', () => ({
 // Mock bcryptjs
 vi.mock('bcryptjs', () => ({
     hash: vi.fn((password: string) => Promise.resolve(`hashed_${password}`)),
+    compare: vi.fn((password: string, hashed: string) => Promise.resolve(hashed === `hashed_${password}`)),
 }));
 
 // Import after mocks
-import { GET, PATCH } from '@/app/api/user/route';
+import { DELETE, GET, PATCH } from '@/app/api/user/route';
 import type { Session } from 'next-auth';
 
 describe('/api/user', () => {
@@ -666,6 +668,52 @@ describe('/api/user', () => {
             // 验证更新操作使用了 session 中的 email（不能修改其他用户）
             const updateCall = mocks.mockPrismaUser.update.mock.calls[0][0];
             expect(updateCall.where.email).toBe('normaluser@example.com');
+        });
+    });
+    describe('DELETE /api/user', () => {
+        const deleteRequest = (body: unknown) => new Request('http://localhost/api/user', {
+            method: 'DELETE',
+            body: JSON.stringify(body),
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+        it('普通用户输入正确密码后删除自己的账号', async () => {
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ ...defaultDbUser, password: 'hashed_secret1' });
+            mocks.mockPrismaUser.delete.mockResolvedValue({ id: 'user-1' });
+
+            const response = await DELETE(deleteRequest({ password: 'secret1' }));
+
+            expect(response.status).toBe(200);
+            expect(await response.json()).toEqual({ success: true });
+            expect(mocks.mockPrismaUser.delete).toHaveBeenCalledWith({ where: { id: 'user-1' } });
+        });
+
+        it('密码错误时返回 400，不删除账号', async () => {
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ ...defaultDbUser, password: 'hashed_secret1' });
+
+            const response = await DELETE(deleteRequest({ password: 'wrong' }));
+
+            expect(response.status).toBe(400);
+            expect((await response.json()).message).toBe('Incorrect password');
+            expect(mocks.mockPrismaUser.delete).not.toHaveBeenCalled();
+        });
+
+        it('未提供密码时返回校验错误', async () => {
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ ...defaultDbUser, password: 'hashed_secret1' });
+
+            const response = await DELETE(deleteRequest({}));
+
+            expect(response.status).toBe(400);
+            expect(mocks.mockPrismaUser.delete).not.toHaveBeenCalled();
+        });
+
+        it('管理员不能注销自己的账号', async () => {
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ ...defaultDbUser, role: 'admin', password: 'hashed_secret1' });
+
+            const response = await DELETE(deleteRequest({ password: 'secret1' }));
+
+            expect(response.status).toBe(403);
+            expect(mocks.mockPrismaUser.delete).not.toHaveBeenCalled();
         });
     });
 });
