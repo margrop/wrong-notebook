@@ -1,55 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import type { CompletedStage, ProgressStatus } from "@/components/ui/progress-feedback";
-import { useLanguage } from "@/contexts/LanguageContext";
-import type { ParsedQuestion } from "@/lib/ai";
-import { getAnalysisErrorMessage } from "@/lib/analysis-error";
+import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
-import { getErrorMessage } from "@/lib/error-message";
-import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { createImportBatch } from "@/lib/import-batch-client";
-import { createImportTask } from "@/lib/import-task-client";
-import type { ImageRegion } from "@/lib/image-crop";
-import { stackQuestionImages } from "@/lib/batch-crop";
-import { describeImage, ImageDecodeError, prepareImage, renderRegion } from "@/lib/image-pipeline";
-import type { PreparedImage, RenderedImage } from "@/lib/image-pipeline";
-import type { ImportImageInfo } from "@/lib/import-task-types";
-import { normalizeMistakeStatus } from "@/lib/mistake-status";
-import { fetchConfirmBeforeImport, saveParsedQuestion } from "@/lib/question-import";
-import type { ImportedQuestion } from "@/lib/question-import";
+import { fetchConfirmBeforeImport } from "@/lib/question-import";
+import type { ProgressStatus } from "@/components/ui/progress-feedback";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useImageImportFlow } from "@/lib/use-image-import-flow";
+import { useTextImportFlow } from "@/lib/use-text-import-flow";
 import { useImportTask } from "@/lib/use-import-tasks";
 import { useQuestionSaver } from "@/lib/use-question-saver";
+import type { BatchImage, ReviewedQuestion } from "@/lib/question-import-flow";
 import type { AppConfig } from "@/types/api";
+
+export type { BatchImage, ReviewedQuestion };
+export { MAX_QUESTION_PARTS } from "@/lib/question-import-flow";
 
 /** 未配置时 AI 识别的超时（毫秒） */
 const DEFAULT_AI_TIMEOUT = 180000;
-
-export type ReviewedQuestion = ParsedQuestion & { subjectId?: string; paperLevel?: string };
-
-/** 框选批量导入的一道题：已从原图裁剪并压缩好的图片 */
-export interface BatchImage {
-    dataUrl: string;
-    info: ImportImageInfo;
-    timings: { read: number; convert: number; crop: number; compress: number };
-}
-
-/** 一道题最多分几段（几张纸）拍摄 */
-export const MAX_QUESTION_PARTS = 4;
-
-interface ReanswerResponse {
-    gradeSemester?: string | null;
-    answerText: string;
-    analysis: string;
-    knowledgePoints: string[];
-    wrongAnswerText: string;
-    mistakeAnalysis: string;
-    mistakeStatus: string;
-    difficultyStars?: number | null;
-    subject?: string;
-}
 
 interface QuestionImportOptions {
     /** 日志前缀，如 [Home] */
@@ -71,25 +39,10 @@ interface QuestionImportOptions {
  */
 export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId, textNotebook, fixedSubjectId }: QuestionImportOptions) {
     const { t, language } = useLanguage();
-    const router = useRouter();
     const saver = useQuestionSaver(logPrefix);
-    const [creatingBatch, setCreatingBatch] = useState(false);
-    const [step, setStep] = useState<"upload" | "review">("upload");
     const [analysisStep, setAnalysisStep] = useState<ProgressStatus>('idle');
-    const [parsedData, setParsedData] = useState<ParsedQuestion | null>(null);
-    const [currentImage, setCurrentImage] = useState<string | null>(null);
     const [config, setConfig] = useState<AppConfig | null>(null);
-    const [croppingImage, setCroppingImage] = useState<string | null>(null);
-    const [isCropperOpen, setIsCropperOpen] = useState(false);
-    // 免确认导入：偏好、最近一次导入结果、批量框选的题目图片
     const [confirmBeforeImport, setConfirmBeforeImport] = useState(false);
-    const [lastImported, setLastImported] = useState<ImportedQuestion | null>(null);
-    const [batchImages, setBatchImages] = useState<BatchImage[] | null>(null);
-    // 一道题分在几张纸上时，已框选暂存的前几段（按顺序），最后纵向拼成一张图识别
-    const [parts, setParts] = useState<BatchImage[]>([]);
-    // 当前选择的照片（已解码、已按方向校正的原图），裁剪时从原图取区域
-    const preparedRef = useRef<PreparedImage | null>(null);
-    const [completedStages, setCompletedStages] = useState<CompletedStage[]>([]);
     // 本页最近发起的识别任务
     const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
     // 本页发起的任务只在状态卡中更新（含完成后的「继续校对」「查看错题」），不切换页面、不自动标记已读，
@@ -99,8 +52,24 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     const aiTimeout = config?.timeouts?.analyze || DEFAULT_AI_TIMEOUT;
     const safetyTimeout = aiTimeout + 10000;
 
+    const textFlow = useTextImportFlow({
+        logPrefix, t, language, analyzeSubjectId, importSubjectId, textNotebook, fixedSubjectId,
+        confirmBeforeImport, aiTimeout,
+        setAnalysisStep, clearSaveError: () => saver.setSaveError(null),
+    });
+
+    const imageFlow = useImageImportFlow({
+        logPrefix, t, language, analyzeSubjectId, fixedSubjectId,
+        confirmBeforeImport, importSubjectId,
+        setAnalysisStep,
+        setPendingTaskId,
+        setTask: pending.setTask,
+        clearLastImported: textFlow.dismissImported,
+        clearSaveError: () => saver.setSaveError(null),
+    });
+
     // 离开页面时释放解码后的原图与预览图
-    useEffect(() => () => preparedRef.current?.dispose(), []);
+    useEffect(() => () => imageFlow.disposePrepared(), [imageFlow]);
 
     useEffect(() => {
         fetchConfirmBeforeImport().then(setConfirmBeforeImport);
@@ -119,296 +88,43 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
         return () => clearTimeout(timeout);
     }, [analysisStep, safetyTimeout]);
 
-    const decodeErrorMessage = (error: ImageDecodeError) =>
-        t.upload.decodeErrors[error.code].replace("{format}", error.format.toUpperCase());
-
-    /** 选择照片：读取并解码（HEIC/HEIF 在此转换为 JPEG 并校正方向），生成缩略图后打开裁剪 */
-    const selectImage = async (file: File) => {
-        setLastImported(null);
-        saver.setSaveError(null);
-        setCompletedStages([]);
-        setAnalysisStep('reading');
-        try {
-            const prepared = await prepareImage(file, () => setAnalysisStep('converting'));
-            preparedRef.current?.dispose();
-            preparedRef.current = prepared;
-            frontendLogger.info(logPrefix, 'Image decoded', {
-                format: prepared.format, sourceType: prepared.sourceType, sourceBytes: prepared.sourceBytes,
-                width: prepared.width, height: prepared.height, decoder: prepared.decoder, ...prepared.timings,
-            });
-            setCroppingImage(prepared.previewUrl);
-            setIsCropperOpen(true);
-        } catch (error) {
-            const message = error instanceof ImageDecodeError ? decodeErrorMessage(error) : getErrorMessage(error);
-            frontendLogger.warn(logPrefix, 'Image decode failed', {
-                code: error instanceof ImageDecodeError ? error.code : 'UNKNOWN',
-                format: error instanceof ImageDecodeError ? error.format : 'unknown',
-                sourceType: file.type, sourceBytes: file.size,
-            });
-            toast.error(message);
-        } finally {
-            setAnalysisStep('idle');
-        }
-    };
-
-    const stageList = (timings: Partial<BatchImage["timings"]>): CompletedStage[] => [
-        { label: t.upload.stages.read, ms: timings.read ?? 0 },
-        ...(timings.convert !== undefined ? [{ label: t.upload.stages.convert, ms: timings.convert }] : []),
-        ...(timings.compress !== undefined ? [{ label: t.upload.stages.compress, ms: (timings.crop ?? 0) + timings.compress }] : []),
-    ];
-
-    /** 从原图裁剪框选区域并压缩，返回各区域的图片与耗时 */
-    const renderRegions = async (prepared: PreparedImage, regions: ImageRegion[]): Promise<BatchImage[]> => {
-        const images: BatchImage[] = [];
-        for (const region of regions) {
-            const rendered: RenderedImage = await renderRegion(prepared, region);
-            images.push({ dataUrl: rendered.dataUrl, info: describeImage(prepared, rendered), timings: { ...prepared.timings, ...rendered.timings } });
-        }
-        return images;
-    };
-
-    /** 把各段纵向拼成一张图后上传；失败时保留已暂存的段，可重试 */
-    const uploadParts = async (list: BatchImage[]) => {
-        setAnalysisStep('compressing');
-        let image: BatchImage;
-        try {
-            const rendered = await stackQuestionImages(list.map((part) => part.dataUrl));
-            const sum = (key: keyof BatchImage["timings"]) => list.reduce((total, part) => total + part.timings[key], 0);
-            image = {
-                dataUrl: rendered.dataUrl,
-                info: {
-                    sourceType: `stacked-${list.length}`,
-                    sourceBytes: list.reduce((total, part) => total + (part.info.sourceBytes ?? 0), 0),
-                    outputWidth: rendered.width, outputHeight: rendered.height, outputBytes: rendered.bytes, quality: rendered.quality,
-                },
-                timings: { read: sum('read'), convert: sum('convert'), crop: sum('crop') + rendered.timings.crop, compress: sum('compress') + rendered.timings.compress },
-            };
-        } catch (error) {
-            frontendLogger.error(logPrefix, 'Stack parts failed', { parts: list.length, error: getErrorMessage(error) });
-            toast.error(getAnalysisErrorMessage(error, t));
-            setAnalysisStep('idle');
-            return;
-        }
-        frontendLogger.info(logPrefix, 'Question parts stacked', { parts: list.length, width: image.info.outputWidth, height: image.info.outputHeight });
-        setParts([]);
-        await uploadImage(image);
-    };
-
-    /** 「下一段在另一张」：框选的这一段暂存起来，回到选图继续拍下一张 */
-    const addPart = async (region: ImageRegion) => {
-        const prepared = preparedRef.current;
-        if (!prepared || parts.length >= MAX_QUESTION_PARTS - 1) return;
-        setIsCropperOpen(false);
-        setAnalysisStep('compressing');
-        try {
-            const [image] = await renderRegions(prepared, [region]);
-            setParts((current) => [...current, image]);
-            toast.info(t.upload.parts.added.replace("{n}", String(parts.length + 1)));
-        } catch (error) {
-            frontendLogger.error(logPrefix, 'Crop part failed', { error: getErrorMessage(error) });
-            toast.error(getAnalysisErrorMessage(error, t));
-        } finally {
-            setAnalysisStep('idle');
-        }
-    };
-
-    /** 裁剪完成：单题直接上传（有暂存的段时与其拼成一题），多题进入批量导入 */
-    const cropRegions = async (regions: ImageRegion[], multi: boolean) => {
-        const prepared = preparedRef.current;
-        if (!prepared || regions.length === 0) return;
-        setIsCropperOpen(false);
-        setCompletedStages(stageList(prepared.timings));
-        setAnalysisStep('compressing');
-        let images: BatchImage[];
-        try {
-            images = await renderRegions(prepared, regions);
-        } catch (error) {
-            frontendLogger.error(logPrefix, 'Crop failed', { error: getErrorMessage(error) });
-            toast.error(getAnalysisErrorMessage(error, t));
-            setAnalysisStep('idle');
-            return;
-        }
-        if (multi) {
-            setAnalysisStep('idle');
-            setCompletedStages([]);
-            setLastImported(null);
-            saver.setSaveError(null);
-            setBatchImages(images);
-            return;
-        }
-        if (parts.length > 0) {
-            await uploadParts([...parts, images[0]]);
-            return;
-        }
-        await uploadImage(images[0]);
-    };
-
-    /** 文字解题结果：未开启人工确认时直接入库，否则进入校对页 */
-    const handleTextParsed = async (data: ParsedQuestion) => {
-        if (!confirmBeforeImport) {
-            setAnalysisStep('saving');
-            const imported = await saveParsedQuestion(data, { subjectId: importSubjectId, imageUrl: null });
-            setLastImported(imported);
-            setCurrentImage(null);
-            frontendLogger.info(logPrefix, 'Imported without review', { id: imported.id });
-            return;
-        }
-        setCurrentImage(null);
-        setParsedData(data);
-        setStep("review");
-    };
-
-    /** 上传已处理好的图片，创建服务端识别任务；上传完成即关闭遮罩 */
-    const uploadImage = async (image: BatchImage) => {
-        const startTime = Date.now();
-        setCompletedStages(stageList(image.timings));
-        try {
-            setAnalysisStep('uploading');
-            const task = await createImportTask({
-                imageBase64: image.dataUrl,
-                language,
-                subjectId: analyzeSubjectId,
-                // 添加页固定错题本；首页指定了错题本时免确认入库放入该错题本，校对时由用户选择
-                targetSubjectId: fixedSubjectId ?? (confirmBeforeImport ? null : importSubjectId),
-                clientTimings: image.timings,
-                imageInfo: image.info,
-            });
-            const uploadMs = Date.now() - startTime;
-            frontendLogger.info(logPrefix, 'Import task created', { taskId: task.id, ...image.info, ...image.timings, uploadMs });
-            setPendingTaskId(task.id);
-            pending.setTask(task);
-            setStep("upload");
-        } catch (error) {
-            frontendLogger.error(logPrefix, 'Upload failed', { errorDuration: Date.now() - startTime, error: getErrorMessage(error) });
-            toast.error(getAnalysisErrorMessage(error, t));
-        } finally {
-            setAnalysisStep('idle');
-            setCompletedStages([]);
-        }
-    };
-
-    /** 多题批次放入的错题本：与单题上传相同，添加页固定错题本，免确认时放入指定的错题本，校对时由用户选择 */
-    const batchTarget = () => fixedSubjectId ?? (confirmBeforeImport ? null : importSubjectId);
-
-    /** 多题文字：创建批次（本地规则分题不调用 AI；splitter 为 ai 时由模型分题），进入分题预览 */
-    const createTextBatch = async (text: string, splitter: "local" | "ai", forceNumbered = false) => {
-        saver.setSaveError(null);
-        setCreatingBatch(true);
-        try {
-            const batch = await createImportBatch({
-                source: "text",
-                splitter,
-                forceNumbered: forceNumbered || undefined,
-                text,
-                language,
-                subjectId: analyzeSubjectId ?? textNotebook?.id,
-                targetSubjectId: batchTarget(),
-            });
-            frontendLogger.info(logPrefix, 'Text batch created', { batchId: batch.id, splitter, questions: batch.itemCount });
-            router.push(`/import-batches/${batch.id}`);
-        } catch (error) {
-            frontendLogger.error(logPrefix, 'Text batch failed', { error: getErrorMessage(error) });
-            toast.error(getAnalysisErrorMessage(error, t));
-        } finally {
-            setCreatingBatch(false);
-        }
-    };
-
-    /** 照片自动分题：按所选区域从原图裁剪压缩，上传整页图并在后台由模型分题，进入批次页等待结果 */
-    const autoSplitImage = async (region: ImageRegion) => {
-        const prepared = preparedRef.current;
-        if (!prepared) return;
-        setIsCropperOpen(false);
-        setCompletedStages(stageList(prepared.timings));
-        setAnalysisStep('compressing');
-        try {
-            const rendered = await renderRegion(prepared, region);
-            setCompletedStages(stageList({ ...prepared.timings, ...rendered.timings }));
-            setAnalysisStep('uploading');
-            const batch = await createImportBatch({
-                source: "image",
-                imageBase64: rendered.dataUrl,
-                imageInfo: describeImage(prepared, rendered),
-                language,
-                subjectId: analyzeSubjectId,
-                targetSubjectId: batchTarget(),
-            });
-            frontendLogger.info(logPrefix, 'Image batch created', { batchId: batch.id, ...describeImage(prepared, rendered) });
-            router.push(`/import-batches/${batch.id}`);
-        } catch (error) {
-            frontendLogger.error(logPrefix, 'Image batch failed', { error: getErrorMessage(error) });
-            toast.error(getAnalysisErrorMessage(error, t));
-        } finally {
-            setAnalysisStep('idle');
-            setCompletedStages([]);
-        }
-    };
-
-    /** 文字题目由 AI 解答后导入 */
-    const submitText = async (questionText: string) => {
-        saver.setSaveError(null);
-        const startTime = Date.now();
-        frontendLogger.info(logPrefix, 'Starting text-based analysis', { textLength: questionText.length });
-        try {
-            setAnalysisStep('analyzing');
-            const result = await apiClient.post<ReanswerResponse>("/api/reanswer", {
-                questionText,
-                language,
-                forImport: true,
-                subject: textNotebook?.name,
-                subjectId: textNotebook?.id,
-            }, { timeout: aiTimeout, recoverable: true });
-
-            setAnalysisStep('processing');
-            await handleTextParsed({
-                questionText,
-                answerText: result.answerText,
-                analysis: result.analysis,
-                knowledgePoints: result.knowledgePoints || [],
-                wrongAnswerText: result.wrongAnswerText || "",
-                mistakeAnalysis: result.mistakeAnalysis || "",
-                mistakeStatus: normalizeMistakeStatus(result.mistakeStatus),
-                subject: (result.subject || "其他") as ParsedQuestion["subject"],
-                requiresImage: false,
-                difficultyStars: result.difficultyStars ?? null,
-                gradeSemester: result.gradeSemester ?? null,
-            });
-            frontendLogger.info(logPrefix, 'Text analysis completed', { totalDuration: Date.now() - startTime });
-        } catch (error) {
-            frontendLogger.error(logPrefix, 'Text analysis failed', { errorDuration: Date.now() - startTime, error: getErrorMessage(error) });
-            toast.error(getAnalysisErrorMessage(error, t));
-        } finally {
-            setAnalysisStep('idle');
-        }
-    };
-
     /** 保存题目；重复题跳到原题，否则跳到所在错题本 */
     const saveQuestion = (payload: Record<string, unknown> & { subjectId?: string | null }) =>
         saver.run(() => apiClient.post<{ id: string; duplicate?: boolean }>("/api/error-items", payload), payload.subjectId);
 
     /** 文字解题的校对页保存（图片识别的结果在识别任务的校对页确认入库） */
     const saveReviewed = async (finalData: ReviewedQuestion) => {
-        const saved = await saveQuestion({ ...finalData, originalImageUrl: currentImage || "", ...(fixedSubjectId ? { subjectId: fixedSubjectId } : {}) });
+        const saved = await saveQuestion({ ...finalData, originalImageUrl: textFlow.currentImage || "", ...(fixedSubjectId ? { subjectId: fixedSubjectId } : {}) });
         if (saved) {
-            setStep("upload");
-            setParsedData(null);
-            setCurrentImage(null);
+            textFlow.setStep("upload");
+            textFlow.setParsedData(null);
+            textFlow.setCurrentImage(null);
         }
     };
 
     return {
-        step, cancelReview: () => { setStep("upload"); saver.setSaveError(null); },
+        step: textFlow.step, cancelReview: textFlow.cancelReview,
         saveError: saver.saveError, dismissSaveError: saver.dismissSaveError,
         analysisStep, setAnalysisStep, isBusy: analysisStep !== 'idle',
-        parsedData, currentImage, aiTimeout,
-        croppingImage, isCropperOpen, closeCropper: () => setIsCropperOpen(false),
-        lastImported, dismissImported: () => setLastImported(null),
-        batchImages, closeBatch: () => setBatchImages(null), completedStages,
+        parsedData: textFlow.parsedData, currentImage: textFlow.currentImage, aiTimeout,
+        croppingImage: imageFlow.croppingImage, isCropperOpen: imageFlow.isCropperOpen,
+        closeCropper: imageFlow.closeCropper,
+        lastImported: textFlow.lastImported, dismissImported: textFlow.dismissImported,
+        batchImages: imageFlow.batchImages, closeBatch: imageFlow.closeBatch,
+        completedStages: imageFlow.completedStages,
         pendingTask: pendingTaskId ? pending.task : null,
         refreshPendingTask: pending.refresh,
         dismissPendingTask: () => setPendingTaskId(null),
-        selectImage, cropRegions, submitText, saveQuestion, saveReviewed,
-        createTextBatch, autoSplitImage, creatingBatch,
-        parts, addPart, finishParts: () => uploadParts(parts), discardParts: () => setParts([]),
+        selectImage: imageFlow.selectImage,
+        cropRegions: imageFlow.cropRegions,
+        submitText: textFlow.submitText,
+        saveQuestion, saveReviewed,
+        createTextBatch: textFlow.createTextBatch,
+        autoSplitImage: imageFlow.autoSplitImage,
+        creatingBatch: textFlow.creatingBatch,
+        parts: imageFlow.parts,
+        addPart: imageFlow.addPart,
+        finishParts: imageFlow.finishParts,
+        discardParts: imageFlow.discardParts,
     };
 }
