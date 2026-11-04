@@ -131,9 +131,9 @@ export function generateFieldLanguageInstruction(language: 'zh' | 'en', generate
 }
 
 export const QUESTION_OUTPUT_TAGS = {
-  analyze: ['subject', 'knowledge_points', 'requires_image', 'has_figure', 'figure_svg', 'wrong_answer_text', 'mistake_status', 'difficulty_stars', 'mistake_analysis', 'question_text', 'answer_text', 'analysis', 'grade_semester'],
+  analyze: ['subject', 'knowledge_points', 'requires_image', 'has_figure', 'figure_svg', 'wrong_answer_text', 'mistake_status', 'difficulty_stars', 'question_type', 'mistake_analysis', 'question_text', 'answer_text', 'analysis', 'grade_semester'],
   similar: ['question_text', 'answer_text', 'analysis', 'figure_svg'],
-  reanswer: ['answer_text', 'analysis', 'knowledge_points', 'wrong_answer_text', 'mistake_status', 'mistake_analysis', 'subject', 'difficulty_stars', 'grade_semester'],
+  reanswer: ['answer_text', 'analysis', 'knowledge_points', 'wrong_answer_text', 'mistake_status', 'mistake_analysis', 'subject', 'difficulty_stars', 'question_type', 'grade_semester'],
 } as const;
 
 /** 输出协议独立于自定义模板，避免旧模板丢失新增标签。 */
@@ -186,6 +186,13 @@ export interface PromptOptions {
   // 举一反三时原题的 SVG 配图，供 AI 参考重新画图
   originalFigureSvg?: string | null;
 }
+
+/**
+ * 题型规则：只能取 question-type.ts 中的标准 key，不确定时输出 other。
+ * 中英文版本共用（key 为英文，提示词中列出中文名帮助模型理解）。
+ */
+export const QUESTION_TYPE_RULES = `填写题目类型，只能是以下 key 之一：single_choice（单选题）、multiple_choice（多选题）、true_false（判断题）、fill_blank（填空题）、calculation（计算题）、solution（解答题）、reading（阅读理解）、cloze（完形填空）、writing（写作）、other（其他）。
+若题型不明确，填 other。`;
 
 /**
  * 难度星级规则（1~5 星），参考《高思学校竞赛数学导引》各题左侧的星级标注：

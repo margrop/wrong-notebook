@@ -106,11 +106,13 @@ const reanswer = (questionText: string) => ({
     mistakeStatus: 'unknown',
     subject: '数学',
     difficultyStars: 2,
+    questionType: 'calculation',
     gradeSemester: '六年级上',
 });
 const parsedImage = (text: string) => ({
     questionText: text, answerText: '12', analysis: '由图可知。', knowledgePoints: ['长方形面积'], subject: '数学',
     mistakeStatus: 'unknown', wrongAnswerText: '', mistakeAnalysis: '', requiresImage: true, hasFigure: true,
+    questionType: 'solution',
     figureSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="5" height="5"/></svg>',
 });
 
@@ -197,6 +199,8 @@ describe('文字多题批次', () => {
         expect(items.every((item) => item.subjectId === 'math' && item.userId === 'user-1')).toBe(true);
         expect(items.map((item) => item.questionText)).toContain(draft.items[0].text);
         expect(items.some((item) => item.questionText?.includes('二进制'))).toBe(false);
+        // AI 识别给出的题型落库
+        expect(items.every((item) => item.questionType === 'calculation')).toBe(true);
 
         const { batch: done } = await getBatch(batch.id);
         expect(done).toMatchObject({ status: 'started', phase: 'done', mode: 'auto', counts: { total: 8, saved: 8, failed: 0, active: 0 } });
@@ -437,6 +441,8 @@ describe('照片自动分题批次', () => {
         const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
         expect(items.map((item) => item.originalImageUrl).sort()).toEqual(images.map((image: { imageBase64: string }) => image.imageBase64).sort());
         expect(items.every((item) => item.figureSvg?.startsWith('<svg'))).toBe(true);
+        // AI 识别给出的题型落库
+        expect(items.every((item) => item.questionType === 'solution')).toBe(true);
         expect(await database.aiUsage.count({ where: { kind: 'split' } })).toBe(1);
         expect(await database.aiUsage.count({ where: { kind: 'analyze' } })).toBe(2);
     });

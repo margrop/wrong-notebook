@@ -22,7 +22,7 @@ export function setAllSelected(draft: BatchDraft, selected: boolean, canSelect: 
     return updateItems(draft, draft.items.map((item) => ({ ...item, selected: selected && canSelect(item) })));
 }
 
-export function updateItem(draft: BatchDraft, key: string, patch: Partial<Pick<DraftItem, "text" | "material" | "regions" | "selected" | "answer" | "analysis" | "knowledgePoints" | "difficultyStars" | "wrongAnswer">>): BatchDraft {
+export function updateItem(draft: BatchDraft, key: string, patch: Partial<Pick<DraftItem, "text" | "material" | "regions" | "selected" | "answer" | "analysis" | "knowledgePoints" | "difficultyStars" | "questionType" | "wrongAnswer">>): BatchDraft {
     return updateItems(draft, draft.items.map((item) => {
         if (item.key !== key) return item;
         const next = { ...item, ...patch };
@@ -35,6 +35,7 @@ export function updateItem(draft: BatchDraft, key: string, patch: Partial<Pick<D
         if (patch.analysis !== undefined) next.analysis = patch.analysis?.slice(0, MAX_DRAFT_TEXT_LENGTH) ?? null;
         if (patch.knowledgePoints !== undefined) next.knowledgePoints = patch.knowledgePoints.slice(0, MAX_ITEM_KNOWLEDGE_POINTS).map((point) => point.slice(0, MAX_KNOWLEDGE_POINT_LENGTH));
         if (patch.difficultyStars !== undefined) next.difficultyStars = patch.difficultyStars;
+        if (patch.questionType !== undefined) next.questionType = patch.questionType;
         if (patch.wrongAnswer !== undefined) next.wrongAnswer = patch.wrongAnswer?.slice(0, MAX_DRAFT_TEXT_LENGTH) ?? null;
         if (patch.regions !== undefined) {
             next.regions = patch.regions.slice(0, MAX_ITEM_REGIONS);
@@ -84,6 +85,7 @@ export function mergeWithPrevious(draft: BatchDraft, key: string): BatchDraft {
         analysis: joinField(previous.analysis, current.analysis)?.slice(0, MAX_DRAFT_TEXT_LENGTH) ?? null,
         knowledgePoints: [...new Set([...(previous.knowledgePoints ?? []), ...(current.knowledgePoints ?? [])])].slice(0, MAX_ITEM_KNOWLEDGE_POINTS),
         difficultyStars: previous.difficultyStars ?? current.difficultyStars,
+        questionType: previous.questionType ?? current.questionType,
         wrongAnswer: joinField(previous.wrongAnswer, current.wrongAnswer)?.slice(0, MAX_DRAFT_TEXT_LENGTH) ?? null,
         fix: null,
     };
@@ -116,6 +118,7 @@ export function splitItemAt(draft: BatchDraft, key: string, offset: number): Bat
         analysis: null,
         knowledgePoints: undefined,
         difficultyStars: null,
+        questionType: null,
         wrongAnswer: null,
         fix: null,
     };

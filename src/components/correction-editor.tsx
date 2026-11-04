@@ -115,6 +115,8 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                 mistakeStatus: normalizeMistakeStatusForSave(result.mistakeStatus, result.wrongAnswerText),
                 // 重新解题给出星级时更新，否则保留原星级
                 difficultyStars: result.difficultyStars ?? prev.difficultyStars,
+                // 重新解题给出题型时更新，否则保留原题型
+                questionType: result.questionType ?? prev.questionType,
             }));
             toast.success(t.editor.reanswerSuccess || '✅ Answer and analysis updated!');
         } catch (error) {

@@ -173,6 +173,7 @@ export async function analyzeQuestionTextForUser(input: QuestionTextAnalysisInpu
         subject: normalizeSubject(result.subject) || '其他',
         requiresImage: false,
         difficultyStars: result.difficultyStars ?? null,
+        questionType: result.questionType ?? null,
         gradeSemester: user ? resolveQuestionGrade(user, { recognizedGradeSemester: result.gradeSemester }, getAppTimeZone()) : result.gradeSemester ?? null,
     };
     const validation = ParsedQuestionSchema.safeParse(parsed);

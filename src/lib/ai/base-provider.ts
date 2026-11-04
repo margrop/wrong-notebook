@@ -9,7 +9,7 @@ import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
 import { getAppConfig } from '../config';
-import { parseGradeRecognition, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure } from './schema';
+import { parseGradeRecognition, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseQuestionType, parseFigure } from './schema';
 import { extractTag, parseQuestionResponse, splitKnowledgePoints } from './response-parser';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
@@ -149,6 +149,7 @@ export abstract class BaseAIProvider implements AIService {
                 subject: normalizeSubject(extractTag(text, "subject")),
                 gradeSemester: parseRecognizedGrade(extractTag(text, "grade_semester")),
                 difficultyStars: parseDifficultyStars(extractTag(text, "difficulty_stars")),
+                questionType: parseQuestionType(extractTag(text, "question_type")),
             }, { candidateTags });
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');

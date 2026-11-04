@@ -35,6 +35,7 @@ describe('draft schema 新旧兼容', () => {
                 analysis: '因为 1+1=2',
                 knowledgePoints: ['加法'],
                 difficultyStars: 3,
+                questionType: 'calculation',
                 wrongAnswer: '3',
             })],
             ignored: [],
@@ -76,22 +77,23 @@ describe('draft schema 新旧兼容', () => {
 
     it('draftFromTextSplit 把分题字段带入草稿', () => {
         const draft = draftFromTextSplit([
-            { label: '1', text: '计算 1 + 1。', material: null, section: null, answer: '2', analysis: '因为 1+1=2', knowledgePoints: ['加法'], difficultyStars: 2, wrongAnswer: '3' },
+            { label: '1', text: '计算 1 + 1。', material: null, section: null, answer: '2', analysis: '因为 1+1=2', knowledgePoints: ['加法'], difficultyStars: 2, questionType: 'calculation', wrongAnswer: '3' },
         ], []);
         expect(draft.items[0].answer).toBe('2');
         expect(draft.items[0].analysis).toBe('因为 1+1=2');
         expect(draft.items[0].knowledgePoints).toEqual(['加法']);
         expect(draft.items[0].difficultyStars).toBe(2);
+        expect(draft.items[0].questionType).toBe('calculation');
         expect(draft.items[0].wrongAnswer).toBe('3');
     });
 });
 
 describe('draft-ops 保留结构化字段', () => {
-    it('合并时 answer/analysis/wrongAnswer 按换行拼接，知识点去重，难度取第一题', () => {
+    it('合并时 answer/analysis/wrongAnswer 按换行拼接，知识点去重，难度与题型取第一题', () => {
         const draft: BatchDraft = {
             items: [
-                makeItem({ key: 'q1', answer: '2', analysis: '解析一', knowledgePoints: ['加法'], difficultyStars: 3, wrongAnswer: '3' }),
-                makeItem({ key: 'q2', answer: '4', analysis: '解析二', knowledgePoints: ['减法', '加法'], difficultyStars: 5, wrongAnswer: '5' }),
+                makeItem({ key: 'q1', answer: '2', analysis: '解析一', knowledgePoints: ['加法'], difficultyStars: 3, questionType: 'calculation', wrongAnswer: '3' }),
+                makeItem({ key: 'q2', answer: '4', analysis: '解析二', knowledgePoints: ['减法', '加法'], difficultyStars: 5, questionType: 'fill_blank', wrongAnswer: '5' }),
             ],
             ignored: [],
             warnings: [],
@@ -103,12 +105,13 @@ describe('draft-ops 保留结构化字段', () => {
         expect(item.analysis).toBe('解析一\n解析二');
         expect(item.knowledgePoints).toEqual(['加法', '减法']);
         expect(item.difficultyStars).toBe(3);
+        expect(item.questionType).toBe('calculation');
         expect(item.wrongAnswer).toBe('3\n5');
     });
 
     it('拆分时结构化字段留在第一部分', () => {
         const draft: BatchDraft = {
-            items: [makeItem({ key: 'q1', text: '前半部分\n后半部分', answer: '2', analysis: '解析', knowledgePoints: ['加法'], difficultyStars: 3, wrongAnswer: '3' })],
+            items: [makeItem({ key: 'q1', text: '前半部分\n后半部分', answer: '2', analysis: '解析', knowledgePoints: ['加法'], difficultyStars: 3, questionType: 'calculation', wrongAnswer: '3' })],
             ignored: [],
             warnings: [],
         };
@@ -120,22 +123,26 @@ describe('draft-ops 保留结构化字段', () => {
         expect(first.analysis).toBe('解析');
         expect(first.knowledgePoints).toEqual(['加法']);
         expect(first.difficultyStars).toBe(3);
+        expect(first.questionType).toBe('calculation');
         expect(first.wrongAnswer).toBe('3');
         expect(second.answer).toBeNull();
         expect(second.analysis).toBeNull();
         expect(second.knowledgePoints).toBeUndefined();
         expect(second.difficultyStars).toBeNull();
+        expect(second.questionType).toBeNull();
         expect(second.wrongAnswer).toBeNull();
     });
 
     it('updateItem 可编辑结构化字段并截断超长内容', () => {
         let draft: BatchDraft = { items: [makeItem({ key: 'q1' })], ignored: [], warnings: [] };
-        draft = updateItem(draft, 'q1', { answer: '2', knowledgePoints: ['加法'], difficultyStars: 4 });
+        draft = updateItem(draft, 'q1', { answer: '2', knowledgePoints: ['加法'], difficultyStars: 4, questionType: 'fill_blank' });
         expect(draft.items[0].answer).toBe('2');
         expect(draft.items[0].knowledgePoints).toEqual(['加法']);
         expect(draft.items[0].difficultyStars).toBe(4);
-        draft = updateItem(draft, 'q1', { answer: null, difficultyStars: null });
+        expect(draft.items[0].questionType).toBe('fill_blank');
+        draft = updateItem(draft, 'q1', { answer: null, difficultyStars: null, questionType: null });
         expect(draft.items[0].answer).toBeNull();
         expect(draft.items[0].difficultyStars).toBeNull();
+        expect(draft.items[0].questionType).toBeNull();
     });
 });

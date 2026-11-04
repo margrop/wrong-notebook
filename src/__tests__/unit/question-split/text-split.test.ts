@@ -153,9 +153,9 @@ describe('全角题号后紧跟数字', () => {
     });
 
     it('有大题标题时仍按阿拉伯题号分题，标记字段完整识别', () => {
-        const result = splitQuestionText('一、选择题\n1．甲（　）\n2．3×4=（　）\n二、填空题\n3．边长 2cm，周长____cm。\n【答案】8\n【难度】★★\n4．15÷3=____\n参考答案\n1.A 2.B\n4. 5');
+        const result = splitQuestionText('一、选择题\n1．甲（　）\n2．3×4=（　）\n二、填空题\n3．边长 2cm，周长____cm。\n【答案】8\n【难度】★★\n【题型】填空题\n4．15÷3=____\n参考答案\n1.A 2.B\n4. 5');
         expect(result.questions.map((question) => question.label)).toEqual(['1', '2', '3', '4']);
-        expect(result.questions[2]).toMatchObject({ section: '二、填空题', answer: '8', difficultyStars: 2 });
+        expect(result.questions[2]).toMatchObject({ section: '二、填空题', answer: '8', difficultyStars: 2, questionType: '填空题' });
         expect(result.questions.map((question) => question.answer ?? null)).toEqual(['A', 'B', '8', '5']);
     });
 

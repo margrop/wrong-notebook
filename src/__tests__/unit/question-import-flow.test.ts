@@ -194,8 +194,21 @@ describe('parseReanswerResponse', () => {
             subject: '数学',
             requiresImage: false,
             difficultyStars: null,
+            questionType: null,
             gradeSemester: null,
         });
+    });
+
+    it('AI 给出题型时透传，缺失时为 null', () => {
+        const withType = parseReanswerResponse({
+            answerText: '2', analysis: 'a', knowledgePoints: [], wrongAnswerText: '', mistakeAnalysis: '', mistakeStatus: 'wrong_attempt',
+            questionType: 'single_choice',
+        }, 'q');
+        expect(withType.questionType).toBe('single_choice');
+        const withoutType = parseReanswerResponse({
+            answerText: '2', analysis: 'a', knowledgePoints: [], wrongAnswerText: '', mistakeAnalysis: '', mistakeStatus: 'wrong_attempt',
+        }, 'q');
+        expect(withoutType.questionType).toBeNull();
     });
 
     it('学科缺失时回退为「其他」', () => {

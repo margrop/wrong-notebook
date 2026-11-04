@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { sanitizeFigureSvg } from '../figure-svg';
 import { parseRecognizedGrade } from '@/lib/question/question-grade';
+import { normalizeQuestionType } from '@/lib/question/question-type';
+import type { QuestionType } from '@/lib/question/question-type';
 
 /**
  * Zod schema for validating AI-parsed questions
@@ -21,6 +23,7 @@ export const ParsedQuestionSchema = z.object({
     knowledgePoints: z.array(z.string()).max(5, "知识点最多 5 个"),
     requiresImage: z.boolean().optional().default(false), // 题目是否依赖图片（如几何题）
     difficultyStars: z.number().int().min(1).max(5).nullable().optional(), // 难度星级 1~5，AI 未给出时为空
+    questionType: z.string().nullable().optional(), // 题型 key，AI 未给出或无法识别时为空（保存时经 normalizeQuestionType 规范化）
     gradeSemester: z.string().max(100).nullable().optional(), // 题目年级学期，AI 无法判断时为空
     hasFigure: z.boolean().optional(), // 题目是否带配图
     figureSvg: z.string().nullable().optional(), // AI 重绘的 SVG 配图（已净化）
@@ -125,6 +128,14 @@ export const MAX_KNOWLEDGE_TAGS = 5;
 /** 难度星级范围 */
 export const MIN_DIFFICULTY_STARS = 1;
 export const MAX_DIFFICULTY_STARS = 5;
+
+/**
+ * 解析 AI 给出的题型：接受标准 key 或中英文别名，无法识别时返回 null。
+ * 绝不因此字段导致整体解析失败。
+ */
+export function parseQuestionType(value: unknown): QuestionType | null {
+    return normalizeQuestionType(value);
+}
 
 /**
  * 解析 AI 给出的难度星级（数字、"3"、"3 星"、"★★★" 均可），无法识别或越界时返回 null

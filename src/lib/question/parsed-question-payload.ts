@@ -21,6 +21,7 @@ export function parsedQuestionToSavePayload(parsed: ParsedQuestion, options: Par
         recognizedGradeSemester: parsed.gradeSemester ?? null,
         hasFigure: parsed.hasFigure ?? false,
         figureSvg: parsed.figureSvg ?? null,
+        questionType: parsed.questionType ?? null,
         subjectId: options.subjectId || undefined,
         subjectName: options.subjectId ? undefined : parsed.subject,
         originalImageUrl: options.imageUrl || "",

@@ -163,4 +163,12 @@ describe('parseQuestionResponse', () => {
         const xml = BASE_XML + '<wrong_answer_text>错误答案</wrong_answer_text>';
         expect(parseQuestionResponse(xml).mistakeStatus).toBe('wrong_attempt');
     });
+
+    it('解析 question_type 标签：合法 key、中文名、非法值与缺失', () => {
+        const base = BASE_XML + '<subject>数学</subject>';
+        expect(parseQuestionResponse(base + '<question_type>single_choice</question_type>').questionType).toBe('single_choice');
+        expect(parseQuestionResponse(base + '<question_type>单选题</question_type>').questionType).toBe('single_choice');
+        expect(parseQuestionResponse(base + '<question_type>bogus</question_type>').questionType).toBeNull();
+        expect(parseQuestionResponse(base).questionType).toBeNull();
+    });
 });

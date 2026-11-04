@@ -10,6 +10,7 @@ import {
     generateOutputContract,
     DRAFT_FILTER_RULES,
     DIFFICULTY_STARS_RULES,
+    QUESTION_TYPE_RULES,
     FIGURE_SVG_RULES,
     LATEX_RULES,
     getMathTagsForGrade,
@@ -61,6 +62,10 @@ ${FIGURE_SVG_RULES}
 只填写 1 到 5 之间的一个整数，表示题目难度星级。
 ${DIFFICULTY_STARS_RULES}
 </difficulty_stars>
+
+<question_type>
+${QUESTION_TYPE_RULES}
+</question_type>
 
 <mistake_analysis>
 如果图片中包含学生的正式错误解答，请分析错误可能发生在哪一步、为什么错、导致了什么后果；必须忽略零散草稿和人的思考过程，如果没有正式错误解答，请留空。
@@ -253,7 +258,7 @@ ${englishTagsString}`;
     '请完整识别用户图片中的题目、独立求解，并仅根据可见的正式作答分析错因，过滤掉草稿与人的思考过程。',
     generateOutputContract('analyze'), DRAFT_FILTER_RULES, langInstruction, LATEX_RULES,
     generateGradeInstruction(gradeSemester), generateGradeRecognitionInstruction(gradeSemester),
-    tagsSection, DIFFICULTY_STARS_RULES,
+    tagsSection, DIFFICULTY_STARS_RULES, QUESTION_TYPE_RULES,
     '有配图时必须输出 figure_svg；无配图时留空。' + FIGURE_SVG_RULES,
   ].filter(Boolean).join('\n\n');
 }

@@ -145,7 +145,7 @@ export async function startMockAI() {
                         choices: [{ index: 0, message: { role: 'assistant', content:
                             `<answer_text>E2E 答案：${question.slice(0, 12)}</answer_text><analysis>按题意逐步计算。</analysis><knowledge_points>一元一次方程</knowledge_points>` +
                             '<wrong_answer_text></wrong_answer_text><mistake_status>unknown</mistake_status><mistake_analysis></mistake_analysis>' +
-                            '<subject>数学</subject><difficulty_stars>2</difficulty_stars><grade_semester>初二上</grade_semester>' }, finish_reason: 'stop' }],
+                            '<subject>数学</subject><difficulty_stars>2</difficulty_stars><question_type>calculation</question_type><grade_semester>初二上</grade_semester>' }, finish_reason: 'stop' }],
                         usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });
                 }
                 if (operation === 'unknown') {
@@ -169,14 +169,14 @@ export async function startMockAI() {
                         : `证明两个连续整数之和为奇数，并说明理由。${marker}变式`,
                     answerText: operation === 'analysis' ? 'x = 3' : '设整数为 n 与 n+1，其和为 2n+1，所以是奇数。',
                     analysis: '按定义列式并逐步推导。', subject: '数学', knowledgePoints: ['一元一次方程'],
-                    difficultyStars: 3, gradeSemester: '初二上', requiresImage: false,
+                    difficultyStars: 3, gradeSemester: '初二上', requiresImage: false, questionType: 'calculation',
                     hasFigure: operation === 'variant', figureSvg: operation === 'variant' ? FIGURE : null,
                 };
                 return json(response, 200, { id: `e2e-${state.id}-${state.calls.length}`, object: 'chat.completion', created: 0, model: 'e2e-mock-model',
                     choices: [{ index: 0, message: { role: 'assistant', content: ['analysis', 'variant'].includes(operation) ?
                         `<question_text>${payload.questionText}</question_text><answer_text>${payload.answerText}</answer_text><analysis>${payload.analysis}</analysis>` +
                         `<subject>${payload.subject}</subject><knowledge_points>${payload.knowledgePoints.join(',')}</knowledge_points>` +
-                        `<difficulty_stars>${payload.difficultyStars}</difficulty_stars><grade_semester>${payload.gradeSemester}</grade_semester>` +
+                        `<difficulty_stars>${payload.difficultyStars}</difficulty_stars><question_type>${payload.questionType}</question_type><grade_semester>${payload.gradeSemester}</grade_semester>` +
                         `<requires_image>false</requires_image><has_figure>${payload.hasFigure}</has_figure><figure_svg>${payload.figureSvg || ''}</figure_svg>` : JSON.stringify(payload) }, finish_reason: 'stop' }],
                     usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });
             } finally {

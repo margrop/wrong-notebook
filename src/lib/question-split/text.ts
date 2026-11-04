@@ -27,6 +27,8 @@ export interface SplitTextQuestion {
     knowledgePoints?: string[];
     /** 难度星级（识别自【难度】等行首标记，1～5） */
     difficultyStars?: number | null;
+    /** 题型（识别自【题型】等行首标记，question-type.ts 中的 key） */
+    questionType?: string | null;
     /** 学生的错误作答（识别自【错答】等行首标记） */
     wrongAnswer?: string | null;
 }
@@ -383,6 +385,7 @@ const MARK_PATTERNS = {
     analysis: /^(?:【\s*(?:解析|分析|详解|解答|点评)\s*】|(?:解析|分析|详解|解答|点评)\s*[:：])\s*(.*)$/,
     knowledge: /^(?:【\s*(?:知识点|考点)\s*】|(?:知识点|考点)\s*[:：])\s*(.*)$/,
     difficulty: /^(?:【\s*难度\s*】|难度\s*[:：])\s*(.*)$/,
+    questionType: /^(?:【\s*题型\s*】|题型\s*[:：])\s*(.*)$/,
     wrongAnswer: /^(?:【\s*错答\s*】|我的答案\s*[:：]|学生答案\s*[:：])\s*(.*)$/,
 } as const;
 
@@ -415,6 +418,7 @@ interface ParsedFields {
     analysis?: string | null;
     knowledgePoints?: string[];
     difficultyStars?: number | null;
+    questionType?: string | null;
     wrongAnswer?: string | null;
 }
 
@@ -424,7 +428,7 @@ interface ParsedFields {
  */
 function extractMarkedFields(lines: string[]): { text: string; fields: ParsedFields } {
     type FieldKey = keyof typeof MARK_PATTERNS;
-    const collected: Record<FieldKey, string[]> = { answer: [], analysis: [], knowledge: [], difficulty: [], wrongAnswer: [] };
+    const collected: Record<FieldKey, string[]> = { answer: [], analysis: [], knowledge: [], difficulty: [], questionType: [], wrongAnswer: [] };
     const body: string[] = [];
     let currentKey: FieldKey | null = null;
 
@@ -459,6 +463,8 @@ function extractMarkedFields(lines: string[]): { text: string; fields: ParsedFie
     const difficultyText = collected.difficulty.join(' ').trim();
     const difficulty = difficultyText ? parseDifficulty(difficultyText) : null;
     if (difficulty !== null) fields.difficultyStars = difficulty;
+    const questionTypeText = collected.questionType.join(' ').trim();
+    if (questionTypeText) fields.questionType = questionTypeText;
     const wrongAnswer = collected.wrongAnswer.join('\n').trim();
     if (wrongAnswer) fields.wrongAnswer = wrongAnswer;
 

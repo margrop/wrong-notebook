@@ -15,6 +15,7 @@ import {
     safeParseParsedQuestion,
     parseDifficultyStars,
     parseFigure,
+    parseQuestionType,
     stripThinkingTags,
 } from "./schema";
 import { normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
@@ -101,6 +102,7 @@ export function parseQuestionResponse(text: string): ParsedQuestion {
         requiresImage,
         gradeSemester: parseRecognizedGrade(extractTag(text, "grade_semester")),
         difficultyStars: parseDifficultyStars(extractTag(text, "difficulty_stars")),
+        questionType: parseQuestionType(extractTag(text, "question_type")),
         ...parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg")),
     };
 

@@ -9,6 +9,7 @@ import {
     generateOutputContract,
     DRAFT_FILTER_RULES,
     DIFFICULTY_STARS_RULES,
+    QUESTION_TYPE_RULES,
     LATEX_RULES,
     replaceVariables,
 } from './shared';
@@ -71,6 +72,10 @@ export const DEFAULT_REANSWER_TEMPLATE = `【角色与核心任务 (ROLE AND COR
 ${DIFFICULTY_STARS_RULES}
 </difficulty_stars>
 
+<question_type>
+${QUESTION_TYPE_RULES}
+</question_type>
+
 【!!! 关键格式与内容约束 (CRITICAL RULES) !!!】
 1. **格式严格**：必须包含输出协议规定的全部 XML 标签，包括 grade_semester 年级标签，不要输出其他内容。
 2. **纯文本**：内容作为纯文本处理，**不要转义反斜杠**。
@@ -117,7 +122,7 @@ export function generateReanswerPrompt(
     '请以校正后的题目文本为准重新解答，图片仅用于补充图形及可见的正式作答，过滤掉草稿与人的思考过程。',
     generateOutputContract('reanswer'), DRAFT_FILTER_RULES, langInstruction, LATEX_RULES,
     generateGradeInstruction(gradeSemester), generateGradeRecognitionInstruction(gradeSemester),
-    DIFFICULTY_STARS_RULES,
+    DIFFICULTY_STARS_RULES, QUESTION_TYPE_RULES,
     options?.candidateTags ? `只能从候选知识点中选择，名称必须完全一致，最多 5 个；无可用标签时留空：${options.candidateTags.tags.join('、')}` : '',
   ].filter(Boolean).join('\n\n');
 }

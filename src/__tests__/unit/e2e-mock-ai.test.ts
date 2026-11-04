@@ -25,7 +25,7 @@ describe('本地模型服务与真实适配器的协议', () => {
     });
     it('图片分析通过真实 SDK 与 XML 解析器，并记录多模态请求', async () => {
         const result = await provider.analyzeImage('dGVzdA==', 'image/png', 'zh', 8, '数学', '初二上', { subjectName: '数学', tags: ['一元一次方程'] });
-        expect(result).toMatchObject({ answerText: 'x = 3', subject: '数学', difficultyStars: 3, gradeSemester: '初二上' });
+        expect(result).toMatchObject({ answerText: 'x = 3', subject: '数学', difficultyStars: 3, questionType: 'calculation', gradeSemester: '初二上' });
         expect(mock.cases.get('protocol')?.calls).toContainEqual(expect.objectContaining({ operation: 'analysis', hasImage: true }));
     });
     it('变式题及内嵌 SVG 按正式输出协议解析', async () => {

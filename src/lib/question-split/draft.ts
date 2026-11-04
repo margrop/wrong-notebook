@@ -60,6 +60,8 @@ export const draftItemSchema = z.object({
     knowledgePoints: z.array(z.string().max(MAX_KNOWLEDGE_POINT_LENGTH)).max(MAX_ITEM_KNOWLEDGE_POINTS).optional(),
     /** 难度星级（1～5）；旧草稿没有此字段 */
     difficultyStars: z.number().int().min(1).max(5).nullish(),
+    /** 题型（question-type.ts 中的 key）；旧草稿没有此字段 */
+    questionType: z.string().max(200).nullish(),
     /** 学生的错误作答；旧草稿没有此字段 */
     wrongAnswer: z.string().max(MAX_DRAFT_TEXT_LENGTH).nullish(),
 });
@@ -111,6 +113,7 @@ export function draftFromTextSplit(questions: SplitTextQuestion[], ignored: stri
             analysis: question.analysis ?? null,
             knowledgePoints: question.knowledgePoints?.slice(0, MAX_ITEM_KNOWLEDGE_POINTS),
             difficultyStars: question.difficultyStars ?? null,
+            questionType: question.questionType ?? null,
             wrongAnswer: question.wrongAnswer ?? null,
         };
     });

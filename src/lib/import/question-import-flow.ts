@@ -30,6 +30,7 @@ export interface ReanswerResponse {
     mistakeAnalysis: string;
     mistakeStatus: string;
     difficultyStars?: number | null;
+    questionType?: string | null;
     subject?: string;
 }
 
@@ -173,6 +174,7 @@ export function parseReanswerResponse(result: ReanswerResponse, questionText: st
         subject: (result.subject || "其他") as ParsedQuestion["subject"],
         requiresImage: false,
         difficultyStars: result.difficultyStars ?? null,
+        questionType: result.questionType ?? null,
         gradeSemester: result.gradeSemester ?? null,
     };
 }

@@ -4,6 +4,7 @@ import type { ParsedQuestionFromSchema } from './schema';
 
 // Import and re-export MistakeStatus from the single source of truth
 import type { MistakeStatus } from '@/lib/question/mistake-status';
+import type { QuestionType } from '@/lib/question/question-type';
 import type { NarrationSegment } from '../svg-animation';
 export type { MistakeStatus };
 
@@ -22,6 +23,7 @@ export interface ReanswerQuestionResult {
     mistakeStatus: MistakeStatus;
     subject?: string; // AI 判断的学科，自定义模板未输出时为空
     difficultyStars?: number | null; // AI 评定的难度星级 1~5，未输出时为空
+    questionType?: QuestionType | null; // AI 判断的题型，未输出或无法识别时为空
 }
 
 export type { FigureResult } from './schema';
