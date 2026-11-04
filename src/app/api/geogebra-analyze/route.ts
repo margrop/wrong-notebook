@@ -6,6 +6,7 @@ import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
+import { geogebraAnalyzeBodySchema } from "@/lib/schemas/ai";
 
 const logger = createLogger('api:geogebra-analyze');
 
@@ -16,15 +17,14 @@ const logger = createLogger('api:geogebra-analyze');
  */
 async function handlePost(req: Request, { user, session }: AuthenticatedContext) {
     try {
-        const body = await req.json();
-        const { questionText, answerText, analysis } = body;
-
-        if (!questionText?.trim()) {
+        const parsed = geogebraAnalyzeBodySchema.safeParse(await req.json().catch(() => null));
+        if (!parsed.success) {
             return NextResponse.json(
                 { suitable: false, commands: [], description: "题目文本为空" },
                 { status: 400 }
             );
         }
+        const { questionText, answerText, analysis } = parsed.data;
 
         const limited = await consumeAiQuota(session.user, 'geogebra');
         if (limited) return limited;

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { requireAdmin } from '@/lib/auth-utils';
 import { forbidden } from '@/lib/api-errors';
+import { aiModelsBodySchema } from '@/lib/schemas/ai';
 import { DEFAULT_ANTHROPIC_BASE_URL } from '@/lib/ai/anthropic-provider';
 import { isVendorProvider, VENDOR_PRESETS } from '@/lib/ai/vendor-presets';
 import { createLogger } from '@/lib/logger';
@@ -105,14 +106,14 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { provider, apiKey, baseUrl } = await req.json() as { provider?: string; apiKey?: string; baseUrl?: string };
-
-        if (!apiKey) {
+        const parsed = aiModelsBodySchema.safeParse(await req.json().catch(() => null));
+        if (!parsed.success) {
             return NextResponse.json(
                 { error: 'API key is required' },
                 { status: 400 }
             );
         }
+        const { provider, apiKey, baseUrl } = parsed.data;
 
         let models: ModelInfo[] = [];
         // 管理员可填写自建或第三方兼容地址，这里只允许 http/https

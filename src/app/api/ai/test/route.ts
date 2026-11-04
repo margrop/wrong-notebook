@@ -8,6 +8,7 @@ import { DEFAULT_MINIMAX_CODE_MODEL } from '@/lib/minimax-code/constants';
 import { isVendorProvider, resolveVendorConfig } from '@/lib/ai/vendor-presets';
 import type { VendorProviderId } from '@/lib/ai/vendor-presets';
 import { withAdmin } from '@/lib/api-handler';
+import { aiTestBodySchema } from '@/lib/schemas/ai';
 import { createLogger } from '@/lib/logger';
 import { getErrorDetail } from '@/lib/error-message';
 
@@ -102,10 +103,13 @@ export interface AITestResponse {
 
 async function handlePost(request: Request) {
     try {
-        const body: AITestRequest = await request.json();
-        const { provider, apiKey, baseUrl, model, endpoint, deploymentName, apiVersion, language = 'zh' } = body;
+        const parsed = aiTestBodySchema.safeParse(await request.json().catch(() => null));
+        if (!parsed.success) {
+            return NextResponse.json({ error: 'Missing provider or apiKey' }, { status: 400 });
+        }
+        const { provider, apiKey, baseUrl, model, endpoint, deploymentName, apiVersion, language = 'zh' } = parsed.data;
 
-        if (!provider || (!apiKey && provider !== 'minimax-code')) {
+        if (!apiKey && provider !== 'minimax-code') {
             return NextResponse.json({ error: 'Missing provider or apiKey' }, { status: 400 });
         }
 

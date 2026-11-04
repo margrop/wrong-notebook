@@ -7,6 +7,7 @@ import { withRecoverableResponse } from "@/lib/recoverable-response";
 import { analyzeQuestionForUser, mapAnalysisError } from "@/lib/question-analysis";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
+import { analyzeBodySchema } from "@/lib/schemas/ai";
 
 const logger = createLogger('api:analyze');
 
@@ -18,8 +19,12 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
     logger.info('Analyze API called');
 
     try {
-        const body = await req.json();
-        const { language, subjectId, imageBase64, mimeType } = body;
+        const parsed = analyzeBodySchema.safeParse(await req.json().catch(() => null));
+        if (!parsed.success) {
+            logger.warn('Invalid request body');
+            return badRequest("Missing image data");
+        }
+        const { language = 'zh', subjectId, imageBase64, mimeType } = parsed.data;
 
         logger.debug({
             imageLength: imageBase64?.length,
@@ -27,11 +32,6 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
             language,
             subjectId
         }, 'Request received');
-
-        if (!imageBase64) {
-            logger.warn('Missing image data');
-            return badRequest("Missing image data");
-        }
 
         const limited = await consumeAiQuota(session.user, 'analyze');
         if (limited) return limited;

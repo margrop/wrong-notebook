@@ -85,6 +85,18 @@ describe('/api/reanswer', () => {
             expect(data.analysis).toContain('移项');
         });
 
+        it('前端提交的空值（subjectId、subject 等为 null）不被参数校验拒绝', async () => {
+            mocks.mockAIService.reanswerQuestion.mockResolvedValue({ answerText: 'x = 3', analysis: '移项', knowledgePoints: [] });
+
+            const response = await POST(new Request('http://localhost/api/reanswer', {
+                method: 'POST',
+                body: JSON.stringify({ questionText: '求解 x + 2 = 5', language: 'zh', subject: null, subjectId: null, gradeSemester: null, imageBase64: null }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect(response.status).toBe(200);
+        });
+
         it('应该支持指定学科', async () => {
             const aiResult = {
                 answerText: 'The answer is B',

@@ -13,6 +13,7 @@ import { getFixedQuestionGrade, resolveQuestionGrade } from "@/lib/question-grad
 import { getAppTimeZone } from "@/lib/config";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
+import { reanswerBodySchema } from "@/lib/schemas/ai";
 
 const logger = createLogger('api:reanswer');
 
@@ -20,8 +21,12 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
     logger.info('Reanswer API called');
 
     try {
-        const body = await req.json();
-        const { questionText, language = 'zh', subject, imageBase64, gradeSemester, subjectId, forImport } = body;
+        const parsed = reanswerBodySchema.safeParse(await req.json().catch(() => null));
+        if (!parsed.success) {
+            logger.warn('Missing or invalid request body');
+            return badRequest("Missing question text");
+        }
+        const { questionText, language = 'zh', subject, imageBase64, gradeSemester, subjectId, forImport } = parsed.data;
 
         logger.debug({
             questionLength: questionText?.length,
@@ -31,14 +36,9 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
             gradeSemester
         }, 'Reanswer request received');
 
-        if (!questionText || questionText.trim().length === 0) {
-            logger.warn('Missing question text');
-            return badRequest("Missing question text");
-        }
-
         // 指定了错题本时，知识点只能从该错题本学段 + 学科下的全部标签中选择
         let candidateTags: CandidateTags | undefined;
-        if (typeof subjectId === 'string' && subjectId && session.user?.email) {
+        if (subjectId && session.user?.email) {
             const notebook = await prisma.subject.findFirst({
                 where: { id: subjectId, user: { email: session.user.email } },
                 select: { name: true, stage: true, subjectKey: true, tagSet: true },
