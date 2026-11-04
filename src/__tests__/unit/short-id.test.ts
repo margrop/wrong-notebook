@@ -2,7 +2,7 @@
  * 短 ID 生成与校验单元测试
  */
 import { describe, it, expect, vi } from 'vitest';
-import { BASE58_ALPHABET, generateShortId, generateUniqueShortId, isShortId } from '@/lib/short-id';
+import { BASE58_ALPHABET, generateShortId, generateUniqueShortId, isShortId } from '@/lib/short-id/short-id';
 
 describe('short-id', () => {
     it('生成的 ID 为 6 位 base58 字符', () => {

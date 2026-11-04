@@ -13,7 +13,7 @@ import { classifyQuestionSaveError } from "@/lib/question/question-save-failure"
 import { createLogger } from "@/lib/logger";
 import { resolveOrCreateTags, inferTagScope } from "@/lib/tags/tag-resolver";
 import { normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
-import { generateUniqueShortId } from "@/lib/short-id";
+import { generateUniqueShortId } from "@/lib/short-id/short-id";
 import { resolveNotebookForSubject } from "@/lib/notebook-resolver";
 import { scheduleMasteryEvaluation } from "@/lib/mastery";
 import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from "@/lib/question/question-deduplication";

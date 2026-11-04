@@ -4,7 +4,7 @@ import { notFound, internalError } from "@/lib/api-errors";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
-import { isShortId } from "@/lib/short-id";
+import { isShortId } from "@/lib/short-id/short-id";
 
 const logger = createLogger('api:error-items:short');
 

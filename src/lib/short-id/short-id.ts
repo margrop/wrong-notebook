@@ -1,9 +1,9 @@
 import "server-only";
 
 import { randomBytes } from "crypto";
-import { BASE58_ALPHABET, SHORT_ID_LENGTH } from "@/lib/short-id-format";
+import { BASE58_ALPHABET, SHORT_ID_LENGTH } from "@/lib/short-id/short-id-format";
 
-export { BASE58_ALPHABET, SHORT_ID_LENGTH, isShortId } from "@/lib/short-id-format";
+export { BASE58_ALPHABET, SHORT_ID_LENGTH, isShortId } from "@/lib/short-id/short-id-format";
 
 const MAX_ATTEMPTS = 10;
 

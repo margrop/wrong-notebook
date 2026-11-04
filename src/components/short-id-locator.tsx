@@ -6,8 +6,8 @@ import { Loader2, LocateFixed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { locateByShortId } from "@/lib/short-id-client";
-import { isShortId } from "@/lib/short-id-format";
+import { locateByShortId } from "@/lib/short-id/short-id-client";
+import { isShortId } from "@/lib/short-id/short-id-format";
 
 /** 输入短 ID 直接跳转到题目详情 */
 export function ShortIdLocator() {

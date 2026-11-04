@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { getAppTimeZone } from "@/lib/config";
 import { shiftCalendarDate } from "@/lib/date-time";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/lib/constants/pagination";
-import { isShortId } from "@/lib/short-id";
+import { isShortId } from "@/lib/short-id/short-id";
 import { isMasteryStatus, masteryStatusWhere } from "@/lib/mastery-status";
 import type { MasteryStatus } from "@/lib/mastery-status";
 import type { TimeFilter } from "@/lib/error-list-filters";
