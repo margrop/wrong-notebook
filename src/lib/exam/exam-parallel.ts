@@ -57,7 +57,7 @@ export function splitParallelSources<T extends ParallelSourceItem>(
     for (const group of groups.values()) {
         const ordered = sampleItems(group, group.length, random)
             .sort((a, b) => difficultyRank(a) - difficultyRank(b));
-        ordered.forEach((item, index) => {
+        ordered.forEach((item) => {
             if (fillAFirst) {
                 // 不足时先填满 A 卷，剩余进入 B 卷
                 if (paperA.length < count) {
@@ -67,12 +67,10 @@ export function splitParallelSources<T extends ParallelSourceItem>(
                 }
                 return;
             }
-            // 充足时同题型内按难度交替：偶数位给 A，奇数位给 B
-            if (index % 2 === 0) {
-                paperA.push(item);
-            } else {
-                paperB.push(item);
-            }
+            // 充足时跨题型连续交替：每题给当前题数较少的一卷（相同时给 A），
+            // 组内已按难度排序，因此两卷的题型与难度分布都接近；任一卷不超过 count
+            const toA = paperA.length <= paperB.length ? paperA.length < count : paperB.length >= count;
+            (toA ? paperA : paperB).push(item);
         });
     }
     return { paperA, paperB, warning };

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/lib/feedback";
-import { MAX_EXAM_SCORE, MIN_EXAM_SCORE, normalizeExamScore } from "@/lib/exam/exam-score";
+import { MAX_EXAM_SCORE, normalizeExamScore } from "@/lib/exam/exam-score";
 import { frontendLogger } from "@/lib/frontend-logger";
 
 interface ExamQuestionScoreInputProps {
@@ -54,9 +54,9 @@ export function ExamQuestionScoreInput({ questionId, score, disabled, onSave }: 
             <Input
                 id={`exam-score-${questionId}`}
                 type="number"
-                min={MIN_EXAM_SCORE}
+                min={0.1}
                 max={MAX_EXAM_SCORE}
-                step={0.5}
+                step={0.1}
                 value={value}
                 disabled={saving || disabled}
                 aria-invalid={!valid}

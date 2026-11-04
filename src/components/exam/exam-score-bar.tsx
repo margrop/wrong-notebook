@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/lib/feedback";
-import { MAX_EXAM_SCORE, MIN_EXAM_SCORE, normalizeExamScore } from "@/lib/exam/exam-score";
+import { MAX_EXAM_SCORE, normalizeExamScore } from "@/lib/exam/exam-score";
 import { frontendLogger } from "@/lib/frontend-logger";
 
 interface ExamScoreBarProps {
@@ -55,9 +55,9 @@ export function ExamScoreBar({ scores, disabled, onSave }: ExamScoreBarProps) {
             <span className="font-medium">{t.exam.uniformScore}</span>
             <Input
                 type="number"
-                min={MIN_EXAM_SCORE}
+                min={0.1}
                 max={MAX_EXAM_SCORE}
-                step={0.5}
+                step={0.1}
                 value={value}
                 disabled={saving || disabled}
                 aria-invalid={!valid}

@@ -102,4 +102,20 @@ describe('splitParallelSources', () => {
             expect(aIds.has(id)).toBe(false);
         }
     });
+
+    it('各题型题数为奇数时两卷仍各得 count 道且不超过 count', () => {
+        const sources = [
+            item('s1', 'single_choice'), item('s2', 'single_choice'), item('s3', 'single_choice'),
+            item('f1', 'fill_blank'), item('f2', 'fill_blank'),
+            item('n1', null),
+        ];
+        const { paperA, paperB, warning } = splitParallelSources(sources, 3, () => 0.5);
+        expect(warning).toBeNull();
+        expect(paperA).toHaveLength(3);
+        expect(paperB).toHaveLength(3);
+        expect(new Set([...paperA, ...paperB].map((entry) => entry.id)).size).toBe(6);
+        // 单选题两卷分别至少 1 道
+        expect(paperA.some((entry) => entry.questionType === 'single_choice')).toBe(true);
+        expect(paperB.some((entry) => entry.questionType === 'single_choice')).toBe(true);
+    });
 });
