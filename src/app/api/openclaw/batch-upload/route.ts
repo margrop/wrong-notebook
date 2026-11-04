@@ -7,14 +7,13 @@ import type { BackgroundTaskHandle } from "@/lib/background-tasks";
 import { createErrorResponse, ErrorCode } from "@/lib/api-errors";
 import { prepareImportGrade } from "@/lib/import-question-grade";
 import { needsQuestionGradeRecognition } from "@/lib/question-grade";
-import { inferSubjectFromName } from "@/lib/knowledge-tags";
-import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 import { generateUniqueShortId } from "@/lib/short-id";
 import { scheduleMasteryEvaluation } from "@/lib/mastery";
 import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from "@/lib/question-deduplication";
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
 import { getErrorMessage } from "@/lib/error-message";
+import { resolveOrCreateTags, inferTagScope } from "@/lib/tag-resolver";
 
 const logger = createLogger('api:openclaw:batch-upload');
 
@@ -147,47 +146,17 @@ async function createErrorItem(
         if (duplicate) return recordDuplicateQuestion(tx, userId, duplicate, content);
 
         const tagNames: string[] = Array.isArray(knowledgePoints) ? knowledgePoints : [];
-        const tagConnections: { id: string }[] = [];
 
         const subject = subjectId ? await tx.subject.findUnique({ where: { id: subjectId } }) : null;
-        const subjectKey = subject ? inferSubjectFromName(subject.name) : null;
-        const notebookTagSet = subject?.tagSet || 'default';
+        const { subjectKey, tagSet } = inferTagScope(subject);
 
-        for (const tagName of tagNames) {
-            try {
-                let tag = await tx.knowledgeTag.findFirst({
-                    where: {
-                        name: tagName,
-                        tagSet: notebookTagSet,
-                        OR: [
-                            { isSystem: true },
-                            { userId: userId },
-                        ],
-                    },
-                });
-
-                if (!tag) {
-                    const parentId = finalGradeSemester && subjectKey
-                        ? await findParentTagIdForGrade(finalGradeSemester, subjectKey, tx, notebookTagSet)
-                        : null;
-
-                    tag = await tx.knowledgeTag.create({
-                        data: {
-                            name: tagName,
-                            subject: subjectKey || 'other',
-                            isSystem: false,
-                            userId: userId,
-                            parentId: parentId || undefined,
-                            tagSet: notebookTagSet,
-                        },
-                    });
-                }
-
-                tagConnections.push({ id: tag.id });
-            } catch (tagError) {
-                logger.error({ tagName, error: tagError }, 'Error processing tag');
-            }
-        }
+        const tagConnections = await resolveOrCreateTags(tx, {
+            userId,
+            tagNames,
+            subjectKey,
+            tagSet,
+            gradeSemester: finalGradeSemester,
+        });
 
         // 事务内确保默认分组存在（并发安全），并解析默认卷别
         await ensureDefaultPaperGroups(userId, tx);
