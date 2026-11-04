@@ -1,27 +1,17 @@
 import OpenAI from "openai";
 import type { ChatCompletion } from "openai/resources/chat/completions";
-import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest, generateTextFixRequest } from './prompt-requests';
-import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
-import type { NarrationSegment } from '../svg-animation';
-import { parseLatexFix } from './latex-fix';
-import type { LatexFixInput, LatexFixResult } from './latex-fix';
-import { getAppConfig } from '../config';
-import { parseGradeRecognition, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure } from './schema';
-import { extractTag, parseQuestionResponse, splitKnowledgePoints } from './response-parser';
-import { prefetchSubjectTags } from './tag-service';
+import type { AIService, AIConfig } from "./types";
+import type { CompletionRequest } from './base-provider';
+import { BaseAIProvider } from './base-provider';
 import { createLogger } from '../logger';
-import { AI_OUTPUT_TRUNCATED, outputTokenLimit, withModelOutputLimit } from './truncation';
-import { normalizeMistakeStatusForSave } from '../mistake-status';
-import { parseRecognizedGrade } from '../question-grade';
-import { normalizeGeneratedQuestion } from './generated-question';
-import { normalizeAiQuestionTags } from './knowledge-points';
-import { AI_IMAGE_NOT_SUPPORTED, isImageUnsupportedError, parseQuestionSplit } from './question-split';
-import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
-import { parseTextFix } from './text-fix';
-import type { TextFixInput, TextFixResult } from './text-fix';
+import { AI_OUTPUT_TRUNCATED, withModelOutputLimit } from './truncation';
+import type { FigureResult } from './schema';
+import { parseFigure } from './schema';
+import { extractTag } from './response-parser';
 
 const logger = createLogger('ai:openai');
+
+export const DEFAULT_OPENAI_MODEL = 'gpt-6.1-sol';
 
 /** 发给 LongCat 的消息内容片段：OpenAI 格式的文字、图片，以及 LongCat 的 input_image */
 type LongCatContentPart =
@@ -34,14 +24,13 @@ interface LongCatMessage {
     content: string | LongCatContentPart[];
 }
 
-export const DEFAULT_OPENAI_MODEL = 'gpt-6.1-sol';
-
 type OpenAIUserContent = string | Array<
     { type: "text"; text: string } |
     { type: "image_url"; image_url: { url: string } }
 >;
 
-export class OpenAIProvider implements AIService {
+export class OpenAIProvider extends BaseAIProvider implements AIService {
+    protected readonly providerName = 'OpenAI';
     private openai: OpenAI;
     private model: string;
     private baseURL: string;
@@ -49,6 +38,7 @@ export class OpenAIProvider implements AIService {
     private isLongCat: boolean;
 
     constructor(config?: AIConfig) {
+        super();
         const apiKey = config?.apiKey;
         const baseURL = config?.baseUrl;
 
@@ -97,468 +87,109 @@ export class OpenAIProvider implements AIService {
         });
     }
 
-    async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: GradeLevel | null, subject?: string | null, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ParsedQuestion> {
-        const config = getAppConfig();
+    /**
+     * 发送一次单轮对话并返回正文。
+     * 有图片且为 LongCat 时绕过 SDK 直接 fetch（LongCat 用 input_image 格式）；
+     * 配图重绘（figure）时图片放在文字前，其余任务图片放在文字后。
+     */
+    protected async complete(request: CompletionRequest): Promise<string> {
+        const systemMessage = { role: "system", content: request.system };
+        let userContent: OpenAIUserContent = request.user;
 
-        // 有错题本学段 + 学科时直接使用其全部知识点，否则按学科、年级取标签
-        const tagOptions = candidateTags ? { candidateTags } : await prefetchSubjectTags(subject, grade);
+        if (request.image) {
+            const imageUrl = request.image.base64.startsWith('data:')
+                ? request.image.base64
+                : `data:${request.image.mimeType || 'image/jpeg'};base64,${request.image.base64}`;
 
-        const systemPrompt = generateAnalyzeRequest(language, grade, subject, {
-            customTemplate: config.prompts?.analyze,
-            ...tagOptions,
-        }, gradeSemester);
-
-        logger.box('🔍 AI Image Analysis Request', {
-            provider: 'OpenAI',
-            endpoint: `${this.baseURL}/chat/completions`,
-            imageSize: `${imageBase64.length} bytes`,
-            mimeType,
-            model: this.model,
-            language,
-            grade: grade || 'all'
-        });
-        logger.box('📝 Full System Prompt', systemPrompt.system);
-
-        try {
-            // 构建请求参数（用于日志显示，图片数据截断）
-            const requestParamsForLog = {
-                model: this.model,
-                messages: [
-                    {
-                        role: "system",
-                        content: systemPrompt.system
-                    },
-                    {
-                        role: "user",
-                        content: [
-                            { type: "text", text: systemPrompt.user },
-                            {
-                                type: "image_url",
-                                image_url: {
-                                    url: `data:${mimeType};base64,[...${imageBase64.length} bytes base64 data...]`,
-                                },
-                            },
-                        ],
-                    },
-                ],
-                max_tokens: outputTokenLimit(this.model),
-            };
-
-            logger.box('📤 API Request (发送给 AI 的原始请求)', JSON.stringify(requestParamsForLog, null, 2));
-
-            let response: ChatCompletion;
-
-            if (this.isLongCat) {
-                // LongCat 使用不同的多模态格式，绕过 SDK 直接请求
-                const messages = this.adaptMessagesForLongCat([
-                    { role: "system", content: systemPrompt.system },
-                    {
-                        role: "user",
-                        content: [
-                            { type: "text", text: systemPrompt.user },
-                            {
-                                type: "image_url",
-                                image_url: {
-                                    url: `data:${mimeType};base64,${imageBase64}`,
-                                },
-                            },
-                        ],
-                    },
-                ]);
-
-                response = await withModelOutputLimit(async (maxTokens) => {
-                    const res = await fetch(`${this.baseURL}/chat/completions`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${this.apiKey}`,
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            model: this.model,
-                            messages,
-                            max_tokens: maxTokens,
-                        }),
-                    });
-
-                    if (!res.ok) {
-                        const errBody = await res.text();
-                        logger.error({ status: res.status, body: errBody }, 'LongCat API error');
-                        throw new Error(`${res.status} status code (${errBody})`);
-                    }
-
-                    return await res.json() as ChatCompletion;
-                }, this.model);
-            } else {
-                response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                    model: this.model,
-                    messages: [
-                        {
-                            role: "system",
-                            content: systemPrompt.system
-                        },
-                        {
-                            role: "user",
-                            content: [
-                            { type: "text", text: systemPrompt.user },
-                                {
-                                    type: "image_url",
-                                    image_url: {
-                                        url: `data:${mimeType};base64,${imageBase64}`,
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                    // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
-                    max_tokens: maxTokens,
-                }), this.model);
-            }
-
-            logger.box('📦 Full API Response', JSON.stringify(response, null, 2));
-
-            // 检查响应是否有效
-            if (!response || !response.choices || response.choices.length === 0) {
-                logger.error({ response: JSON.stringify(response) }, 'Invalid API response - no choices array');
-                throw new Error("AI_RESPONSE_ERROR: API returned empty or invalid response");
-            }
-
-            const text = response.choices[0]?.message?.content || "";
-
-            logger.box('🤖 AI Raw Response', text);
-
-            if (!text) throw new Error("Empty response from AI");
-            const parsedResult = normalizeAiQuestionTags(parseQuestionResponse(text), tagOptions);
-
-            logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
-
-            return parsedResult;
-
-        } catch (error) {
-            logger.box('❌ Error during AI analysis', {
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined
-            });
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async generateSimilarQuestion(originalQuestion: string, knowledgePoints: string[], language: 'zh' | 'en' = 'zh', difficulty: DifficultyLevel = 'medium', gradeSemester?: string | null, originalFigureSvg?: string | null): Promise<ParsedQuestion> {
-        const config = getAppConfig();
-        const systemPrompt = generateSimilarQuestionRequest(language, originalQuestion, knowledgePoints, difficulty, {
-            customTemplate: config.prompts?.similar,
-            originalFigureSvg,
-        }, gradeSemester);
-        const userPrompt = systemPrompt.user;
-
-        logger.box('🎯 Generate Similar Question Request', {
-            provider: 'OpenAI',
-            endpoint: `${this.baseURL}/chat/completions`,
-            model: this.model,
-            originalQuestion: originalQuestion.substring(0, 100) + '...',
-            knowledgePoints: knowledgePoints.join(', '),
-            difficulty,
-            language
-        });
-        logger.box('📝 System Prompt', systemPrompt.system);
-        logger.box('📝 User Prompt', userPrompt);
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                model: this.model,
-                messages: [
-                    { role: "system", content: systemPrompt.system },
-                    { role: "user", content: userPrompt },
-                ],
-                // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
-                max_tokens: maxTokens,
-            }), this.model);
-
-            // 检查响应是否有效
-            if (!response || !response.choices || response.choices.length === 0) {
-                logger.error({ response: JSON.stringify(response) }, 'Invalid API response - no choices array');
-                throw new Error("AI_RESPONSE_ERROR: API returned empty or invalid response");
-            }
-
-            const text = response.choices[0]?.message?.content || "";
-
-            logger.box('🤖 AI Raw Response', text);
-
-            if (!text) throw new Error("Empty response from AI");
-            const parsedResult = parseQuestionResponse(text);
-
-            logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
-
-            return normalizeGeneratedQuestion(parsedResult);
-
-        } catch (error) {
-            logger.box('❌ Error during question generation', {
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined
-            });
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async reanswerQuestion(questionText: string, language: 'zh' | 'en' = 'zh', subject?: string | null, imageBase64?: string, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ReanswerQuestionResult> {
-        const { generateReanswerRequest } = await import('./prompt-requests');
-        const prompt = generateReanswerRequest(language, questionText, subject, { candidateTags }, gradeSemester);
-
-        logger.info({
-            provider: 'OpenAI',
-            endpoint: `${this.baseURL}/chat/completions`,
-            model: this.model,
-            questionLength: questionText.length,
-            subject: subject || 'auto',
-            hasImage: !!imageBase64
-        }, 'Reanswer Question Request');
-        logger.debug({ prompt }, 'Full prompt');
-
-        try {
-            // 根据是否有图片构建不同的消息内容
-            let userContent: OpenAIUserContent = prompt.user;
-            if (imageBase64) {
-                // 如果有图片，构建多模态消息
-                const imageUrl = imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
-                logger.debug({ imageLength: imageUrl.length }, 'Image added to request');
-                userContent = [
-                    { type: "text", text: prompt.user },
-                    { type: "image_url", image_url: { url: imageUrl } }
+            if (request.task === 'figure') {
+                // 配图重绘：图片在文字前
+                const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [
+                    { type: "image_url", image_url: { url: imageUrl } },
+                    { type: "text", text: request.user },
                 ];
+                userContent = parts;
             } else {
-                logger.debug({ imageBase64Type: typeof imageBase64, hasValue: !!imageBase64 }, 'No image data');
+                const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [
+                    { type: "text", text: request.user },
+                    { type: "image_url", image_url: { url: imageUrl } },
+                ];
+                userContent = parts;
             }
+        }
 
-            // 打印请求参数
-            const requestParams = {
-                model: this.model,
-                messages: [
-                    { role: "system", content: prompt.system.substring(0, 200) + "..." },
-                    { role: "user", content: typeof userContent === 'string' ? userContent : "[包含图片的多模态消息]" }
-                ],
-                max_tokens: outputTokenLimit(this.model)
-            };
-            logger.debug({ requestParams }, 'Request parameters');
+        // LongCat 的多模态格式与 OpenAI 不同，analyze 和 question-split 任务绕过 SDK 直接请求
+        const useLongCatFetch = request.image && this.isLongCat &&
+            (request.task === 'analyze' || request.task === 'question-split');
 
-            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                model: this.model,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: userContent }
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
+        if (useLongCatFetch) {
+            const messages: LongCatMessage[] = [systemMessage, { role: "user", content: userContent }];
+            const adaptedMessages = this.adaptMessagesForLongCat(messages);
+            const response = await withModelOutputLimit(async (maxTokens) => {
+                const res = await fetch(`${this.baseURL}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: this.model,
+                        messages: adaptedMessages,
+                        max_tokens: maxTokens,
+                    }),
+                });
 
-            logger.debug({ response: JSON.stringify(response) }, 'Full API response');
+                if (!res.ok) {
+                    const errBody = await res.text();
+                    logger.error({ status: res.status, body: errBody }, 'LongCat API error');
+                    throw new Error(`${res.status} status code (${errBody})`);
+                }
 
-            // 检查响应是否有效
+                return await res.json() as ChatCompletion;
+            }, this.model);
+
+            const text = response.choices?.[0]?.message?.content || '';
+            if (!text) throw new Error("Empty response from AI");
+            return text;
+        }
+
+        const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
+            model: this.model,
+            messages: [
+                { role: "system", content: request.system },
+                { role: "user", content: userContent },
+            ],
+            max_tokens: maxTokens,
+        }), this.model);
+
+        // analyze/similar/reanswer 对空 choices 抛 AI_RESPONSE_ERROR，其余任务按空响应处理（AI_UNKNOWN_ERROR）
+        if (request.task === 'analyze' || request.task === 'similar' || request.task === 'reanswer') {
             if (!response || !response.choices || response.choices.length === 0) {
                 logger.error({ response: JSON.stringify(response) }, 'Invalid API response - no choices array');
                 throw new Error("AI_RESPONSE_ERROR: API returned empty or invalid response");
             }
-
-            const text = response.choices[0]?.message?.content || "";
-
-            logger.debug({ rawResponse: text }, 'AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-
-            // 解析响应
-            const answerText = extractTag(text, "answer_text") || "";
-            const analysis = extractTag(text, "analysis") || "";
-            const knowledgePoints = splitKnowledgePoints(extractTag(text, "knowledge_points"));
-            const wrongAnswerText = extractTag(text, "wrong_answer_text") || "";
-            const mistakeAnalysis = extractTag(text, "mistake_analysis") || "";
-            const mistakeStatus = normalizeMistakeStatusForSave(
-                extractTag(text, "mistake_status"),
-                wrongAnswerText
-            );
-
-            logger.info('Reanswer parsed successfully');
-
-            return normalizeAiQuestionTags({ answerText, analysis, knowledgePoints, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(extractTag(text, "subject")), gradeSemester: parseRecognizedGrade(extractTag(text, "grade_semester")), difficultyStars: parseDifficultyStars(extractTag(text, "difficulty_stars")) }, { candidateTags });
-
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
-            this.handleError(error);
-            throw error;
         }
+
+        const text = response.choices?.[0]?.message?.content || "";
+        if (!text) throw new Error("Empty response from AI");
+        return text;
     }
 
-    async analyzeForGeogebra(questionText: string, answerText: string, analysis: string, previousErrors?: string): Promise<GeogebraAnalysisResult> {
-        const prompt = generateGeogebraRequest(questionText, answerText, analysis, previousErrors);
-
-        logger.info({
-            provider: 'OpenAI',
-            model: this.model,
-            questionLength: questionText.length,
-        }, 'GeoGebra Analysis Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                model: this.model,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user }
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'GeoGebra AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-
-            // Extract JSON from response (handle possible markdown code blocks)
-            let jsonStr = text.trim();
-            const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-            if (jsonMatch) {
-                jsonStr = jsonMatch[1].trim();
-            }
-
-            // Try to find JSON object
-            const objStart = jsonStr.indexOf('{');
-            const objEnd = jsonStr.lastIndexOf('}');
-            if (objStart !== -1 && objEnd !== -1) {
-                jsonStr = jsonStr.substring(objStart, objEnd + 1);
-            }
-
-            const parsed = JSON.parse(jsonStr);
-
-            return {
-                suitable: Boolean(parsed.suitable),
-                commands: Array.isArray(parsed.commands) ? parsed.commands : [],
-                description: parsed.description || "",
-            };
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during GeoGebra analysis');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async evaluateMastery(input: MasteryEvaluationInput): Promise<MasteryEvaluationResult> {
-        const prompt = generateMasteryRequest(input);
-
-        logger.info({
-            provider: 'OpenAI',
-            historyCount: input.history.length,
-        }, 'Mastery Evaluation Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                model: this.model,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user }
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'Mastery AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return parseMasteryEvaluation(text);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during mastery evaluation');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async recognizeGrade(questionText: string): Promise<string | null> {
-        const prompt = generateGradeRecognitionRequest(questionText);
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                model: this.model,
-                messages: [{ role: 'system', content: prompt.system }, { role: 'user', content: prompt.user }],
-                max_tokens: maxTokens,
-            }), this.model);
-            return parseGradeRecognition(response.choices[0]?.message?.content || '');
-        } catch (error) {
-            logger.error({ error }, '识别题目年级失败');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async gradeAnswer(input: AnswerGradingInput): Promise<AnswerGradingResult> {
-        const prompt = generateGradingRequest(input);
-        logger.info({ provider: 'OpenAI' }, 'Answer Grading Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                model: this.model,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user }
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'Grading AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return parseAnswerGrading(text);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during answer grading');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async suggestKnowledgeTags(input: TagSuggestionInput): Promise<TagSuggestionResult> {
-        const prompt = generateTagSuggestRequest(input);
-
-        logger.info({
-            provider: 'OpenAI',
-            subject: input.subject,
-            allowedTagCount: input.allowedTags.length,
-        }, 'Tag Suggestion Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                model: this.model,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user }
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'Tag suggestion AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return parseTagSuggestion(text, input.allowedTags);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during tag suggestion');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
+    /**
+     * 单独重绘配图：与基类不同，不附加额外文字，且图片放在文字前。
+     */
     async generateFigureSvg(imageBase64: string, mimeType: string, questionText?: string | null): Promise<FigureResult> {
+        const { generateFigureRequest } = await import('./prompt-requests');
         const prompt = generateFigureRequest(questionText);
-        logger.info({ provider: 'OpenAI', model: this.model, imageSize: imageBase64.length }, 'Figure SVG Request');
+        logger.info({ provider: this.providerName, model: this.model, imageSize: imageBase64.length }, 'Figure SVG Request');
 
         try {
-            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                model: this.model,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: [{ type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } }, { type: "text", text: prompt.user }] },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
+            const text = await this.complete({
+                task: 'figure',
+                system: prompt.system,
+                user: prompt.user,
+                image: { base64: imageBase64, mimeType },
+            });
             logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
             return parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during figure SVG generation');
@@ -567,161 +198,7 @@ export class OpenAIProvider implements AIService {
         }
     }
 
-    async fixLatex(input: LatexFixInput): Promise<LatexFixResult> {
-        const prompt = generateLatexFixRequest(input);
-        logger.info({ provider: 'OpenAI', model: this.model, fields: Object.keys(input) }, 'LaTeX Fix Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                model: this.model,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'LaTeX fix AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return parseLatexFix(text, input);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during LaTeX fix');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async generateSvgAnimation(questionText: string, answerText: string, analysis: string, figureSvg?: string | null, language: 'zh' | 'en' = 'zh'): Promise<string | null> {
-        const prompt = generateSvgAnimationRequest(questionText, answerText, analysis, figureSvg, language);
-        logger.info({ provider: 'OpenAI', model: this.model, questionLength: questionText.length }, 'SVG Animation Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                model: this.model,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'SVG animation AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return sanitizeSvgAnimation(extractTag(text, "svg_animation") || text);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG animation generation');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async generateSvgNarration(questionText: string, answerText: string, analysis: string, svgAnimation: string, language: 'zh' | 'en' = 'zh'): Promise<NarrationSegment[] | null> {
-        const prompt = generateSvgNarrationRequest(questionText, answerText, analysis, svgAnimation, language);
-        logger.info({ provider: 'OpenAI', model: this.model, svgLength: svgAnimation.length }, 'SVG Narration Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                model: this.model,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'SVG narration AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return parseNarration(extractTag(text, "narration") || text);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG narration generation');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async splitQuestions(input: QuestionSplitInput): Promise<QuestionSplitResult> {
-        const prompt = generateQuestionSplitRequest(input);
-        logger.info({ provider: 'OpenAI', model: this.model, kind: input.kind, size: input.kind === 'text' ? input.lines.length : input.imageBase64.length }, 'Question Split Request');
-        const imageUrl = input.kind === 'image' ? `data:${input.mimeType};base64,${input.imageBase64}` : null;
-
-        try {
-            let text: string;
-            if (imageUrl && this.isLongCat) {
-                // LongCat 使用不同的多模态格式，绕过 SDK 直接请求
-                const messages = this.adaptMessagesForLongCat([
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: [{ type: "text", text: prompt.user }, { type: "image_url", image_url: { url: imageUrl } }] },
-                ]);
-                const response = await withModelOutputLimit(async (maxTokens) => {
-                    const res = await fetch(`${this.baseURL}/chat/completions`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model: this.model, messages, max_tokens: maxTokens }),
-                    });
-                    if (!res.ok) throw new Error(`${res.status} status code (${await res.text()})`);
-                    return await res.json() as ChatCompletion;
-                }, this.model);
-                text = response.choices?.[0]?.message?.content || '';
-            } else {
-                const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                    model: this.model,
-                    messages: [
-                        { role: "system", content: prompt.system },
-                        {
-                            role: "user",
-                            content: imageUrl
-                                ? [{ type: "text", text: prompt.user }, { type: "image_url", image_url: { url: imageUrl } }]
-                                : prompt.user,
-                        },
-                    ],
-                    max_tokens: maxTokens,
-                }), this.model);
-                text = response.choices[0]?.message?.content || '';
-            }
-            logger.debug({ rawResponse: text }, 'Question split AI raw response');
-            if (!text) throw new Error("Empty response from AI");
-            return parseQuestionSplit(text, input);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during question split');
-            if (input.kind === 'image' && isImageUnsupportedError(error)) throw new Error(AI_IMAGE_NOT_SUPPORTED, { cause: error });
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async fixQuestionText(input: TextFixInput): Promise<TextFixResult> {
-        const prompt = generateTextFixRequest(input);
-        logger.info({ provider: 'OpenAI', model: this.model, questions: input.length }, 'Text Fix Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-                model: this.model,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            // 部分网关在上游超时等情况下返回 200 但 choices 为空
-            const text = response.choices?.[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'Text fix AI raw response');
-            if (!text) throw new Error("Empty response from AI");
-            return parseTextFix(text, input);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during text fix');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    private handleError(error: unknown) {
+    protected handleError(error: unknown): void {
         logger.error({ error }, 'OpenAI error');
         if (error instanceof Error) {
             if (error.message === AI_OUTPUT_TRUNCATED || error.message.startsWith('AI_RESPONSE_ERROR:')) {
@@ -762,4 +239,3 @@ export class OpenAIProvider implements AIService {
         throw new Error("AI_UNKNOWN_ERROR", { cause: error });
     }
 }
-
