@@ -19,7 +19,8 @@ wrong-notebook 是一个错题本 Web 应用：上传题目图片或文字，由
 | --- | --- |
 | `src/app/` | 页面与路由；`src/app/api/` 为 API 路由 |
 | `src/components/` | React 组件；`ui/` 为基础组件 |
-| `src/lib/` | 业务逻辑与工具：`ai/`、`auth.ts`、`prisma.ts`、`logger.ts`、`api-errors.ts`、`translations.ts` 等 |
+| `src/lib/` | 业务逻辑与工具：`ai/`、`auth.ts`、`prisma.ts`、`logger.ts`、`api-errors.ts`、`translations.ts`（入口）等 |
+| `src/lib/i18n/` | 界面文案按语言拆分：`en.ts`、`zh.ts`，由 `src/lib/translations.ts` 汇总导出 |
 | `src/lib/tag-data/` | 各学科知识点标签数据 |
 | `src/__tests__/unit`、`src/__tests__/integration` | Vitest 测试 |
 | `e2e/` | Playwright 测试 |
@@ -57,7 +58,7 @@ bash scripts/ci.sh          # 完整 CI（要求 Node.js 22 及以上，含生�
 - 导入顺序：React/Next → 第三方 → `@/components` → `@/lib` → types → styles。
 - 路径别名 `@/` 指向 `src/`。
 - API 错误使用 `@/lib/api-errors`；日志后端用 `@/lib/logger`，前端用 `@/lib/frontend-logger`，不要直接 `console.log`。
-- 界面文本放在 `@/lib/translations.ts`，组件中用 `t.section.key`，缺省回退英文。中英文 key 必须一致（`translations.test.ts` 会检查）。
+- 界面文本放在 `@/lib/translations.ts`（入口，实际文案按语言拆分在 `src/lib/i18n/en.ts` / `src/lib/i18n/zh.ts`），组件中用 `t.section.key`，缺省回退英文。中英文 key 必须一致（`translations.test.ts` 会检查）。
 - 页面须同时适配 PC 和移动端（移动优先）。
 - 修改 AI 调用时同步更新所有提供商（`gemini-provider.ts`、`openai-provider.ts`、`azure-provider.ts`、`anthropic-provider.ts`），提示词集中在 `prompts.ts`。
 - AI 调用不要写死 `max_tokens`：OpenAI、Azure、Anthropic 一律经 `withModelOutputLimit`（`src/lib/ai/truncation.ts`）按模型最大输出请求（已知模型查 `model-output-limits.ts`，未知模型默认 256K，超限时自动降级）；新增模型的官方输出上限补到 `model-output-limits.ts`。推理模型的思考也计入输出，小上限会导致正文为空。
