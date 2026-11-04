@@ -80,9 +80,52 @@ export function drawingRun(): string {
     return `<w:r><w:drawing><wp:inline><a:graphic><a:graphicData><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:blipFill><a:blip r:embed="rId4"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
 }
 
-/** 公式占位（m:oMath） */
+/** 公式占位（m:oMath，默认输出 [公式]） */
 export function oMathRun(): string {
     return `<m:oMath><m:r><w:t>x+y</w:t></m:r></m:oMath>`;
+}
+
+/** 行内 OMML 公式（m:oMath 包指定子结构） */
+export function oMathContent(childrenXml: string): string {
+    return `<m:oMath>${childrenXml}</m:oMath>`;
+}
+
+/** m:oMathPara 块级公式 */
+export function oMathPara(childrenXml: string): string {
+    return `<m:oMathPara>${childrenXml}</m:oMathPara>`;
+}
+
+/** m:r/m:t（OMML） */
+export function mRun(text: string): string {
+    return `<m:r><m:t>${esc(text)}</m:t></m:r>`;
+}
+
+/** m:f 分数 */
+export function mFraction(numXml: string, denXml: string): string {
+    return `<m:f><m:num>${numXml}</m:num><m:den>${denXml}</m:den></m:f>`;
+}
+
+/** m:sSup 上标 */
+export function mSup(baseXml: string, supXml: string): string {
+    return `<m:sSup><m:e>${baseXml}</m:e><m:sup>${supXml}</m:sup></m:sSup>`;
+}
+
+/** m:sSub 下标 */
+export function mSub(baseXml: string, subXml: string): string {
+    return `<m:sSub><m:e>${baseXml}</m:e><m:sub>${subXml}</m:sub></m:sSub>`;
+}
+
+/** m:d 分隔符（可选 begChr/endChr） */
+export function mDelimited(childrenXml: string, begChr?: string, endChr?: string): string {
+    const dPr = begChr !== undefined || endChr !== undefined
+        ? `<m:dPr>${begChr !== undefined ? `<m:begChr m:val="${esc(begChr)}"/>` : ""}${endChr !== undefined ? `<m:endChr m:val="${esc(endChr)}"/>` : ""}</m:dPr>`
+        : "";
+    return `<m:d>${dPr}<m:e>${childrenXml}</m:e></m:d>`;
+}
+
+/** OLE 公式对象（MathType 等：w:pict > v:shape > w:object > o:OLEObject，ProgID 含 Equation） */
+export function oleEquationRun(progId = "Equation.DSMT4"): string {
+    return `<w:r><w:pict><v:shape xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" style="width:100pt;height:20pt"><w:object w:dxaOrig="1000" w:dyaOrig="200"><v:imagedata r:id="rId5"/><o:OLEObject Type="Embed" ProgID="${esc(progId)}"/></w:object></v:shape></w:pict></w:r>`;
 }
 
 /** 普通段落 */

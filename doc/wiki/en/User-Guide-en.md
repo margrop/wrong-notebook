@@ -37,7 +37,8 @@ Word (.docx) question bank files are supported, up to 50 MB.
 - **Supported content**: normal paragraphs, auto-numbered paragraphs, tables (cells joined with tabs), inline tags such as 【答案】 (answer), 【解析】 (analysis), 【知识点】 (knowledge points), 【难度】 (difficulty) and 【错答】 (wrong answer), as well as an "参考答案" answer section filled back by question number.
 - **Auto numbering**: numbers from Word auto-numbering are not in the text; the parser computes them from `numbering.xml` (e.g. "1.", "一、", "（三）"). Common formats include decimal, Chinese counting (一、二、三…), enclosed circle digits (①②③), upper/lowercase letters and Roman numerals.
 - **Superscripts and subscripts**: superscripts are output as `^{…}` (pure digits as `^2`, e.g. x^2), and subscripts as `_{…}` (same rule, e.g. `a_{n+1}`).
-- **Not yet supported**: images and formulas currently output the placeholders "[图片]" and "[公式]"; support is planned for a later version. Legacy .doc binary files must first be saved as .docx in Word before importing.
+- **Word formulas**: formulas inserted with Word's built-in equation editor (Insert → Equation) are converted to LaTeX for KaTeX rendering — inline formulas become `$…$` and display equations become `$$…$$`; fractions, radicals, superscripts/subscripts, ∑/∫/∏, equation systems, matrices and other common structures are supported. OLE equation objects such as MathType are not OMML and appear in the docx as images; they are kept as the "[图片]" placeholder for now (counted in the import warning `OLE_EQUATION:N`). Unrecognized OMML structures keep their text and are reported in the `MATH_UNSUPPORTED:元素名` warning. Legacy .doc binary files must first be saved as .docx in Word before importing.
+- **Images**: currently output the placeholder "[图片]"; support is planned for a later version.
 - **Strikethrough and hidden text**: skipped during parsing; revisions keep insertions and skip deletions.
 
 ### Multiple questions

@@ -12,9 +12,15 @@ import {
     insRun,
     makeDocxBuffer,
     makeLegacyDocBuffer,
+    mFraction,
+    mRun,
+    mSup,
     num,
     numPara,
+    oMathContent,
+    oMathPara,
     oMathRun,
+    oleEquationRun,
     para,
     run,
     strikeRun,
@@ -219,12 +225,12 @@ describe("docx 解析：表格", () => {
 });
 
 describe("docx 解析：图片与公式占位", () => {
-    it("图片输出 [图片]，公式输出 [公式]", async () => {
+    it("图片输出 [图片]，OMML 公式默认转为 $…$（T19 起替换 [公式] 占位）", async () => {
         const buffer = makeDocxBuffer({
             body: para(t("如图") + drawingRun() + t("，已知") + oMathRun() + t("，求值")),
         });
         const result = await parseDocx(buffer);
-        expect(result.questions[0].text).toContain("如图[图片]，已知[公式]，求值");
+        expect(result.questions[0].text).toContain("如图[图片]，已知$x+y$，求值");
     });
 
     it("handlers 可替换占位符（扩展点）", async () => {
@@ -332,6 +338,75 @@ describe("docx 解析：答案解析标记与答案区回填", () => {
             expect(question.text).not.toContain("参考答案");
             expect(question.text).not.toContain("1. B");
         }
+    });
+});
+
+describe("docx 解析：OMML 公式转 LaTeX", () => {
+    it("行内 m:oMath 默认转为 $…$（分数与上下标）", async () => {
+        const formula = oMathContent(mFraction(mSup(mRun("x"), mRun("2")), mRun("4")));
+        const buffer = makeDocxBuffer({
+            body: para(t("已知") + formula + t("，求值")),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("已知$\\frac{x^2}{4}$，求值");
+    });
+
+    it("m:oMathPara 块级公式输出独立一行 $$…$$", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("由公式")) + para(oMathPara(mFraction(mRun("a"), mRun("b")))),
+        });
+        const result = await parseDocx(buffer);
+        const text = result.questions[0].text;
+        expect(text).toContain("$$");
+        expect(text).toContain("\\frac{a}{b}");
+    });
+
+    it("空公式退回 [公式] 占位", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("已知") + oMathContent("") + t("，求值")),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("[公式]");
+    });
+
+    it("handlers.math 仍可覆盖默认 OMML 转换", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("已知") + oMathContent(mRun("x")) + t("，求值")),
+        });
+        const result = await parseDocx(buffer, { math: () => "[MATH]" });
+        expect(result.questions[0].text).toContain("[MATH]");
+        expect(result.questions[0].text).not.toContain("$x$");
+    });
+
+    it("未识别的 OMML 元素汇总为 MATH_UNSUPPORTED 警告（去重）", async () => {
+        const phantom = `<m:phant><m:e>${mRun("x")}</m:e></m:phant>`;
+        const buffer = makeDocxBuffer({
+            body: para(t("1．") + oMathContent(phantom)) + para(t("2．") + oMathContent(phantom)),
+        });
+        const result = await parseDocx(buffer);
+        const warning = result.warnings.find((w) => w.startsWith("MATH_UNSUPPORTED:"));
+        expect(warning).toBeDefined();
+        expect(warning).toContain("phant");
+        // 去重：phant 只出现一次
+        expect(warning?.split(",")[1]).toBeUndefined();
+    });
+
+    it("MathType OLE 公式对象按图片占位并计数 OLE_EQUATION:N", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("1．") + oleEquationRun()) + para(t("2．") + oleEquationRun("Equation.3")),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.warnings).toContain("OLE_EQUATION:2");
+        // 仍按图片占位输出
+        expect(result.questions[0].text).toContain("[图片]");
+    });
+
+    it("普通图片不算 OLE_EQUATION", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("1．") + drawingRun() + t("2．") + drawingRun()),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.warnings.some((w) => w.startsWith("OLE_EQUATION:"))).toBe(false);
     });
 });
 

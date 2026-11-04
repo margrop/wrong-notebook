@@ -14,12 +14,22 @@
  */
 import { mapSymChar } from "@/lib/import/file-parsers/docx/symbols";
 
+/** OMML 公式转换结果的收集器：由 parseDocx 传入，用于跨段落汇总 */
+export interface DocxMathCollector {
+    /** 未识别的 OMML 元素名（去重、按出现顺序） */
+    unsupported: Set<string>;
+    /** OLE 公式对象（w:object 中 ProgID 含 Equation）的数量 */
+    oleCount: number;
+}
+
 /** handlers 回调收到的上下文：供图片/公式提取使用（扩展点） */
 export interface DocxContext {
     /** word/_rels/document.xml.rels 解析出的 rId → target 映射 */
     relationships: Record<string, string>;
     /** 解压后的全部 zip 条目（小写文件名 → 字节），供按 target 读取 word/media/* 等 */
     files: Record<string, Uint8Array>;
+    /** 公式转换收集器（可选）：parseDocx 传入以汇总 unsupported/OLE 计数 */
+    mathCollector?: DocxMathCollector;
 }
 
 /** 图片/公式占位处理：element 为对应 w:drawing/w:pict 或 m:oMath/m:oMathPara 元素；
@@ -85,6 +95,15 @@ function readRunProperties(rPr: Element | null, context: RunContext): void {
     }
 }
 
+/** 检测 w:object 是否为 OLE 公式对象（ProgID 含 Equation，如 MathType/Equation Editor） */
+function isOleEquationObject(object: Element): boolean {
+    for (const objectElement of Array.from(object.getElementsByTagName("*"))) {
+        const progid = objectElement.getAttribute("ProgID");
+        if (progid && /Equation/i.test(progid)) return true;
+    }
+    return false;
+}
+
 /** 提取一个 run 的文字（处理 tab/br/sym/上下标/非破坏字符）；w:delText 由调用方跳过 */
 function runText(run: Element, context: RunContext): string {
     const rPr = run.getElementsByTagNameNS(W, "rPr")[0] ?? null;
@@ -111,6 +130,9 @@ function runText(run: Element, context: RunContext): string {
             const charCode = parseInt(charHex.replace(/^0x/i, ""), 16);
             extra += Number.isFinite(charCode) ? mapSymChar(font, charCode) : "[符号]";
         } else if (isElement(child, W, "drawing") || isElement(child, W, "pict")) {
+            if (isElement(child, W, "pict") && isOleEquationObject(child) && context.docxContext.mathCollector) {
+                context.docxContext.mathCollector.oleCount += 1;
+            }
             extra += context.handlers.image?.(child, context.docxContext) ?? DEFAULT_IMAGE_PLACEHOLDER;
         } else if (isElement(child, M, "oMath") || isElement(child, M, "oMathPara")) {
             extra += context.handlers.math?.(child, context.docxContext) ?? DEFAULT_MATH_PLACEHOLDER;
@@ -143,6 +165,9 @@ function collectRuns(node: Node, context: RunContext, out: string[]): void {
         } else if (isElement(element, W, "hyperlink") || isElement(element, W, "smartTag")) {
             collectRuns(element, context, out);
         } else if (isElement(element, W, "pict") || isElement(element, W, "drawing")) {
+            if (isElement(element, W, "pict") && isOleEquationObject(element) && context.docxContext.mathCollector) {
+                context.docxContext.mathCollector.oleCount += 1;
+            }
             out.push(context.handlers.image?.(element, context.docxContext) ?? DEFAULT_IMAGE_PLACEHOLDER);
         } else {
             collectRuns(element, context, out);

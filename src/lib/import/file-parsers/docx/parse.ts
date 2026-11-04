@@ -22,8 +22,9 @@ import { splitQuestionText } from "@/lib/question-split/text";
 import type { TextSplitOptions } from "@/lib/question-split/text";
 import { isLegacyDocFile, loadDocxParts } from "@/lib/import/file-parsers/docx/docx-xml";
 import { NumberingResolver } from "@/lib/import/file-parsers/docx/numbering";
-import type { DocxInlineHandlers, DocxContext } from "@/lib/import/file-parsers/docx/text";
-import { paragraphText, tableRowText } from "@/lib/import/file-parsers/docx/text";
+import type { DocxInlineHandlers, DocxContext, DocxMathCollector } from "@/lib/import/file-parsers/docx/text";
+import { DEFAULT_MATH_PLACEHOLDER, paragraphText, tableRowText } from "@/lib/import/file-parsers/docx/text";
+import { ommlToLatex } from "@/lib/import/file-parsers/docx/omml";
 
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
@@ -32,6 +33,23 @@ export const WARNING_SINGLE_QUESTION = "SINGLE_QUESTION";
 /** 把 ignored 内容数量放入 warnings：IGNORED_PARAGRAPHS:N */
 function ignoredWarning(count: number): string {
     return `IGNORED_PARAGRAPHS:${count}`;
+}
+
+const MATH_UNSUPPORTED_WARNING = "MATH_UNSUPPORTED";
+const OLE_EQUATION_WARNING = "OLE_EQUATION";
+/** MATH_UNSUPPORTED 中最多列出的元素名个数 */
+const MAX_UNSUPPORTED_LIST = 10;
+
+/** 默认公式处理：m:oMath 输出 $…$，m:oMathPara 输出独立一行 $$…$$；失败退回 [公式] */
+function defaultMathHandler(collector: DocxMathCollector) {
+    return (element: Element): string | undefined => {
+        const { latex, unsupported } = ommlToLatex(element);
+        for (const name of unsupported) collector.unsupported.add(name);
+        const trimmed = latex.trim();
+        if (!trimmed) return DEFAULT_MATH_PLACEHOLDER;
+        const isBlock = element.localName === "oMathPara";
+        return isBlock ? `\n$$\n${trimmed}\n$$\n` : `$${trimmed}$`;
+    };
 }
 
 /** 按文档顺序提取全文行：段落加自动编号前缀，表格行用制表符连接单元格 */
@@ -87,6 +105,9 @@ function toStructuredInput(question: SplitTextQuestion): Record<string, unknown>
  * 解析 docx 题库文件。
  * 旧版 .doc（文件头 D0 CF 11 E0）返回 LEGACY_DOC_NOT_SUPPORTED；
  * 损坏的 zip 或非 docx 返回 INVALID_DOCX（index 均为 -1）。
+ *
+ * Word 自带公式（OMML）默认转为 LaTeX：m:oMath 输出 $…$，m:oMathPara 输出独立一行 $$…$$；
+ * MathType 等 OLE 公式对象不是 OMML，在 docx 中表现为图片，仍按图片占位并计数。
  */
 export async function parseDocx(
     buffer: ArrayBuffer,
@@ -104,9 +125,11 @@ export async function parseDocx(
         return { questions: [], errors: [{ index: -1, reason: "INVALID_DOCX" }], warnings: [] };
     }
 
-    const docxContext: DocxContext = { relationships: parts.relationships, files: parts.files };
+    const mathCollector: DocxMathCollector = { unsupported: new Set(), oleCount: 0 };
+    const mergedHandlers: DocxInlineHandlers = { math: defaultMathHandler(mathCollector), ...handlers };
+    const docxContext: DocxContext = { relationships: parts.relationships, files: parts.files, mathCollector };
     const resolver = new NumberingResolver(parts.numbering, parts.styles);
-    const lines = extractLines(parts.document, resolver, handlers, docxContext);
+    const lines = extractLines(parts.document, resolver, mergedHandlers, docxContext);
     // 用空行连接段落，还原段落感；splitQuestionText 会再归一化
     const fullText = lines.join("\n");
 
@@ -114,6 +137,13 @@ export async function parseDocx(
     const warnings: string[] = [];
     if (split.ignored.length > 0) warnings.push(ignoredWarning(split.ignored.length));
     if (!split.detected && split.questions.length === 1) warnings.push(WARNING_SINGLE_QUESTION);
+    if (mathCollector.unsupported.size > 0) {
+        const listed = Array.from(mathCollector.unsupported).slice(0, MAX_UNSUPPORTED_LIST).join(",");
+        warnings.push(`${MATH_UNSUPPORTED_WARNING}:${listed}`);
+    }
+    if (mathCollector.oleCount > 0) {
+        warnings.push(`${OLE_EQUATION_WARNING}:${mathCollector.oleCount}`);
+    }
 
     const result = parseQuestionFile(split.questions.map(toStructuredInput));
     return {
