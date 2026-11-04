@@ -17,6 +17,53 @@ fork 项目可在此文件中：
 
 纯函数 `isBarePath(pathname)` 与 `findActiveNavKey(pathname)` 已导出供测试和外部使用。
 
+## 界面文案
+
+文件：`src/lib/i18n/overrides.ts`
+
+fork 项目可覆盖上游已存在的文案 key，或维护自己的新文案，而不改动上千行的 `src/lib/i18n/zh.ts` / `en.ts` 主文件。
+
+### 覆盖已有文案
+
+`TRANSLATION_OVERRIDES` 的类型是 `{ zh?: DeepPartial<Translations>; en?: DeepPartial<Translations> }`，只允许覆盖已存在的 key——拼错 key 会在编译期报错。上游此对象为空，fork 在自己模块中维护覆盖内容：
+
+```ts
+// src/lib/i18n/bank-zh.ts（fork 自建文件）
+import type { DeepPartial } from "@/lib/i18n/overrides";
+import type { Translations } from "@/lib/translations";
+
+export const bankZh: DeepPartial<Translations> = {
+    pageTitle: {
+        base: "AI题库",
+        home: "录入题目",
+    },
+};
+```
+
+```ts
+// src/lib/i18n/overrides.ts 中赋值（fork 私有改动）
+import { bankZh } from "@/lib/i18n/bank-zh";
+export const TRANSLATION_OVERRIDES = { zh: bankZh };
+```
+
+合并规则：仅普通对象递归深合并；数组与函数整体替换；`translations.en` / `translations.zh` 在未覆盖时与 `en` / `zh` 原对象严格一致。
+
+### fork 自有文案
+
+上游不为 fork 预留新 key。fork 的自有页面文案应放在自己的模块（如 `src/lib/i18n/bank-zh.ts`）中，并通过自己的 hook 结合 `useLanguage()` 读取当前语言：
+
+```ts
+// src/lib/hooks/use-bank-translations.ts（fork 自建文件）
+import { useLanguage } from "@/contexts/LanguageContext";
+import { bankZh } from "@/lib/i18n/bank-zh";
+import { bankEn } from "@/lib/i18n/bank-en";
+
+export function useBankTranslations() {
+    const { language } = useLanguage();
+    return language === "zh" ? bankZh : bankEn;
+}
+```
+
 ## 备份扩展数据
 
 文件：`src/lib/backup-extensions.ts`
