@@ -60,9 +60,32 @@ function randomPrefix(): string {
 }
 
 /** 把任意数量的结构化题目按 60 题一组切分 */
-export function chunkStructuredItems(items: StructuredQuestionItem[], size = MAX_SPLIT_QUESTIONS): StructuredQuestionItem[][] {
+/**
+ * 单个批次中题目原图的总长度上限。图片存于批次草稿 JSON，预览、编辑草稿时整份往返，
+ * 限制单批总量可避免几十 MB 的草稿拖慢导入中心。单张图片已压缩到约 1MB 以内。
+ */
+export const MAX_BATCH_IMAGE_LENGTH = 8 * 1024 * 1024;
+
+/** 按题数（默认 60）与图片总长度（MAX_BATCH_IMAGE_LENGTH）切分，任一达到上限即开始新的一批 */
+export function chunkStructuredItems(
+    items: StructuredQuestionItem[],
+    size = MAX_SPLIT_QUESTIONS,
+    maxImageLength = MAX_BATCH_IMAGE_LENGTH,
+): StructuredQuestionItem[][] {
     const chunks: StructuredQuestionItem[][] = [];
-    for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+    let current: StructuredQuestionItem[] = [];
+    let imageLength = 0;
+    for (const item of items) {
+        const length = item.image?.length ?? 0;
+        if (current.length > 0 && (current.length >= size || imageLength + length > maxImageLength)) {
+            chunks.push(current);
+            current = [];
+            imageLength = 0;
+        }
+        current.push(item);
+        imageLength += length;
+    }
+    if (current.length > 0) chunks.push(current);
     return chunks;
 }
 

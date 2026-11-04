@@ -37,6 +37,20 @@ describe('chunkStructuredItems', () => {
     it('空数组返回空', () => {
         expect(chunkStructuredItems([])).toEqual([]);
     });
+
+    it('图片总长度达到上限时提前开始新的一批，单题超限也独占一批', () => {
+        const image = (length: number) => `data:image/jpeg;base64,${'A'.repeat(length)}`;
+        const items = [
+            { text: '1', image: image(400) },
+            { text: '2', image: image(400) },
+            { text: '3' },
+            { text: '4', image: image(300) },
+            { text: '5', image: image(2000) },
+            { text: '6' },
+        ];
+        const chunks = chunkStructuredItems(items, 60, 1000);
+        expect(chunks.map((chunk) => chunk.map((item) => item.text))).toEqual([['1', '2', '3'], ['4'], ['5'], ['6']]);
+    });
 });
 
 describe('needsAutoSplit', () => {
