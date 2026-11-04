@@ -83,8 +83,8 @@ function chineseToNumber(text: string): number {
 }
 
 const NUMBER_PATTERNS: Array<{ family: NumberFamily; pattern: RegExp }> = [
-    // 1. 1．（不把 1.5 这样的小数当题号）
-    { family: 'dot', pattern: /^(\d{1,3})\s*[.．](?!\d)\s*/ },
+    // 1. 1．（不把半角 1.5 这样的小数当题号；全角「．」是题号分隔符，后面紧跟数字（如 2．3×4=）也算题号）
+    { family: 'dot', pattern: /^(\d{1,3})\s*(?:．|\.(?!\d))\s*/ },
     { family: 'comma', pattern: /^(\d{1,3})\s*[、，,](?!\d)\s*/ },
     { family: 'paren', pattern: /^(\d{1,3})\s*[)）]\s*/ },
     { family: 'colon', pattern: /^(\d{1,3})\s*[:：](?!\d)\s*/ },

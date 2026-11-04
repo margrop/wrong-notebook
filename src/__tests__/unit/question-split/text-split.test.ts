@@ -144,3 +144,23 @@ describe('本地文字分题', () => {
     });
 });
 
+
+describe('全角题号后紧跟数字', () => {
+    it('「2．3×4=」中的全角点是题号分隔符，不当作小数', () => {
+        const result = splitQuestionText('1．下列数中最大的是（　）\nA．0.5  B．0.45\n2．3×4=（　）\nA．7  B．12\n3．15÷3=____');
+        expect(result.questions.map((question) => question.label)).toEqual(['1', '2', '3']);
+        expect(result.questions[1].text).toBe('3×4=（　）\nA．7  B．12');
+    });
+
+    it('有大题标题时仍按阿拉伯题号分题，标记字段完整识别', () => {
+        const result = splitQuestionText('一、选择题\n1．甲（　）\n2．3×4=（　）\n二、填空题\n3．边长 2cm，周长____cm。\n【答案】8\n【难度】★★\n4．15÷3=____\n参考答案\n1.A 2.B\n4. 5');
+        expect(result.questions.map((question) => question.label)).toEqual(['1', '2', '3', '4']);
+        expect(result.questions[2]).toMatchObject({ section: '二、填空题', answer: '8', difficultyStars: 2 });
+        expect(result.questions.map((question) => question.answer ?? null)).toEqual(['A', 'B', '8', '5']);
+    });
+
+    it('半角「1.5」开头的行仍不当作题号', () => {
+        expect(matchQuestionNumber('1.5 米长的绳子')).toBeNull();
+        expect(matchQuestionNumber('2．3×4=')).toMatchObject({ value: 2, label: '2' });
+    });
+});
