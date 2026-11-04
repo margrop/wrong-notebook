@@ -5,7 +5,7 @@ import type { DifficultyLevel } from "@/lib/ai/types";
 import { createLogger } from "@/lib/logger";
 import { getMasteryThreshold } from "@/lib/mastery";
 import { DEFAULT_MASTERY_THRESHOLD, masteryStatusWhere } from "@/lib/mastery-status";
-import { startBackgroundTask, trackBackgroundTask } from "@/lib/background-tasks";
+import { runReservedTask, startBackgroundTask } from "@/lib/background-tasks";
 import { resolveNotebookScope, SUBJECT_DISPLAY_NAMES } from "@/lib/notebook-scope";
 import { QUESTION_TYPES } from "@/lib/question/question-type";
 import type { BackgroundTaskHandle } from "@/lib/background-tasks";
@@ -202,10 +202,16 @@ const runningPapers = new Set<string>();
 
 /**
  * 生成试卷中尚未成功的题目（新建试卷、重试失败题目、服务重启后续生成均调用此函数）
- * 原题直出（mode=original）的试卷不需要 AI 生成，直接跳过
+ * 原题直出（mode=original）的试卷不需要 AI 生成，直接跳过。
+ *
+ * taskHandle 为路由层用 reserveBackgroundTask 预占的句柄（按 target 防重复），
+ * 仅在 /api/exams/:id/retry 路由传入；内部用它登记后台任务进度并自动 succeed/fail。
  */
-export async function generateExamPaper(paperId: string, language: 'zh' | 'en' = 'zh'): Promise<void> {
-    if (runningPapers.has(paperId)) return;
+export async function generateExamPaper(paperId: string, language: 'zh' | 'en' = 'zh', taskHandle?: BackgroundTaskHandle): Promise<void> {
+    if (runningPapers.has(paperId)) {
+        taskHandle?.cancel();
+        return;
+    }
     runningPapers.add(paperId);
     let task: BackgroundTaskHandle | null = null;
     try {
@@ -213,14 +219,25 @@ export async function generateExamPaper(paperId: string, language: 'zh' | 'en' =
             where: { id: paperId },
             select: { userId: true, title: true, difficulty: true, mode: true, questions: { where: { status: { not: 'ready' } }, select: { id: true } } },
         });
-        if (!paper) return;
+        if (!paper) {
+            taskHandle?.cancel();
+            return;
+        }
         // 原题直出：题目创建时即为 ready，无需 AI 生成
-        if (paper.mode === 'original') return;
+        if (paper.mode === 'original') {
+            taskHandle?.cancel();
+            return;
+        }
 
         const queue = paper.questions.map((question) => question.id);
         const total = queue.length;
         let done = 0;
-        if (total > 0) task = startBackgroundTask({ userId: paper.userId, kind: 'exam', subject: paper.title, link: `/exams/${paperId}`, total });
+        if (taskHandle) {
+            task = taskHandle;
+            if (total > 0) task.setProgress(0, total);
+        } else if (total > 0) {
+            task = startBackgroundTask({ userId: paper.userId, kind: 'exam', subject: paper.title, link: `/exams/${paperId}`, total });
+        }
         if (queue.length > 0) {
             await prisma.examQuestion.updateMany({ where: { id: { in: queue } }, data: { status: 'pending', error: null } });
             await prisma.examPaper.update({ where: { id: paperId }, data: { status: 'generating' } });
@@ -271,13 +288,17 @@ const REGENERATED_SELECT = { status: true, questionText: true, answerText: true,
  * 单独重新生成试卷中的一道题。AI 失败时保留原内容并抛出错误。
  * - question：生成新的举一反三题目及解答，已录入结果的题目不允许（HAS_RESULTS）
  * - answer：保留题目，只重新生成答案和解析，并同步该题已录入记录中的解答快照
+ *
+ * taskHandle 为路由层用 reserveBackgroundTask 预占的句柄（按 target 防重复），
+ * 路由校验通过后才传入；内部用它包装 AI 调用并自动 succeed/fail。
  */
 export async function regenerateExamQuestion(
     paperId: string,
     questionId: string,
     userId: string,
     mode: ExamRegenerateMode,
-    language: 'zh' | 'en' = 'zh'
+    language: 'zh' | 'en' = 'zh',
+    taskHandle?: BackgroundTaskHandle,
 ): Promise<RegeneratedExamQuestion> {
     const question = await prisma.examQuestion.findUnique({
         where: { id: questionId },
@@ -300,21 +321,36 @@ export async function regenerateExamQuestion(
         },
     });
     if (!question || question.paperId !== paperId || question.paper.userId !== userId) {
+        taskHandle?.cancel();
         throw new Error('EXAM_QUESTION_NOT_FOUND');
     }
     if (question.status === 'pending') {
+        taskHandle?.cancel();
         throw new Error('QUESTION_GENERATING');
     }
-    const task = { userId, subject: question.paper.title, link: `/exams/${paperId}` };
+    // 预占句柄由路由层传入；未传入时（如测试直接调用）回退到普通登记
+    const wrap = <T>(kind: Parameters<typeof startBackgroundTask>[0]['kind'], operation: () => Promise<T>): Promise<T> => {
+        const task = taskHandle ?? startBackgroundTask({ userId, subject: question.paper.title, link: `/exams/${paperId}`, kind });
+        return runReservedTask(task, operation);
+    };
 
     if (mode === 'question') {
         // 原题直出模式不允许换一道题
-        if (question.paper.mode === 'original') throw new Error('ORIGINAL_MODE');
-        if (question._count.practiceRecords > 0) throw new Error('HAS_RESULTS');
+        if (question.paper.mode === 'original') {
+            taskHandle?.cancel();
+            throw new Error('ORIGINAL_MODE');
+        }
+        if (question._count.practiceRecords > 0) {
+            taskHandle?.cancel();
+            throw new Error('HAS_RESULTS');
+        }
         const source = question.errorItem;
-        if (!source) throw new Error('SOURCE_DELETED');
+        if (!source) {
+            taskHandle?.cancel();
+            throw new Error('SOURCE_DELETED');
+        }
 
-        const generated = await trackBackgroundTask({ ...task, kind: 'exam' }, () => getAIService().generateSimilarQuestion(
+        const generated = await wrap('exam', () => getAIService().generateSimilarQuestion(
             source.questionText || '',
             parseTagNames(source),
             language,
@@ -338,11 +374,14 @@ export async function regenerateExamQuestion(
         await refreshPaperStatus(paperId);
     } else {
         const questionText = question.questionText;
-        if (question.status !== 'ready' || !questionText?.trim()) throw new Error('NO_QUESTION_TEXT');
+        if (question.status !== 'ready' || !questionText?.trim()) {
+            taskHandle?.cancel();
+            throw new Error('NO_QUESTION_TEXT');
+        }
         const scope = question.errorItem?.subject ? resolveNotebookScope(question.errorItem.subject) : null;
         const subject = scope?.subject ? SUBJECT_DISPLAY_NAMES[scope.subject] : null;
 
-        const result = await trackBackgroundTask({ ...task, kind: 'reanswer' }, () => getAIService().reanswerQuestion(
+        const result = await wrap('reanswer', () => getAIService().reanswerQuestion(
             questionText, language, subject, undefined, question.errorItem?.gradeSemester
         ));
         if (!result.answerText.trim() && !result.analysis.trim()) throw new Error('EMPTY_ANSWER');

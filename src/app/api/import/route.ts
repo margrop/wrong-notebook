@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { unauthorized, internalError, badRequest, forbidden } from "@/lib/api-errors";
+import { unauthorized, internalError, badRequest, forbidden, taskAlreadyRunning } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { startBackgroundTask } from "@/lib/background-tasks";
-import type { BackgroundTaskHandle } from "@/lib/background-tasks";
+import { findRunningTask, reserveBackgroundTask } from "@/lib/background-tasks";
 import { importSpeeches } from "@/lib/tts/speech-cache";
 import { parseBackupFile } from "@/lib/backup/format";
 import { normalizeBackupForImport } from "@/lib/backup/import-parser";
@@ -36,7 +35,6 @@ export async function POST(req: Request) {
         return forbidden("Admin role required");
     }
 
-    let task: BackgroundTaskHandle | null = null;
     try {
         const contentLength = req.headers.get('content-length');
         if (contentLength && parseInt(contentLength, 10) > 50 * 1024 * 1024) {
@@ -57,33 +55,47 @@ export async function POST(req: Request) {
 
         const normalized = normalizeBackupForImport(body, body.user.email === user.email);
 
-        // 使用事务确保数据一致性
-        task = startBackgroundTask({ userId: user.id, kind: 'data_import' });
-        const { stats, masteryIds } = await prisma.$transaction(
-            (tx) => importBackupData({ tx, user, importAll, normalized }),
-            { timeout: 60000 },
-        );
-
-        scheduleImportMasteryEvaluation(masteryIds);
-        // 语音缓存不在数据库中，数据导入成功后再写入；失败只记录日志，不影响已导入的数据
-        stats.ttsSpeechesImported = await importSpeeches(body.ttsSpeeches).catch((error: unknown) => {
-            logger.warn({ error }, 'Failed to import TTS speeches');
-            return 0;
-        });
-        task.succeed();
-
-        logger.info({
+        // 按目标防重复：同一用户同一时刻只允许一个数据导入任务（reserve 失败返回 409，不写库）
+        const target = `user:${user.id}:data-import`;
+        const handle = reserveBackgroundTask({
             userId: user.id,
-            scope: importAll ? 'all' : 'user',
-            ...stats,
-        }, 'Data import completed');
-
-        return NextResponse.json({
-            success: true,
-            stats,
+            kind: 'data_import',
+            target,
         });
+        if (!handle) {
+            return taskAlreadyRunning(findRunningTask(user.id, target) ?? { id: '', kind: 'data_import', startedAt: '', target });
+        }
+
+        try {
+            // 使用事务确保数据一致性
+            const { stats, masteryIds } = await prisma.$transaction(
+                (tx) => importBackupData({ tx, user, importAll, normalized }),
+                { timeout: 60000 },
+            );
+
+            scheduleImportMasteryEvaluation(masteryIds);
+            // 语音缓存不在数据库中，数据导入成功后再写入；失败只记录日志，不影响已导入的数据
+            stats.ttsSpeechesImported = await importSpeeches(body.ttsSpeeches).catch((error: unknown) => {
+                logger.warn({ error }, 'Failed to import TTS speeches');
+                return 0;
+            });
+            handle.succeed();
+
+            logger.info({
+                userId: user.id,
+                scope: importAll ? 'all' : 'user',
+                ...stats,
+            }, 'Data import completed');
+
+            return NextResponse.json({
+                success: true,
+                stats,
+            });
+        } catch (error) {
+            handle.fail(error);
+            throw error;
+        }
     } catch (error) {
-        task?.fail(error);
         logger.error({ error, userId: user.id }, 'Import failed');
         return internalError("Failed to import data");
     }

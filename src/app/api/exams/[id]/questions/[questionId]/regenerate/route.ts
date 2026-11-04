@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { notFound, badRequest, conflict, validationError, internalError } from "@/lib/api-errors";
+import { notFound, badRequest, conflict, taskAlreadyRunning, validationError, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { EXAM_REGENERATE_MODES, regenerateExamQuestion } from "@/lib/exam/exam";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { findRunningTask, reserveBackgroundTask } from "@/lib/background-tasks";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
@@ -31,10 +32,26 @@ async function handlePost(
             return validationError("Invalid regenerate request", parsed.error.issues);
         }
 
-        const limited = await consumeAiQuota(user, 'exam');
-        if (limited) return limited;
+        // 按目标防重复：同一题目同一时刻只允许一个重新生成任务（reserve 失败返回 409，不扣额度、不调用 AI）
+        const target = `exam-question:${questionId}:regenerate`;
+        const handle = reserveBackgroundTask({
+            userId: user.id,
+            kind: parsed.data.mode === 'question' ? 'exam' : 'reanswer',
+            link: `/exams/${id}`,
+            target,
+        });
+        if (!handle) {
+            return taskAlreadyRunning(findRunningTask(user.id, target) ?? { id: '', kind: 'exam', startedAt: '', target });
+        }
 
-        const updated = await regenerateExamQuestion(id, questionId, user.id, parsed.data.mode, parsed.data.language || 'zh');
+        const limited = await consumeAiQuota(user, 'exam');
+        if (limited) {
+            handle.cancel();
+            return limited;
+        }
+
+        // 内部已对 handle 做 cancel（校验失败）或 fail（AI 失败）收尾
+        const updated = await regenerateExamQuestion(id, questionId, user.id, parsed.data.mode, parsed.data.language || 'zh', handle);
         return NextResponse.json(updated);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

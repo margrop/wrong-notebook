@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { CheckCircle2, Download, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, ApiError } from "@/lib/api-client";
+import { useRunningTask } from "@/lib/hooks/use-running-task";
 import { downloadFile } from "@/lib/download-file";
 import { confirmDialog, toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
@@ -15,6 +16,7 @@ type ImportStats = Record<string, number | boolean | undefined>;
 
 interface DataBackupSettingsProps {
     isAdmin: boolean;
+    userId: string;
 }
 
 function formatImportResult(stats: ImportStats, t: Translations): string {
@@ -30,11 +32,26 @@ function formatImportResult(stats: ImportStats, t: Translations): string {
 }
 
 /** 数据备份：导出、导入 JSON；管理员可导出、导入全部用户的数据 */
-export function DataBackupSettings({ isAdmin }: DataBackupSettingsProps) {
+export function DataBackupSettings({ isAdmin, userId }: DataBackupSettingsProps) {
     const { t } = useLanguage();
     const [exporting, setExporting] = useState(false);
     const [importing, setImporting] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    // 防重复 target：与服务端 reserveBackgroundTask 的 target 约定一致
+    const importTarget = `user:${userId}:data-import`;
+    const { running: importRunning, refresh: refreshImportTask } = useRunningTask(importTarget);
+    // 后台任务结束后重新加载页面（导入结果已通过服务端写库）
+    const prevImportRunning = useRef(false);
+    useEffect(() => {
+        if (importRunning) {
+            prevImportRunning.current = true;
+            return;
+        }
+        if (prevImportRunning.current) {
+            prevImportRunning.current = false;
+            window.location.reload();
+        }
+    }, [importRunning]);
 
     const handleExport = async (all: boolean) => {
         if (all && !(await confirmDialog(t.settings?.exportAllConfirm || "Export all users' data? This may take a while."))) {
@@ -69,14 +86,21 @@ export function DataBackupSettings({ isAdmin }: DataBackupSettingsProps) {
             setSelectedFile(null);
             window.location.reload();
         } catch (error) {
-            frontendLogger.error('[DataBackupSettings]', all ? 'Import all failed' : 'Import failed', { error });
-            toast.error(t.settings?.importFailed || "Import failed");
+            if (error instanceof ApiError && error.status === 409 && (error.data as { code?: string })?.code === "TASK_ALREADY_RUNNING") {
+                toast.info(t.errors.TASK_ALREADY_RUNNING);
+                await refreshImportTask();
+            } else {
+                frontendLogger.error('[DataBackupSettings]', all ? 'Import all failed' : 'Import failed', { error });
+                toast.error(t.settings?.importFailed || "Import failed");
+            }
         } finally {
             setImporting(false);
         }
     };
 
     const spinnerOr = (busy: boolean, icon: ReactNode) => busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : icon;
+
+    const importDisabled = importing || !!importRunning;
 
     return (
         <div className="p-4 border border-blue-200 dark:border-blue-900 rounded-lg bg-blue-50 dark:bg-blue-950/40">
@@ -133,16 +157,16 @@ export function DataBackupSettings({ isAdmin }: DataBackupSettingsProps) {
                             onChange={(e) => setSelectedFile(e.target.files?.[0] ?? selectedFile)}
                             className="hidden"
                             id="import-file-input"
-                            disabled={importing}
+                            disabled={importDisabled}
                         />
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={() => document.getElementById('import-file-input')?.click()}
-                            disabled={importing}
+                            disabled={importDisabled}
                             className="bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 dark:hover:bg-blue-900/60 text-blue-900 dark:text-blue-200 border-blue-300 dark:border-blue-800"
                         >
-                            {spinnerOr(importing, <Upload className="mr-2 h-4 w-4" />)}
+                            {spinnerOr(importDisabled, <Upload className="mr-2 h-4 w-4" />)}
                             {selectedFile?.name || t.settings?.selectFile || "Select File"}
                         </Button>
                         {selectedFile && (
@@ -150,10 +174,10 @@ export function DataBackupSettings({ isAdmin }: DataBackupSettingsProps) {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleImport(false)}
-                                disabled={importing}
+                                disabled={importDisabled}
                                 className="bg-green-100 dark:bg-green-900/40 hover:bg-green-200 dark:hover:bg-green-900/60 text-green-900 dark:text-green-200 border-green-300 dark:border-green-800"
                             >
-                                {spinnerOr(importing, <CheckCircle2 className="mr-2 h-4 w-4" />)}
+                                {spinnerOr(importDisabled, <CheckCircle2 className="mr-2 h-4 w-4" />)}
                                 {t.settings?.importData || "Import"}
                             </Button>
                         )}
@@ -162,10 +186,10 @@ export function DataBackupSettings({ isAdmin }: DataBackupSettingsProps) {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleImport(true)}
-                                disabled={importing}
+                                disabled={importDisabled}
                                 className="bg-orange-100 dark:bg-orange-900/40 hover:bg-orange-200 dark:hover:bg-orange-900/60 text-orange-900 dark:text-orange-200 border-orange-300 dark:border-orange-800"
                             >
-                                {spinnerOr(importing, <CheckCircle2 className="mr-2 h-4 w-4" />)}
+                                {spinnerOr(importDisabled, <CheckCircle2 className="mr-2 h-4 w-4" />)}
                                 {t.settings?.importAllData || "Import All"}
                             </Button>
                         )}

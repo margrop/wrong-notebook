@@ -16,6 +16,12 @@
 | 云端语音 | `POST /api/tts/batch`（带错题 id 时） | `error-item:<id>:tts-voice:<语言>` |
 | GeoGebra 演示 | `POST /api/error-items/:id/geogebra` | `error-item:<id>:geogebra` |
 | 举一反三 | `POST /api/practice/generate` | `error-item:<id>:practice` |
+| 试卷单题重新生成 | `POST /api/exams/:id/questions/:questionId/regenerate` | `exam-question:<id>:regenerate` |
+| 试卷重试失败题目 | `POST /api/exams/:id/retry` | `exam-paper:<id>:generate` |
+| 错题本批量重新标注 | `POST /api/notebooks/:id/retag` | `notebook:<id>:retag` |
+| 备份数据导入 | `POST /api/import` | `user:<userId>:data-import` |
+
+导入任务与批次的重试使用等效的独立机制（进程内 `register`/`isRunningHere` + 数据库条件更新抢占），重复触发不会重复扣额度或调用 AI，未按 target 接入。
 
 未接入：`/api/reanswer`（录入校对页对未入库题目的文字解题）与 `/api/geogebra-analyze`（未保存草稿）没有稳定的对象标识；不带错题 id 的云端语音请求同理。
 
@@ -28,6 +34,7 @@
 - **预占后必须收尾**：
   - 真正开始执行 → 用 `runReservedTask` 包装，自动 succeed/fail。
   - 因额度不足等原因未开始 → 调用 `handle.cancel()`，**不留任何记录**。
+
 
 ## 服务端接入（路由三步）
 
@@ -97,19 +104,6 @@ const { running, refresh } = useRunningTask(target);
   `src/__tests__/unit/use-running-task.test.tsx`（running 查询、结束置空、target=null 不请求）、
   `src/__tests__/unit/regenerate-figure-button.test.tsx`（代表性按钮：running 时禁用、结束后刷新数据、收到 409 进入等待）。
 
-## 已接入功能及 target
-
-| 功能 | target | 服务端路由 | 前端组件/Hook |
-| --- | --- | --- | --- |
-| AI 修正文字 | `import-batch:<id>:fix-text` | `src/lib/import/import-batch-text-fix.ts` | `src/lib/hooks/use-draft-text-fix.ts` |
-| 重绘配图 | `error-item:<id>:figure` | `src/app/api/error-items/[id]/figure/route.ts` | `src/components/regenerate-figure-button.tsx` |
-| SVG 动画讲解 | `error-item:<id>:svg-animation:<lang>` | `src/app/api/error-items/[id]/svg-animation/route.ts` | `src/components/svg-animation-explainer.tsx` |
-| 讲解稿 | `error-item:<id>:svg-narration:<lang>` | `src/app/api/error-items/[id]/svg-animation/narration/route.ts` | `src/components/svg-animation-explainer.tsx` |
-| 云端语音 | `error-item:<id>:tts-voice:<lang>`（仅传 errorItemId 时） | `src/app/api/tts/batch/route.ts` | `src/components/svg-animation/regenerate-voice-button.tsx` |
-| GeoGebra | `error-item:<id>:geogebra` | `src/app/api/error-items/[id]/geogebra/route.ts` | `src/components/error-detail/geogebra-section.tsx` |
-| 举一反三 | `error-item:<id>:practice` | `src/app/api/practice/generate/route.ts` | `src/lib/hooks/use-practice-session.ts` |
-
-注：`/api/geogebra-analyze` 用于未保存的草稿，无稳定对象标识，未接入 target 防重复。
 
 ---
 

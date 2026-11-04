@@ -55,6 +55,7 @@ export function SettingsDialog() {
     const { setTimeZone } = useTimeZone();
     const { data: session } = useSession();
     const isAdmin = session?.user?.role === 'admin';
+    const userId = session?.user?.id ?? '';
     const { t } = useLanguage();
     const router = useRouter();
     const [open, setOpen] = useState(false);
@@ -199,7 +200,7 @@ export function SettingsDialog() {
 
                     <TabsContent value="danger" className="space-y-4 py-4">
                         <div className="space-y-3">
-                            <DataBackupSettings isAdmin={isAdmin} />
+                            <DataBackupSettings isAdmin={isAdmin} userId={userId} />
                             <DangerZoneSettings isAdmin={isAdmin} />
                         </div>
                     </TabsContent>

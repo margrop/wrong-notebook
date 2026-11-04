@@ -9,6 +9,7 @@ import { createLogger } from "@/lib/logger";
 import { getDefaultPaperLevelGroupId } from "@/lib/paper-level";
 import { getAppTimeZone } from "@/lib/config";
 import { startBackgroundTask } from "@/lib/background-tasks";
+import type { BackgroundTaskHandle } from "@/lib/background-tasks";
 
 const logger = createLogger('retag');
 
@@ -215,12 +216,16 @@ export function getRetagJob(userId: string, subjectId: string): RetagJobStatus |
 }
 
 /**
- * 在后台为错题本中的全部题目重新生成知识点；同一错题本已在运行时直接返回当前状态
+ * 在后台为错题本中的全部题目重新生成知识点；同一错题本已在运行时直接返回当前状态。
+ *
+ * taskHandle 为路由层用 reserveBackgroundTask 预占的句柄（按 target 防重复），
+ * 传入时用它替代内部自建的后台任务登记，便于路由层在额度不足等场景统一 cancel。
  */
-export async function startRetagJob(userId: string, subjectId: string): Promise<RetagJobStatus> {
+export async function startRetagJob(userId: string, subjectId: string, taskHandle?: BackgroundTaskHandle): Promise<RetagJobStatus> {
     const key = jobKey(userId, subjectId);
     const existing = jobs.get(key);
     if (existing?.running) {
+        taskHandle?.cancel();
         return existing;
     }
 
@@ -241,7 +246,11 @@ export async function startRetagJob(userId: string, subjectId: string): Promise<
     jobs.set(key, status);
 
     const notebook = await prisma.subject.findUnique({ where: { id: subjectId }, select: { name: true } });
-    const task = startBackgroundTask({ userId, kind: 'retag_notebook', subject: notebook?.name ?? null, link: `/notebooks/${subjectId}`, total: items.length });
+    const task = taskHandle ?? startBackgroundTask({ userId, kind: 'retag_notebook', subject: notebook?.name ?? null, link: `/notebooks/${subjectId}`, total: items.length });
+    if (items.length === 0) {
+        // 空错题本：没有需要执行的工作，立即成功结束
+        task.succeed();
+    }
 
     const queue = items.map((item) => item.id);
     const worker = async () => {

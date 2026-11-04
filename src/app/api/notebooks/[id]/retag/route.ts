@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
-import { notFound, internalError } from "@/lib/api-errors";
+import { notFound, internalError, taskAlreadyRunning } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { getRetagJob, startRetagJob } from "@/lib/tags/retag";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { findRunningTask, reserveBackgroundTask } from "@/lib/background-tasks";
 
 const logger = createLogger('api:notebooks:retag');
 
@@ -56,10 +57,26 @@ async function handlePost(
     if (!(await findOwnNotebook(id, user.id))) {
         return notFound("Notebook not found");
     }
-    const limited = await consumeAiQuota(user, 'retag');
-    if (limited) return limited;
 
-    return NextResponse.json(await startRetagJob(user.id, id), { status: 202 });
+    // 按目标防重复：同一错题本同一时刻只允许一个批量标注任务（reserve 失败返回 409，不扣额度、不调用 AI）
+    const target = `notebook:${id}:retag`;
+    const handle = reserveBackgroundTask({
+        userId: user.id,
+        kind: 'retag_notebook',
+        link: `/notebooks/${id}`,
+        target,
+    });
+    if (!handle) {
+        return taskAlreadyRunning(findRunningTask(user.id, target) ?? { id: '', kind: 'retag_notebook', startedAt: '', target });
+    }
+
+    const limited = await consumeAiQuota(user, 'retag');
+    if (limited) {
+        handle.cancel();
+        return limited;
+    }
+
+    return NextResponse.json(await startRetagJob(user.id, id, handle), { status: 202 });
 }
 
 export const POST = withUser<RouteContext>(async (req, ctx) => {

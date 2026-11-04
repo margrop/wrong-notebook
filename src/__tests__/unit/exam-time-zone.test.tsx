@@ -16,6 +16,13 @@ vi.mock('@/components/exam/exam-question-card', () => ({
     ExamQuestionCard: ({ onResultChange }: { onResultChange?: (result: 'correct') => void }) => <button onClick={() => onResultChange?.('correct')}>选择做对</button>,
 }));
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: vi.fn(), post: vi.fn() } }));
+vi.mock('@/lib/background-task-store', () => ({
+    backgroundTaskStore: {
+        getSnapshot: () => [],
+        refresh: async () => undefined,
+        subscribe: () => () => undefined,
+    },
+}));
 
 let root: Root;
 let container: HTMLDivElement;

@@ -55,6 +55,7 @@ import { POST as RESULTS } from '@/app/api/exams/[id]/results/route';
 import { POST as REGENERATE } from '@/app/api/exams/[id]/questions/[questionId]/regenerate/route';
 import { generateExamPaper } from '@/lib/exam/exam';
 import { getAppTimeZone } from '@/lib/config';
+import { resetBackgroundTasksForTest } from '@/lib/background-tasks';
 
 const json = (url: string, method: string, body: object) => new Request(url, {
     method,
@@ -66,6 +67,7 @@ const params = (id: string) => ({ params: Promise.resolve({ id }) });
 describe('/api/exams', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        resetBackgroundTasksForTest();
         mocks.user.findUnique.mockResolvedValue({ id: 'user-1' });
         // 后台生成在测试中立即结束
         mocks.examPaper.findUnique.mockResolvedValue(null);
@@ -608,8 +610,7 @@ describe('/api/exams', () => {
 
     describe('POST 单题重新生成', () => {
         const questionParams = (id: string, questionId: string) => ({ params: Promise.resolve({ id, questionId }) });
-        const regenerate = (body: object) => REGENERATE(json('http://localhost', 'POST', body), questionParams('p1', 'q1'));
-        const question = (practiceCount: number) => ({
+        const regenerate = (body: object) => REGENERATE(json('http://localhost', 'POST', body), questionParams('p1', 'q1'));        const question = (practiceCount: number) => ({
             paperId: 'p1',
             status: 'ready',
             questionText: '旧题',
@@ -724,6 +725,45 @@ describe('/api/exams', () => {
 
             const answerResponse = await regenerate({ mode: 'answer', language: 'zh' });
             expect(answerResponse.status).toBe(200);
+        });
+
+        it('同一题目并发重新生成时第二次返回 409，只扣一次额度、只调一次 AI', async () => {
+            const consumeAiQuota = (await import('@/lib/ai-quota')).consumeAiQuota as ReturnType<typeof vi.fn>;
+            let release!: () => void;
+            const gate = new Promise<void>((resolve) => { release = resolve; });
+            mocks.generateSimilarQuestion.mockImplementation(() => gate.then(() => ({ questionText: '新题', answerText: '新答', analysis: '新析' })));
+            mocks.examQuestion.findUnique.mockResolvedValueOnce(question(0)).mockResolvedValue(regenerated);
+            mocks.examQuestion.updateMany.mockResolvedValue({ count: 1 });
+            mocks.examQuestion.findMany.mockResolvedValue([{ status: 'ready' }]);
+
+            const first = regenerate({ mode: 'question', language: 'zh' });
+            // 让第一次请求先完成 reserve + quota 检查
+            await new Promise((resolve) => setTimeout(resolve, 0));
+
+            const second = await regenerate({ mode: 'question', language: 'zh' });
+            expect(second.status).toBe(409);
+            const body = await second.json() as { code?: string };
+            expect(body.code).toBe('TASK_ALREADY_RUNNING');
+            expect(mocks.generateSimilarQuestion).toHaveBeenCalledTimes(1);
+            expect(consumeAiQuota).toHaveBeenCalledTimes(1);
+
+            release();
+            await first;
+        });
+
+        it('校验失败时 cancel 预占，不留下 running 任务；额度充足后可再次发起', async () => {
+            // 已录入结果：reserve 成功但校验失败，handle 应被 cancel
+            mocks.examQuestion.findUnique.mockResolvedValueOnce(question(1));
+            const failed = await regenerate({ mode: 'question' });
+            expect(failed.status).toBe(409);
+            expect((await failed.json()).message).toBe('HAS_RESULTS');
+
+            // 第二次额度充足，能成功发起
+            mocks.examQuestion.findUnique.mockResolvedValueOnce(question(0)).mockResolvedValueOnce(regenerated);
+            mocks.generateSimilarQuestion.mockResolvedValue({ questionText: '新题', answerText: '新答', analysis: '新析' });
+            mocks.examQuestion.updateMany.mockResolvedValue({ count: 1 });
+            mocks.examQuestion.findMany.mockResolvedValue([{ status: 'ready' }]);
+            expect((await regenerate({ mode: 'question', language: 'zh' })).status).toBe(200);
         });
     });
 
