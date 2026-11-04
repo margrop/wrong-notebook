@@ -7,10 +7,12 @@ const mocks = vi.hoisted(() => ({
     getServerSession: vi.fn(),
     analyzeImage: vi.fn(),
     withAccessToken: vi.fn(),
+    userFindUnique: vi.fn(),
 }));
 
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
+vi.mock('@/lib/prisma', () => ({ prisma: { user: { findUnique: mocks.userFindUnique } } }));
 vi.mock('@/lib/logger', () => ({
     createLogger: vi.fn(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), box: vi.fn(), divider: vi.fn() })),
 }));
@@ -39,7 +41,8 @@ describe('POST /api/ai/test', () => {
     });
 
     it('普通用户返回 403，且不调用 AI', async () => {
-        mocks.getServerSession.mockResolvedValue({ user: { id: 'u1', role: 'user' }, expires: '2099-01-01' });
+        mocks.getServerSession.mockResolvedValue({ user: { id: 'u1', email: 'u@localhost', role: 'user' }, expires: '2099-01-01' });
+        mocks.userFindUnique.mockResolvedValue({ id: 'u1', role: 'user' });
 
         const response = await POST(makeRequest({ provider: 'anthropic', apiKey: 'k', baseUrl: 'http://10.0.0.1' }));
 
@@ -48,7 +51,8 @@ describe('POST /api/ai/test', () => {
     });
 
     it('管理员可以测试 Anthropic 提供商', async () => {
-        mocks.getServerSession.mockResolvedValue({ user: { id: 'a1', role: 'admin' }, expires: '2099-01-01' });
+        mocks.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'admin@localhost', role: 'admin' }, expires: '2099-01-01' });
+        mocks.userFindUnique.mockResolvedValue({ id: 'a1', role: 'admin' });
         mocks.analyzeImage.mockResolvedValue({ questionText: '2 + 3 = ?', analysis: '加法' });
 
         const response = await POST(makeRequest({ provider: 'anthropic', apiKey: 'k' }));
@@ -58,7 +62,8 @@ describe('POST /api/ai/test', () => {
     });
 
     it('MiniMax Code 不需要 apiKey，使用已登录的凭据', async () => {
-        mocks.getServerSession.mockResolvedValue({ user: { id: 'a1', role: 'admin' }, expires: '2099-01-01' });
+        mocks.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'admin@localhost', role: 'admin' }, expires: '2099-01-01' });
+        mocks.userFindUnique.mockResolvedValue({ id: 'a1', role: 'admin' });
         mocks.withAccessToken.mockImplementation((fn: (token: string) => Promise<unknown>) => fn('mmoat_x'));
         mocks.analyzeImage.mockResolvedValue({ questionText: '2 + 3 = ?', analysis: '加法' });
 
@@ -70,7 +75,8 @@ describe('POST /api/ai/test', () => {
     });
 
     it('MiniMax Code 未登录时返回 AI_AUTH_ERROR', async () => {
-        mocks.getServerSession.mockResolvedValue({ user: { id: 'a1', role: 'admin' }, expires: '2099-01-01' });
+        mocks.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'admin@localhost', role: 'admin' }, expires: '2099-01-01' });
+        mocks.userFindUnique.mockResolvedValue({ id: 'a1', role: 'admin' });
         mocks.withAccessToken.mockRejectedValue(new Error('AI_AUTH_ERROR: MiniMax Code is not logged in'));
 
         const data = await (await POST(makeRequest({ provider: 'minimax-code' }))).json();

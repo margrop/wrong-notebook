@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
 import { badRequest, createErrorResponse, ErrorCode } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { getErrorMessage } from "@/lib/error-message";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
 import { analyzeQuestionForUser, mapAnalysisError } from "@/lib/question-analysis";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 
 const logger = createLogger('api:analyze');
 
@@ -14,16 +14,8 @@ const logger = createLogger('api:analyze');
  * 同步识别接口：在请求内等待 AI 返回识别结果。
  * 网页拍照导入改用 /api/import-tasks（服务端持久任务）；本接口保留给 API 调用方与旧版客户端。
  */
-async function handlePost(req: Request) {
+async function handlePost(req: Request, { user, session }: AuthenticatedContext) {
     logger.info('Analyze API called');
-
-    const session = await getServerSession(authOptions);
-
-    // 认证检查
-    if (!session) {
-        logger.warn('Unauthorized access attempt');
-        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
 
     try {
         const body = await req.json();
@@ -46,7 +38,7 @@ async function handlePost(req: Request) {
 
         const analysisResult = await analyzeQuestionForUser({
             email: session.user?.email,
-            userId: session.user.id,
+            userId: user.id,
             imageBase64,
             mimeType,
             language,
@@ -68,4 +60,4 @@ async function handlePost(req: Request) {
 }
 
 /** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
-export const POST = withRecoverableResponse(handlePost);
+export const POST = withRecoverableResponse(withUser(handlePost));

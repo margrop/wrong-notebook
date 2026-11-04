@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { getAIService } from "@/lib/ai";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
 import { badRequest, createErrorResponse, ErrorCode } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
@@ -13,19 +11,13 @@ import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
 import { getFixedQuestionGrade, resolveQuestionGrade } from "@/lib/question-grade";
 import { getAppTimeZone } from "@/lib/config";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 
 const logger = createLogger('api:reanswer');
 
-async function handlePost(req: Request) {
+async function handlePost(req: Request, { user, session }: AuthenticatedContext) {
     logger.info('Reanswer API called');
-
-    const session = await getServerSession(authOptions);
-
-    // 认证检查
-    if (!session) {
-        logger.warn('Unauthorized access attempt');
-        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
 
     try {
         const body = await req.json();
@@ -62,12 +54,12 @@ async function handlePost(req: Request) {
         const aiService = getAIService();
         // 新录入的文字题遵循账户规则，已有题目的重新解题沿用其手工年级。
         const gradeProfile = forImport === true && session.user?.email
-            ? await prisma.user.findUnique({ where: { email: session.user.email } }) : null;
+            ? user : null;
         const targetGrade = gradeSemester ?? (gradeProfile ? getFixedQuestionGrade(gradeProfile, getAppTimeZone()) : undefined);
 
         // 根据是否有图片选择不同的重新解题方式
         const result = await trackBackgroundTask(
-            { userId: session.user.id, kind: 'reanswer', subject: describeQuestion({ questionText }) },
+            { userId: user.id, kind: 'reanswer', subject: describeQuestion({ questionText }) },
             () => aiService.reanswerQuestion(questionText, language, subject, imageBase64, targetGrade, candidateTags)
         );
 
@@ -97,4 +89,4 @@ async function handlePost(req: Request) {
 }
 
 /** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
-export const POST = withRecoverableResponse(handlePost);
+export const POST = withRecoverableResponse(withUser(handlePost));

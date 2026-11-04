@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
     getAppConfig: vi.fn(),
     getServerSession: vi.fn(),
     fetch: vi.fn(),
+    userFindUnique: vi.fn(),
 }));
 
 vi.mock('openai', () => ({
@@ -26,6 +27,7 @@ vi.mock('@/lib/logger', () => ({
 vi.mock('@/lib/config', () => ({ getAppConfig: mocks.getAppConfig, getActiveOpenAIConfig: vi.fn() }));
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
+vi.mock('@/lib/prisma', () => ({ prisma: { user: { findUnique: mocks.userFindUnique } } }));
 vi.stubGlobal('fetch', mocks.fetch);
 
 import { getAIService } from '@/lib/ai';
@@ -48,7 +50,7 @@ const EXPECTED: Record<VendorProviderId, { baseUrl: string; model: string }> = {
     'volcengine-free': { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-evolving' },
 };
 
-const adminSession = { user: { id: 'admin-1', role: 'admin' }, expires: '2099-01-01' };
+const adminSession = { user: { id: 'admin-1', email: 'admin@localhost', role: 'admin' }, expires: '2099-01-01' };
 
 function post(url: string, body: unknown): NextRequest {
     return new NextRequest(url, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
@@ -80,6 +82,7 @@ describe.each(VENDOR_PROVIDER_IDS)('%s 渠道', (id) => {
         vi.clearAllMocks();
         mocks.openaiOptions.length = 0;
         mocks.getServerSession.mockResolvedValue(adminSession);
+        mocks.userFindUnique.mockResolvedValue({ id: 'admin-1', role: 'admin' });
     });
 
     it('默认使用官方地址与最新模型', () => {

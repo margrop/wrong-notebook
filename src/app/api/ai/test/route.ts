@@ -1,6 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { NextResponse } from 'next/server';
 import { OpenAIProvider, DEFAULT_OPENAI_MODEL } from '@/lib/ai/openai-provider';
 import { GeminiProvider } from '@/lib/ai/gemini-provider';
 import { AzureOpenAIProvider } from '@/lib/ai/azure-provider';
@@ -9,7 +7,7 @@ import { MiniMaxCodeProvider } from '@/lib/ai/minimax-code-provider';
 import { DEFAULT_MINIMAX_CODE_MODEL } from '@/lib/minimax-code/constants';
 import { isVendorProvider, resolveVendorConfig } from '@/lib/ai/vendor-presets';
 import type { VendorProviderId } from '@/lib/ai/vendor-presets';
-import { requireAdmin } from '@/lib/auth-utils';
+import { withAdmin } from '@/lib/api-handler';
 import { createLogger } from '@/lib/logger';
 import { getErrorDetail } from '@/lib/error-message';
 
@@ -102,17 +100,8 @@ export interface AITestResponse {
     modelInfo?: string;
 }
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: Request) {
     try {
-        // 验证登录；测试会让服务端请求调用方给出的地址，只允许管理员
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-        if (!requireAdmin(session)) {
-            return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-        }
-
         const body: AITestRequest = await request.json();
         const { provider, apiKey, baseUrl, model, endpoint, deploymentName, apiVersion, language = 'zh' } = body;
 
@@ -312,3 +301,5 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+
+export const POST = withAdmin(handlePost);

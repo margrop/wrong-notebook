@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { notFound, unauthorized } from "@/lib/api-errors";
-import { getCurrentUser } from "@/lib/current-user";
+import { notFound } from "@/lib/api-errors";
 import { markImportTaskRead } from "@/lib/import-tasks";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 
 /** POST /api/import-tasks/:id/read 标记已查看，清除未读提示 */
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-    const user = await getCurrentUser();
-    if (!user) return unauthorized("Authentication required");
+export const POST = withUser(async (_req: Request, { user, params }: { params: Promise<{ id: string }> } & AuthenticatedContext) => {
     const { id } = await params;
     if (!await markImportTaskRead(user, id)) return notFound("IMPORT_TASK_NOT_FOUND");
     return NextResponse.json({ success: true });
-}
+});

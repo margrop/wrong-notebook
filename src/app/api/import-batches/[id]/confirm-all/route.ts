@@ -1,11 +1,9 @@
-import { unauthorized } from "@/lib/api-errors";
-import { getCurrentUser } from "@/lib/current-user";
 import { confirmAllImportBatch } from "@/lib/import-batches";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 
 /** POST /api/import-batches/:id/confirm-all 按识别结果入库其余待校对的题 */
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-    const user = await getCurrentUser();
-    if (!user) return unauthorized("Authentication required");
+export const POST = withUser(async (_req: Request, { user, params }: { params: Promise<{ id: string }> } & AuthenticatedContext) => {
     const { id } = await params;
     return confirmAllImportBatch(user, id);
-}
+});
