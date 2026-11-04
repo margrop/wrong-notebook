@@ -201,6 +201,30 @@ describe('/api/admin/users', () => {
             expect(data.message).toBe('Cannot disable super admin');
         });
 
+        it('请求体不是合法 JSON 或缺少 isActive 时返回 400', async () => {
+            const invalidBody = new Request('http://localhost/api/admin/users/target-id', {
+                method: 'PATCH',
+                body: JSON.stringify({ isActive: 'yes' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await PATCH(invalidBody, { params: Promise.resolve({ id: 'target-id' }) });
+
+            expect(response.status).toBe(400);
+            expect(mocks.mockPrismaUser.update).not.toHaveBeenCalled();
+
+            const missingField = new Request('http://localhost/api/admin/users/target-id', {
+                method: 'PATCH',
+                body: JSON.stringify({}),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response2 = await PATCH(missingField, { params: Promise.resolve({ id: 'target-id' }) });
+
+            expect(response2.status).toBe(400);
+            expect(mocks.mockPrismaUser.update).not.toHaveBeenCalled();
+        });
+
         it('应该拒绝非管理员访问', async () => {
             vi.mocked(getServerSession).mockResolvedValue({
                 user: { id: 'user-id', email: 'user@example.com', role: 'user' },

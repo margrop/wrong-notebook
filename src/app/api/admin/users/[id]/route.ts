@@ -4,6 +4,7 @@ import type { AuthenticatedContext } from "@/lib/api-handler"
 import { prisma } from "@/lib/prisma"
 import { badRequest, internalError } from "@/lib/api-errors"
 import { createLogger } from "@/lib/logger"
+import { adminUserUpdateSchema } from "@/lib/schemas/admin"
 
 const logger = createLogger('api:admin:users:id');
 
@@ -13,8 +14,9 @@ async function handlePatch(req: Request, { session, params }: RouteContext & Aut
     const { id } = await params;
 
     try {
-        const body = await req.json()
-        const { isActive } = body
+        const parsed = adminUserUpdateSchema.safeParse(await req.json().catch(() => null));
+        if (!parsed.success) return badRequest("Invalid request body");
+        const { isActive } = parsed.data;
 
         // Prevent disabling self
         if (id === session?.user.id) {
