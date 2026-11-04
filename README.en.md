@@ -206,7 +206,7 @@ Download the package for your platform from the [download page](https://wrong-no
 
 See the Windows [Code signing policy](doc/CODE_SIGNING.en.md) and [privacy policy](doc/PRIVACY.en.md). The project has been accepted by SignPath Foundation and is testing the integration with a test certificate; Windows installers released before the production certificate is enabled remain unsigned. The maintainer's [setup guide](doc/WINDOWS_SIGNING.md) describes the activation steps.
 
-> **macOS says the app is damaged or can't be opened**: the package is not signed by Apple. After dragging the app into Applications, run these commands in Terminal to remove the quarantine flag and re-sign it locally, then open it:
+> **macOS blocks the first launch**: the package is only ad-hoc signed and not notarized by Apple. After dragging the app into Applications and double-clicking it, if macOS refuses to open it, go to System Settings → Privacy & Security and click **Open Anyway**. If macOS still says the app is damaged (common with older packages), run these commands in Terminal to remove the quarantine flag and re-sign it locally, then open it:
 >
 > ```bash
 > xattr -cr /Applications/WrongNotebook.app

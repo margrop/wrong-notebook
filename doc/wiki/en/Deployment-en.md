@@ -139,7 +139,7 @@ Windows installers are currently unsigned. The project has been accepted by Sign
 
 Desktop builds listen only on the local machine, on port 39300 by default; the fnOS build listens on port 39300 and is reachable on the LAN. The database, AI configuration and session secret all live in the data directory, so back up the whole directory.
 
-Desktop installers are unsigned. If macOS says the app is damaged or cannot be opened, first move it to Applications, then run these commands in Terminal to remove the quarantine flag and re-sign it locally before opening it:
+Desktop installers do not yet carry a trusted signature: Windows installers are unsigned, and macOS packages are only ad-hoc signed and not notarized by Apple. If macOS blocks the first launch, move the app to Applications, then go to System Settings → Privacy & Security and click **Open Anyway**. If macOS still says the app is damaged (common with older packages), run these commands in Terminal to remove the quarantine flag and re-sign it locally before opening it:
 
 ```bash
 xattr -cr /Applications/WrongNotebook.app

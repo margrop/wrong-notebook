@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | npm | `npm install -g wrong-notebook` | 需要 Node.js 22.15 及以上，适合服务器或已有 Node 环境 |
 | Windows | `WrongNotebook-Win-Setup-<版本>-x64.exe` / `WrongNotebook-Win-Portable-<版本>-x64.exe` | 安装版 / 免安装版 |
-| macOS | `WrongNotebook-Mac-<版本>-arm64.dmg`（Apple 芯片）/ `-x64.dmg`（Intel），另有同名 `.zip` | 未签名，首次打开需右键选择「打开」 |
+| macOS | `WrongNotebook-Mac-<版本>-arm64.dmg`（Apple 芯片）/ `-x64.dmg`（Intel），另有同名 `.zip` | 本地自签名（ad-hoc），未经 Apple 公证；首次打开需到「系统设置 → 隐私与安全性」点击「仍要打开」 |
 | Linux | `WrongNotebook-Linux-<版本>-<架构>.AppImage` / `.deb` | x86_64 与 arm64 |
 | 飞牛OS | `WrongNotebook-FnOS-<版本>-x86.fpk` / `-arm.fpk` | 在应用中心手动安装，依赖应用中心的 Node.js v24 |
 | 安卓手机 | `WrongNotebook-Android-Phone-<版本>.apk` | 单机版，内置服务端，无需部署服务器；锁定竖屏 |
@@ -43,7 +43,7 @@ wrong-notebook --port 3000 --host 0.0.0.0 --data-dir ~/.wrong-notebook
 - 数据目录：Windows `%APPDATA%\WrongNotebook\data`，macOS `~/Library/Application Support/WrongNotebook/data`，Linux `~/.config/WrongNotebook/data`。服务日志在数据目录的 `logs/server.log`。
 - 卸载不会删除数据目录。
 - 当前 Windows 安装包仍未签名，可能出现 SmartScreen 提示，选择「仍要运行」。项目已通过 SignPath Foundation 审核，正在用测试证书接入，取得生产证书后按 [Windows 签名配置](WINDOWS_SIGNING.md)启用；实际签名范围和职责见 [Code signing policy](CODE_SIGNING.md)，数据处理见[隐私说明](PRIVACY.md)。
-- macOS 安装包未经 Apple 签名，提示「已损坏」或无法打开时，执行 `xattr -cr /Applications/WrongNotebook.app` 和 `codesign --force --deep --sign - /Applications/WrongNotebook.app`（移除隔离属性并在本机重新自签名）。
+- macOS 安装包在打包时做了 ad-hoc 签名（`packaging/desktop/package.json` 中 `mac.identity` 为 `-`，并关闭 hardened runtime），整个 `.app` 能通过 `codesign --verify --deep --strict`，但未经 Apple 公证，Gatekeeper 仍会拦截首次打开。在「系统设置 → 隐私与安全性」点击「仍要打开」即可；若仍提示「已损坏」（旧版本安装包常见），执行 `xattr -cr /Applications/WrongNotebook.app` 和 `codesign --force --deep --sign - /Applications/WrongNotebook.app`（移除隔离属性并在本机重新自签名）。
 - Linux 的 Prisma 引擎需要 OpenSSL 3（Ubuntu 22.04、Debian 12 及更新版本）。
 
 ### 飞牛OS

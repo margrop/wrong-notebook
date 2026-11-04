@@ -206,7 +206,7 @@
 
 Windows 的 [Code signing policy（代码签名政策）](doc/CODE_SIGNING.md)与[隐私说明](doc/PRIVACY.md)已公开。项目已通过 SignPath Foundation 审核，正在用测试证书接入，取得生产证书前发布的 Windows 安装包仍未签名。维护者接入步骤见 [Windows 签名配置](doc/WINDOWS_SIGNING.md)。
 
-> **macOS 提示「已损坏」或无法打开**：安装包未经 Apple 签名。把应用拖入「应用程序」后，在终端执行以下命令移除隔离属性并在本机重新自签名，再打开即可：
+> **macOS 首次打开被拦截**：安装包只有本地自签名（ad-hoc），未经 Apple 公证。把应用拖入「应用程序」后双击，系统提示无法打开时，到「系统设置 → 隐私与安全性」点击「仍要打开」。若仍提示「已损坏」（旧版本安装包常见），在终端执行以下命令移除隔离属性并在本机重新签名，再打开即可：
 >
 > ```bash
 > xattr -cr /Applications/WrongNotebook.app
