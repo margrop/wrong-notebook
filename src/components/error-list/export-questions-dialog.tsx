@@ -9,11 +9,12 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { getErrorMessage } from "@/lib/error-message";
+import { buildQuestionsDocx } from "@/lib/question-format/to-docx";
 import { buildQuestionsXlsx } from "@/lib/question-format/to-xlsx";
 import type { StructuredQuestion } from "@/lib/question-format/types";
 
 /** 导出格式 */
-export type ExportFormat = "json" | "excel";
+export type ExportFormat = "json" | "excel" | "word";
 
 const FORMAT_STORAGE_KEY = "error-list-export-format";
 
@@ -21,7 +22,7 @@ const FORMAT_STORAGE_KEY = "error-list-export-format";
 function loadSavedFormat(): ExportFormat {
     try {
         const saved = window.localStorage.getItem(FORMAT_STORAGE_KEY);
-        return saved === "excel" ? "excel" : "json";
+        return saved === "excel" || saved === "word" ? saved : "json";
     } catch {
         return "json";
     }
@@ -62,6 +63,8 @@ export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: Expor
     const { t } = useLanguage();
     const [format, setFormat] = useState<ExportFormat>(loadSavedFormat);
     const [includeImages, setIncludeImages] = useState(false);
+    const [includeAnswers, setIncludeAnswers] = useState(true);
+    const [docxTitle, setDocxTitle] = useState("");
     const [exporting, setExporting] = useState(false);
 
     const handleFormatChange = (value: ExportFormat) => {
@@ -96,6 +99,16 @@ export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: Expor
                 skipped = skippedCount;
                 const blob = await buildQuestionsXlsx(questions);
                 downloadBlob(blob, `wrong-notebook-questions-${dateStr}.xlsx`);
+            } else if (format === "word") {
+                const { questions, skipped: skippedCount } = await fetchQuestions();
+                skipped = skippedCount;
+                const title = docxTitle.trim() || `${t.notebook.exportJsonDialog.defaultDocxTitle} ${new Date().toISOString().slice(0, 10)}`;
+                const blob = await buildQuestionsDocx(questions, {
+                    title,
+                    includeAnswers,
+                    includeImages,
+                });
+                downloadBlob(blob, `wrong-notebook-questions-${dateStr}.docx`);
             } else {
                 const res = await fetch("/api/error-items/export-questions", {
                     method: "POST",
@@ -138,14 +151,54 @@ export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: Expor
                         options={[
                             { value: "json", label: t.notebook.exportJsonDialog.formatJson },
                             { value: "excel", label: t.notebook.exportJsonDialog.formatExcel },
+                            { value: "word", label: t.notebook.exportJsonDialog.formatWord },
                         ]}
                         value={format}
                         onChange={handleFormatChange}
                     />
                 </div>
-                {format === "excel" ? (
+                {format === "excel" && (
                     <p className="text-sm text-muted-foreground">{t.notebook.exportJsonDialog.excelNote}</p>
-                ) : (
+                )}
+                {format === "word" && (
+                    <div className="space-y-3 py-2">
+                        <div className="space-y-1">
+                            <label htmlFor="docx-title" className="text-sm">
+                                {t.notebook.exportJsonDialog.docxTitleLabel}
+                            </label>
+                            <input
+                                id="docx-title"
+                                type="text"
+                                value={docxTitle}
+                                onChange={(e) => setDocxTitle(e.target.value)}
+                                placeholder={`${t.notebook.exportJsonDialog.defaultDocxTitle} ${new Date().toISOString().slice(0, 10)}`}
+                                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                            />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <Checkbox
+                                id="include-answers"
+                                checked={includeAnswers}
+                                onCheckedChange={(checked) => setIncludeAnswers(checked === true)}
+                            />
+                            <label htmlFor="include-answers" className="text-sm cursor-pointer">
+                                {t.notebook.exportJsonDialog.includeAnswers}
+                            </label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <Checkbox
+                                id="include-images"
+                                checked={includeImages}
+                                onCheckedChange={(checked) => setIncludeImages(checked === true)}
+                            />
+                            <label htmlFor="include-images" className="text-sm cursor-pointer">
+                                {t.notebook.exportJsonDialog.includeImages}
+                            </label>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{t.notebook.exportJsonDialog.wordNote}</p>
+                    </div>
+                )}
+                {format === "json" && (
                     <div className="flex items-center space-x-2 py-2">
                         <Checkbox
                             id="include-images"

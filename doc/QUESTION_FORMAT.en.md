@@ -8,12 +8,35 @@ This document defines the **Wrong Notebook Question Exchange Format JSON v1**: u
 
 ## Exporting from the Notebook
 
-The error list's multi-select bar provides an "Export JSON" feature that exports selected error items as a Question Exchange JSON v1 file (`POST /api/error-items/export-questions`).
+The error list's multi-select bar provides an export feature (`POST /api/error-items/export-questions`). The dialog offers three formats: **JSON / Excel / Word**. All formats are first returned by the server as Question Exchange JSON v1, then converted in the browser; no new server endpoint is added.
+
+### JSON
+
+A Question Exchange JSON v1 file with the most complete fields (including `material`, `figureSvg`, `images`, `extensions`), suitable for backing up question content or importing into other systems.
 
 - Only error items belonging to the current user are exported; ids not owned by the user are silently ignored.
 - Optional "Include original images": when enabled, if `originalImageUrl` is a base64 inline image with prefix `data:image/png|jpeg|webp`, it is placed into the `images` field.
-- Questions with empty question text are skipped and counted in `warnings` as `EMPTY_QUESTION_TEXT_SKIPPED`.
+- Questions with empty question text are skipped; the skipped count is returned in the `X-Export-Skipped` response header.
 - The export result can be parsed directly by `parseQuestionFile`, achieving a round-trip.
+
+### Excel
+
+An `.xlsx` file (single sheet "题目") whose columns exactly match the question bank import template `TEMPLATE_COLUMNS` (question text, options A–D, answer, analysis, knowledge points, difficulty, question type, subject, grade and semester, source, section, label), so it can be re-imported directly via Question Bank Import:
+
+- Trailing option lines like "A．xxx" in the question text are split into the option columns and joined back on import.
+- Question types are written as Chinese display names (the importer maps them back to standard keys via its alias table); knowledge points are joined with "、"; difficulty is written as a 1–5 number.
+- Images are not written to Excel (the importer does not support an image column either).
+- The header row is frozen and bold; column widths are adjusted per content type.
+
+### Word
+
+A `.docx` file, suitable for printing as an exam paper:
+
+- The document title can be customized (defaults to "Wrong Questions Export yyyy-MM-dd").
+- Questions are grouped by section (or by question type display name when no section, or not grouped at all); group headings are written as "第X大题 …" with continuous numbering.
+- Optional "Include answers and analysis" (enabled by default): placed in an "参考答案" section at the end, written as "N. 答案：… 解析：…" so the importer can fill them back by question number.
+- Optional "Include original images": images are scaled proportionally to a width limit; webp is not written.
+- LaTeX formulas ($…$, $$…$$) are kept as-is; `figureSvg` is not exported; Markdown bold/italic markers are preserved verbatim.
 
 **Difference from full backup**: the question exchange format contains only question content (question text, answer, analysis, knowledge points, difficulty, etc.) and does not include practice records, review schedules, exam papers, user preferences, or other data. For a full backup, use "Settings → Data Management → Export Data".
 
