@@ -1,5 +1,5 @@
-import { getCurrentUser } from "@/lib/current-user";
-import { notFound, unauthorized } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import { notFound } from "@/lib/api-errors";
 import { readSpeech } from "@/lib/tts/speech-cache";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -25,11 +25,7 @@ function parseRange(header: string | null, size: number): { start: number; end: 
  * GET /api/tts/:id
  * 已合成的讲解语音（MP3）。支持 Range 请求：iPhone 上的 Safari 播放音频时要求服务端支持分段读取
  */
-export async function GET(req: Request, { params }: RouteContext) {
-    const user = await getCurrentUser();
-    if (!user) {
-        return unauthorized("Authentication required");
-    }
+export const GET = withUser(async (req: Request, { params }: RouteContext) => {
     const data = await readSpeech((await params).id);
     if (!data) {
         return notFound("Speech not found");
@@ -55,4 +51,4 @@ export async function GET(req: Request, { params }: RouteContext) {
         });
     }
     return new Response(new Uint8Array(data), { headers: { ...headers, 'Content-Length': String(data.length) } });
-}
+});
