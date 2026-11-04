@@ -104,4 +104,11 @@ describe('draftItemToParsed', () => {
         const result = draftItemToParsed(item, { notebookName: '数学' });
         expect(result!.hasFigure).toBe(true);
     });
+
+    it('草稿题型规范化后带入识别结果，无法识别时为空', () => {
+        expect(draftItemToParsed(makeItem({ questionType: '选择题' }))?.questionType).toBe('single_choice');
+        expect(draftItemToParsed(makeItem({ questionType: 'fill_blank' }))?.questionType).toBe('fill_blank');
+        expect(draftItemToParsed(makeItem({ questionType: '奇怪的题型' }))?.questionType).toBeNull();
+        expect(draftItemToParsed(makeItem())?.questionType).toBeNull();
+    });
 });

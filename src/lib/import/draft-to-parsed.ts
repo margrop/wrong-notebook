@@ -6,6 +6,7 @@
 import { ParsedQuestionSchema } from "@/lib/ai/schema";
 import type { ParsedQuestion } from "@/lib/ai";
 import type { DraftItem } from "@/lib/question-split/draft";
+import { normalizeQuestionType } from "@/lib/question/question-type";
 
 /** ParsedQuestionSchema 中 subject 枚举的中文名 */
 const SUBJECT_NAMES = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"] as const;
@@ -58,6 +59,7 @@ export function draftItemToParsed(item: DraftItem, options: DraftToParsedOptions
         knowledgePoints,
         requiresImage: false,
         difficultyStars: item.difficultyStars ?? null,
+        questionType: normalizeQuestionType(item.questionType),
         gradeSemester: null,
         hasFigure: item.hasFigure ?? false,
     };
