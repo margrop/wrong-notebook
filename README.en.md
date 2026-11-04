@@ -55,7 +55,9 @@ The screenshots below were captured from the running app on 2026-10-22 using Eng
 <details>
 <summary><strong>Input and preferences: photo upload, text input, review before import and configurable duplicate detection</strong></summary>
 
-The home page offers photo upload, manual input and direct entry, with drag-and-drop and clipboard paste. On phones there are three separate entries: **Take photo** opens the camera directly, **Photo album** picks from your photos, and **Choose file** covers photos that do not show up in the album.
+The home page offers photo upload, manual input, question file import and direct entry, with drag-and-drop and clipboard paste. On phones there are three separate entries: **Take photo** opens the camera directly, **Photo album** picks from your photos, and **Choose file** covers photos that do not show up in the album.
+
+**Import question file** supports JSON (question exchange format v1), Word (.docx), Excel (.xlsx) and CSV question bank files. After parsing, a summary shows the question count, parse errors, warnings and not-yet-imported fields; pick a target notebook and the questions are imported in batches, where they can be saved **as-is** without calling AI. Up to 2000 questions per import. Excel / CSV templates can be downloaded from the import page. TXT / Markdown files still load into the text box via **Import from file** under **Manual input**.
 
 When saving direct entries or reviewed questions fails, the page keeps the specific reason and suggested next steps, distinguishing AI grade recognition, field-length or paper-group validation, sign-in status, database migrations and write permissions, and network or proxy errors. If AI grade recognition fails, enter a grade manually or switch to a fixed grade before saving again. After a timeout or disconnection, check whether the question was saved before retrying to avoid duplicate submissions.
 

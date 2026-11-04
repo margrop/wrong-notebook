@@ -70,14 +70,26 @@ describe("detectImportFileType", () => {
         expect(detectImportFileType("unknown", "text/markdown")?.key).toBe("text");
     });
 
-    it("不支持的扩展名与 MIME 返回 null", () => {
-        expect(detectImportFileType("a.docx", "")).toBeNull();
-        expect(detectImportFileType("a.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")).toBeNull();
-        expect(detectImportFileType("a.png", "image/png")).toBeNull();
+    it("识别 docx / xlsx / csv / json 题库文件类型", () => {
+        expect(detectImportFileType("a.docx", "")?.key).toBe("docx");
+        expect(detectImportFileType("a.doc", "")?.key).toBe("docx");
+        expect(detectImportFileType("a.xlsx", "")?.key).toBe("xlsx");
+        expect(detectImportFileType("a.csv", "")?.key).toBe("csv");
+        expect(detectImportFileType("a.json", "")?.key).toBe("json");
+        expect(detectImportFileType("a.json", "application/json")?.key).toBe("json");
     });
 
-    it("IMPORT_FILE_TYPES 中纯文本最大 2MB", () => {
+    it("不支持的扩展名与 MIME 返回 null", () => {
+        expect(detectImportFileType("a.png", "image/png")).toBeNull();
+        expect(detectImportFileType("a.pdf", "application/pdf")).toBeNull();
+    });
+
+    it("IMPORT_FILE_TYPES 中纯文本最大 2MB，题库文件有各自上限", () => {
         const text = IMPORT_FILE_TYPES.find((t) => t.key === "text");
         expect(text?.maxBytes).toBe(2 * 1024 * 1024);
+        expect(IMPORT_FILE_TYPES.find((t) => t.key === "json")?.maxBytes).toBe(50 * 1024 * 1024);
+        expect(IMPORT_FILE_TYPES.find((t) => t.key === "xlsx")?.maxBytes).toBe(20 * 1024 * 1024);
+        expect(IMPORT_FILE_TYPES.find((t) => t.key === "csv")?.maxBytes).toBe(10 * 1024 * 1024);
+        expect(IMPORT_FILE_TYPES.find((t) => t.key === "docx")?.maxBytes).toBe(50 * 1024 * 1024);
     });
 });

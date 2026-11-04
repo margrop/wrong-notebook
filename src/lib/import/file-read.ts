@@ -3,7 +3,7 @@
  * 浏览器与服务端通用的纯函数，不依赖 DOM 之外的 Node 模块。
  */
 
-export type ImportFileTypeKey = "text";
+export type ImportFileTypeKey = "text" | "docx" | "xlsx" | "csv" | "json";
 
 export type ImportFileCategory = "text" | "doc" | "sheet" | "data" | "pdf";
 
@@ -19,8 +19,9 @@ export interface ImportFileTypeDef {
 }
 
 /**
- * 可导入文件类型描述表。目前只有纯文本；后续任务会加入
- * docx / xlsx / csv / json / pdf，向此表追加条目即可。
+ * 可导入文件类型描述表。
+ * text（TXT / Markdown）填入文字录入框；其余类型走「导入题库文件」流水线，
+ * 经 src/lib/import/file-parsers/ 的解析器转换为结构化题目后建批次。
  */
 export const IMPORT_FILE_TYPES: readonly ImportFileTypeDef[] = [
     {
@@ -30,7 +31,48 @@ export const IMPORT_FILE_TYPES: readonly ImportFileTypeDef[] = [
         maxBytes: 2 * 1024 * 1024,
         category: "text",
     },
+    {
+        key: "docx",
+        // 旧版 .doc 也允许选择，由解析器识别后提示另存为 .docx
+        extensions: [".docx", ".doc"],
+        mimeTypes: [
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/msword",
+        ],
+        maxBytes: 50 * 1024 * 1024,
+        category: "doc",
+    },
+    {
+        key: "xlsx",
+        extensions: [".xlsx"],
+        mimeTypes: [
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-excel",
+        ],
+        maxBytes: 20 * 1024 * 1024,
+        category: "sheet",
+    },
+    {
+        key: "csv",
+        extensions: [".csv"],
+        mimeTypes: ["text/csv"],
+        maxBytes: 10 * 1024 * 1024,
+        category: "sheet",
+    },
+    {
+        key: "json",
+        extensions: [".json"],
+        mimeTypes: ["application/json"],
+        maxBytes: 50 * 1024 * 1024,
+        category: "data",
+    },
 ];
+
+/** 文字录入框接受的文件类型（TXT / Markdown，内容解码后填入文字框） */
+export const TEXT_FILE_TYPES: readonly ImportFileTypeDef[] = IMPORT_FILE_TYPES.filter((type) => type.key === "text");
+
+/** 题库文件类型（走「导入题库文件」流水线解析为结构化题目） */
+export const BANK_FILE_TYPES: readonly ImportFileTypeDef[] = IMPORT_FILE_TYPES.filter((type) => type.key !== "text");
 
 /** 按扩展名或 MIME 识别文件类型；都不匹配时返回 null */
 export function detectImportFileType(name: string, mime: string): ImportFileTypeDef | null {

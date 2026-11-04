@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { confirmDialog, toast } from "@/lib/feedback";
-import { IMPORT_FILE_TYPES, decodeTextFile } from "@/lib/import/file-read";
+import { IMPORT_FILE_TYPES, decodeTextFile, detectImportFileType } from "@/lib/import/file-read";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { getErrorMessage } from "@/lib/error-message";
 import { MAX_SPLIT_TEXT_LENGTH, splitQuestionText } from "@/lib/question-split/text";
@@ -21,13 +21,15 @@ interface TextInputZoneProps {
     /** 多题：创建分题批次（local 本地规则，不调用 AI；ai 由模型分题；forceNumbered 时编号像小问也按编号分题）。不提供时只有单题路径 */
     onCreateBatch?: (text: string, splitter: "local" | "ai", forceNumbered?: boolean) => Promise<void>;
     creatingBatch?: boolean;
+    /** 用户选择了题库文件（docx/xlsx/csv/json）时回调，由父组件切换到「导入题库文件」入口 */
+    onSwitchToFileImport?: () => void;
 }
 
 /**
  * 文字录入：输入时用本地规则实时检测编号题（不调用 AI）。检测到多道题时主按钮为「分题预览」，
  * 仍可「作为一道题解析」；没有检测到时保持原来的单题「AI 解题」，并提供「用 AI 分题」入口。
  */
-export function TextInputZone({ onSubmit, isAnalyzing, defaultNotebookName, onCreateBatch, creatingBatch = false }: TextInputZoneProps) {
+export function TextInputZone({ onSubmit, isAnalyzing, defaultNotebookName, onCreateBatch, creatingBatch = false, onSwitchToFileImport }: TextInputZoneProps) {
     const { t } = useLanguage();
     const [questionText, setQuestionText] = useState("");
     const deferredText = useDeferredValue(questionText);
@@ -49,8 +51,24 @@ export function TextInputZone({ onSubmit, isAnalyzing, defaultNotebookName, onCr
         await onCreateBatch(questionText, splitter, forceNumbered);
     };
 
-    /** 从文件导入：TXT / Markdown 内容填入文字框；已有内容时询问替换或追加 */
+    /**
+     * 从文件导入：TXT / Markdown 内容填入文字框；已有内容时询问替换或追加。
+     * 题库文件（docx / xlsx / csv / json）不在这里解码，提示并切换到「导入题库文件」入口。
+     */
     const handleImportFile = async (file: File) => {
+        const detected = detectImportFileType(file.name, file.type);
+        if (detected && detected.key !== "text") {
+            if (onSwitchToFileImport) {
+                const ok = await confirmDialog(t.importFile.bankFileHint, {
+                    confirmText: t.importFile.bankFileSwitch,
+                    cancelText: t.importFile.bankFileStay,
+                });
+                if (ok) onSwitchToFileImport();
+            } else {
+                toast.info(t.importFile.bankFileHint);
+            }
+            return;
+        }
         let content: string;
         try {
             const buffer = await file.arrayBuffer();

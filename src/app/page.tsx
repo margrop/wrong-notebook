@@ -2,10 +2,11 @@
 
 import { useState, Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Camera, PenLine, Sparkles } from "lucide-react";
+import { Camera, FileUp, PenLine, Sparkles } from "lucide-react";
 import { BatchImportPanel } from "@/components/batch-import-panel";
 import { CorrectionEditor } from "@/components/correction-editor";
 import { DirectTextEditor } from "@/components/direct-text-editor";
+import { FileImportPanel } from "@/components/file-import/file-import-panel";
 import { HomeHero } from "@/components/home-hero";
 import { ImageCropper } from "@/components/image-cropper";
 import { ImportResultBanner } from "@/components/import-result-banner";
@@ -45,8 +46,8 @@ function HomeContent() {
     const initialNotebookId = searchParams.get("notebook");
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
     const [dueCount, setDueCount] = useState<number | null>(null);
-    // Input mode: "image" for photo upload, "text" for AI solve, "direct" for manual entry
-    const [inputMode, setInputMode] = useState<"image" | "text" | "direct">("image");
+    // Input mode: "image" for photo upload, "text" for AI solve, "direct" for manual entry, "file" for question bank files
+    const [inputMode, setInputMode] = useState<"image" | "text" | "direct" | "file">("image");
 
     const targetNotebookId = initialNotebookId;
     const targetNotebook = targetNotebookId ? notebooks.find(n => n.id === targetNotebookId) : undefined;
@@ -84,6 +85,7 @@ function HomeContent() {
     const inputModes = [
         { value: "image" as const, icon: Camera, label: t.app?.uploadImage || "Take Photo" },
         { value: "text" as const, icon: Sparkles, label: t.app?.manualInput || "Manual Input" },
+        { value: "file" as const, icon: FileUp, label: t.app?.fileImport || "Import File" },
         { value: "direct" as const, icon: PenLine, label: t.app?.directInput || "Manual Entry" },
     ];
 
@@ -138,7 +140,10 @@ function HomeContent() {
                                     defaultNotebookName={targetNotebook?.name}
                                     onCreateBatch={flow.createTextBatch}
                                     creatingBatch={flow.creatingBatch}
+                                    onSwitchToFileImport={() => setInputMode("file")}
                                 />
+                            ) : inputMode === "file" ? (
+                                <FileImportPanel defaultNotebookId={targetNotebookId || undefined} />
                             ) : (
                                 <DirectTextEditor
                                     onSubmit={handleDirectSave}

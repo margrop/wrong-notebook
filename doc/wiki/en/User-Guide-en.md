@@ -18,6 +18,7 @@ The notebook list shows only each name and question count; click one to open its
 | Clipboard paste | Copied screenshots or images, with `Ctrl/⌘+V` |
 | Screenshot | The browser supports screen sharing and the page runs in a secure context |
 | AI solve | You already have the question text; Markdown and LaTeX are supported; tap **Import from file** to load a TXT / Markdown file |
+| Import question file | Existing question bank files (JSON / Word / Excel / CSV), parsed and imported in batches |
 | Direct entry | Manually record a known question, answer and analysis |
 
 Images can be cropped first. While cropping or selecting several questions, zoom with the mouse wheel, a two-finger pinch or the buttons at the top right (100%–500%; click the percentage to reset). When one image contains several questions, choose **Auto split** to let AI find each question (see "Multiple questions" below), or **Draw boxes** to select them for a batch import. Keep the full question, any required figure and the student's work, and avoid blurry images or cut-off conditions.
@@ -32,7 +33,23 @@ After enabling "Review before import" in "Settings → General", you can correct
 
 ### Import question files
 
-Word (.docx) question bank files are supported, up to 50 MB.
+The **Import question file** entry on the home page imports existing question bank files. Parsed questions are imported in batches and can be saved **as-is** (no AI call). Supported formats:
+
+| Format | Extension | Max size | Notes |
+| --- | --- | --- | --- |
+| JSON (question exchange format v1) | .json | 50 MB | The app's exchange format with the richest fields |
+| Word | .docx | 50 MB | Paragraphs, auto numbering, tables and inline tags |
+| Excel | .xlsx | 20 MB | Header row detected; sheet names used as sections when there is no section column |
+| CSV | .csv | 10 MB | Comma/semicolon/tab and UTF-8/UTF-16/GBK auto-detected |
+
+- **Flow**: choose a file → parse (with progress) → summary (total questions, parse errors with reasons, warnings, not-yet-imported fields) → choose a target notebook (required) → create batches and go to the import center. At most 2000 questions per import; questions with parse errors are not imported.
+- **Not-yet-imported fields**: subject, grade/semester, source, figure SVG, embedded images and extension fields are not written to the draft yet; the import summary shows how many questions carry each.
+- **Templates**: Excel / CSV templates (with sample data and column descriptions) can be downloaded from the import page; column names accept Chinese and English.
+- **Not yet supported**: PDF is planned for a later version; images and formulas in Word are currently imported as the placeholders "[图片]" and "[公式]" (support planned); legacy .doc binary files must first be saved as .docx in Word before importing.
+
+The JSON question exchange format is documented in the [question exchange format spec](../QUESTION_FORMAT.md).
+
+#### Word (.docx) content
 
 - **Supported content**: normal paragraphs, auto-numbered paragraphs, tables (cells joined with tabs), inline tags such as 【答案】 (answer), 【解析】 (analysis), 【知识点】 (knowledge points), 【难度】 (difficulty) and 【错答】 (wrong answer), as well as an "参考答案" answer section filled back by question number.
 - **Auto numbering**: numbers from Word auto-numbering are not in the text; the parser computes them from `numbering.xml` (e.g. "1.", "一、", "（三）"). Common formats include decimal, Chinese counting (一、二、三…), enclosed circle digits (①②③), upper/lowercase letters and Roman numerals.
@@ -40,6 +57,10 @@ Word (.docx) question bank files are supported, up to 50 MB.
 - **Word formulas**: formulas inserted with Word's built-in equation editor (Insert → Equation) are converted to LaTeX for KaTeX rendering — inline formulas become `$…$` and display equations become `$$…$$`; fractions, radicals, superscripts/subscripts, ∑/∫/∏, equation systems, matrices and other common structures are supported. OLE equation objects such as MathType are not OMML and appear in the docx as images; they are kept as the "[图片]" placeholder for now (counted in the import warning `OLE_EQUATION:N`). Unrecognized OMML structures keep their text and are reported in the `MATH_UNSUPPORTED:元素名` warning. Legacy .doc binary files must first be saved as .docx in Word before importing.
 - **Images**: currently output the placeholder "[图片]"; support is planned for a later version.
 - **Strikethrough and hidden text**: skipped during parsing; revisions keep insertions and skip deletions.
+
+#### Excel / CSV column names
+
+See "Excel / CSV question templates" below.
 
 ### Multiple questions
 
