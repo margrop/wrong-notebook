@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
     reanswerQuestion: vi.fn(),
     splitQuestions: vi.fn(),
     fixQuestionText: vi.fn(),
+    suggestKnowledgeTags: vi.fn(),
     dailyLimit: 0,
     session: { user: { id: 'user-1', email: 'batch@example.com', role: 'user' }, expires: '2099-01-01' } as {
         user: { id: string; email: string; role: string };
@@ -41,9 +42,14 @@ vi.mock('@/lib/ai', () => ({
         reanswerQuestion: mocks.reanswerQuestion,
         splitQuestions: mocks.splitQuestions,
         fixQuestionText: mocks.fixQuestionText,
+        suggestKnowledgeTags: mocks.suggestKnowledgeTags,
     }),
 }));
-vi.mock('@/lib/ai/tag-service', () => ({ getNotebookCandidateTags: vi.fn(async () => undefined) }));
+vi.mock('@/lib/ai/tag-service', () => ({
+    getNotebookCandidateTags: vi.fn(async () => undefined),
+    getMathTagsFromDB: vi.fn(async () => ['分数的意义', '一元一次方程']),
+    getScopeTagsFromDB: vi.fn(async () => ['分数的意义', '一元一次方程']),
+}));
 vi.mock('@/lib/logger', () => ({ createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }) }));
 vi.mock('@/lib/config', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/lib/config')>()),
@@ -140,6 +146,7 @@ beforeEach(async () => {
     mocks.recognizeGrade.mockResolvedValue(null);
     mocks.reanswerQuestion.mockImplementation(async (questionText: string) => reanswer(questionText));
     mocks.analyzeImage.mockImplementation(async (base64: string) => parsedImage(`图片题 ${base64.length}`));
+    mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['分数的意义'], difficultyStars: 3, questionType: 'calculation' });
     await database.user.deleteMany();
     await database.user.createMany({ data: [
         { id: 'user-1', email: 'batch@example.com', password: 'test-only', confirmBeforeImport: false },
@@ -712,6 +719,172 @@ describe('批次归属与列表', () => {
         expect(await database.importBatch.count()).toBe(0);
         expect(await database.importTask.count()).toBe(0);
         expect(await database.errorItem.count()).toBe(2);
+    });
+});
+
+describe('AI 只补标签（analysis=tags）', () => {
+    it('免确认：保留草稿答案解析，AI 只补缺失字段，每题计一次 retag 额度', async () => {
+        const text = '1．计算 1 + 1。\n【答案】2\n【解析】1+1=2\n\n2．计算 2 + 2。\n【答案】4';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+
+        const started = await start(batch.id, { version: batch.version, analysis: 'tags' });
+        expect(started.status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+
+        // 只调用标签建议，不调用完整识别
+        expect(mocks.suggestKnowledgeTags).toHaveBeenCalledTimes(2);
+        expect(mocks.reanswerQuestion).not.toHaveBeenCalled();
+        expect(mocks.analyzeImage).not.toHaveBeenCalled();
+        expect(await database.aiUsage.count({ where: { kind: 'retag' } })).toBe(2);
+
+        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        expect(items).toHaveLength(2);
+        // 草稿答案解析保留
+        expect(items[0].answerText).toBe('2');
+        expect(items[0].analysis).toBe('1+1=2');
+        // AI 补全的知识点、难度、题型落库
+        expect(items[0].knowledgePoints).toContain('分数的意义');
+        expect(items[0].difficultyStars).toBe(3);
+        expect(items[0].questionType).toBe('calculation');
+
+        const { batch: done } = await getBatch(batch.id);
+        expect(done).toMatchObject({ status: 'started', phase: 'done', counts: { total: 2, saved: 2, failed: 0 } });
+    });
+
+    it('已有值的字段保留：草稿已填知识点/难度/题型时不覆盖', async () => {
+        const text = '1．计算 1 + 1。\n【答案】2\n【知识点】自定义知识点\n【难度】4\n【题型】fill_blank';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+
+        await start(batch.id, { version: batch.version, analysis: 'tags' });
+        await waitForImportBatchTasksForTest(batch.id);
+
+        // 草稿已填全部字段时 AI 不被调用（无缺失字段需要补全）
+        expect(mocks.suggestKnowledgeTags).not.toHaveBeenCalled();
+        const items = await database.errorItem.findMany();
+        expect(items).toHaveLength(1);
+        expect(items[0].knowledgePoints).toContain('自定义知识点');
+        expect(items[0].difficultyStars).toBe(4);
+        expect(items[0].questionType).toBe('fill_blank');
+    });
+
+    it('AI 失败时按原结果继续入库，不标记失败', async () => {
+        mocks.suggestKnowledgeTags.mockRejectedValueOnce(new Error('AI_SERVICE_UNAVAILABLE'));
+        const text = '1．计算 1 + 1。\n【答案】2';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+
+        await start(batch.id, { version: batch.version, analysis: 'tags' });
+        await waitForImportBatchTasksForTest(batch.id);
+
+        const { batch: done } = await getBatch(batch.id);
+        expect(done).toMatchObject({ phase: 'done', counts: { saved: 1, failed: 0 } });
+        const items = await database.errorItem.findMany();
+        expect(items).toHaveLength(1);
+        // 原结果保留（知识点为空）
+        expect(items[0].answerText).toBe('2');
+    });
+
+    it('超出每日额度时不调用 AI，按原结果继续入库', async () => {
+        mocks.dailyLimit = 1;
+        await database.aiUsage.create({ data: { userId: 'user-1', kind: 'retag' } });
+        const text = '1．计算 1 + 1。\n【答案】2';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+
+        const started = await start(batch.id, { version: batch.version, analysis: 'tags' });
+        expect(started.status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+
+        expect(mocks.suggestKnowledgeTags).not.toHaveBeenCalled();
+        const { batch: current } = await getBatch(batch.id);
+        expect(current).toMatchObject({ phase: 'done', counts: { saved: 1, failed: 0 } });
+        const items = await database.errorItem.findMany();
+        expect(items).toHaveLength(1);
+        expect(items[0].answerText).toBe('2');
+    });
+
+    it('额度为 0（不限制）时 tags 批次正常调用 AI 并入库', async () => {
+        mocks.dailyLimit = 0;
+        const text = '1．计算 1 + 1。\n【答案】2\n\n2．计算 2 + 2。\n【答案】4';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+
+        const started = await start(batch.id, { version: batch.version, analysis: 'tags' });
+        expect(started.status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+
+        // 额度为 0 表示不限制，AI 正常调用
+        expect(mocks.suggestKnowledgeTags).toHaveBeenCalledTimes(2);
+        const { batch: current } = await getBatch(batch.id);
+        expect(current).toMatchObject({ phase: 'done', counts: { saved: 2, failed: 0 } });
+        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        expect(items).toHaveLength(2);
+        expect(items[0].answerText).toBe('2');
+        expect(items[1].answerText).toBe('4');
+    });
+
+    it('图片批次传 analysis=tags 返回校验错误', async () => {
+        mocks.splitQuestions.mockResolvedValue({
+            questions: [{ label: '1', text: '如图，求面积。', material: null, section: null, regions: [{ x: 0.05, y: 0.05, width: 0.9, height: 0.3 }], hasFigure: false, flags: [] }],
+            ignored: [], warnings: [],
+        });
+        const { batch } = await create({ source: 'image', imageBase64: PAGE, targetSubjectId: 'math' });
+        await waitSplit(batch.id);
+        const { batch: ready } = await getBatch(batch.id);
+        const images = [{ key: ready.draft.items[0].key, imageBase64: CROP(1) }];
+        const failed = await start(batch.id, { version: ready.version, images, analysis: 'tags' });
+        expect(failed.status).toBe(400);
+        expect((await failed.json()).message).toBe('IMPORT_BATCH_ANALYSIS_NONE_TEXT_ONLY');
+    });
+
+    it('缺目标错题本时返回校验错误', async () => {
+        const text = '1．计算 1 + 1。\n【答案】2';
+        const { batch } = await create({ source: 'text', text });
+        const failed = await start(batch.id, { version: batch.version, analysis: 'tags' });
+        expect(failed.status).toBe(400);
+        expect((await failed.json()).message).toBe('IMPORT_BATCH_ANALYSIS_NONE_TARGET_REQUIRED');
+    });
+
+    it('校对模式：任务以 analyzing 创建，完成后进入 review', async () => {
+        await database.user.update({ where: { id: 'user-1' }, data: { confirmBeforeImport: true } });
+        const text = '1．计算 1 + 1。\n【答案】2\n\n2．计算 2 + 2。\n【答案】4';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+
+        const started = await start(batch.id, { version: batch.version, analysis: 'tags' });
+        expect(started.status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+
+        const { batch: current } = await getBatch(batch.id);
+        expect(current).toMatchObject({ mode: 'review', phase: 'attention', counts: { review: 2, saved: 0 } });
+        expect(current.tasks.every((task: { status: string; hasResult: boolean }) => task.status === 'review' && task.hasResult)).toBe(true);
+        expect(await database.errorItem.count()).toBe(0);
+        expect(mocks.suggestKnowledgeTags).toHaveBeenCalledTimes(2);
+
+        // 校对确认后可入库
+        const confirm = await CONFIRM_ALL(json({}), params(batch.id));
+        expect(confirm.status).toBe(200);
+        expect(await database.errorItem.count()).toBe(2);
+    });
+
+    it('重试已有结果的任务时不再调用 AI', async () => {
+        const text = '1．计算 1 + 1。\n【答案】2\n\n2．计算 2 + 2。\n【答案】4';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+        await start(batch.id, { version: batch.version, analysis: 'tags' });
+        await waitForImportBatchTasksForTest(batch.id);
+
+        let { batch: current } = await getBatch(batch.id);
+        expect(current).toMatchObject({ phase: 'done', counts: { saved: 2 } });
+
+        // 手动标记一个任务失败再重试
+        const failedTask = current.tasks[0];
+        await database.importTask.update({ where: { id: failedTask.id }, data: { status: 'failed', error: 'TEST_FAILURE' } });
+
+        mocks.suggestKnowledgeTags.mockClear();
+        const retried = await RETRY(json({}), params(batch.id));
+        expect(retried.status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+
+        // 重试只重试保存，不调用 AI
+        expect(mocks.suggestKnowledgeTags).not.toHaveBeenCalled();
+        ({ batch: current } = await getBatch(batch.id));
+        expect(current).toMatchObject({ phase: 'done', counts: { saved: 2 } });
     });
 });
 

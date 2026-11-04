@@ -12,6 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { extractTag, splitKnowledgePoints, parseQuestionResponse } from '@/lib/ai/response-parser';
+import { parseTagSuggestion } from '@/lib/ai/schema';
 
 describe('extractTag', () => {
     it('提取基本标签内容', () => {
@@ -170,5 +171,36 @@ describe('parseQuestionResponse', () => {
         expect(parseQuestionResponse(base + '<question_type>单选题</question_type>').questionType).toBe('single_choice');
         expect(parseQuestionResponse(base + '<question_type>bogus</question_type>').questionType).toBeNull();
         expect(parseQuestionResponse(base).questionType).toBeNull();
+    });
+});
+
+describe('parseTagSuggestion', () => {
+    const allowed = ['鸡兔同笼', '植树问题', '加法'];
+
+    it('解析知识点、难度星级和题型', () => {
+        const result = parseTagSuggestion(
+            '{"tags": ["鸡兔同笼", "植树问题"], "difficultyStars": 3, "questionType": "single_choice"}',
+            allowed,
+        );
+        expect(result.tags).toEqual(['鸡兔同笼', '植树问题']);
+        expect(result.difficultyStars).toBe(3);
+        expect(result.questionType).toBe('single_choice');
+    });
+
+    it('questionType 缺失时返回 null，不影响其他字段', () => {
+        const result = parseTagSuggestion('{"tags": ["加法"], "difficultyStars": 2}', allowed);
+        expect(result.tags).toEqual(['加法']);
+        expect(result.difficultyStars).toBe(2);
+        expect(result.questionType).toBeNull();
+    });
+
+    it('questionType 为中文别名时也能解析', () => {
+        const result = parseTagSuggestion('{"tags": ["加法"], "questionType": "单选题"}', allowed);
+        expect(result.questionType).toBe('single_choice');
+    });
+
+    it('questionType 为非法值时返回 null', () => {
+        const result = parseTagSuggestion('{"tags": ["加法"], "questionType": "bogus"}', allowed);
+        expect(result.questionType).toBeNull();
     });
 });

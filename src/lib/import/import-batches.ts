@@ -120,8 +120,8 @@ const startSchema = z.object({
         imageBase64: z.string().max(MAX_IMAGE_DATA_LENGTH).regex(IMAGE_DATA_PATTERN),
         imageInfo: imageInfoSchema.optional(),
     })).max(60).optional(),
-    /** 逐题解析方式：ai 调用 AI 识别（默认，行为与之前一致）；none 按原样入库（不调用 AI、不计额度），仅文字批次可用 */
-    analysis: z.enum(['ai', 'none']).default('ai'),
+    /** 逐题解析方式：ai 调用 AI 识别（默认，行为与之前一致）；tags 保留草稿答案解析、AI 只补知识点/难度/题型；none 按原样入库（不调用 AI、不计额度）。仅文字批次可用 tags/none */
+    analysis: z.enum(['ai', 'tags', 'none']).default('ai'),
 });
 
 /**
@@ -480,7 +480,7 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
     const planned = items.map((item) => ({ item, id: randomUUID().replace(/-/g, '') }));
 
     const analysis = parsed.data.analysis;
-    if (analysis === 'none') {
+    if (analysis === 'none' || analysis === 'tags') {
         if (source !== 'text') return validationError('IMPORT_BATCH_ANALYSIS_NONE_TEXT_ONLY');
         const targetNotebookId = batch.targetSubjectId ?? batch.subjectId;
         if (!targetNotebookId) return validationError('IMPORT_BATCH_ANALYSIS_NONE_TARGET_REQUIRED');
@@ -492,7 +492,7 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
             logger.error({ batchId: id, key: invalid.item.key }, 'Import batch start failed: draft item cannot be converted to parsed question');
             return createErrorResponse('IMPORT_BATCH_START_FAILED', 500, ErrorCode.INTERNAL_ERROR);
         }
-        return await startWithoutAnalysis(user, batch, planned, results as Map<string, NonNullable<ReturnType<typeof draftItemToParsed>>>, mode, targetNotebookId);
+        return await startWithDraftResults(user, batch, planned, results as Map<string, NonNullable<ReturnType<typeof draftItemToParsed>>>, mode, targetNotebookId, analysis);
     }
 
     const releases = new Map(planned.map(({ id: taskId }) => [taskId, register(taskId)]));
@@ -563,20 +563,30 @@ type PlannedTask = { item: DraftItem; id: string };
 type ParsedResultMap = Map<string, ParsedQuestion>;
 
 /**
- * 「按原样入库」（analysis='none'）：不调用 AI、不计额度，直接用草稿字段构造识别结果建任务。
- * 人工确认（mode=review）时任务以 status='review' 创建；否则以 status='saving' 创建并安排后台保存
- * （executeTask 对 saving 任务跳过识别直接保存）。
- * 任务的 targetSubjectId 固定为目标错题本（targetSubjectId ?? subjectId），
+ * 「按原样入库」（analysis='none'）与「AI 只补标签」（analysis='tags'）共用：
+ * 先用草稿字段构造识别结果写入 task.result，再按解析方式决定任务初始状态与后续处理。
+ *
+ * analysis='none'：任务直接以终态创建（review 或 saving），不调用 AI、不计额度；
+ *   saving 任务安排后台保存（executeTask 对 saving 任务跳过识别直接保存）。
+ * analysis='tags'：任务以 analyzing 状态创建；executeTask 检测到已有结果时仅调用 AI 补全缺失的
+ *   知识点、难度星级与题型（不重新完整识别），每题计一次 retag 额度。
+ *   已有值的字段保留；AI 失败或超额时按原结果继续入库（不失败）。
+ *
+ * 两种方式的 targetSubjectId 都固定为目标错题本（targetSubjectId ?? subjectId），
  * 保证自动入库（autoSavePayload 只看 task.targetSubjectId）落到正确错题本。
  */
-async function startWithoutAnalysis(
+async function startWithDraftResults(
     user: User,
     batch: BatchWithTasks,
     planned: PlannedTask[],
     results: ParsedResultMap,
     mode: ImportTaskMode,
     targetNotebookId: string,
+    analysis: 'none' | 'tags',
 ): Promise<NextResponse> {
+    const initialStatus: ImportTaskStatus = analysis === 'none'
+        ? (mode === 'review' ? 'review' : 'saving')
+        : 'analyzing';
     const releases = new Map(planned.map(({ id: taskId }) => [taskId, register(taskId)]));
     const releaseAll = () => releases.forEach((release) => release());
     try {
@@ -595,7 +605,7 @@ async function startWithoutAnalysis(
                         userId: user.id,
                         clientRequestId: taskId,
                         mode,
-                        status: mode === 'review' ? 'review' : 'saving',
+                        status: initialStatus,
                         language: batch.language,
                         subjectId: batch.subjectId,
                         targetSubjectId: targetNotebookId,
@@ -608,7 +618,7 @@ async function startWithoutAnalysis(
                         timings: JSON.stringify({ client: {}, server: {} }),
                         runnerId: bootId(),
                         heartbeatAt: now,
-                        ...(mode === 'review' ? { finishedAt: now, readAt: null } : {}),
+                        ...(initialStatus === 'review' ? { finishedAt: now, readAt: null } : {}),
                     },
                 });
             }
@@ -621,16 +631,42 @@ async function startWithoutAnalysis(
             if (current.status === 'started') return NextResponse.json({ batch: toDetail(current), alreadyStarted: true });
             return conflict('IMPORT_BATCH_VERSION_CONFLICT', current);
         }
-        logger.error({ batchId: batch.id, error: getErrorMessage(error) }, 'Import batch start (no analysis) failed');
+        logger.error({ batchId: batch.id, error: getErrorMessage(error) }, `Import batch start (${analysis}) failed`);
         return createErrorResponse('IMPORT_BATCH_START_FAILED', 500, ErrorCode.INTERNAL_ERROR);
     }
 
-    // 不计 AI 额度；自动入库的任务直接安排后台保存（saving 任务跳过识别）
-    for (const { id: taskId } of planned) {
-        if (mode !== 'review') scheduleImportTask(taskId, releases.get(taskId)!);
-        else releases.get(taskId)!();
+    if (analysis === 'none') {
+        // 不计 AI 额度；自动入库的任务直接安排后台保存（saving 任务跳过识别）
+        for (const { id: taskId } of planned) {
+            if (mode !== 'review') scheduleImportTask(taskId, releases.get(taskId)!);
+            else releases.get(taskId)!();
+        }
+        logger.info({ batchId: batch.id, mode, questions: planned.length }, 'Import batch started (no analysis)');
+    } else {
+        // 每题计一次 retag 额度；超额的题不调用 AI、不标记失败，
+        // 直接把任务从 analyzing 推进到与正常完成识别后相同的下一状态（结果保持原样）
+        for (const { id: taskId } of planned) {
+            const release = releases.get(taskId)!;
+            const limited = await serializeWrite(() => consumeAiQuota(user, 'retag'));
+            if (limited) {
+                release();
+                const next: ImportTaskStatus = mode === 'auto' ? 'saving' : 'review';
+                await serializeWrite(() => prisma.importTask.updateMany({
+                    where: { id: taskId, status: 'analyzing' },
+                    data: {
+                        status: next,
+                        error: null,
+                        heartbeatAt: new Date(),
+                        ...(next === 'review' ? { finishedAt: new Date(), readAt: null } : {}),
+                    },
+                }));
+                if (next === 'saving') scheduleImportTask(taskId, register(taskId));
+                continue;
+            }
+            scheduleImportTask(taskId, release);
+        }
+        logger.info({ batchId: batch.id, mode, questions: planned.length }, 'Import batch started (tags only)');
     }
-    logger.info({ batchId: batch.id, mode, questions: planned.length }, 'Import batch started (no analysis)');
     const current = await findOwnBatch(user, batch.id);
     return NextResponse.json({ batch: toDetail(current!) }, { status: 202 });
 }

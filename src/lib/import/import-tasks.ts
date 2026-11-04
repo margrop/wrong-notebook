@@ -38,6 +38,7 @@ import { importSchema, saveQuestion } from "@/lib/question/question-save";
 import type { SaveQuestionResult } from "@/lib/question/question-save";
 import { questionSaveFailureToResponse } from "@/lib/question/question-save-response";
 import type { QuestionSaveFailure } from "@/lib/question/question-save-failure";
+import { suggestTagsForText } from "@/lib/tags/retag";
 
 const logger = createLogger('import-tasks');
 
@@ -358,6 +359,45 @@ function analyzeTask(task: ImportTask & { user: User }): Promise<ParsedQuestion>
     });
 }
 
+/**
+ * 「只补标签」路径：任务已有合法结果（draftItemToParsed），仅调用 AI 补全缺失的知识点、难度星级与题型。
+ * 已有值的字段一律保留；AI 失败或超额时不阻断入库，按原结果继续。
+ */
+async function fillMissingTags(task: ImportTask & { user: User }, result: ParsedQuestion): Promise<ParsedQuestion> {
+    const needsTags = (result.knowledgePoints?.length ?? 0) === 0;
+    const needsDifficulty = result.difficultyStars == null;
+    const needsType = !result.questionType;
+    if (!needsTags && !needsDifficulty && !needsType) return result;
+
+    // 目标错题本决定候选知识点范围
+    const targetSubjectId = task.targetSubjectId ?? task.subjectId;
+    const notebook = targetSubjectId
+        ? await prisma.subject.findFirst({ where: { id: targetSubjectId, userId: task.user.id }, select: { stage: true, subjectKey: true, tagSet: true, name: true } })
+        : null;
+
+    try {
+        const suggestion = await suggestTagsForText({
+            questionText: result.questionText,
+            answerText: result.answerText,
+            analysis: result.analysis,
+            wrongAnswerText: result.wrongAnswerText || null,
+            mistakeAnalysis: result.mistakeAnalysis || null,
+            notebook,
+            user: task.user,
+            gradeSemester: result.gradeSemester ?? null,
+        });
+        return {
+            ...result,
+            knowledgePoints: needsTags ? suggestion.tags : result.knowledgePoints,
+            difficultyStars: needsDifficulty ? suggestion.difficultyStars : result.difficultyStars,
+            questionType: needsType ? suggestion.questionType : result.questionType,
+        };
+    } catch (error) {
+        logger.warn({ taskId: task.id, error: getErrorMessage(error) }, 'Tag suggestion failed for import task; keeping original result');
+        return result;
+    }
+}
+
 /** 任务消耗的额度类别：文字题与文字解题一致，图片与拍照识别一致 */
 export function quotaKindOf(task: Pick<ImportTask, 'inputText'>): 'reanswer' | 'analyze' {
     return task.inputText ? 'reanswer' : 'analyze';
@@ -387,9 +427,13 @@ async function executeTask(id: string): Promise<void> {
 
         if (task.status === 'analyzing') {
             const started = Date.now();
+            // 「只补标签」：任务已有合法结果时不再完整识别，仅调用 AI 补全缺失字段
+            const existingResult = parseResult(task.result);
             let result: ParsedQuestion;
             try {
-                result = await analyzeTask(task);
+                result = existingResult
+                    ? await fillMissingTags(task, existingResult)
+                    : await analyzeTask(task);
             } catch (error) {
                 const message = getErrorMessage(error);
                 logger.error({ taskId: id, error: message, analyzeMs: Date.now() - started }, 'Import task analysis failed');
@@ -410,7 +454,7 @@ async function executeTask(id: string): Promise<void> {
                     ...(next === 'review' ? { finishedAt: new Date(), readAt: null } : {}),
                 },
             }));
-            logger.info({ taskId: id, analyzeMs, next }, 'Import task analyzed');
+            logger.info({ taskId: id, analyzeMs, next, tagsOnly: !!existingResult }, 'Import task analyzed');
             // 识别期间任务被丢弃
             if (updated.count === 0 || next === 'review') return;
             task = await prisma.importTask.findUnique({ where: { id }, include: { user: true } });

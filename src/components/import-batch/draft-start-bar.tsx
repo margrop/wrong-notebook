@@ -16,34 +16,40 @@ interface DraftStartBarProps {
     starting: string | null;
     onStart: () => void;
     onDiscard: () => void;
-    /** 批次来源：图片批次不支持「按原样入库」 */
+    /** 批次来源：图片批次不支持「按原样入库」和「AI 只补标签」 */
     source: "text" | "image";
-    /** 解析方式：ai 调用 AI 识别；none 按原样入库（不调用 AI、不计额度） */
-    analysisMode: "ai" | "none";
-    onAnalysisModeChange: (mode: "ai" | "none") => void;
-    /** 是否已选目标错题本（按原样入库必须指定） */
+    /** 解析方式：ai 完整识别；tags 保留草稿答案解析、AI 只补知识点/难度/题型；none 按原样入库 */
+    analysisMode: "ai" | "tags" | "none";
+    onAnalysisModeChange: (mode: "ai" | "tags" | "none") => void;
+    /** 是否已选目标错题本（按原样入库/只补标签必须指定） */
     hasTargetNotebook: boolean;
 }
 
-/** 分题预览底部固定的操作栏：按钮写明实际动作与题数；文字批次可选「按原样入库」不调用 AI */
+/** 分题预览底部固定的操作栏：按钮写明实际动作与题数；文字批次可选「按原样入库」或「AI 只补标签」 */
 export function DraftStartBar({ count, missingRegions, pendingFixes = 0, confirmBeforeImport, starting, onStart, onDiscard, source, analysisMode, onAnalysisModeChange, hasTargetNotebook }: DraftStartBarProps) {
     const { t } = useLanguage();
-    const noAnalysis = analysisMode === "none";
-    const label = noAnalysis
+    const isNone = analysisMode === "none";
+    const isTags = analysisMode === "tags";
+    const label = isNone
         ? (confirmBeforeImport ? t.importBatch.startNoneReview : t.importBatch.startNoneAuto).replace("{count}", String(count))
-        : (confirmBeforeImport ? t.importBatch.startReview : t.importBatch.startAuto).replace("{count}", String(count));
+        : isTags
+            ? (confirmBeforeImport ? t.importBatch.startTagsReview : t.importBatch.startTagsAuto).replace("{count}", String(count))
+            : (confirmBeforeImport ? t.importBatch.startReview : t.importBatch.startAuto).replace("{count}", String(count));
     const hint = count === 0
         ? t.importBatch.nothingSelected
         : missingRegions > 0
             ? t.importBatch.needsRegion.replace("{count}", String(missingRegions))
-            : noAnalysis
+            : isNone
                 ? t.importBatch.startHintNone
-                : pendingFixes > 0
-                    ? t.importBatch.fixText.pendingHint.replace("{count}", String(pendingFixes))
-                    : confirmBeforeImport ? t.importBatch.startHintReview : t.importBatch.startHintAuto;
-    // 按原样入库需要目标错题本；图片批次不支持
-    const noneDisabled = !hasTargetNotebook;
-    const noneDisabledHint = !hasTargetNotebook ? t.importBatch.startNoneNoTarget : undefined;
+                : isTags
+                    ? t.importBatch.startHintTags
+                    : pendingFixes > 0
+                        ? t.importBatch.fixText.pendingHint.replace("{count}", String(pendingFixes))
+                        : confirmBeforeImport ? t.importBatch.startHintReview : t.importBatch.startHintAuto;
+    // 按原样入库 / 只补标签需要目标错题本；图片批次不支持
+    const needsTarget = isNone || isTags;
+    const targetDisabled = needsTarget && !hasTargetNotebook;
+    const targetDisabledHint = targetDisabled ? t.importBatch.startNoneNoTarget : undefined;
 
     return (
         // 手机上停在底部导航栏之上，右侧留出「后台任务」悬浮按钮的位置；电脑上随内容吸底
@@ -55,10 +61,10 @@ export function DraftStartBar({ count, missingRegions, pendingFixes = 0, confirm
                             <button
                                 type="button"
                                 role="radio"
-                                aria-checked={!noAnalysis}
+                                aria-checked={analysisMode === "ai"}
                                 disabled={!!starting}
                                 onClick={() => onAnalysisModeChange("ai")}
-                                className={`rounded-full border px-2.5 py-1 transition-colors ${!noAnalysis ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}
+                                className={`rounded-full border px-2.5 py-1 transition-colors ${analysisMode === "ai" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}
                                 data-testid="draft-analysis-ai"
                             >
                                 {t.importBatch.analysisAi}
@@ -66,11 +72,23 @@ export function DraftStartBar({ count, missingRegions, pendingFixes = 0, confirm
                             <button
                                 type="button"
                                 role="radio"
-                                aria-checked={noAnalysis}
-                                disabled={!!starting || noneDisabled}
+                                aria-checked={isTags}
+                                disabled={!!starting || targetDisabled}
+                                onClick={() => onAnalysisModeChange("tags")}
+                                title={targetDisabledHint}
+                                className={`rounded-full border px-2.5 py-1 transition-colors ${isTags ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"} disabled:cursor-not-allowed disabled:opacity-50`}
+                                data-testid="draft-analysis-tags"
+                            >
+                                {t.importBatch.analysisTags}
+                            </button>
+                            <button
+                                type="button"
+                                role="radio"
+                                aria-checked={isNone}
+                                disabled={!!starting || targetDisabled}
                                 onClick={() => onAnalysisModeChange("none")}
-                                title={noneDisabledHint}
-                                className={`rounded-full border px-2.5 py-1 transition-colors ${noAnalysis ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"} disabled:cursor-not-allowed disabled:opacity-50`}
+                                title={targetDisabledHint}
+                                className={`rounded-full border px-2.5 py-1 transition-colors ${isNone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"} disabled:cursor-not-allowed disabled:opacity-50`}
                                 data-testid="draft-analysis-none"
                             >
                                 {t.importBatch.analysisNone}

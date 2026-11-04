@@ -161,7 +161,7 @@ describe('AnthropicProvider', () => {
 
         const tags = await provider.suggestKnowledgeTags({ questionText: '2+3', subject: '数学', allowedTags: ['加法', '减法'] });
 
-        expect(tags).toEqual({ tags: ['加法'], difficultyStars: null });
+        expect(tags).toEqual({ tags: ['加法'], difficultyStars: null, questionType: null });
     });
 
     it('单独重绘配图：以图片块发送并解析配图', async () => {

@@ -1,3 +1,4 @@
+import type { QuestionType } from "@/lib/question/question-type";
 import { prisma } from "@/lib/prisma";
 import { getAIService } from "@/lib/ai";
 import { getMathTagsFromDB, getScopeTagsFromDB } from "@/lib/ai/tag-service";
@@ -18,18 +19,83 @@ export interface RetagResult {
     errorItemId: string;
     tags: string[];
     difficultyStars: number | null; // AI 评定的难度星级，未给出时为空
+    /** AI 判断的题型；只在题目当前题型为空时返回，已有题型不覆盖 */
+    questionType: QuestionType | null;
 }
 
 interface TagSuggestion {
     tagNames: string[];                  // 新系统标签 + 保留的自定义标签
     difficultyStars: number | null;
+    questionType: QuestionType | null;
     paperLevel: string | null;
     newTagIds: string[];
     oldSystemTags: { id: string; name: string }[];
 }
 
 /**
- * 用 AI 从当前知识点库中为一道题选取知识点并评定难度星级（不保存）：题目与解答过程一并交给 AI；系统标签换成 AI 选出的，保留自定义标签
+ * 可复用的标签建议入参：题目文本、答案解析与可选知识点范围
+ */
+export interface SuggestTagsForTextInput {
+    questionText: string;
+    answerText?: string | null;
+    analysis?: string | null;
+    wrongAnswerText?: string | null;
+    mistakeAnalysis?: string | null;
+    /** 目标错题本的学段/学科/标签体系/名称；为空时按数学处理 */
+    notebook?: { stage: string | null; subjectKey: string | null; tagSet: string | null; name: string } | null;
+    /** 用户年级信息（未提供错题本学科时按数学标签需要） */
+    user?: { educationStage: string | null; enrollmentYear: number | null } | null;
+    gradeSemester?: string | null;
+}
+
+/**
+ * 可复用的标签建议出参
+ */
+export interface SuggestTagsForTextResult {
+    tags: string[];
+    difficultyStars: number | null;
+    questionType: QuestionType | null;
+}
+
+/**
+ * 基于题目文本、答案解析与可选知识点范围，调用 AI 选出知识点、评定难度与题型（可复用）
+ */
+export async function suggestTagsForText(input: SuggestTagsForTextInput): Promise<SuggestTagsForTextResult> {
+    // 候选知识点 = 错题本学段 + 学科 + 标签体系下的全部标签；
+    // 不在错题本中或错题本学科未知时按数学处理，并按学生年级取标签（与识别时的默认行为一致）
+    const scope = input.notebook ? resolveNotebookScope({ stage: input.notebook.stage, subjectKey: input.notebook.subjectKey, name: input.notebook.name ?? '' }) : null;
+    const subjectKey = scope?.subject || 'math';
+    const itemTagSet = input.notebook?.tagSet || 'default';
+    const allowedTags = scope?.subject
+        ? await getScopeTagsFromDB(scope.subject, scope.stage, itemTagSet)
+        : await getMathTagsFromDB(calculateGradeNumber(input.user?.educationStage ?? null, input.user?.enrollmentYear ?? null, getAppTimeZone()));
+    if (allowedTags.length === 0) {
+        throw new Error('NO_AVAILABLE_TAGS');
+    }
+
+    const gradeSemester = input.gradeSemester
+        || (input.user?.educationStage && input.user?.enrollmentYear
+            ? calculateGrade(input.user.educationStage, input.user.enrollmentYear, new Date(), 'zh', getAppTimeZone())
+            : null);
+
+    const { tags: chosen, difficultyStars, questionType } = await getAIService().suggestKnowledgeTags({
+        questionText: input.questionText,
+        answerText: input.answerText,
+        analysis: input.analysis,
+        wrongAnswerText: input.wrongAnswerText,
+        mistakeAnalysis: input.mistakeAnalysis,
+        subject: SUBJECT_DISPLAY_NAMES[subjectKey],
+        allowedTags,
+        gradeSemester,
+    });
+    if (chosen.length === 0) {
+        throw new Error('NO_TAGS_SELECTED');
+    }
+    return { tags: chosen, difficultyStars, questionType };
+}
+
+/**
+ * 用 AI 从当前知识点库中为一道错题选取知识点并评定难度星级（不保存）：题目与解答过程一并交给 AI；系统标签换成 AI 选出的，保留自定义标签
  */
 async function suggestTagsForItem(errorItemId: string, userId: string): Promise<TagSuggestion> {
     const item = await prisma.errorItem.findUnique({
@@ -43,6 +109,7 @@ async function suggestTagsForItem(errorItemId: string, userId: string): Promise<
             mistakeAnalysis: true,
             gradeSemester: true,
             paperLevel: true,
+            questionType: true,
             subject: { select: { name: true, stage: true, subjectKey: true, tagSet: true } },
             tags: { select: { id: true, name: true, isSystem: true } },
             user: { select: { educationStage: true, enrollmentYear: true } },
@@ -55,36 +122,22 @@ async function suggestTagsForItem(errorItemId: string, userId: string): Promise<
         throw new Error('NO_QUESTION_TEXT');
     }
 
-    // 候选知识点 = 错题本学段 + 学科 + 标签体系下的全部标签；
-    // 不在错题本中或错题本学科未知时按数学处理，并按学生年级取标签（与识别时的默认行为一致）
-    const scope = item.subject ? resolveNotebookScope(item.subject) : null;
-    const subjectKey = scope?.subject || 'math';
-    const itemTagSet = item.subject?.tagSet || 'default';
-    const allowedTags = scope?.subject
-        ? await getScopeTagsFromDB(scope.subject, scope.stage, itemTagSet)
-        : await getMathTagsFromDB(calculateGradeNumber(item.user.educationStage, item.user.enrollmentYear, getAppTimeZone()));
-    if (allowedTags.length === 0) {
-        throw new Error('NO_AVAILABLE_TAGS');
-    }
-
-    const gradeSemester = item.gradeSemester
-        || (item.user.educationStage && item.user.enrollmentYear
-            ? calculateGrade(item.user.educationStage, item.user.enrollmentYear, new Date(), 'zh', getAppTimeZone())
-            : null);
-
-    const { tags: chosen, difficultyStars } = await getAIService().suggestKnowledgeTags({
+    const { tags: chosen, difficultyStars, questionType } = await suggestTagsForText({
         questionText: item.questionText,
         answerText: item.answerText,
         analysis: item.analysis,
         wrongAnswerText: item.wrongAnswerText,
         mistakeAnalysis: item.mistakeAnalysis,
-        subject: SUBJECT_DISPLAY_NAMES[subjectKey],
-        allowedTags,
-        gradeSemester,
+        notebook: item.subject,
+        user: item.user,
+        gradeSemester: item.gradeSemester,
     });
-    if (chosen.length === 0) {
-        throw new Error('NO_TAGS_SELECTED');
-    }
+
+    // 候选知识点 = 错题本学段 + 学科 + 标签体系下的全部标签；
+    // 不在错题本中或错题本学科未知时按数学处理，并按学生年级取标签（与识别时的默认行为一致）
+    const scope = item.subject ? resolveNotebookScope(item.subject) : null;
+    const subjectKey = scope?.subject || 'math';
+    const itemTagSet = item.subject?.tagSet || 'default';
 
     // 同名系统标签可能出现在多个年级或多个体系下，限定当前错题本的 tagSet，取第一个即可
     const systemTags = await prisma.knowledgeTag.findMany({
@@ -101,6 +154,8 @@ async function suggestTagsForItem(errorItemId: string, userId: string): Promise<
     return {
         tagNames: [...newTags, ...customTags.map((tag) => tag.name).filter((name) => !newTags.includes(name))],
         difficultyStars,
+        // 只在题目当前题型为空时写入 AI 判断的题型，已有题型不覆盖
+        questionType: !item.questionType ? questionType : null,
         paperLevel: item.paperLevel,
         newTagIds: newTags.map((name) => tagIdByName.get(name)!),
         oldSystemTags: item.tags.filter((tag) => tag.isSystem).map(({ id, name }) => ({ id, name })),
@@ -111,16 +166,16 @@ async function suggestTagsForItem(errorItemId: string, userId: string): Promise<
  * 只返回 AI 建议的知识点、不保存，供编辑标签时预填
  */
 export async function previewRetagErrorItem(errorItemId: string, userId: string): Promise<RetagResult> {
-    const { tagNames, difficultyStars } = await suggestTagsForItem(errorItemId, userId);
-    return { errorItemId, tags: tagNames, difficultyStars };
+    const { tagNames, difficultyStars, questionType } = await suggestTagsForItem(errorItemId, userId);
+    return { errorItemId, tags: tagNames, difficultyStars, questionType };
 }
 
 /**
  * 用 AI 从当前知识点库中为一道题重新选取知识点并评定难度星级后保存：替换原有系统标签，保留自定义标签；
- * AI 未给出星级时保留原星级
+ * AI 未给出星级时保留原星级；只在题目当前题型为空时写入 AI 判断的题型
  */
 export async function retagErrorItem(errorItemId: string, userId: string): Promise<RetagResult> {
-    const { tagNames, newTagIds, oldSystemTags, difficultyStars, paperLevel } = await suggestTagsForItem(errorItemId, userId);
+    const { tagNames, newTagIds, oldSystemTags, difficultyStars, questionType, paperLevel } = await suggestTagsForItem(errorItemId, userId);
     const defaultPaperLevel = !paperLevel ? await getDefaultPaperLevelGroupId(userId, difficultyStars) : null;
 
     await prisma.errorItem.update({
@@ -128,6 +183,7 @@ export async function retagErrorItem(errorItemId: string, userId: string): Promi
         data: {
             knowledgePoints: JSON.stringify(tagNames),
             ...(difficultyStars !== null ? { difficultyStars } : {}),
+            ...(questionType ? { questionType } : {}),
             ...(defaultPaperLevel ? { paperLevel: defaultPaperLevel } : {}),
             tags: {
                 disconnect: oldSystemTags.map((tag) => ({ id: tag.id })),
@@ -136,8 +192,8 @@ export async function retagErrorItem(errorItemId: string, userId: string): Promi
         },
     });
 
-    logger.info({ errorItemId, before: oldSystemTags.map((tag) => tag.name), after: tagNames, difficultyStars }, 'Error item retagged');
-    return { errorItemId, tags: tagNames, difficultyStars };
+    logger.info({ errorItemId, before: oldSystemTags.map((tag) => tag.name), after: tagNames, difficultyStars, questionType }, 'Error item retagged');
+    return { errorItemId, tags: tagNames, difficultyStars, questionType };
 }
 
 export interface RetagJobStatus {

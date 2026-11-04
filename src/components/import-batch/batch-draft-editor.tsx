@@ -32,9 +32,9 @@ interface BatchDraftEditorProps {
     starting: string | null;
     onStart: () => void;
     onDiscard: () => void;
-    /** 解析方式：ai 调用 AI 识别；none 按原样入库（不调用 AI、不计额度），仅文字批次可用 */
-    analysisMode: "ai" | "none";
-    onAnalysisModeChange: (mode: "ai" | "none") => void;
+    /** 解析方式：ai 完整识别；tags 保留草稿答案解析、AI 只补知识点/难度/题型；none 按原样入库（不调用 AI、不计额度），仅文字批次可用 */
+    analysisMode: "ai" | "tags" | "none";
+    onAnalysisModeChange: (mode: "ai" | "tags" | "none") => void;
     /** 保存冲突后保留的本页修改：可恢复或放弃 */
     hasConflictCopy?: boolean;
     onRestoreConflict?: () => void;

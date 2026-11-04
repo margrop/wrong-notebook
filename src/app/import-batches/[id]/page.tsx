@@ -44,7 +44,7 @@ export default function ImportBatchPage() {
     const [confirmBeforeImport, setConfirmBeforeImport] = useState<boolean | null>(null);
     const [starting, setStarting] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
-    const [analysisMode, setAnalysisMode] = useState<"ai" | "none">("ai");
+    const [analysisMode, setAnalysisMode] = useState<"ai" | "tags" | "none">("ai");
     const markedRead = useRef<string | null>(null);
     // 在渲染期间根据草稿调整默认解析方式（所有已选题都带答案时默认「按原样入库」）：
     // 用上一次渲染的 draft 引用与本次比较，仅在 draft 变化时同步，避免 effect 级联渲染
@@ -53,7 +53,7 @@ export default function ImportBatchPage() {
         setPrevDraftRef(draft);
         if (draft && batch?.source === "text") {
             const ready = readyItems(draft, "text");
-            setAnalysisMode(ready.length > 0 && ready.every((item) => item.answer?.trim()) ? "none" : "ai");
+            setAnalysisMode(ready.length > 0 && ready.every((item) => item.answer?.trim()) ? "tags" : "ai");
         }
     }
 

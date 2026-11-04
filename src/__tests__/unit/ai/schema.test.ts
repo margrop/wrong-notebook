@@ -194,7 +194,7 @@ describe('parseDifficultyStars', () => {
     });
 
     it('知识点建议同时解析难度星级，缺失时为 null', () => {
-        expect(parseTagSuggestion('{"tags": ["植树问题"], "difficultyStars": 4}', ['植树问题'])).toEqual({ tags: ['植树问题'], difficultyStars: 4 });
+        expect(parseTagSuggestion('{"tags": ["植树问题"], "difficultyStars": 4}', ['植树问题'])).toEqual({ tags: ['植树问题'], difficultyStars: 4, questionType: null });
         expect(parseTagSuggestion('{"tags": ["植树问题"]}', ['植树问题']).difficultyStars).toBeNull();
     });
 

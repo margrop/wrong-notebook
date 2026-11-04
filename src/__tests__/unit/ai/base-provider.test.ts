@@ -157,6 +157,18 @@ describe('BaseAIProvider', () => {
             await provider.suggestKnowledgeTags({ questionText: 'q', subject: '数学', allowedTags: [] });
             expect(provider.complete).toHaveBeenCalledWith(expect.objectContaining({ task: 'tag-suggest' }));
         });
+
+        it('响应包含 questionType 时解析题型', async () => {
+            provider.complete.mockResolvedValue('{"tags":["加法"],"difficultyStars":2,"questionType":"calculation"}');
+            const result = await provider.suggestKnowledgeTags({ questionText: 'q', subject: '数学', allowedTags: ['加法'] });
+            expect(result.questionType).toBe('calculation');
+        });
+
+        it('响应缺少 questionType 时返回 null', async () => {
+            provider.complete.mockResolvedValue('{"tags":["加法"],"difficultyStars":2}');
+            const result = await provider.suggestKnowledgeTags({ questionText: 'q', subject: '数学', allowedTags: ['加法'] });
+            expect(result.questionType).toBeNull();
+        });
     });
 
     describe('generateFigureSvg', () => {

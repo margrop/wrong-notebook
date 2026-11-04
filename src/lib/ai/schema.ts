@@ -160,13 +160,19 @@ export function parseDifficultyStars(value: unknown): number | null {
 export interface TagSuggestionResult {
     tags: string[];
     difficultyStars: number | null;
+    /** AI 判断的题型 key，未给出或无法识别时为空 */
+    questionType: QuestionType | null;
 }
 
 /**
- * 解析 AI 选取的知识点（只保留可选清单中存在的标签，去重，最多 5 个）和难度星级
+ * 解析 AI 选取的知识点（只保留可选清单中存在的标签，去重，最多 5 个）、难度星级和题型
  */
 export function parseTagSuggestion(text: string, allowedTags: string[]): TagSuggestionResult {
-    const parsed = z.object({ tags: z.array(z.string()), difficultyStars: z.unknown().optional() }).parse(extractJsonObject(text));
+    const parsed = z.object({
+        tags: z.array(z.string()),
+        difficultyStars: z.unknown().optional(),
+        questionType: z.unknown().optional(),
+    }).parse(extractJsonObject(text));
     const allowed = new Set(allowedTags);
     const result: string[] = [];
     for (const tag of parsed.tags.map((value) => value.trim())) {
@@ -174,7 +180,11 @@ export function parseTagSuggestion(text: string, allowedTags: string[]): TagSugg
             result.push(tag);
         }
     }
-    return { tags: result.slice(0, MAX_KNOWLEDGE_TAGS), difficultyStars: parseDifficultyStars(parsed.difficultyStars) };
+    return {
+        tags: result.slice(0, MAX_KNOWLEDGE_TAGS),
+        difficultyStars: parseDifficultyStars(parsed.difficultyStars),
+        questionType: parseQuestionType(parsed.questionType),
+    };
 }
 
 export interface FigureResult {

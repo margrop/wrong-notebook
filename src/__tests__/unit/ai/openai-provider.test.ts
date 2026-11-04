@@ -355,7 +355,7 @@ describe('OpenAI Provider 知识点重新标注', () => {
 
         const tags = await provider.suggestKnowledgeTags({ questionText: '题目', subject: '数学', allowedTags: ['植树问题'] });
 
-        expect(tags).toEqual({ tags: ['植树问题'], difficultyStars: null });
+        expect(tags).toEqual({ tags: ['植树问题'], difficultyStars: null, questionType: null });
     });
 });
 

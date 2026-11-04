@@ -36,6 +36,7 @@ const item = {
     wrongAnswerText: '鸡 4 兔 6',
     mistakeAnalysis: '数量算反',
     gradeSemester: '四年级上',
+    questionType: null as string | null,
     subject: { name: '数学', stage: 'primary', subjectKey: 'math' },
     tags: [
         { id: 'old-sys', name: '100以内加法', isSystem: true },
@@ -61,7 +62,7 @@ describe('知识点重新生成', () => {
 
     it('preview 模式只返回建议的知识点（含保留的自定义标签），不写数据库', async () => {
         mocks.errorItem.findUnique.mockResolvedValue(item);
-        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 3 });
+        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 3, questionType: 'solution' });
         mocks.knowledgeTag.findMany.mockResolvedValue([{ id: 'tag-b', name: '鸡兔同笼' }]);
 
         const response = await RETAG_ITEM(new Request('http://localhost', {
@@ -70,7 +71,7 @@ describe('知识点重新生成', () => {
         }), params('e1'));
 
         expect(response.status).toBe(200);
-        expect(await response.json()).toMatchObject({ tags: ['鸡兔同笼', '易错'], difficultyStars: 3 });
+        expect(await response.json()).toMatchObject({ tags: ['鸡兔同笼', '易错'], difficultyStars: 3, questionType: 'solution' });
         expect(mocks.errorItem.update).not.toHaveBeenCalled();
     });
 
@@ -88,7 +89,7 @@ describe('知识点重新生成', () => {
 
     it('替换系统标签、保留自定义标签，候选知识点取错题本学段 + 学科下的全部标签', async () => {
         mocks.errorItem.findUnique.mockResolvedValue(item);
-        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['假设法解鸡兔同笼', '鸡兔同笼'], difficultyStars: 2 });
+        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['假设法解鸡兔同笼', '鸡兔同笼'], difficultyStars: 2, questionType: 'solution' });
         mocks.knowledgeTag.findMany.mockResolvedValue([
             { id: 'tag-a', name: '假设法解鸡兔同笼' },
             { id: 'tag-b', name: '鸡兔同笼' },
@@ -100,6 +101,7 @@ describe('知识点重新生成', () => {
 
         expect(response.status).toBe(200);
         expect(data.tags).toEqual(['假设法解鸡兔同笼', '鸡兔同笼', '易错']);
+        expect(data.questionType).toBe('solution');
         expect(mocks.getScopeTagsFromDB).toHaveBeenCalledWith('math', 'primary', 'default');
         expect(mocks.getMathTagsFromDB).not.toHaveBeenCalled();
         expect(mocks.suggestKnowledgeTags.mock.calls[0][0]).toMatchObject({
@@ -116,16 +118,55 @@ describe('知识点重新生成', () => {
             data: {
                 knowledgePoints: JSON.stringify(['假设法解鸡兔同笼', '鸡兔同笼', '易错']),
                 difficultyStars: 2,
+                questionType: 'solution',
                 paperLevel: 'group-a',
                 tags: { disconnect: [{ id: 'old-sys' }], connect: [{ id: 'tag-a' }, { id: 'tag-b' }] },
             },
         });
     });
 
+    it('题目已有题型时不覆盖：AI 判断的题型被忽略', async () => {
+        mocks.errorItem.findUnique.mockResolvedValue({ ...item, questionType: 'fill_blank' });
+        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 2, questionType: 'solution' });
+        mocks.knowledgeTag.findMany.mockResolvedValue([{ id: 'tag-b', name: '鸡兔同笼' }]);
+
+        const response = await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'));
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        // 返回的 questionType 为 null（不覆盖已有题型）
+        expect(data.questionType).toBeNull();
+        // 数据库更新不包含 questionType 字段
+        expect(mocks.errorItem.update).toHaveBeenCalledWith({
+            where: { id: 'e1' },
+            data: {
+                knowledgePoints: JSON.stringify(['鸡兔同笼', '易错']),
+                difficultyStars: 2,
+                paperLevel: 'group-a',
+                tags: { disconnect: [{ id: 'old-sys' }], connect: [{ id: 'tag-b' }] },
+            },
+        });
+        const updateData = mocks.errorItem.update.mock.calls[0][0].data;
+        expect(updateData).not.toHaveProperty('questionType');
+    });
+
+    it('题目题型为空时写入 AI 判断的题型', async () => {
+        mocks.errorItem.findUnique.mockResolvedValue({ ...item, questionType: null });
+        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 2, questionType: 'calculation' });
+        mocks.knowledgeTag.findMany.mockResolvedValue([{ id: 'tag-b', name: '鸡兔同笼' }]);
+
+        const response = await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'));
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.questionType).toBe('calculation');
+        expect(mocks.errorItem.update.mock.calls[0][0].data.questionType).toBe('calculation');
+    });
+
     it('高中物理错题本取高中物理的全部知识点', async () => {
         mocks.errorItem.findUnique.mockResolvedValue({ ...item, subject: { name: '物理错题', stage: 'senior_high', subjectKey: 'physics' } });
         mocks.getScopeTagsFromDB.mockResolvedValue(['牛顿第二定律']);
-        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['牛顿第二定律'], difficultyStars: 3 });
+        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['牛顿第二定律'], difficultyStars: 3, questionType: 'solution' });
         mocks.knowledgeTag.findMany.mockResolvedValue([{ id: 'tag-n', name: '牛顿第二定律' }]);
 
         const response = await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'));
@@ -137,7 +178,7 @@ describe('知识点重新生成', () => {
 
     it('不在错题本中的题目仍按学生年级取数学知识点', async () => {
         mocks.errorItem.findUnique.mockResolvedValue({ ...item, subject: null });
-        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 2 });
+        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 2, questionType: null });
         mocks.knowledgeTag.findMany.mockResolvedValue([{ id: 'tag-b', name: '鸡兔同笼' }]);
 
         await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'));
@@ -148,7 +189,7 @@ describe('知识点重新生成', () => {
 
     it('AI 未给出难度星级时保留原星级', async () => {
         mocks.errorItem.findUnique.mockResolvedValue(item);
-        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: null });
+        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: null, questionType: null });
         mocks.knowledgeTag.findMany.mockResolvedValue([{ id: 'tag-b', name: '鸡兔同笼' }]);
 
         const response = await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'));
@@ -160,7 +201,7 @@ describe('知识点重新生成', () => {
 
     it.each([null, 'group-a', 'group-other'])('补评为 5 星时只为未设置卷别的题目补默认值（原卷别 %s）', async (paperLevel) => {
         mocks.errorItem.findUnique.mockResolvedValue({ ...item, paperLevel });
-        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 5 });
+        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 5, questionType: null });
         mocks.knowledgeTag.findMany.mockResolvedValue([{ id: 'tag-b', name: '鸡兔同笼' }]);
         expect((await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'))).status).toBe(200);
         const data = mocks.errorItem.update.mock.calls[0][0].data;
@@ -197,7 +238,7 @@ describe('知识点重新生成', () => {
         mocks.errorItem.findUnique
             .mockResolvedValueOnce(item)
             .mockResolvedValueOnce({ ...item, questionText: '' });
-        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 3 });
+        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 3, questionType: null });
         mocks.knowledgeTag.findMany.mockResolvedValue([{ id: 'tag-b', name: '鸡兔同笼' }]);
 
         const started = await START_JOB(new Request('http://localhost', { method: 'POST' }), params('nb-1'));
