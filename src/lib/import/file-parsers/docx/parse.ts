@@ -164,10 +164,11 @@ function extractLines(document: Document, resolver: NumberingResolver, handlers:
                 const numPr = resolver.resolveNumPr(element);
                 const numbering = numPr ? resolver.paragraphNumber(numPr[0], numPr[1]) : null;
                 const trimmed = numbering?.trim() ?? "";
-                // 编号文本（如「1.」「一、」「（三）」）已含分隔符，直接拼接；
-                // 无分隔符的（如 ①）补一个空格，便于分题识别题号
-                const hasSeparator = /[.、．。:：)））]\s*$/.test(trimmed);
-                const prefix = trimmed ? (hasSeparator ? trimmed : `${trimmed} `) : "";
+                // Word 中自动编号与正文之间本有制表符。全角分隔符（「一、」「1．」「（三）」）直接拼接；
+                // 半角分隔符（「1.」「1)」「1:」）与无分隔符的编号（如 ①）补一个空格——否则「8.」与以数字开头的
+                // 正文（如「2008年」）连成「8.2008」，会被当作小数而断开题号序列
+                const fullWidthSeparator = /[、．。：）)]$/.test(trimmed) && !/[.):]$/.test(trimmed);
+                const prefix = trimmed ? (fullWidthSeparator ? trimmed : `${trimmed} `) : "";
                 lines.push(`${prefix}${text}`);
             } else if (element.localName === "tbl") {
                 for (const row of Array.from(element.getElementsByTagNameNS(W, "tr"))) {

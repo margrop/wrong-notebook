@@ -614,3 +614,15 @@ describe("docx 编号工具函数", () => {
         expect(toRoman(1994)).toBe("mcmxciv");
     });
 });
+
+describe("docx 解析：自动编号后紧跟数字", () => {
+    it("半角「8.」自动编号与以数字开头的正文之间补空格，不被当作小数打断题号序列", async () => {
+        const buffer = makeDocxBuffer({
+            body: [numPara("5", 0, t("第一题")), numPara("5", 0, t("2008 年的题")), numPara("5", 0, t("第三题"))].join(""),
+            numbering: abstractNum("50", [{ numFmt: "decimal", lvlText: "%1." }]) + num("5", "50"),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(3);
+        expect(result.questions[1].text).toContain("2008 年的题");
+    });
+});
