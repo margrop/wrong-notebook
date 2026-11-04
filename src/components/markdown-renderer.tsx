@@ -6,6 +6,11 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { prepareMarkdownMath } from '@/lib/markdown-math';
 
+/** 由下划线组成的分隔线（如 ____）：题目中的作答横线，而非 --- / *** 分隔线 */
+function isWritingLine(source: string): boolean {
+    return /^_[_ \t]*$/.test(source.trim());
+}
+
 interface MarkdownRendererProps {
     content?: string | null;
     className?: string;
@@ -50,6 +55,17 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
                     td: ({ node, ...props }) => (
                         <td className="border border-border px-4 py-2" {...props} />
                     ),
+                    // 单独成行的 ____ 在 Markdown 中是分隔线，题目里实为作答横线：上方留出书写高度，并加深线条便于打印
+                    hr: ({ node, ...props }) => {
+                        const start = node?.position?.start.offset;
+                        const end = node?.position?.end.offset;
+                        const source = typeof start === 'number' && typeof end === 'number'
+                            ? processedContent.slice(start, end)
+                            : '';
+                        return isWritingLine(source)
+                            ? <hr className="writing-line mt-10 mb-4 border-0 border-t border-foreground/70" {...props} />
+                            : <hr className="my-4 border-border" {...props} />;
+                    },
                     strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
                     em: ({ node, ...props }) => <em className="italic" {...props} />,
                 }}

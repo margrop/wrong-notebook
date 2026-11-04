@@ -101,3 +101,13 @@ describe('代码渲染', () => {
         expect(geometryHtml).toMatch(/<p[^>]*>已知 A、B、C 三点共线，求证：AB\+BC=AC。<\/p>/);
     });
 });
+
+describe('作答横线', () => {
+    it('单独成行的下划线渲染为留出书写高度的作答横线，--- 仍是普通分隔线', () => {
+        const html = renderToStaticMarkup(<MarkdownRenderer content={'1. 我每天七点起床。\n____\n\n---'} />);
+        const lines = [...html.matchAll(/<hr class="([^"]*)"/g)].map((m) => m[1]);
+        expect(lines).toHaveLength(2);
+        expect(lines[0]).toContain('writing-line');
+        expect(lines[1]).not.toContain('writing-line');
+    });
+});
