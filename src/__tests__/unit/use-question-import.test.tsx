@@ -127,6 +127,24 @@ describe('题目导入流程', () => {
         expect(mocks.post).not.toHaveBeenCalledWith('/api/analyze', expect.anything(), expect.anything());
     });
 
+    it('选好照片后页面重新渲染不会释放解码后的原图，只在离开页面时释放', async () => {
+        mocks.createImportTask.mockResolvedValueOnce(task());
+        mocks.fetchImportTask.mockResolvedValue(task());
+        await render();
+        await act(async () => { await flow.selectImage(new File(['x'], 'photo.heic', { type: 'image/heic' })); });
+        // 裁剪器打开等状态变化会触发多次重新渲染，此时原图必须保留，裁剪还要从原图绘制
+        await render();
+        expect(pipeline.dispose).not.toHaveBeenCalled();
+
+        await act(async () => { await flow.cropRegions(FULL, false); });
+        expect(pipeline.renderRegion).toHaveBeenCalledWith(prepared, FULL[0]);
+        expect(pipeline.dispose).not.toHaveBeenCalled();
+
+        await act(async () => root.unmount());
+        expect(pipeline.dispose).toHaveBeenCalledTimes(1);
+        root = createRoot(container);
+    });
+
     it('识别中时页面显示任务状态卡，可继续操作', async () => {
         mocks.createImportTask.mockResolvedValueOnce(task());
         mocks.fetchImportTask.mockResolvedValue(task());

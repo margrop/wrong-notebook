@@ -68,9 +68,6 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
         clearSaveError: () => saver.setSaveError(null),
     });
 
-    // 离开页面时释放解码后的原图与预览图
-    useEffect(() => () => imageFlow.disposePrepared(), [imageFlow]);
-
     useEffect(() => {
         fetchConfirmBeforeImport().then(setConfirmBeforeImport);
         apiClient.get<AppConfig>("/api/settings")

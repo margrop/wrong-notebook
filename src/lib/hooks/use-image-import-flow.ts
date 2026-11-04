@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAnalysisErrorMessage } from "@/lib/question/analysis-error";
 import { getErrorMessage } from "@/lib/error-message";
@@ -53,6 +53,9 @@ export function useImageImportFlow(deps: ImageFlowDeps) {
     const [parts, setParts] = useState<BatchImage[]>([]);
     const [completedStages, setCompletedStages] = useState<ReturnType<typeof buildStageList>>([]);
     const preparedRef = useRef<PreparedImage | null>(null);
+
+    // 离开页面时释放解码后的原图与预览图；只在卸载时执行，重新渲染不能释放（裁剪还要用原图）
+    useEffect(() => () => preparedRef.current?.dispose(), []);
 
     const targetCtx = { fixedSubjectId, confirmBeforeImport, importSubjectId };
 
@@ -210,6 +213,5 @@ export function useImageImportFlow(deps: ImageFlowDeps) {
         discardParts: () => setParts([]),
         closeBatch: () => setBatchImages(null),
         closeCropper: () => setIsCropperOpen(false),
-        disposePrepared: () => preparedRef.current?.dispose(),
     };
 }
