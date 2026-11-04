@@ -9,6 +9,7 @@ import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { embedNarration } from "@/lib/svg-animation";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
+import { svgAnimationSchema } from "@/lib/schemas/error-items";
 
 const logger = createLogger('api:error-items:svg-narration');
 
@@ -21,8 +22,8 @@ type RouteContext = { params: Promise<{ id: string }> };
  */
 async function handlePost(req: Request, { user, params }: RouteContext & AuthenticatedContext) {
     const { id } = await params;
-    const body = await req.json().catch(() => ({})) as { language?: unknown };
-    const language = body.language === 'en' ? 'en' : 'zh';
+    const parsed = svgAnimationSchema.safeParse(await req.json().catch(() => ({})));
+    const language = parsed.success && parsed.data.language === 'en' ? 'en' : 'zh';
     const field = language === 'en' ? 'svgAnimationEn' : 'svgAnimation';
 
     try {

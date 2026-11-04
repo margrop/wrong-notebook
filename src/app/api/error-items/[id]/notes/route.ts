@@ -4,6 +4,7 @@ import { notFound, badRequest, internalError } from "@/lib/api-errors";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
+import { updateNotesSchema } from "@/lib/schemas/error-items";
 
 const logger = createLogger('api:error-items:notes');
 
@@ -13,10 +14,11 @@ export const PATCH = withUser(async (req: Request, { user, params }: RouteContex
     const { id } = await params;
 
     try {
-        const { userNotes } = await req.json();
-        if (userNotes !== null && typeof userNotes !== 'string') {
+        const parsed = updateNotesSchema.safeParse(await req.json().catch(() => null));
+        if (!parsed.success) {
             return badRequest("userNotes must be a string");
         }
+        const { userNotes } = parsed.data;
 
         const existing = await prisma.errorItem.findUnique({ where: { id }, select: { userId: true } });
         if (!existing || existing.userId !== user.id) {

@@ -4,6 +4,7 @@ import { badRequest, internalError } from "@/lib/api-errors";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
+import { batchDeleteSchema } from "@/lib/schemas/error-items";
 
 const logger = createLogger('api:error-items:batch-delete');
 
@@ -16,17 +17,11 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
     logger.info('POST /api/error-items/batch-delete called');
 
     try {
-        const body = await req.json();
-        const { ids } = body;
-
-        // 验证参数
-        if (!Array.isArray(ids) || ids.length === 0) {
-            return badRequest("ids must be a non-empty array");
+        const parsed = batchDeleteSchema.safeParse(await req.json().catch(() => null));
+        if (!parsed.success) {
+            return badRequest("ids must be a non-empty array of at most 100 strings");
         }
-
-        if (ids.length > 100) {
-            return badRequest("Cannot delete more than 100 items at once");
-        }
+        const { ids } = parsed.data;
 
         logger.debug({ userId: user.id, idsCount: ids.length }, 'Batch delete request');
 

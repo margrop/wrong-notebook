@@ -9,6 +9,7 @@ import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { resolveNotebookScope, SUBJECT_DISPLAY_NAMES } from "@/lib/notebook-scope";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
+import { reanswerSchema } from "@/lib/schemas/error-items";
 
 const logger = createLogger('api:error-items:reanswer');
 
@@ -44,8 +45,8 @@ async function handlePost(
             return badRequest("NO_QUESTION_TEXT");
         }
 
-        const body = await req.json().catch(() => ({}));
-        const language = body?.language === 'en' ? 'en' : 'zh';
+        const parsed = reanswerSchema.safeParse(await req.json().catch(() => ({})));
+        const language = parsed.success && parsed.data.language === 'en' ? 'en' : 'zh';
         const scope = item.subject ? resolveNotebookScope(item.subject) : null;
         const subject = scope?.subject ? SUBJECT_DISPLAY_NAMES[scope.subject] : null;
         // 原图以 data URL 保存；文字录入的题目没有原图

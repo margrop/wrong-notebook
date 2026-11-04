@@ -8,6 +8,7 @@ import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
+import { svgAnimationSchema } from "@/lib/schemas/error-items";
 
 const logger = createLogger('api:error-items:svg-animation');
 
@@ -39,8 +40,8 @@ async function findOwnedItem(id: string, userId: string) {
  */
 async function handlePost(req: Request, { user, params }: RouteContext & AuthenticatedContext) {
     const { id } = await params;
-    const body = await req.json().catch(() => ({})) as { language?: unknown };
-    const language = parseLanguage(body.language);
+    const parsed = svgAnimationSchema.safeParse(await req.json().catch(() => ({})));
+    const language = parseLanguage(parsed.success ? parsed.data.language : undefined);
 
     try {
         const item = await findOwnedItem(id, user.id);

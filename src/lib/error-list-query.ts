@@ -36,14 +36,20 @@ export interface ErrorListQueryDeps {
     };
 }
 
+/** 解析正整数，非数字时回退到默认值 */
+function parsePositiveInt(raw: string | null, fallback: number): number {
+    const value = parseInt(raw ?? "", 10);
+    return Number.isNaN(value) ? fallback : value;
+}
+
 /** 把 URL searchParams 解析为强类型查询参数，非法分页值被夹紧到合法范围 */
 export function parseErrorListQueryParams(searchParams: URLSearchParams): ErrorListQueryParams {
     const mastery = searchParams.get("mastery");
     const timeRange = searchParams.get("timeRange");
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const page = Math.max(1, parsePositiveInt(searchParams.get("page"), 1));
     const pageSize = Math.min(
         MAX_PAGE_SIZE,
-        Math.max(MIN_PAGE_SIZE, parseInt(searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE), 10))
+        Math.max(MIN_PAGE_SIZE, parsePositiveInt(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE))
     );
     return {
         subjectId: searchParams.get("subjectId"),

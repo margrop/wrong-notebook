@@ -74,8 +74,12 @@ describe('parseErrorListQueryParams', () => {
         expect(parseErrorListQueryParams(new URLSearchParams('page=-5')).page).toBe(1);
     });
 
-    it('page 为非数字字符串时 parseInt 结果为 NaN（与原行为一致）', () => {
-        expect(parseErrorListQueryParams(new URLSearchParams('page=abc')).page).toBeNaN();
+    it('page 为非数字字符串时回退到默认值 1', () => {
+        expect(parseErrorListQueryParams(new URLSearchParams('page=abc')).page).toBe(1);
+    });
+
+    it('pageSize 为非数字字符串时回退到默认值 DEFAULT_PAGE_SIZE', () => {
+        expect(parseErrorListQueryParams(new URLSearchParams('pageSize=abc')).pageSize).toBe(DEFAULT_PAGE_SIZE);
     });
 
     it('pageSize 小于 MIN_PAGE_SIZE 时被夹紧', () => {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { forbidden, notFound, badRequest, internalError } from "@/lib/api-errors";
+import { forbidden, notFound, badRequest, validationError, internalError } from "@/lib/api-errors";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
@@ -9,6 +9,7 @@ import { resolveOrCreateTags, inferTagScope } from "@/lib/tag-resolver";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
 import { getDefaultPaperLevelGroupId } from "@/lib/paper-level";
 import { isValidFigureAlign, isValidFigureScale } from "@/lib/figure-scale";
+import { updateErrorItemSchema } from "@/lib/schemas/error-items";
 
 const logger = createLogger('api:error-items:id');
 
@@ -48,9 +49,12 @@ export const PUT = withUser(async (req: Request, { user, params }: RouteContext 
     const { id } = await params;
 
     try {
-        const body = await req.json();
-        const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands, difficultyStars } = body;
-        const { figureScale, figureAlign } = body;
+        const parsed = updateErrorItemSchema.safeParse(await req.json().catch(() => null));
+        if (!parsed.success) {
+            return validationError("Invalid request body", parsed.error.issues);
+        }
+        const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands, difficultyStars } = parsed.data;
+        const { figureScale, figureAlign } = parsed.data;
         if (figureScale !== undefined && !isValidFigureScale(figureScale)) {
             return badRequest("figureScale must be an integer from 10 to 200");
         }

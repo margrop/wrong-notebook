@@ -742,6 +742,38 @@ describe('/api/error-items', () => {
             expect(mocks.mockPrismaErrorItem.update).toHaveBeenCalledTimes(2);
         });
 
+        it('字段类型非法时返回 400', async () => {
+            for (const body of [
+                { questionText: 123 },
+                { answerText: true },
+                { gradeSemester: {} },
+                { paperLevel: 42 },
+                { subjectId: ['a'] },
+                { geogebraCommands: 123 },
+                { wrongAnswerText: false },
+                { mistakeAnalysis: {} },
+                { mistakeStatus: 1 },
+            ]) {
+                const response = await PUT(new Request('http://localhost/api/error-items/e1', {
+                    method: 'PUT', body: JSON.stringify(body),
+                }), { params: Promise.resolve({ id: 'e1' }) });
+                expect(response.status).toBe(400);
+                expect(mocks.mockPrismaErrorItem.update).not.toHaveBeenCalled();
+            }
+        });
+
+        it('前端提交的可空字段为 null 时不被参数校验拒绝', async () => {
+            for (const body of [
+                { wrongAnswerText: null, mistakeAnalysis: null, mistakeStatus: null },
+                { gradeSemester: null, geogebraCommands: null },
+            ]) {
+                const response = await PUT(new Request('http://localhost/api/error-items/e1', {
+                    method: 'PUT', body: JSON.stringify(body),
+                }), { params: Promise.resolve({ id: 'e1' }) });
+                expect(response.status).not.toBe(400);
+            }
+        });
+
         it('应该拒绝更新其他用户的错题', async () => {
             const existingItem = {
                 id: 'error-item-1',

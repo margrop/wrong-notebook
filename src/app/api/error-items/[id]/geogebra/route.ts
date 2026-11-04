@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { forbidden, notFound, internalError } from "@/lib/api-errors";
+import { forbidden, notFound, badRequest, internalError } from "@/lib/api-errors";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
@@ -8,6 +8,7 @@ import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { getAIService } from "@/lib/ai";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
+import { geogebraAnalyzeSchema } from "@/lib/schemas/error-items";
 
 const logger = createLogger('api:error-items:geogebra');
 
@@ -63,10 +64,13 @@ async function handlePost(
         const aiService = getAIService();
 
         // Use frontend-provided data if available (more up-to-date), fall back to DB
-        const body = await req.json().catch(() => ({}));
-        const questionText = body.questionText || errorItem.questionText;
-        const answerText = body.answerText || errorItem.answerText || "";
-        const previousErrors = body.previousErrors || "";
+        const parsed = geogebraAnalyzeSchema.safeParse(await req.json().catch(() => ({})));
+        if (!parsed.success) {
+            return badRequest("Invalid request body");
+        }
+        const { questionText: bodyQuestionText, answerText: bodyAnswerText, previousErrors } = parsed.data;
+        const questionText = bodyQuestionText || errorItem.questionText;
+        const answerText = bodyAnswerText || errorItem.answerText || "";
 
         const result = await trackBackgroundTask(
             { userId: user.id, kind: 'geogebra', subject: describeQuestion(errorItem), link: `/error-items/${id}` },

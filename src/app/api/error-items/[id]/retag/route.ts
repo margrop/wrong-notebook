@@ -8,6 +8,7 @@ import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { previewRetagErrorItem, retagErrorItem } from "@/lib/retag";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
+import { retagSchema } from "@/lib/schemas/error-items";
 
 const logger = createLogger('api:error-items:retag');
 
@@ -25,7 +26,8 @@ async function handlePost(
     const { id } = await params;
 
     try {
-        const body = await req.json().catch(() => ({})) as { preview?: unknown };
+        const parsed = retagSchema.safeParse(await req.json().catch(() => ({})));
+        const preview = parsed.success && parsed.data.preview === true;
         const item = await prisma.errorItem.findUnique({ where: { id }, select: { userId: true, shortId: true, questionText: true } });
         if (!item || item.userId !== user.id) {
             return notFound("Item not found");
@@ -35,7 +37,7 @@ async function handlePost(
 
         const result = await trackBackgroundTask(
             { userId: user.id, kind: 'retag', subject: describeQuestion(item), link: `/error-items/${id}` },
-            () => body.preview === true ? previewRetagErrorItem(id, user.id) : retagErrorItem(id, user.id)
+            () => preview ? previewRetagErrorItem(id, user.id) : retagErrorItem(id, user.id)
         );
         return NextResponse.json(result);
     } catch (error) {

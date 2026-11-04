@@ -9,16 +9,21 @@ const mocks = vi.hoisted(() => ({
     errorItem: { findUnique: vi.fn(), update: vi.fn() },
     generateSvgAnimation: vi.fn(),
     generateSvgNarration: vi.fn(),
+    analyzeForGeogebra: vi.fn(),
+    consumeAiQuota: vi.fn(),
+    trackBackgroundTask: vi.fn(),
     session: { user: { email: 'user@example.com' }, expires: '2099-01-01' } as { user: { email: string }; expires: string } | null,
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: { user: mocks.user, errorItem: mocks.errorItem } }));
-vi.mock('@/lib/ai', () => ({ getAIService: vi.fn(() => ({ generateSvgAnimation: mocks.generateSvgAnimation, generateSvgNarration: mocks.generateSvgNarration })) }));
+vi.mock('@/lib/ai', () => ({ getAIService: vi.fn(() => ({ generateSvgAnimation: mocks.generateSvgAnimation, generateSvgNarration: mocks.generateSvgNarration, analyzeForGeogebra: mocks.analyzeForGeogebra })) }));
+vi.mock('@/lib/ai-quota', () => ({ consumeAiQuota: mocks.consumeAiQuota }));
+vi.mock('@/lib/background-tasks', () => ({ describeQuestion: vi.fn(() => '题目'), trackBackgroundTask: mocks.trackBackgroundTask }));
 vi.mock('next-auth', () => ({ getServerSession: vi.fn(() => Promise.resolve(mocks.session)) }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 
 import { POST, DELETE } from '@/app/api/error-items/[id]/svg-animation/route';
-import { DELETE as DELETE_GEOGEBRA } from '@/app/api/error-items/[id]/geogebra/route';
+import { DELETE as DELETE_GEOGEBRA, POST as POST_GEOGEBRA } from '@/app/api/error-items/[id]/geogebra/route';
 import { POST as POST_NARRATION } from '@/app/api/error-items/[id]/svg-animation/narration/route';
 
 const context = { params: Promise.resolve({ id: 'e1' }) };
@@ -34,6 +39,8 @@ describe('SVG 动画讲解接口', () => {
         mocks.user.findUnique.mockResolvedValue({ id: 'user-1' });
         mocks.errorItem.findUnique.mockResolvedValue({ userId: 'user-1', questionText: '求面积', answerText: '6', analysis: '底乘高', figureSvg: '<svg/>' });
         mocks.errorItem.update.mockResolvedValue({});
+        mocks.consumeAiQuota.mockResolvedValue(null);
+        mocks.trackBackgroundTask.mockImplementation(async (_meta: unknown, fn: () => Promise<unknown>) => fn());
     });
 
     it('POST 把题目、答案、解析和配图交给 AI，未指定语言时生成并保存中文版动画', async () => {
@@ -134,6 +141,8 @@ describe('POST /api/error-items/:id/svg-animation/narration', () => {
         mocks.user.findUnique.mockResolvedValue({ id: 'user-1' });
         mocks.errorItem.findUnique.mockResolvedValue({ userId: 'user-1', questionText: '求面积', answerText: '6', analysis: '底乘高', svgAnimation: svg, svgAnimationEn: null });
         mocks.errorItem.update.mockResolvedValue({});
+        mocks.consumeAiQuota.mockResolvedValue(null);
+        mocks.trackBackgroundTask.mockImplementation(async (_meta: unknown, fn: () => Promise<unknown>) => fn());
     });
 
     it('为中文版动画补写讲解稿，写入 SVG 后保存，画面不变', async () => {
@@ -206,5 +215,35 @@ describe('DELETE /api/error-items/:id/geogebra', () => {
         mocks.errorItem.findUnique.mockResolvedValue({ userId: 'other' });
         expect((await removeGeogebra()).status).toBe(403);
         expect(mocks.errorItem.update).not.toHaveBeenCalled();
+    });
+});
+
+describe('POST /api/error-items/:id/geogebra', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mocks.session = { user: { email: 'user@example.com' }, expires: '2099-01-01' };
+        mocks.user.findUnique.mockResolvedValue({ id: 'user-1' });
+        mocks.errorItem.findUnique.mockResolvedValue({ userId: 'user-1', questionText: '求面积', subject: { name: '数学' }, answerText: '6', analysis: '底乘高' });
+        mocks.errorItem.update.mockResolvedValue({});
+        mocks.consumeAiQuota.mockResolvedValue(null);
+        mocks.trackBackgroundTask.mockImplementation(async (_meta: unknown, fn: () => Promise<unknown>) => fn());
+        mocks.analyzeForGeogebra.mockResolvedValue({ suitable: true, commands: ['A=(0,0)'], description: '' });
+    });
+
+    const postGeogebra = (body: unknown) => POST_GEOGEBRA(
+        new Request('http://localhost', { method: 'POST', body: JSON.stringify(body) }),
+        context,
+    );
+
+    it('非法请求体返回 400', async () => {
+        const response = await postGeogebra({ questionText: 123 });
+        expect(response.status).toBe(400);
+        expect(mocks.analyzeForGeogebra).not.toHaveBeenCalled();
+    });
+
+    it('正常请求成功', async () => {
+        const response = await postGeogebra({});
+        expect(response.status).toBe(200);
+        expect(mocks.analyzeForGeogebra).toHaveBeenCalled();
     });
 });
