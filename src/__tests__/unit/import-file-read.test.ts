@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { IMPORT_FILE_TYPES, BANK_FILE_TYPES, TEXT_FILE_TYPES, decodeTextFile, detectImportFileType } from "@/lib/import/file-read";
+import { IMPORT_FILE_TYPES, BANK_FILE_TYPES, TEXT_FILE_TYPES, acceptedExtensions, decodeTextFile, detectImportFileType } from "@/lib/import/file-read";
 
 function bytesOf(...bytes: number[]): ArrayBuffer {
     return new Uint8Array(bytes).buffer;
@@ -106,5 +106,19 @@ describe("detectImportFileType", () => {
         // pdf 不在 TEXT_FILE_TYPES 中，但在 BANK_FILE_TYPES 中
         expect(TEXT_FILE_TYPES.some((t) => t.key === "pdf")).toBe(false);
         expect(BANK_FILE_TYPES.some((t) => t.key === "pdf")).toBe(true);
+    });
+});
+
+describe('旧版 .doc 允许选择但不列为支持格式', () => {
+    it('detectImportFileType 仍把 .doc 识别为 Word 类型，以便提示另存为 .docx', () => {
+        expect(detectImportFileType('试卷.doc', '')?.key).toBe('docx');
+    });
+
+    it('题库文件类型的支持扩展名中不含 .doc，文件选择仍接受 .doc', () => {
+        const listed = BANK_FILE_TYPES.flatMap((type) => type.extensions);
+        expect(listed).not.toContain('.doc');
+        expect(listed).toContain('.docx');
+        const docx = BANK_FILE_TYPES.find((type) => type.key === 'docx')!;
+        expect(acceptedExtensions(docx)).toEqual(['.docx', '.doc']);
     });
 });

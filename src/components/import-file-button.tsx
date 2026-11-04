@@ -4,6 +4,7 @@ import type { ChangeEvent, RefObject } from "react";
 import { useRef } from "react";
 import { FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { acceptedExtensions } from "@/lib/import/file-read";
 import type { ImportFileTypeDef } from "@/lib/import/file-read";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/lib/feedback";
@@ -27,7 +28,7 @@ export function ImportFileButton({ types, onFile, disabled = false, inputRef, cl
     const innerRef = useRef<HTMLInputElement | null>(null);
     const fileInputRef = inputRef ?? innerRef;
 
-    const accept = Array.from(new Set(types.flatMap((type) => [...type.extensions, ...type.mimeTypes]))).join(",");
+    const accept = Array.from(new Set(types.flatMap((type) => [...acceptedExtensions(type), ...type.mimeTypes]))).join(",");
 
     const handlePicked = (event: ChangeEvent<HTMLInputElement>) => {
         const input = event.target;
@@ -35,7 +36,7 @@ export function ImportFileButton({ types, onFile, disabled = false, inputRef, cl
         input.value = "";
         if (!file) return;
         const type = types.find((def) =>
-            def.extensions.some((ext) => file.name.toLowerCase().endsWith(ext))
+            acceptedExtensions(def).some((ext) => file.name.toLowerCase().endsWith(ext))
             || (file.type && def.mimeTypes.includes(file.type.toLowerCase()))
         );
         if (!type) {

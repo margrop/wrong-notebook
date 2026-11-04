@@ -9,13 +9,23 @@ export type ImportFileCategory = "text" | "doc" | "sheet" | "data" | "pdf";
 
 export interface ImportFileTypeDef {
     key: ImportFileTypeKey;
-    /** 支持的扩展名（含点，小写） */
+    /** 支持的扩展名（含点，小写），会在界面中列为「支持的格式」 */
     extensions: string[];
+    /**
+     * 允许选择但不算支持的扩展名（含点，小写）：只为给出明确提示（如旧版 .doc 提示另存为 .docx），
+     * 不出现在「支持的格式」列表中
+     */
+    unlistedExtensions?: string[];
     /** 匹配的 MIME（小写；空数组表示不依赖 MIME） */
     mimeTypes: string[];
     /** 最大体积（字节） */
     maxBytes: number;
     category: ImportFileCategory;
+}
+
+/** 文件选择时接受的全部扩展名（含不列为支持格式的扩展名） */
+export function acceptedExtensions(def: Pick<ImportFileTypeDef, "extensions" | "unlistedExtensions">): string[] {
+    return [...def.extensions, ...(def.unlistedExtensions ?? [])];
 }
 
 /**
@@ -33,8 +43,9 @@ export const IMPORT_FILE_TYPES: readonly ImportFileTypeDef[] = [
     },
     {
         key: "docx",
-        // 旧版 .doc 也允许选择，由解析器识别后提示另存为 .docx
-        extensions: [".docx", ".doc"],
+        extensions: [".docx"],
+        // 旧版 .doc 也允许选择，由解析器识别后提示另存为 .docx；不列为支持的格式
+        unlistedExtensions: [".doc"],
         mimeTypes: [
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/msword",
@@ -86,7 +97,7 @@ export function detectImportFileType(name: string, mime: string): ImportFileType
     const lowerName = name.toLowerCase();
     const lowerMime = mime.toLowerCase().trim();
     for (const def of IMPORT_FILE_TYPES) {
-        if (def.extensions.some((ext) => lowerName.endsWith(ext))) return def;
+        if (acceptedExtensions(def).some((ext) => lowerName.endsWith(ext))) return def;
     }
     if (lowerMime) {
         for (const def of IMPORT_FILE_TYPES) {
