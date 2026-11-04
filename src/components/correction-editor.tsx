@@ -39,8 +39,13 @@ interface CorrectionEditorProps {
 export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, initialSubjectId, aiTimeout }: CorrectionEditorProps) {
     const { timeZone } = useTimeZone();
     const { t, language } = useLanguage();
+    // 「按原样入库」路径用占位空格通过 ParsedQuestionSchema 的 min(1) 校验，此处还原为空串，
+    // 与手工录入留空时的编辑体验一致
+    const blankToEmpty = (text: string) => (text.trim() ? text : "");
     const [data, setData] = useState<CorrectionDraft>({
         ...initialData,
+        answerText: blankToEmpty(initialData.answerText),
+        analysis: blankToEmpty(initialData.analysis),
         wrongAnswerText: initialData.wrongAnswerText || "",
         mistakeAnalysis: initialData.mistakeAnalysis || "",
         mistakeStatus: initialData.mistakeStatus || "unknown",

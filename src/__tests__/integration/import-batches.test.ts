@@ -672,3 +672,156 @@ describe('批次归属与列表', () => {
         expect(await database.errorItem.count()).toBe(2);
     });
 });
+
+describe('按原样入库（analysis=none）', () => {
+    it('免确认：题目直接入库且不调用 AI、不计额度', async () => {
+        const text = '1．计算 1 + 1。\n【答案】2\n【解析】1+1=2\n\n2．计算 2 + 2。\n【答案】4\n【解析】2+2=4';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+        expect(batch.selectedCount).toBe(2);
+
+        const started = await start(batch.id, { version: batch.version, analysis: 'none' });
+        expect(started.status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+
+        expect(mocks.reanswerQuestion).not.toHaveBeenCalled();
+        expect(mocks.analyzeImage).not.toHaveBeenCalled();
+        expect(await database.aiUsage.count()).toBe(0);
+
+        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        expect(items).toHaveLength(2);
+        expect(items.every((item) => item.subjectId === 'math' && item.userId === 'user-1')).toBe(true);
+        expect(items[0].questionText).toContain('计算 1 + 1');
+        expect(items[0].answerText).toBe('2');
+        expect(items[0].analysis).toBe('1+1=2');
+
+        const { batch: done } = await getBatch(batch.id);
+        expect(done).toMatchObject({ status: 'started', phase: 'done', mode: 'auto', counts: { total: 2, saved: 2, failed: 0, active: 0 } });
+    });
+
+    it('公共材料拼接题干，学科取目标错题本名称，错答记录 mistakeStatus', async () => {
+        const text = '阅读下面的材料，回答 1～2 题。\n某商店上午卖出 30 件。\n1．全天卖出多少件？\n【答案】75\n【错答】70\n\n2．下午比上午多卖多少件？\n【答案】15';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+        await start(batch.id, { version: batch.version, analysis: 'none' });
+        await waitForImportBatchTasksForTest(batch.id);
+
+        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        expect(items).toHaveLength(2);
+        expect(items[0].questionText).toContain('某商店上午卖出 30 件');
+        expect(items[0].questionText).toContain('全天卖出多少件');
+        expect(items[0].wrongAnswerText).toBe('70');
+        expect(items[0].mistakeStatus).toBe('wrong_attempt');
+        expect(items[1].mistakeStatus).toBe('unknown');
+        expect(mocks.reanswerQuestion).not.toHaveBeenCalled();
+        expect(await database.aiUsage.count()).toBe(0);
+    });
+
+    it('校对模式：任务以 review 状态创建，不调用 AI', async () => {
+        await database.user.update({ where: { id: 'user-1' }, data: { confirmBeforeImport: true } });
+        const text = '1．计算 1 + 1。\n【答案】2\n\n2．计算 2 + 2。\n【答案】4';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+        const started = await start(batch.id, { version: batch.version, analysis: 'none' });
+        expect(started.status).toBe(202);
+
+        const { batch: current } = await getBatch(batch.id);
+        expect(current).toMatchObject({ mode: 'review', phase: 'attention', counts: { review: 2, saved: 0 } });
+        expect(current.tasks.every((task: { status: string; hasResult: boolean }) => task.status === 'review' && task.hasResult)).toBe(true);
+        expect(await database.errorItem.count()).toBe(0);
+        expect(mocks.reanswerQuestion).not.toHaveBeenCalled();
+        expect(await database.aiUsage.count()).toBe(0);
+
+        // 校对确认后可入库
+        const confirm = await CONFIRM_ALL(json({}), params(batch.id));
+        expect(confirm.status).toBe(200);
+        expect((await confirm.json()).saved).toBe(2);
+        expect(await database.errorItem.count()).toBe(2);
+    });
+
+    it('图片批次传 analysis=none 返回校验错误', async () => {
+        mocks.splitQuestions.mockResolvedValue({
+            questions: [{ label: '1', text: '如图，求面积。', material: null, section: null, regions: [{ x: 0.05, y: 0.05, width: 0.9, height: 0.3 }], hasFigure: false, flags: [] }],
+            ignored: [], warnings: [],
+        });
+        const { batch } = await create({ source: 'image', imageBase64: PAGE, targetSubjectId: 'math' });
+        await waitSplit(batch.id);
+        const { batch: ready } = await getBatch(batch.id);
+        const images = [{ key: ready.draft.items[0].key, imageBase64: CROP(1) }];
+        const failed = await start(batch.id, { version: ready.version, images, analysis: 'none' });
+        expect(failed.status).toBe(400);
+        expect((await failed.json()).message).toBe('IMPORT_BATCH_ANALYSIS_NONE_TEXT_ONLY');
+        expect((await getBatch(batch.id)).batch.status).toBe('draft');
+    });
+
+    it('缺目标错题本时返回校验错误', async () => {
+        const text = '1．计算 1 + 1。\n【答案】2';
+        const { batch } = await create({ source: 'text', text });
+        const failed = await start(batch.id, { version: batch.version, analysis: 'none' });
+        expect(failed.status).toBe(400);
+        expect((await failed.json()).message).toBe('IMPORT_BATCH_ANALYSIS_NONE_TARGET_REQUIRED');
+    });
+
+    it('保存失败后重试不调用 AI', async () => {
+        const text = '1．计算 1 + 1。\n【答案】2\n\n2．计算 2 + 2。\n【答案】4\n\n3．计算 3 + 3。\n【答案】6';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+        await start(batch.id, { version: batch.version, analysis: 'none' });
+        await waitForImportBatchTasksForTest(batch.id);
+
+        let { batch: current } = await getBatch(batch.id);
+        expect(current).toMatchObject({ phase: 'done', counts: { saved: 3 } });
+
+        // 删掉一道错题使重试保存时判重命中（或手动标记任务失败再重试）
+        const failedTask = current.tasks[0];
+        await database.importTask.update({ where: { id: failedTask.id }, data: { status: 'failed', error: 'TEST_FAILURE' } });
+
+        mocks.reanswerQuestion.mockClear();
+        const retried = await RETRY(json({}), params(batch.id));
+        expect(retried.status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+
+        // 重试只重试保存，不调用 AI
+        expect(mocks.reanswerQuestion).not.toHaveBeenCalled();
+        ({ batch: current } = await getBatch(batch.id));
+        expect(current).toMatchObject({ phase: 'done', counts: { saved: 3 } });
+    });
+
+    it('analysis=ai 时行为与之前一致（默认）', async () => {
+        const text = '1．计算 1 + 1。\n【答案】2';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+        await start(batch.id, { version: batch.version });
+        await waitForImportBatchTasksForTest(batch.id);
+        expect(mocks.reanswerQuestion).toHaveBeenCalledTimes(1);
+        expect(await database.aiUsage.count()).toBe(1);
+    });
+
+    it('批次只设 subjectId（无 targetSubjectId）：按原样入库后题目落在该错题本', async () => {
+        const text = '1．计算 5 + 5。\n【答案】10';
+        const { batch } = await create({ source: 'text', text, subjectId: 'math' });
+        expect(batch.targetSubjectId).toBeNull();
+
+        const started = await start(batch.id, { version: batch.version, analysis: 'none' });
+        expect(started.status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+
+        const items = await database.errorItem.findMany();
+        expect(items).toHaveLength(1);
+        expect(items[0].subjectId).toBe('math');
+        expect(items[0].answerText).toBe('10');
+        expect(mocks.reanswerQuestion).not.toHaveBeenCalled();
+        expect(await database.aiUsage.count()).toBe(0);
+    });
+
+    it('无答案的题按原样入库后 answerText 为空串（占位空格已还原）', async () => {
+        const text = '1．阅读短文回答问题。\n2．计算 2 × 3。';
+        const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });
+        await start(batch.id, { version: batch.version, analysis: 'none' });
+        await waitForImportBatchTasksForTest(batch.id);
+
+        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        expect(items).toHaveLength(2);
+        // 第一题无答案：占位空格还原为空串
+        expect(items[0].answerText).toBe('');
+        expect(items[0].analysis).toBe('');
+        // 第二题也无答案（无标记行）
+        expect(items[1].answerText).toBe('');
+        expect(mocks.reanswerQuestion).not.toHaveBeenCalled();
+    });
+});

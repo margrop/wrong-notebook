@@ -32,6 +32,9 @@ interface BatchDraftEditorProps {
     starting: string | null;
     onStart: () => void;
     onDiscard: () => void;
+    /** 解析方式：ai 调用 AI 识别；none 按原样入库（不调用 AI、不计额度），仅文字批次可用 */
+    analysisMode: "ai" | "none";
+    onAnalysisModeChange: (mode: "ai" | "none") => void;
     /** 保存冲突后保留的本页修改：可恢复或放弃 */
     hasConflictCopy?: boolean;
     onRestoreConflict?: () => void;
@@ -39,7 +42,7 @@ interface BatchDraftEditorProps {
 }
 
 /** 分题预览：摘要、整页原图（图片批次）、题目列表、未计入题目的内容与底部操作栏 */
-export function BatchDraftEditor({ batch, draft, onEdit, onUndo, canUndo, saveState, image, confirmBeforeImport, starting, onStart, onDiscard, hasConflictCopy, onRestoreConflict, onDismissConflict }: BatchDraftEditorProps) {
+export function BatchDraftEditor({ batch, draft, onEdit, onUndo, canUndo, saveState, image, confirmBeforeImport, starting, onStart, onDiscard, analysisMode, onAnalysisModeChange, hasConflictCopy, onRestoreConflict, onDismissConflict }: BatchDraftEditorProps) {
     const { t } = useLanguage();
     const source = batch.source;
     // 一次只展开一道题，手机上不会铺满长表单
@@ -161,6 +164,10 @@ export function BatchDraftEditor({ batch, draft, onEdit, onUndo, canUndo, saveSt
                 starting={starting}
                 onStart={onStart}
                 onDiscard={onDiscard}
+                source={source}
+                analysisMode={analysisMode}
+                onAnalysisModeChange={onAnalysisModeChange}
+                hasTargetNotebook={!!batch.targetSubjectId || !!batch.subjectId}
             />
 
             {image && regionTarget && (

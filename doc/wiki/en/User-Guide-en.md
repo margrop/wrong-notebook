@@ -47,6 +47,8 @@ When text questions come from OCR or contain scratch work, tap **AI fix text (N)
 
 Start with the button at the bottom: with **Review before import** off it reads **Solve and import N questions** and saves each question when solved; with it on it reads **Solve N questions, review later**, and you **Review** each one (saving returns to the batch) or choose **Import the other N as recognized**. The batch appears as "Batch of N questions" under Recognition tasks with counts of imported, duplicate, to-review and failed questions; percentages are stage estimates. Failed questions can be retried individually or together; finished questions are never solved or imported twice.
 
+Text batches can also choose **Import as-is** in the start bar (selected by default when every selected question has an answer): no AI call and no quota used. Questions are saved exactly as in the draft—the question text, answer, analysis, knowledge points, difficulty and wrong answer all come from the draft without AI recognition. A target notebook must be chosen first; the subject is taken from the target notebook's name. If there are more than 5 knowledge points, only the first 5 are kept. Retrying a failed save only retries saving and never calls AI.
+
 ### Recognition tasks
 
 Once the upload finishes, recognition continues on the server. The page shows a status card instead of a full-screen overlay, so you can leave the page, lock your phone or keep adding questions. The **Recognition** entry in the header shows how many tasks are running and the number of unread results, and refreshes as soon as you return to the app.

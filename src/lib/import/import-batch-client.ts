@@ -75,9 +75,9 @@ export interface BatchItemImage {
     imageInfo?: ImportImageInfo;
 }
 
-export async function startImportBatch(id: string, version: number, images?: BatchItemImage[]): Promise<ImportBatchDetail> {
+export async function startImportBatch(id: string, version: number, images?: BatchItemImage[], analysis?: "ai" | "none"): Promise<ImportBatchDetail> {
     const { batch } = await withRetry(() => apiClient.post<{ batch: ImportBatchDetail }>(
-        `/api/import-batches/${encodeURIComponent(id)}/start`, { version, images }, { timeout: UPLOAD_TIMEOUT_MS }));
+        `/api/import-batches/${encodeURIComponent(id)}/start`, { version, images, analysis }, { timeout: UPLOAD_TIMEOUT_MS }));
     notifyImportTasksChanged();
     return batch;
 }
