@@ -1,5 +1,5 @@
-import type { ImportTaskTimings } from "@/lib/import-task-types";
-import { CLIENT_TIMING_KEYS, SERVER_TIMING_KEYS } from "@/lib/import-task-types";
+import type { ImportTaskTimings } from "@/lib/import/import-task-types";
+import { CLIENT_TIMING_KEYS, SERVER_TIMING_KEYS } from "@/lib/import/import-task-types";
 
 export type TimingStage = typeof CLIENT_TIMING_KEYS[number] | typeof SERVER_TIMING_KEYS[number];
 

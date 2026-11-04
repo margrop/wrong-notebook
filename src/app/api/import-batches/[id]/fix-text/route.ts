@@ -1,5 +1,5 @@
 import { badRequest } from "@/lib/api-errors";
-import { fixImportBatchText } from "@/lib/import-batch-text-fix";
+import { fixImportBatchText } from "@/lib/import/import-batch-text-fix";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";

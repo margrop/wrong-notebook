@@ -9,7 +9,7 @@
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { ParsedQuestionSchema } from "@/lib/ai/schema";
-import { IMPORT_TASK_INTERRUPTED_ERROR } from "@/lib/import-task-types";
+import { IMPORT_TASK_INTERRUPTED_ERROR } from "@/lib/import/import-task-types";
 import { batchDraftSchema } from "@/lib/question-split/draft";
 import { MAX_SPLIT_TEXT_LENGTH } from "@/lib/question-split/text";
 

@@ -1,4 +1,4 @@
-import { confirmAllImportBatch } from "@/lib/import-batches";
+import { confirmAllImportBatch } from "@/lib/import/import-batches";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 

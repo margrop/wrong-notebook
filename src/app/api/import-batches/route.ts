@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { badRequest } from "@/lib/api-errors";
-import { createImportBatch } from "@/lib/import-batches";
+import { createImportBatch } from "@/lib/import/import-batches";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 

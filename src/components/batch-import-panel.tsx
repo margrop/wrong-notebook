@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { createImportTask, fetchImportTask, markImportTaskRead, retryImportTask } from "@/lib/import-task-client";
-import type { ImportTaskDetail } from "@/lib/import-task-types";
-import type { ImportedQuestion } from "@/lib/question-import";
+import { createImportTask, fetchImportTask, markImportTaskRead, retryImportTask } from "@/lib/import/import-task-client";
+import type { ImportTaskDetail } from "@/lib/import/import-task-types";
+import type { ImportedQuestion } from "@/lib/import/question-import";
 import type { BatchImage } from "@/lib/hooks/use-question-import";
 
 interface BatchImportPanelProps {

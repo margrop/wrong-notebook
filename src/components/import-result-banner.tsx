@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CheckCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { ImportedQuestion } from "@/lib/question-import";
+import type { ImportedQuestion } from "@/lib/import/question-import";
 
 interface ImportResultBannerProps {
     imported: ImportedQuestion;

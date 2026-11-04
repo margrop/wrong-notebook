@@ -14,8 +14,8 @@ import {
     parseReanswerResponse,
     resolveTargetSubjectId,
     toStackedBatchImage,
-} from '@/lib/question-import-flow';
-import type { BatchImage } from '@/lib/question-import-flow';
+} from '@/lib/import/question-import-flow';
+import type { BatchImage } from '@/lib/import/question-import-flow';
 
 vi.mock('@/lib/image-pipeline', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/lib/image-pipeline')>()),

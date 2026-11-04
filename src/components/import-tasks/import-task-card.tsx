@@ -7,8 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { formatDateTime } from "@/lib/date-time";
-import { formatDuration, listTimingStages } from "@/lib/import-task-format";
-import type { ImportTaskSummary } from "@/lib/import-task-types";
+import { formatDuration, listTimingStages } from "@/lib/import/import-task-format";
+import type { ImportTaskSummary } from "@/lib/import/import-task-types";
 import { cn } from "@/lib/utils";
 
 interface ImportTaskCardProps {

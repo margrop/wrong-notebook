@@ -3,7 +3,7 @@
 import { AlertCircle, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { ImportBatchDetail } from "@/lib/import-batch-types";
+import type { ImportBatchDetail } from "@/lib/import/import-batch-types";
 
 interface BatchPhasePanelProps {
     batch: ImportBatchDetail;

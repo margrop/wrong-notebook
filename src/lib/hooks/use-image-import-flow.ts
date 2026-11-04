@@ -6,12 +6,12 @@ import { getAnalysisErrorMessage } from "@/lib/analysis-error";
 import { getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { createImportBatch } from "@/lib/import-batch-client";
-import { createImportTask } from "@/lib/import-task-client";
+import { createImportBatch } from "@/lib/import/import-batch-client";
+import { createImportTask } from "@/lib/import/import-task-client";
 import { ImageDecodeError, prepareImage } from "@/lib/image-pipeline";
 import type { PreparedImage } from "@/lib/image-pipeline";
 import type { ImageRegion } from "@/lib/image-crop";
-import { stackQuestionImages } from "@/lib/batch-crop";
+import { stackQuestionImages } from "@/lib/import/batch-crop";
 import {
     buildCreateTaskParams,
     buildImageBatchParams,
@@ -19,10 +19,10 @@ import {
     MAX_QUESTION_PARTS,
     renderRegions,
     toStackedBatchImage,
-} from "@/lib/question-import-flow";
-import type { BatchImage } from "@/lib/question-import-flow";
+} from "@/lib/import/question-import-flow";
+import type { BatchImage } from "@/lib/import/question-import-flow";
 import type { ProgressStatus } from "@/components/ui/progress-feedback";
-import type { ImportTaskDetail } from "@/lib/import-task-types";
+import type { ImportTaskDetail } from "@/lib/import/import-task-types";
 import type { Translations } from "@/lib/translations";
 
 export interface ImageFlowDeps {

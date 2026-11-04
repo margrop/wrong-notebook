@@ -10,7 +10,7 @@
  * - 日志只记录格式、像素、体积和用时，不记录图片内容。
  */
 import type { ImageRegion } from "@/lib/image-crop";
-import type { ImportImageInfo } from "@/lib/import-task-types";
+import type { ImportImageInfo } from "@/lib/import/import-task-types";
 
 export interface ImageOutputLimits {
     /** 最长边（像素） */

@@ -6,7 +6,7 @@
 import type { Prisma, User } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { prepareImportGrade } from "@/lib/import-question-grade";
+import { prepareImportGrade } from "@/lib/import/import-question-grade";
 import { needsQuestionGradeRecognition } from "@/lib/question-grade";
 import type { QuestionSaveFailure } from "@/lib/question-save-failure";
 import { classifyQuestionSaveError } from "@/lib/question-save-failure";

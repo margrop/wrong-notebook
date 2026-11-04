@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { conflictBatch, fetchImportBatch, saveImportBatchDraft } from "@/lib/import-batch-client";
-import type { ImportBatchDetail } from "@/lib/import-batch-types";
-import { onReturnToForeground } from "@/lib/import-task-client";
+import { conflictBatch, fetchImportBatch, saveImportBatchDraft } from "@/lib/import/import-batch-client";
+import type { ImportBatchDetail } from "@/lib/import/import-batch-types";
+import { onReturnToForeground } from "@/lib/import/import-task-client";
 import type { BatchDraft } from "@/lib/question-split/draft";
 
 /** 分题或解析进行中的轮询间隔 */

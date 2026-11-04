@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push }) }));
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: mocks.get, post: mocks.post } }));
-vi.mock('@/lib/question-import', () => ({
+vi.mock('@/lib/import/question-import', () => ({
     fetchConfirmBeforeImport: vi.fn(async () => mocks.confirmBeforeImport),
     saveParsedQuestion: mocks.saveParsedQuestion,
 }));
@@ -39,7 +39,7 @@ vi.mock('@/lib/image-pipeline', async (importOriginal) => ({
     renderRegion: pipeline.renderRegion,
 }));
 vi.mock('@/lib/feedback', () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
-vi.mock('@/lib/import-task-client', () => ({
+vi.mock('@/lib/import/import-task-client', () => ({
     createImportTask: mocks.createImportTask,
     fetchImportTask: mocks.fetchImportTask,
     markImportTaskRead: mocks.markImportTaskRead,

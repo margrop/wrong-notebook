@@ -8,15 +8,15 @@ import { apiClient } from "@/lib/api-client";
 import { getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { createImportBatch } from "@/lib/import-batch-client";
-import { saveParsedQuestion } from "@/lib/question-import";
-import type { ImportedQuestion } from "@/lib/question-import";
+import { createImportBatch } from "@/lib/import/import-batch-client";
+import { saveParsedQuestion } from "@/lib/import/question-import";
+import type { ImportedQuestion } from "@/lib/import/question-import";
 import {
     buildTextBatchParams,
     buildTextReanswerBody,
     parseReanswerResponse,
-} from "@/lib/question-import-flow";
-import type { ReanswerResponse } from "@/lib/question-import-flow";
+} from "@/lib/import/question-import-flow";
+import type { ReanswerResponse } from "@/lib/import/question-import-flow";
 import type { ProgressStatus } from "@/components/ui/progress-feedback";
 import type { Translations } from "@/lib/translations";
 

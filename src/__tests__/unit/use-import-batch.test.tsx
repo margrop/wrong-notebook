@@ -6,7 +6,7 @@ import { act, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ImportBatchDetail } from '@/lib/import-batch-types';
+import type { ImportBatchDetail } from '@/lib/import/import-batch-types';
 import type { BatchDraft } from '@/lib/question-split/draft';
 import { updateItem } from '@/lib/question-split/draft-ops';
 import { useImportBatch } from '@/lib/hooks/use-import-batch';
@@ -18,8 +18,8 @@ const server = vi.hoisted(() => ({
     gate: null as Promise<void> | null,
 }));
 
-vi.mock('@/lib/import-batch-client', async (importOriginal) => {
-    const original = await importOriginal<typeof import('@/lib/import-batch-client')>();
+vi.mock('@/lib/import/import-batch-client', async (importOriginal) => {
+    const original = await importOriginal<typeof import('@/lib/import/import-batch-client')>();
     const detail = () => ({ id: 'batch-1', source: 'text', status: 'draft', phase: 'draft', version: server.version, draft: server.draft, imageData: null, tasks: [], counts: { total: 0, active: 0, review: 0, saved: 0, duplicate: 0, failed: 0 } }) as unknown as ImportBatchDetail;
     return {
         ...original,

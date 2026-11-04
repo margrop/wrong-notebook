@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchImportTask, fetchImportTasks, IMPORT_TASKS_CHANGED_EVENT, onReturnToForeground } from "@/lib/import-task-client";
-import type { ImportTaskDetail, ImportTaskListResponse } from "@/lib/import-task-types";
+import { fetchImportTask, fetchImportTasks, IMPORT_TASKS_CHANGED_EVENT, onReturnToForeground } from "@/lib/import/import-task-client";
+import type { ImportTaskDetail, ImportTaskListResponse } from "@/lib/import/import-task-types";
 
 /** 有任务在执行时的轮询间隔 */
 const ACTIVE_POLL_MS = 2500;

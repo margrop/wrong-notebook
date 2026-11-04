@@ -25,10 +25,10 @@ import { consumeAiQuota } from "@/lib/ai-quota";
 import { createErrorResponse, ErrorCode, notFound, validationError } from "@/lib/api-errors";
 import { describeQuestion } from "@/lib/background-tasks";
 import { getErrorMessage } from "@/lib/error-message";
-import { CLIENT_TIMING_KEYS, IMPORT_TASK_INTERRUPTED_ERROR, SAVED_IMPORT_TASK_RETENTION_DAYS } from "@/lib/import-task-types";
+import { CLIENT_TIMING_KEYS, IMPORT_TASK_INTERRUPTED_ERROR, SAVED_IMPORT_TASK_RETENTION_DAYS } from "@/lib/import/import-task-types";
 import type {
     ImportTaskDetail, ImportTaskListResponse, ImportTaskMode, ImportTaskStatus, ImportTaskSummary, ImportTaskTimings,
-} from "@/lib/import-task-types";
+} from "@/lib/import/import-task-types";
 import { createLogger } from "@/lib/logger";
 import { parsedQuestionToSavePayload } from "@/lib/parsed-question-payload";
 import { serializeWrite } from "@/lib/db-write-queue";

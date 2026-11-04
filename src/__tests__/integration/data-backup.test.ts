@@ -23,7 +23,7 @@ vi.mock('@/lib/mastery', async (importOriginal) => ({
 }));
 
 import { GET as EXPORT } from '@/app/api/export/route';
-import { importImportTasks } from '@/lib/import-task-backup';
+import { importImportTasks } from '@/lib/import/import-task-backup';
 import { POST as IMPORT } from '@/app/api/import/route';
 import { sanitizeFigureSvg } from '@/lib/figure-svg';
 import { embedNarration, sanitizeSvgAnimation } from '@/lib/svg-animation';

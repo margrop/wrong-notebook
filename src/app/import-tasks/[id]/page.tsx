@@ -15,7 +15,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import type { ReviewedQuestion } from "@/lib/hooks/use-question-import";
 import { apiClient } from "@/lib/api-client";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { confirmImportTask, fetchImportTask } from "@/lib/import-task-client";
+import { confirmImportTask, fetchImportTask } from "@/lib/import/import-task-client";
 import { usePageTitle } from "@/lib/page-title";
 import { useImportTaskActions } from "@/lib/hooks/use-import-task-actions";
 import { useImportTask } from "@/lib/hooks/use-import-tasks";

@@ -1,7 +1,7 @@
 /**
  * 导入步骤：未完成的多题批次、未处理的识别导入任务与 fork 扩展数据。
  */
-import { importImportBatches, importImportTasks } from "@/lib/import-task-backup";
+import { importImportBatches, importImportTasks } from "@/lib/import/import-task-backup";
 import { importExtensions } from "@/lib/backup-extensions";
 import type { ImportContext } from "./types";
 

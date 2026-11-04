@@ -1,4 +1,4 @@
-import { retryImportTask } from "@/lib/import-tasks";
+import { retryImportTask } from "@/lib/import/import-tasks";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 

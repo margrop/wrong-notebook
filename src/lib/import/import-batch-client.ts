@@ -2,9 +2,9 @@
  * 多题批次的前端接口封装
  */
 import { apiClient } from "@/lib/api-client";
-import type { ImportBatchDetail } from "@/lib/import-batch-types";
-import { newClientRequestId, notifyImportTasksChanged } from "@/lib/import-task-client";
-import type { ImportImageInfo } from "@/lib/import-task-types";
+import type { ImportBatchDetail } from "@/lib/import/import-batch-types";
+import { newClientRequestId, notifyImportTasksChanged } from "@/lib/import/import-task-client";
+import type { ImportImageInfo } from "@/lib/import/import-task-types";
 import type { BatchDraft } from "@/lib/question-split/draft";
 import type { TextFixSuggestion } from "@/lib/question-split/draft-ops";
 

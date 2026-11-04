@@ -6,8 +6,8 @@ import { RegionThumbnail } from "@/components/import-batch/region-thumbnail";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { ImportBatchDetail } from "@/lib/import-batch-types";
-import type { ImportTaskSummary } from "@/lib/import-task-types";
+import type { ImportBatchDetail } from "@/lib/import/import-batch-types";
+import type { ImportTaskSummary } from "@/lib/import/import-task-types";
 import { cn } from "@/lib/utils";
 
 interface BatchProgressProps {

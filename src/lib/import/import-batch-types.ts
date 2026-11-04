@@ -2,7 +2,7 @@
  * 多题录入批次的前后端共用类型（不依赖数据库，可在浏览器中引用）
  */
 import type { BatchDraft } from "@/lib/question-split/draft";
-import type { ImportTaskMode, ImportTaskSummary } from "@/lib/import-task-types";
+import type { ImportTaskMode, ImportTaskSummary } from "@/lib/import/import-task-types";
 
 /** 开始解析时一次提交的全部裁片（data URL）的总长度上限，前后端一致 */
 export const MAX_START_IMAGES_LENGTH = 60 * 1024 * 1024;

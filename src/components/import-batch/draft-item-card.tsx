@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { ImportBatchSource } from "@/lib/import-batch-types";
+import type { ImportBatchSource } from "@/lib/import/import-batch-types";
 import { isItemReady } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftItem } from "@/lib/question-split/draft";
 import { acceptTextFixes, duplicateItem, mergeWithPrevious, moveItem, rejectTextFix, removeItem, setSelected, splitItemAt, updateItem } from "@/lib/question-split/draft-ops";

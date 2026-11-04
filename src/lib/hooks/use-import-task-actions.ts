@@ -5,8 +5,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { getAnalysisErrorMessage } from "@/lib/analysis-error";
 import { confirmDialog, toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { discardImportTask, markImportTaskRead, retryImportTask } from "@/lib/import-task-client";
-import type { ImportTaskSummary } from "@/lib/import-task-types";
+import { discardImportTask, markImportTaskRead, retryImportTask } from "@/lib/import/import-task-client";
+import type { ImportTaskSummary } from "@/lib/import/import-task-types";
 
 /** 任务卡片上的操作：继续校对、查看错题、重试、丢弃 */
 export function useImportTaskActions(onChanged?: () => void) {

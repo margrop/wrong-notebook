@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stackLayout } from '@/lib/batch-crop';
+import { stackLayout } from '@/lib/import/batch-crop';
 
 describe('纵向拼接版面', () => {
     it('同一张图上的多个区域保持原尺寸左对齐', () => {

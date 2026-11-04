@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { ImportTaskCard } from "@/components/import-tasks/import-task-card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { ImportTaskSummary } from "@/lib/import-task-types";
+import type { ImportTaskSummary } from "@/lib/import/import-task-types";
 import { useImportTaskActions } from "@/lib/hooks/use-import-task-actions";
 import { useNow } from "@/lib/hooks/use-now";
 

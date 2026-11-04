@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { badRequest } from "@/lib/api-errors";
-import { listImportCenter } from "@/lib/import-batches";
-import { createImportTask } from "@/lib/import-tasks";
+import { listImportCenter } from "@/lib/import/import-batches";
+import { createImportTask } from "@/lib/import/import-tasks";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 

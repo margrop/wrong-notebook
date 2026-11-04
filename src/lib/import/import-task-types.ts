@@ -2,7 +2,7 @@
  * 识别导入任务的前后端共用类型与常量（不依赖数据库，可在浏览器中引用）
  */
 import type { ParsedQuestion } from "@/lib/ai";
-import type { ImportBatchSummary } from "@/lib/import-batch-types";
+import type { ImportBatchSummary } from "@/lib/import/import-batch-types";
 
 export const IMPORT_TASK_STATUSES = ['analyzing', 'review', 'saving', 'saved', 'failed'] as const;
 export type ImportTaskStatus = typeof IMPORT_TASK_STATUSES[number];

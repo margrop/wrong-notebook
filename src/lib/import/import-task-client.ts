@@ -4,7 +4,7 @@
 import { apiClient } from "@/lib/api-client";
 import type {
     ClientTimingKey, ImportImageInfo, ImportTaskDetail, ImportTaskListResponse, ImportTaskSummary,
-} from "@/lib/import-task-types";
+} from "@/lib/import/import-task-types";
 
 /** 任务列表变化（新建、确认、重试、丢弃）时广播，入口与列表页立即刷新 */
 export const IMPORT_TASKS_CHANGED_EVENT = "wrong-notebook:import-tasks-changed";

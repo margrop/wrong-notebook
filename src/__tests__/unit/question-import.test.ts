@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { importQuestionImage, saveParsedQuestion } from '@/lib/question-import';
+import { importQuestionImage, saveParsedQuestion } from '@/lib/import/question-import';
 import { apiClient } from '@/lib/api-client';
 import type { ParsedQuestion } from '@/lib/ai';
 

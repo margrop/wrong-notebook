@@ -1,5 +1,5 @@
 import { badRequest } from "@/lib/api-errors";
-import { confirmImportTask } from "@/lib/import-tasks";
+import { confirmImportTask } from "@/lib/import/import-tasks";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 

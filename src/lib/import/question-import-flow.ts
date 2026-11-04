@@ -1,8 +1,8 @@
 import type { CompletedStage } from "@/components/ui/progress-feedback";
 import type { ParsedQuestion } from "@/lib/ai";
-import type { CreateImportBatchInput } from "@/lib/import-batch-client";
-import type { CreateImportTaskInput } from "@/lib/import-task-client";
-import type { ImportImageInfo } from "@/lib/import-task-types";
+import type { CreateImportBatchInput } from "@/lib/import/import-batch-client";
+import type { CreateImportTaskInput } from "@/lib/import/import-task-client";
+import type { ImportImageInfo } from "@/lib/import/import-task-types";
 import { describeImage, renderRegion } from "@/lib/image-pipeline";
 import type { PreparedImage, RenderedImage } from "@/lib/image-pipeline";
 import type { ImageRegion } from "@/lib/image-crop";

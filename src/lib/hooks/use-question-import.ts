@@ -3,18 +3,18 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { fetchConfirmBeforeImport } from "@/lib/question-import";
+import { fetchConfirmBeforeImport } from "@/lib/import/question-import";
 import type { ProgressStatus } from "@/components/ui/progress-feedback";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useImageImportFlow } from "@/lib/hooks/use-image-import-flow";
 import { useTextImportFlow } from "@/lib/hooks/use-text-import-flow";
 import { useImportTask } from "@/lib/hooks/use-import-tasks";
 import { useQuestionSaver } from "@/lib/hooks/use-question-saver";
-import type { BatchImage, ReviewedQuestion } from "@/lib/question-import-flow";
+import type { BatchImage, ReviewedQuestion } from "@/lib/import/question-import-flow";
 import type { AppConfig } from "@/types/api";
 
 export type { BatchImage, ReviewedQuestion };
-export { MAX_QUESTION_PARTS } from "@/lib/question-import-flow";
+export { MAX_QUESTION_PARTS } from "@/lib/import/question-import-flow";
 
 /** 未配置时 AI 识别的超时（毫秒） */
 const DEFAULT_AI_TIMEOUT = 180000;

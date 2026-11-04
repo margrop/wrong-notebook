@@ -70,7 +70,7 @@ import { DELETE as DISCARD, GET as GET_TASK } from '@/app/api/import-tasks/[id]/
 import { POST as CONFIRM } from '@/app/api/import-tasks/[id]/confirm/route';
 import { POST as RETRY } from '@/app/api/import-tasks/[id]/retry/route';
 import { POST as READ } from '@/app/api/import-tasks/[id]/read/route';
-import { simulateRestartForTest, waitForImportTaskForTest } from '@/lib/import-tasks';
+import { simulateRestartForTest, waitForImportTaskForTest } from '@/lib/import/import-tasks';
 
 let database: PrismaClient;
 let directory: string;

@@ -1,5 +1,5 @@
 import { badRequest } from "@/lib/api-errors";
-import { startImportBatch } from "@/lib/import-batches";
+import { startImportBatch } from "@/lib/import/import-batches";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 

@@ -21,14 +21,14 @@ import type { QuestionSplitInput } from "@/lib/ai/question-split";
 import { createErrorResponse, ErrorCode, notFound, validationError } from "@/lib/api-errors";
 import { describeQuestion } from "@/lib/background-tasks";
 import { getErrorMessage } from "@/lib/error-message";
-import { batchPhase, MAX_START_IMAGES_LENGTH } from "@/lib/import-batch-types";
-import type { ImportBatchCounts, ImportBatchDetail, ImportBatchSource, ImportBatchSplitter, ImportBatchStatus, ImportBatchSummary } from "@/lib/import-batch-types";
-import { IMPORT_TASK_INTERRUPTED_ERROR, SAVED_IMPORT_TASK_RETENTION_DAYS } from "@/lib/import-task-types";
-import type { ImportTaskMode, ImportTaskStatus, ImportTaskSummary } from "@/lib/import-task-types";
+import { batchPhase, MAX_START_IMAGES_LENGTH } from "@/lib/import/import-batch-types";
+import type { ImportBatchCounts, ImportBatchDetail, ImportBatchSource, ImportBatchSplitter, ImportBatchStatus, ImportBatchSummary } from "@/lib/import/import-batch-types";
+import { IMPORT_TASK_INTERRUPTED_ERROR, SAVED_IMPORT_TASK_RETENTION_DAYS } from "@/lib/import/import-task-types";
+import type { ImportTaskMode, ImportTaskStatus, ImportTaskSummary } from "@/lib/import/import-task-types";
 import {
     bootId, confirmImportTask, isInterrupted, listImportTasks, markFailed, parseResult, quotaKindOf, reconcileInterrupted as reconcileInterruptedTasks, register, retryImportTask,
     scheduleImportTask, scheduleWork, startHeartbeat, summarySelect, toSummary,
-} from "@/lib/import-tasks";
+} from "@/lib/import/import-tasks";
 import { createLogger } from "@/lib/logger";
 import { parsedQuestionToSavePayload } from "@/lib/parsed-question-payload";
 import { runSerializedTransaction, serializeWrite } from "@/lib/db-write-queue";
@@ -591,7 +591,7 @@ export async function listImportCenter(user: Pick<User, 'id'>) {
 
 /** 仅供测试 */
 export async function waitForImportBatchTasksForTest(id: string): Promise<void> {
-    const { waitForImportTaskForTest } = await import("@/lib/import-tasks");
+    const { waitForImportTaskForTest } = await import("@/lib/import/import-tasks");
     await waitForImportTaskForTest(id);
     const tasks = await prisma.importTask.findMany({ where: { batchId: id }, select: { id: true } });
     await Promise.all(tasks.map((task) => waitForImportTaskForTest(task.id)));

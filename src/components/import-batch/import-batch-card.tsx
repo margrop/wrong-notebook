@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { formatDateTime } from "@/lib/date-time";
-import type { ImportBatchSummary } from "@/lib/import-batch-types";
+import type { ImportBatchSummary } from "@/lib/import/import-batch-types";
 import { cn } from "@/lib/utils";
 
 interface ImportBatchCardProps {

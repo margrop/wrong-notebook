@@ -11,7 +11,7 @@ import { RegionEditorDialog } from "@/components/import-batch/region-editor-dial
 import { TextFixToolbar } from "@/components/import-batch/text-fix-toolbar";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { ImportBatchDetail } from "@/lib/import-batch-types";
+import type { ImportBatchDetail } from "@/lib/import/import-batch-types";
 import { isItemReady } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftRegion } from "@/lib/question-split/draft";
 import { acceptTextFixes, addImageItem, pendingTextFixes, restoreIgnored, setAllSelected, updateItem } from "@/lib/question-split/draft-ops";

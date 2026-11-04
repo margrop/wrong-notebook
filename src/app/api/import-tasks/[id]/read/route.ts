@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { notFound } from "@/lib/api-errors";
-import { markImportTaskRead } from "@/lib/import-tasks";
+import { markImportTaskRead } from "@/lib/import/import-tasks";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 
