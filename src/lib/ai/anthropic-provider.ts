@@ -1,25 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateReanswerRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest, generateTextFixRequest } from './prompt-requests';
-import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
-import type { NarrationSegment } from '../svg-animation';
-import { parseLatexFix } from './latex-fix';
-import type { LatexFixInput, LatexFixResult } from './latex-fix';
-import { getAppConfig } from '../config';
-import { parseGradeRecognition, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, extractJsonObject, parseDifficultyStars, parseFigure } from './schema';
-import { extractTag, parseQuestionResponse, splitKnowledgePoints } from './response-parser';
-import { prefetchSubjectTags } from './tag-service';
+import type { AIConfig } from "./types";
+import type { CompletionRequest } from './base-provider';
+import { BaseAIProvider } from './base-provider';
 import { createLogger } from '../logger';
 import { trimTrailingSlashes } from '../utils';
-import { AI_OUTPUT_TRUNCATED, withModelOutputLimit } from './truncation';
-import { normalizeMistakeStatusForSave } from '../mistake-status';
-import { parseRecognizedGrade } from '../question-grade';
-import { normalizeGeneratedQuestion } from './generated-question';
-import { normalizeAiQuestionTags } from './knowledge-points';
-import { AI_IMAGE_NOT_SUPPORTED, isImageUnsupportedError, parseQuestionSplit } from './question-split';
-import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
-import { parseTextFix } from './text-fix';
-import type { TextFixInput, TextFixResult } from './text-fix';
+import { withModelOutputLimit } from './truncation';
 
 const logger = createLogger('ai:anthropic');
 
@@ -89,12 +74,14 @@ export function createAnthropicClient(baseURL: string, apiKey?: string, authToke
 /**
  * Anthropic Messages API 及其兼容接口（如各家模型的 /anthropic 端点）
  */
-export class AnthropicProvider implements AIService {
+export class AnthropicProvider extends BaseAIProvider {
+    protected readonly providerName = 'Anthropic';
     private client: Anthropic;
     private model: string;
     private baseURL: string;
 
     constructor(config?: AIConfig) {
+        super();
         const apiKey = config?.apiKey;
         const authToken = config?.authToken;
         if (!apiKey && !authToken) {
@@ -114,12 +101,25 @@ export class AnthropicProvider implements AIService {
     }
 
     /** 发送一次单轮对话并返回正文；按模型允许的最大输出请求 */
-    private async complete(system: string, content: UserContent): Promise<string> {
+    protected async complete(request: CompletionRequest): Promise<string> {
         const response = await withModelOutputLimit(async (limit) => {
+            let content: UserContent = request.user;
+            if (request.image) {
+                const blocks: Anthropic.ContentBlockParam[] = [
+                    imageBlock(request.image.base64, request.image.mimeType),
+                    { type: 'text', text: request.user },
+                ];
+                if (request.extraUserText) {
+                    blocks.push({ type: 'text', text: request.extraUserText });
+                }
+                content = blocks;
+            } else if (request.extraUserText) {
+                content = `${request.user}\n${request.extraUserText}`;
+            }
             const message = await this.client.messages.create({
                 model: this.model,
                 max_tokens: limit,
-                system,
+                system: request.system,
                 messages: [{ role: 'user', content }],
             });
             // 兼容接口的推理模型会返回 thinking 块，只取正文
@@ -138,278 +138,9 @@ export class AnthropicProvider implements AIService {
         return response.text;
     }
 
-    async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: GradeLevel | null, subject?: string | null, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ParsedQuestion> {
-        const config = getAppConfig();
-        const tagOptions = candidateTags ? { candidateTags } : await prefetchSubjectTags(subject, grade);
-        const systemPrompt = generateAnalyzeRequest(language, grade, subject, {
-            customTemplate: config.prompts?.analyze,
-            // 有错题本学段 + 学科时直接使用其全部知识点，否则按学科、年级取标签
-            ...tagOptions,
-        }, gradeSemester);
-
-        logger.box('🔍 AI Image Analysis Request', {
-            provider: 'Anthropic',
-            endpoint: `${this.baseURL}/v1/messages`,
-            imageSize: `${imageBase64.length} bytes`,
-            mimeType,
-            model: this.model,
-            language,
-            grade: grade || 'all'
-        });
-        logger.box('📝 Full System Prompt', systemPrompt.system);
-
-        try {
-            const text = await this.complete(systemPrompt.system, [
-                imageBlock(imageBase64, mimeType),
-                { type: 'text', text: systemPrompt.user },
-            ]);
-            logger.box('🤖 AI Raw Response', text);
-            const parsedResult = normalizeAiQuestionTags(parseQuestionResponse(text), tagOptions);
-            logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
-            return parsedResult;
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during AI analysis');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async generateSimilarQuestion(originalQuestion: string, knowledgePoints: string[], language: 'zh' | 'en' = 'zh', difficulty: DifficultyLevel = 'medium', gradeSemester?: string | null, originalFigureSvg?: string | null): Promise<ParsedQuestion> {
-        const config = getAppConfig();
-        const systemPrompt = generateSimilarQuestionRequest(language, originalQuestion, knowledgePoints, difficulty, {
-            customTemplate: config.prompts?.similar,
-            originalFigureSvg,
-        }, gradeSemester);
-        const userPrompt = systemPrompt.user;
-
-        logger.info({ provider: 'Anthropic', model: this.model, difficulty, language }, 'Generate Similar Question Request');
-
-        try {
-            const text = await this.complete(systemPrompt.system, userPrompt);
-            logger.box('🤖 AI Raw Response', text);
-            return normalizeGeneratedQuestion(parseQuestionResponse(text));
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during question generation');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async reanswerQuestion(questionText: string, language: 'zh' | 'en' = 'zh', subject?: string | null, imageBase64?: string, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ReanswerQuestionResult> {
-        const prompt = generateReanswerRequest(language, questionText, subject, { candidateTags }, gradeSemester);
-
-        logger.info({
-            provider: 'Anthropic',
-            model: this.model,
-            questionLength: questionText.length,
-            subject: subject || 'auto',
-            hasImage: !!imageBase64
-        }, 'Reanswer Question Request');
-
-        try {
-            const content: UserContent = imageBase64
-                ? [imageBlock(imageBase64), { type: 'text', text: prompt.user }]
-                : prompt.user;
-            const text = await this.complete(prompt.system, content);
-            logger.debug({ rawResponse: text }, 'AI raw response');
-
-            const wrongAnswerText = extractTag(text, "wrong_answer_text") || "";
-            return normalizeAiQuestionTags({
-                answerText: extractTag(text, "answer_text") || "",
-                analysis: extractTag(text, "analysis") || "",
-                knowledgePoints: splitKnowledgePoints(extractTag(text, "knowledge_points")),
-                wrongAnswerText,
-                mistakeAnalysis: extractTag(text, "mistake_analysis") || "",
-                mistakeStatus: normalizeMistakeStatusForSave(extractTag(text, "mistake_status"), wrongAnswerText),
-                subject: normalizeSubject(extractTag(text, "subject")),
-                gradeSemester: parseRecognizedGrade(extractTag(text, "grade_semester")),
-                difficultyStars: parseDifficultyStars(extractTag(text, "difficulty_stars")),
-            }, { candidateTags });
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async analyzeForGeogebra(questionText: string, answerText: string, analysis: string, previousErrors?: string): Promise<GeogebraAnalysisResult> {
-        const prompt = generateGeogebraRequest(questionText, answerText, analysis, previousErrors);
-        logger.info({ provider: 'Anthropic', model: this.model, questionLength: questionText.length }, 'GeoGebra Analysis Request');
-
-        try {
-            const text = await this.complete(prompt.system, prompt.user);
-            logger.debug({ rawResponse: text }, 'GeoGebra AI raw response');
-            const parsed = extractJsonObject(text) as { suitable?: unknown; commands?: unknown; description?: unknown };
-            return {
-                suitable: Boolean(parsed.suitable),
-                commands: Array.isArray(parsed.commands) ? parsed.commands : [],
-                description: typeof parsed.description === 'string' ? parsed.description : "",
-            };
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during GeoGebra analysis');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async evaluateMastery(input: MasteryEvaluationInput): Promise<MasteryEvaluationResult> {
-        const prompt = generateMasteryRequest(input);
-        logger.info({ provider: 'Anthropic', historyCount: input.history.length }, 'Mastery Evaluation Request');
-
-        try {
-            const text = await this.complete(prompt.system, prompt.user);
-            logger.debug({ rawResponse: text }, 'Mastery AI raw response');
-            return parseMasteryEvaluation(text);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during mastery evaluation');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async recognizeGrade(questionText: string): Promise<string | null> {
-        const prompt = generateGradeRecognitionRequest(questionText);
-        try {
-            return parseGradeRecognition(await this.complete(
-                prompt.system, prompt.user
-            ));
-        } catch (error) {
-            logger.error({ error }, '识别题目年级失败');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async gradeAnswer(input: AnswerGradingInput): Promise<AnswerGradingResult> {
-        const prompt = generateGradingRequest(input);
-        logger.info({ provider: 'Anthropic' }, 'Answer Grading Request');
-
-        try {
-            const text = await this.complete(prompt.system, prompt.user);
-            logger.debug({ rawResponse: text }, 'Grading AI raw response');
-            return parseAnswerGrading(text);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during answer grading');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async suggestKnowledgeTags(input: TagSuggestionInput): Promise<TagSuggestionResult> {
-        const prompt = generateTagSuggestRequest(input);
-        logger.info({ provider: 'Anthropic', subject: input.subject, allowedTagCount: input.allowedTags.length }, 'Tag Suggestion Request');
-
-        try {
-            const text = await this.complete(prompt.system, prompt.user);
-            logger.debug({ rawResponse: text }, 'Tag suggestion AI raw response');
-            return parseTagSuggestion(text, input.allowedTags);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during tag suggestion');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async generateFigureSvg(imageBase64: string, mimeType: string, questionText?: string | null): Promise<FigureResult> {
-        const prompt = generateFigureRequest(questionText);
-        logger.info({ provider: 'Anthropic', model: this.model, imageSize: imageBase64.length }, 'Figure SVG Request');
-
-        try {
-            const text = await this.complete(prompt.system, [
-                imageBlock(imageBase64, mimeType), { type: 'text', text: prompt.user },
-                { type: 'text', text: '请重新绘制图中题目的配图。' },
-            ]);
-            logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
-            return parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during figure SVG generation');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async fixLatex(input: LatexFixInput): Promise<LatexFixResult> {
-        const prompt = generateLatexFixRequest(input);
-        logger.info({ provider: 'Anthropic', model: this.model, fields: Object.keys(input) }, 'LaTeX Fix Request');
-
-        try {
-            const text = await this.complete(prompt.system, prompt.user);
-            logger.debug({ rawResponse: text }, 'LaTeX fix AI raw response');
-            return parseLatexFix(text, input);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during LaTeX fix');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async generateSvgAnimation(questionText: string, answerText: string, analysis: string, figureSvg?: string | null, language: 'zh' | 'en' = 'zh'): Promise<string | null> {
-        const prompt = generateSvgAnimationRequest(questionText, answerText, analysis, figureSvg, language);
-        logger.info({ provider: 'Anthropic', model: this.model, questionLength: questionText.length }, 'SVG Animation Request');
-
-        try {
-            const text = await this.complete(prompt.system, prompt.user);
-            logger.debug({ rawResponse: text }, 'SVG animation AI raw response');
-            return sanitizeSvgAnimation(extractTag(text, "svg_animation") || text);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG animation generation');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async generateSvgNarration(questionText: string, answerText: string, analysis: string, svgAnimation: string, language: 'zh' | 'en' = 'zh'): Promise<NarrationSegment[] | null> {
-        const prompt = generateSvgNarrationRequest(questionText, answerText, analysis, svgAnimation, language);
-        logger.info({ provider: 'Anthropic', model: this.model, svgLength: svgAnimation.length }, 'SVG Narration Request');
-
-        try {
-            const text = await this.complete(prompt.system, prompt.user);
-            logger.debug({ rawResponse: text }, 'SVG narration AI raw response');
-            return parseNarration(extractTag(text, "narration") || text);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG narration generation');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async splitQuestions(input: QuestionSplitInput): Promise<QuestionSplitResult> {
-        const prompt = generateQuestionSplitRequest(input);
-        logger.info({ provider: 'Anthropic', model: this.model, kind: input.kind }, 'Question Split Request');
-        const content: UserContent = input.kind === 'image'
-            ? [imageBlock(input.imageBase64, input.mimeType), { type: 'text', text: prompt.user }]
-            : prompt.user;
-
-        try {
-            const text = await this.complete(prompt.system, content);
-            logger.debug({ rawResponse: text }, 'Question split AI raw response');
-            return parseQuestionSplit(text, input);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during question split');
-            if (input.kind === 'image' && isImageUnsupportedError(error)) throw new Error(AI_IMAGE_NOT_SUPPORTED, { cause: error });
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async fixQuestionText(input: TextFixInput): Promise<TextFixResult> {
-        const prompt = generateTextFixRequest(input);
-        logger.info({ provider: 'Anthropic', model: this.model, questions: input.length }, 'Text Fix Request');
-
-        try {
-            const text = await this.complete(prompt.system, prompt.user);
-            logger.debug({ rawResponse: text }, 'Text fix AI raw response');
-            return parseTextFix(text, input);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during text fix');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    private handleError(error: unknown) {
+    protected handleError(error: unknown): void {
         logger.error({ error }, 'Anthropic error');
-        if (error instanceof Error && (error.message === AI_OUTPUT_TRUNCATED || error.message.startsWith('AI_RESPONSE_ERROR:'))) {
+        if (error instanceof Error && (error.message === 'AI_OUTPUT_TRUNCATED' || error.message.startsWith('AI_RESPONSE_ERROR:'))) {
             throw error;
         }
 
