@@ -5,8 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, forbidden, notFound, badRequest, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { findParentTagIdForGrade } from "@/lib/tag-recognition";
-import { resolveNotebookScope } from "@/lib/notebook-scope";
+import { resolveOrCreateTags, inferTagScope } from "@/lib/tag-resolver";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
 import { getDefaultPaperLevelGroupId } from "@/lib/paper-level";
 import { isValidFigureAlign, isValidFigureScale } from "@/lib/figure-scale";
@@ -149,69 +148,47 @@ export async function PUT(
         if (geogebraCommands !== undefined) updateData.geogebraCommands = geogebraCommands || null;
         if (difficultyStars !== undefined) updateData.difficultyStars = difficultyStars;
 
-        // 处理 knowledgePoints (标签)
-        if (knowledgePoints !== undefined) {
-            const tagNames: string[] = Array.isArray(knowledgePoints)
-                ? knowledgePoints
-                : typeof knowledgePoints === 'string'
-                    ? JSON.parse(knowledgePoints)
-                    : [];
-
-            // 推断学科和标签体系
-            const notebookScope = errorItem.subject ? resolveNotebookScope(errorItem.subject) : null;
-            const subjectKey = notebookScope?.subject || 'other';
-            const notebookTagSet = errorItem.subject?.tagSet || 'default';
-
-            const tagConnections: { id: string }[] = [];
-            for (const tagName of tagNames) {
-                let tag = await prisma.knowledgeTag.findFirst({
-                    where: {
-                        name: tagName,
-                        tagSet: notebookTagSet,
-                        OR: [
-                            { isSystem: true },
-                            { userId: user.id },
-                        ],
-                    },
-                });
-
-                if (!tag) {
-                    // Determine grade context for the new tag
-                    // Use the incoming gradeSemester (priority) or the existing one on the item
-                    const contextGrade = gradeSemester !== undefined ? gradeSemester : errorItem.gradeSemester;
-
-                    const parentId = await findParentTagIdForGrade(contextGrade, subjectKey, prisma, notebookTagSet);
-
-                    tag = await prisma.knowledgeTag.create({
-                        data: {
-                            name: tagName,
-                            subject: subjectKey,
-                            isSystem: false,
-                            userId: user.id,
-                            parentId: parentId,
-                            tagSet: notebookTagSet,
-                        },
-                    });
-                }
-                tagConnections.push({ id: tag.id });
-            }
-
-            // 更新标签关联: 先断开所有，再连接新的
-            updateData.tags = {
-                set: [], // 先清空
-                connect: tagConnections,
-            };
-
-            // 保留旧字段兼容
-            updateData.knowledgePoints = JSON.stringify(tagNames);
-        }
-
         logger.info({ id }, 'Updating error item');
 
-        const updated = await prisma.errorItem.update({
-            where: { id },
-            data: updateData,
-            include: { tags: true },
+        // 将「解析标签 + 更新错题记录（含标签 set/connect）」放入同一事务，保证中途失败不会留下新建的孤立标签或半更新状态
+        const updated = await prisma.$transaction(async (tx) => {
+            // 处理 knowledgePoints (标签)
+            if (knowledgePoints !== undefined) {
+                const tagNames: string[] = Array.isArray(knowledgePoints)
+                    ? knowledgePoints
+                    : typeof knowledgePoints === 'string'
+                        ? JSON.parse(knowledgePoints)
+                        : [];
+
+                // 推断学科和标签体系
+                const { subjectKey, tagSet } = inferTagScope(errorItem.subject);
+
+                // gradeSemester 上下文取法保持原逻辑：请求中提供的优先，否则用错题已有的
+                const contextGrade = gradeSemester !== undefined ? gradeSemester : errorItem.gradeSemester;
+
+                const tagConnections = await resolveOrCreateTags(tx, {
+                    userId: user.id,
+                    tagNames,
+                    subjectKey,
+                    tagSet,
+                    gradeSemester: contextGrade,
+                });
+
+                // 更新标签关联: 先断开所有，再连接新的
+                updateData.tags = {
+                    set: [], // 先清空
+                    connect: tagConnections,
+                };
+
+                // 保留旧字段兼容
+                updateData.knowledgePoints = JSON.stringify(tagNames);
+            }
+
+            return tx.errorItem.update({
+                where: { id },
+                data: updateData,
+                include: { tags: true },
+            });
         });
 
         return NextResponse.json(updated);

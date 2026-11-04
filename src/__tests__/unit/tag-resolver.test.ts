@@ -9,7 +9,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: {} }));
 vi.mock('@/lib/tag-recognition', () => ({ findParentTagIdForGrade: vi.fn() }));
 
 import { findParentTagIdForGrade } from '@/lib/tag-recognition';
-import { resolveOrCreateTags } from '@/lib/tag-resolver';
+import { resolveOrCreateTags, inferTagScope } from '@/lib/tag-resolver';
 
 const findParentTagIdForGradeMock = vi.mocked(findParentTagIdForGrade);
 
@@ -117,5 +117,22 @@ describe('resolveOrCreateTags', () => {
             where: expect.objectContaining({ name: '标签A' }),
         }));
         expect(create).not.toHaveBeenCalled();
+    });
+});
+
+describe('inferTagScope', () => {
+    it('优先使用错题本创建时保存的 subjectKey，不受改名影响', () => {
+        expect(inferTagScope({ name: '我的错题本', tagSet: 'cnm', subjectKey: 'physics' }))
+            .toEqual({ subjectKey: 'physics', tagSet: 'cnm' });
+    });
+
+    it('旧错题本没有 subjectKey 时按名称推断', () => {
+        expect(inferTagScope({ name: '初二数学', tagSet: null, subjectKey: null }))
+            .toEqual({ subjectKey: 'math', tagSet: 'default' });
+    });
+
+    it('无法推断或没有错题本时回退为 other / default', () => {
+        expect(inferTagScope({ name: '综合', tagSet: null })).toEqual({ subjectKey: 'other', tagSet: 'default' });
+        expect(inferTagScope(null)).toEqual({ subjectKey: 'other', tagSet: 'default' });
     });
 });

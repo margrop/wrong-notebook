@@ -10,8 +10,7 @@ import { prepareImportGrade } from "@/lib/import-question-grade";
 import { needsQuestionGradeRecognition } from "@/lib/question-grade";
 import { validationError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { inferSubjectFromName } from "@/lib/knowledge-tags";
-import { resolveOrCreateTags } from "@/lib/tag-resolver";
+import { resolveOrCreateTags, inferTagScope } from "@/lib/tag-resolver";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
 import { generateUniqueShortId } from "@/lib/short-id";
 import { resolveNotebookForSubject } from "@/lib/notebook-resolver";
@@ -135,16 +134,16 @@ async function saveQuestion(user: User, body: ImportQuestionInput, options: Save
         // 处理知识点标签（限定在当前错题本的标签体系内）
         const tagNames: string[] = Array.isArray(knowledgePoints) ? knowledgePoints : [];
 
-        // 推断学科
+        // 推断学科与标签体系（与新增错题时一致）
         const subject = await tx.subject.findUnique({ where: { id: subjectId || '' } });
-        const subjectKey = inferSubjectFromName(subject?.name ?? null) || 'other';
+        const { subjectKey, tagSet } = inferTagScope(subject);
         logger.debug({ subjectId, subjectName: subject?.name, subjectKey }, 'Subject inferred');
 
         const tagConnections = await resolveOrCreateTags(tx, {
             userId: user.id,
             tagNames,
             subjectKey,
-            tagSet: subject?.tagSet || 'default',
+            tagSet,
             gradeSemester: finalGradeSemester,
         });
 

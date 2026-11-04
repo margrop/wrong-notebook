@@ -82,6 +82,7 @@ import { PATCH as PATCH_NOTES } from '@/app/api/error-items/[id]/notes/route';
 import { DELETE as DELETE_ITEM } from '@/app/api/error-items/[id]/delete/route';
 import { getServerSession } from 'next-auth';
 import { calculateGrade } from '@/lib/grade-calculator';
+import { prisma } from '@/lib/prisma';
 
 describe('/api/error-items', () => {
     const mockUser = {
@@ -775,6 +776,66 @@ describe('/api/error-items', () => {
 
             expect(response.status).toBe(404);
             expect(data.message).toBe('Item not found');
+        });
+
+        it('更新错题时标签创建后、错题更新失败，事务回滚并返回错误', async () => {
+            const existingItem = {
+                id: 'error-item-1',
+                userId: 'user-123',
+                knowledgePoints: '["旧知识点"]',
+                subject: { id: 'sub-1', name: '数学', tagSet: 'default', stage: 'junior_high', subjectKey: 'math' },
+            };
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(existingItem);
+            mocks.mockPrismaKnowledgeTag.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaKnowledgeTag.create.mockResolvedValue({ id: 'tag-new-1', name: '新知识点' });
+            mocks.mockPrismaErrorItem.update.mockRejectedValue(new Error('Database error'));
+
+            const request = new Request('http://localhost/api/error-items/error-item-1', {
+                method: 'PUT',
+                body: JSON.stringify({ knowledgePoints: '["新知识点"]' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await PUT(request, { params: Promise.resolve({ id: 'error-item-1' }) });
+            const data = await response.json();
+
+            expect(response.status).toBe(500);
+            expect(data.message).toBe('Failed to update error item');
+            // 验证使用了 $transaction
+            expect(prisma.$transaction).toHaveBeenCalled();
+        });
+
+        it('更新错题时旧错题本没有 subjectKey 则按名称推断学科', async () => {
+            // 错题本名称是「数学」，subjectKey 为 null（旧错题本），应推断为 math
+            const existingItem = {
+                id: 'error-item-1',
+                userId: 'user-123',
+                knowledgePoints: '["旧知识点"]',
+                subject: { id: 'sub-1', name: '数学', tagSet: 'default', stage: 'junior_high', subjectKey: null },
+            };
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(existingItem);
+            mocks.mockPrismaKnowledgeTag.findFirst.mockResolvedValue(null);
+            mocks.mockPrismaKnowledgeTag.create.mockResolvedValue({ id: 'tag-new-1', name: '新知识点' });
+            mocks.mockPrismaErrorItem.update.mockResolvedValue({
+                ...existingItem,
+                knowledgePoints: '["新知识点"]',
+            });
+
+            const request = new Request('http://localhost/api/error-items/error-item-1', {
+                method: 'PUT',
+                body: JSON.stringify({ knowledgePoints: '["新知识点"]' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await PUT(request, { params: Promise.resolve({ id: 'error-item-1' }) });
+            expect(response.status).toBe(200);
+
+            // 验证 subjectKey 为空时，新建标签使用按名称推断的学科（math）
+            expect(mocks.mockPrismaKnowledgeTag.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({ subject: 'math' }),
+                })
+            );
         });
     });
 

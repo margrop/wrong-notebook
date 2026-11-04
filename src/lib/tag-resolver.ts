@@ -7,8 +7,23 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { createLogger } from "@/lib/logger";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
+import { resolveNotebookScope } from "@/lib/notebook-scope";
 
 const logger = createLogger('tag-resolver');
+
+/**
+ * 从错题本记录推断标签写入时使用的学科与标签体系。
+ * 学科以错题本创建时保存的 subjectKey 为准，旧错题本没有该字段时按名称推断（与 resolveNotebookScope 一致），
+ * 推断不出时为 other；标签体系取错题本自身值，缺省为 default。
+ */
+export function inferTagScope(
+    subject: { name: string; tagSet: string | null; subjectKey?: string | null; stage?: string | null } | null | undefined,
+): { subjectKey: string; tagSet: string } {
+    return {
+        subjectKey: (subject ? resolveNotebookScope(subject).subject : null) || 'other',
+        tagSet: subject?.tagSet || 'default',
+    };
+}
 
 export interface ResolveTagsInput {
     userId: string;
