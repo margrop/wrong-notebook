@@ -12,8 +12,8 @@ import { z } from "zod";
 import { getAIService } from "@/lib/ai";
 import type { TextFixInput, TextFixResult } from "@/lib/ai";
 import { consumeAiQuota } from "@/lib/ai-quota";
-import { createErrorResponse, ErrorCode, notFound, validationError } from "@/lib/api-errors";
-import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
+import { createErrorResponse, ErrorCode, notFound, taskAlreadyRunning, validationError } from "@/lib/api-errors";
+import { describeQuestion, findRunningTask, reserveBackgroundTask, runReservedTask } from "@/lib/background-tasks";
 import { serializeWrite } from "@/lib/db-write-queue";
 import { getErrorMessage } from "@/lib/error-message";
 import { createLogger } from "@/lib/logger";
@@ -58,14 +58,30 @@ export async function fixImportBatchText(user: Pick<User, 'id' | 'role'>, id: st
 
     // 同一个 key 只处理一次
     const items = [...new Map(parsed.data.items.map((item) => [item.key, item])).values()];
+
+    // 按目标防重复：同一批次同一时刻只允许一个「AI 修正文字」任务（reserve 失败返回 409，不扣额度、不调用 AI）
+    const target = `import-batch:${id}:fix-text`;
+    const handle = reserveBackgroundTask({
+        userId: user.id,
+        kind: 'fix_text',
+        subject: describeQuestion({ questionText: items[0].text }),
+        link: `/import-batches/${id}`,
+        target,
+    });
+    if (!handle) {
+        return taskAlreadyRunning(findRunningTask(user.id, target) ?? { id: '', kind: 'fix_text', startedAt: '', target });
+    }
+
     const limited = await serializeWrite(() => consumeAiQuota(user, 'split'));
-    if (limited) return limited;
+    if (limited) {
+        handle.cancel();
+        return limited;
+    }
 
     const ai = getAIService();
     const groups = chunks(items, TEXT_FIX_CHUNK_SIZE);
-    const settled = await trackBackgroundTask(
-        { userId: user.id, kind: 'fix_text', subject: describeQuestion({ questionText: items[0].text }), link: `/import-batches/${id}` },
-        () => Promise.allSettled(groups.map((group) => {
+    const settled = await runReservedTask(handle, () =>
+        Promise.allSettled(groups.map((group) => {
             const input: TextFixInput = group.map((item) => ({ id: item.key, text: item.text }));
             return ai.fixQuestionText(input);
         })),

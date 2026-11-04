@@ -125,7 +125,11 @@ export interface ImportBatchTextFixResult {
 /** 修正多题时耗时较长：超时放宽，连接中断后可取回响应 */
 const TEXT_FIX_TIMEOUT_MS = 10 * 60 * 1000;
 
-/** 为若干题生成「AI 修正文字」建议（不改动服务端草稿） */
-export async function fixImportBatchText(id: string, items: Array<{ key: string; text: string }>): Promise<ImportBatchTextFixResult> {
-    return apiClient.post<ImportBatchTextFixResult>(`/api/import-batches/${encodeURIComponent(id)}/fix-text`, { items }, { timeout: TEXT_FIX_TIMEOUT_MS, recoverable: true });
+/** 为若干题生成「AI 修正文字」建议（不改动服务端草稿）；requestId 用于断线后取回响应 */
+export async function fixImportBatchText(id: string, items: Array<{ key: string; text: string }>, requestId?: string): Promise<ImportBatchTextFixResult> {
+    return apiClient.post<ImportBatchTextFixResult>(
+        `/api/import-batches/${encodeURIComponent(id)}/fix-text`,
+        { items },
+        { timeout: TEXT_FIX_TIMEOUT_MS, recoverable: true, requestId },
+    );
 }

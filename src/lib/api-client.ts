@@ -6,9 +6,13 @@ type RequestOptions = RequestInit & {
     timeout?: number; // 超时时间（毫秒），默认 60000
     /**
      * 耗时请求（AI 生成等）设为 true：附带请求编号，请求被浏览器中断（如 iPhone 上的 Safari 等待较久时）后
-     * 改为轮询 /api/requests/:id 取回服务端的响应，对应路由需用 withRecoverableResponse 包装
+     * 改为轮询 /api/requests/:id 取回服务端的响应，对应路由需用 withRecoverableResponse 包装。
+     * requestId 允许调用方指定请求编号（32 位十六进制）：刷新页面后用同一编号轮询 /api/requests/:id
+     * 取回中断前的响应；不指定时自动生成随机编号
      */
     recoverable?: boolean;
+    /** 仅 recoverable 时生效：调用方指定的请求编号（32 位十六进制） */
+    requestId?: string;
 };
 
 export class ApiError extends Error {
@@ -39,7 +43,7 @@ const RECOVERY_POLL_MS = 3000;
 const RECOVERY_GRACE_MS = 6000;
 
 /** 随机请求编号（32 位十六进制）；局域网 HTTP 访问不是安全上下文，不能用 randomUUID */
-function createRequestId(): string {
+export function createRequestId(): string {
     const bytes = new Uint8Array(16);
     crypto.getRandomValues(bytes);
     return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -53,10 +57,10 @@ export function isNetworkError(error: unknown): boolean {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * 请求被中断后轮询服务端暂存的响应，直到请求结束或超过原定的超时时间；
- * 查不到请求时抛出原来的网络错误
+ * 按请求编号轮询服务端暂存的响应，直到请求结束或超过截止时间；
+ * 查不到请求时抛出 originalError。供断线恢复与页面刷新后取回中断的响应共用。
  */
-async function recoverResponse<T>(requestId: string, deadline: number, originalError: unknown): Promise<T> {
+export async function recoverResponse<T>(requestId: string, deadline: number, originalError: unknown): Promise<T> {
     const lostAt = Date.now();
     while (Date.now() < deadline) {
         let stored: { state: 'running' } | { state: 'done'; status: number; body: unknown } | null = null;
@@ -79,8 +83,8 @@ async function recoverResponse<T>(requestId: string, deadline: number, originalE
 }
 
 async function request<T>(url: string, options: RequestOptions = {}): Promise<T> {
-    const { params, headers, timeout = 60000, recoverable, ...rest } = options;
-    const requestId = recoverable ? createRequestId() : null;
+    const { params, headers, timeout = 60000, recoverable, requestId: callerRequestId, ...rest } = options;
+    const requestId = recoverable ? (callerRequestId ?? createRequestId()) : null;
     const startedAt = Date.now();
 
     let finalUrl = url;

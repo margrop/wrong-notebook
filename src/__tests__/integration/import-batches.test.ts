@@ -586,6 +586,72 @@ describe('分题预览中的 AI 修正文字', () => {
         expect((await fixText(batch.id, items)).status).toBe(409);
         expect(mocks.fixQuestionText).not.toHaveBeenCalled();
     });
+
+    it('并发两次请求第二次返回 409 TASK_ALREADY_RUNNING，不重复扣额度、不重复调用 AI', async () => {
+        mocks.fixQuestionText.mockImplementation(fakeFix);
+        const { batch } = await create({ source: 'text', text: '1．公项\n2．题二' });
+        const items = batch.draft.items.map((item: { key: string; text: string }) => ({ key: item.key, text: item.text }));
+
+        // 让第一次调用挂起，使第二次调用在第一次进行中到达
+        let release!: () => void;
+        mocks.fixQuestionText.mockImplementationOnce(() => new Promise((resolve) => {
+            release = () => resolve([{ id: items[0].key, text: items[0].text.replace('公项', '公顷'), uncertain: [] }]);
+        }));
+        const first = fixText(batch.id, items);
+        await vi.waitFor(() => expect(mocks.fixQuestionText).toHaveBeenCalled());
+
+        const second = await fixText(batch.id, items);
+        expect(second.status).toBe(409);
+        const secondBody = await second.json();
+        expect(secondBody.code).toBe('TASK_ALREADY_RUNNING');
+        expect(secondBody.details.task).toMatchObject({ kind: 'fix_text', target: `import-batch:${batch.id}:fix-text` });
+        // 第二次不调用 AI（额度在第一次预占后已扣，不会因 409 重复扣）
+        expect(mocks.fixQuestionText).toHaveBeenCalledTimes(1);
+        expect(await database.aiUsage.count({ where: { userId: 'user-1', kind: 'split' } })).toBe(1);
+
+        release();
+        const firstResponse = await first;
+        expect(firstResponse.status).toBe(200);
+        // 总共只扣一次额度、只调用一次 AI
+        expect(await database.aiUsage.count({ where: { userId: 'user-1', kind: 'split' } })).toBe(1);
+        expect(mocks.fixQuestionText).toHaveBeenCalledTimes(1);
+
+        // 任务结束后可再次发起
+        mocks.fixQuestionText.mockImplementation(fakeFix);
+        const third = await fixText(batch.id, items);
+        expect(third.status).toBe(200);
+        expect(await database.aiUsage.count({ where: { userId: 'user-1', kind: 'split' } })).toBe(2);
+    });
+
+    it('超额返回 429 后可再次发起；AI 失败返回 500 后可再次发起', async () => {
+        mocks.fixQuestionText.mockImplementation(fakeFix);
+        const { batch } = await create({ source: 'text', text: '1．公项\n2．题二' });
+        const items = batch.draft.items.map((item: { key: string; text: string }) => ({ key: item.key, text: item.text }));
+
+        // 超额：返回 429，预占被 cancel，不留下记录
+        mocks.dailyLimit = 1;
+        await database.aiUsage.create({ data: { userId: 'user-1', kind: 'analyze' } });
+        const limited = await fixText(batch.id, items);
+        expect(limited.status).toBe(429);
+        expect(mocks.fixQuestionText).not.toHaveBeenCalled();
+        // 预占已 cancel，无该 target 的 running 任务
+        const { findRunningTask } = await import('@/lib/background-tasks');
+        expect(findRunningTask('user-1', `import-batch:${batch.id}:fix-text`)).toBeNull();
+
+        // 额度恢复后可再次发起
+        mocks.dailyLimit = 0;
+        await database.aiUsage.deleteMany({ where: { userId: 'user-1' } });
+        const ok = await fixText(batch.id, items);
+        expect(ok.status).toBe(200);
+        expect(mocks.fixQuestionText).toHaveBeenCalled();
+
+        // AI 失败：返回 500，任务标记失败，可再次发起
+        mocks.fixQuestionText.mockRejectedValueOnce(new Error('AI_TIMEOUT_ERROR'));
+        const failed = await fixText(batch.id, items);
+        expect(failed.status).toBe(500);
+        const retry = await fixText(batch.id, items);
+        expect(retry.status).toBe(200);
+    });
 });
 
 describe('批次生命周期', () => {
