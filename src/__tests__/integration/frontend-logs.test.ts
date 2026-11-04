@@ -11,6 +11,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.mock('@/lib/logger', () => ({ createLogger: vi.fn(() => mocks.logger) }));
+vi.mock('@/lib/prisma', () => ({
+    prisma: {
+        user: { findUnique: vi.fn(async () => ({ id: 'user-1', email: 'u@localhost' })) },
+    },
+}));
 
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/logs/frontend/route';

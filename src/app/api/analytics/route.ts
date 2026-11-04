@@ -1,26 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
 import { getAppTimeZone } from "@/lib/config";
-import { unauthorized, internalError } from "@/lib/api-errors";
+import { internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { getMasteryThreshold } from "@/lib/mastery";
 import { masteryStatusWhere } from "@/lib/mastery-status";
 import { normalizeMistakeStatus } from "@/lib/mistake-status";
 import { parseStatsRange, resolveStatsRange } from "@/lib/stats-range";
 import { resolveStatsSubjectId } from "@/lib/stats-filter";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 
 const logger = createLogger('api:analytics');
 
-export async function GET(req: Request) {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user) {
-        return unauthorized();
-    }
-
-    const userId = session.user.id;
+export const GET = withUser(async (req: Request, { user }: AuthenticatedContext) => {
+    const userId = user.id;
 
     try {
         const timeZone = getAppTimeZone();
@@ -239,4 +233,4 @@ export async function GET(req: Request) {
         logger.error({ error }, 'Error fetching analytics');
         return internalError("Failed to fetch analytics");
     }
-}
+});

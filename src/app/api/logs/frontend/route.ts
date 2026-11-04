@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { unauthorized } from '@/lib/api-errors';
+import { NextResponse } from 'next/server';
 import { createLogger } from '@/lib/logger';
+import { withUser } from '@/lib/api-handler';
+import type { AuthenticatedContext } from '@/lib/api-handler';
 
 const logger = createLogger('frontend-logs');
 
@@ -32,12 +31,7 @@ interface BatchLogRequest {
  * Receives frontend logs and writes them to backend logger
  * Supports both single log and batch log formats.
  */
-export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return unauthorized('Authentication required');
-  }
-
+export const POST = withUser(async (request: Request, { user }: AuthenticatedContext) => {
   try {
     const body = await request.json() as Partial<BatchLogRequest> & FrontendLogEntry;
 
@@ -56,7 +50,7 @@ export async function POST(request: NextRequest) {
         userAgent: userAgent || request.headers.get('user-agent'),
         clientTime: timestamp,
         ...context,
-        userId: session.user.id, // 放在最后，避免被前端传入的 context 覆盖
+        userId: user.id, // 放在最后，避免被前端传入的 context 覆盖
       };
 
       // Log to backend using appropriate level
@@ -79,4 +73,4 @@ export async function POST(request: NextRequest) {
     logger.error({ error }, 'Failed to process frontend log');
     return NextResponse.json({ success: false }, { status: 500 });
   }
-}
+});

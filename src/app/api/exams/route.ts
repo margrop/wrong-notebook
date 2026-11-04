@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/current-user";
-import { unauthorized, badRequest, validationError, internalError } from "@/lib/api-errors";
+import { badRequest, validationError, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_EXAM_PICK_RULE, EXAM_DIFFICULTIES, EXAM_MODES, EXAM_PICK_RULES, EXAM_SCOPES, MAX_EXAM_QUESTIONS, generateExamPaper, selectSourceItems, snapshotOriginalQuestion } from "@/lib/exam";
 import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 
 const logger = createLogger('api:exams');
 
@@ -28,13 +29,8 @@ const createSchema = z.object({
  * GET /api/exams
  * 当前用户的试卷列表（按创建时间倒序）
  */
-export async function GET() {
+export const GET = withUser(async (_req: Request, { user }: AuthenticatedContext) => {
     try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const papers = await prisma.examPaper.findMany({
             where: { userId: user.id },
             orderBy: { createdAt: 'desc' },
@@ -62,19 +58,14 @@ export async function GET() {
         logger.error({ error }, 'Error listing exam papers');
         return internalError("Failed to list exam papers");
     }
-}
+});
 
 /**
  * POST /api/exams
  * 按条件与抽题规则（默认优先练习较少的题目）抽取错题，创建试卷并在后台生成举一反三题目
  */
-export async function POST(req: Request) {
+export const POST = withUser(async (req: Request, { user }: AuthenticatedContext) => {
     try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const parsed = createSchema.safeParse(await req.json());
         if (!parsed.success) {
             return validationError("Invalid exam options", parsed.error.issues);
@@ -207,4 +198,4 @@ export async function POST(req: Request) {
         logger.error({ error }, 'Error creating exam paper');
         return internalError("Failed to create exam paper");
     }
-}
+});

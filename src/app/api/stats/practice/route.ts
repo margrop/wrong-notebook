@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
 import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
-import { unauthorized, internalError } from "@/lib/api-errors";
+import { internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { parseStatsRange, resolveStatsRange } from "@/lib/stats-range";
 import { resolveStatsSubjectId, practiceSubjectWhere, EXCLUDE_DUPLICATE_IMPORT } from "@/lib/stats-filter";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 
 const logger = createLogger('api:stats:practice');
 
@@ -28,14 +28,8 @@ const CORRECT_CONDITION = {
     ]
 } satisfies Prisma.PracticeRecordWhereInput;
 
-export async function GET(req: Request) {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user) {
-        return unauthorized();
-    }
-
-    const userId = session.user.id;
+export const GET = withUser(async (req: Request, { user }: AuthenticatedContext) => {
+    const userId = user.id;
 
     try {
         const now = new Date();
@@ -161,4 +155,4 @@ export async function GET(req: Request) {
         logger.error({ error }, 'Error fetching practice stats');
         return internalError("Failed to fetch stats");
     }
-}
+});

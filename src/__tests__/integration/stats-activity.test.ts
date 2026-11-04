@@ -31,6 +31,7 @@ vi.mock('@/lib/prisma', () => ({
         practiceRecord: mocks.mockPrismaPracticeRecord,
         errorItem: mocks.mockPrismaErrorItem,
         subject: mocks.mockPrismaSubject,
+        user: { findUnique: vi.fn(async () => ({ id: 'user-123', email: 'user@example.com' })) },
     },
 }));
 
@@ -196,7 +197,7 @@ describe('/api/stats/activity', () => {
             const data = await response.json();
 
             expect(response.status).toBe(401);
-            expect(data.message).toBe('Unauthorized');
+            expect(data.message).toBe('Authentication required');
         });
 
         it('应该处理数据库错误', async () => {

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/current-user";
-import { unauthorized, notFound, badRequest, conflict, validationError, internalError } from "@/lib/api-errors";
+import { notFound, badRequest, conflict, validationError, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { EXAM_REGENERATE_MODES, regenerateExamQuestion } from "@/lib/exam";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 
 const logger = createLogger('api:exams:regenerate');
 
@@ -20,16 +21,11 @@ const regenerateSchema = z.object({
  */
 async function handlePost(
     req: Request,
-    { params }: { params: Promise<{ id: string; questionId: string }> }
+    { user, params }: AuthenticatedContext & { params: Promise<{ id: string; questionId: string }> }
 ) {
     const { id, questionId } = await params;
 
     try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const parsed = regenerateSchema.safeParse(await req.json().catch(() => ({})));
         if (!parsed.success) {
             return validationError("Invalid regenerate request", parsed.error.issues);
@@ -52,4 +48,4 @@ async function handlePost(
 }
 
 /** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
-export const POST = withRecoverableResponse(handlePost);
+export const POST = withRecoverableResponse(withUser(handlePost));

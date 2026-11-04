@@ -56,7 +56,7 @@ describe('/api/stats/repeated-mistakes', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
-        mocks.mockPrismaUser.findUnique.mockResolvedValue({ masteryThreshold: 50 });
+        mocks.mockPrismaUser.findUnique.mockResolvedValue({ id: 'user-123', email: 'user@example.com', masteryThreshold: 50 });
     });
 
     it('应该拒绝未登录用户', async () => {
@@ -66,7 +66,7 @@ describe('/api/stats/repeated-mistakes', () => {
         const data = await response.json();
 
         expect(response.status).toBe(401);
-        expect(data.message).toBe('Unauthorized');
+        expect(data.message).toBe('Authentication required');
     });
 
     it('没有出错 2 次以上的错题时返回空列表', async () => {

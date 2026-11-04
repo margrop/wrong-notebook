@@ -48,7 +48,7 @@ describe('/api/stats/weak-tags', () => {
             user: { id: 'user-123', email: 'user@example.com' },
             expires: '2099-01-01',
         });
-        mocks.mockPrismaUser.findUnique.mockResolvedValue({ masteryThreshold: 50 });
+        mocks.mockPrismaUser.findUnique.mockResolvedValue({ id: 'user-123', email: 'user@example.com', masteryThreshold: 50 });
         mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
         mocks.mockPrismaSubject.findFirst.mockResolvedValue(null);
     });
@@ -60,7 +60,7 @@ describe('/api/stats/weak-tags', () => {
         const data = await response.json();
 
         expect(response.status).toBe(401);
-        expect(data.message).toBe('Unauthorized');
+        expect(data.message).toBe('Authentication required');
         expect(mocks.mockPrismaErrorItem.findMany).not.toHaveBeenCalled();
     });
 

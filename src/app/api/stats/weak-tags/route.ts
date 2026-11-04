@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
 import { getAppTimeZone } from "@/lib/config";
 import { getDayRange } from "@/lib/date-time";
-import { unauthorized, internalError } from "@/lib/api-errors";
+import { internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { getMasteryThreshold } from "@/lib/mastery";
 import { PRACTICE_RECORD_COUNT } from "@/lib/mastery-status";
 import { parseStatsRange, getRangeStart } from "@/lib/stats-range";
 import { resolveStatsSubjectId, EXCLUDE_DUPLICATE_IMPORT } from "@/lib/stats-filter";
 import { buildWeakTags, type WeakTagSourceItem } from "@/lib/weak-tags";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 
 const logger = createLogger('api:stats:weak-tags');
 
@@ -19,14 +19,8 @@ const logger = createLogger('api:stats:weak-tags');
  * 错题统计「薄弱知识点」排行：按（学科、体系、标签名）聚合，排序取前 10。
  * 范围指错题创建时间，口径与 /api/analytics 一致。
  */
-export async function GET(req: Request) {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user) {
-        return unauthorized();
-    }
-
-    const userId = session.user.id;
+export const GET = withUser(async (req: Request, { user }: AuthenticatedContext) => {
+    const userId = user.id;
 
     try {
         const now = new Date();
@@ -90,4 +84,4 @@ export async function GET(req: Request) {
         logger.error({ error }, 'Error fetching weak tags');
         return internalError("Failed to fetch weak tags");
     }
-}
+});

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/current-user";
-import { unauthorized, notFound, validationError, internalError } from "@/lib/api-errors";
+import { notFound, validationError, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { generateExamPaper, isPaperGenerating } from "@/lib/exam";
 import { FIGURE_ALIGNS, MAX_FIGURE_SCALE, MIN_FIGURE_SCALE, normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import type { FigureAlign } from "@/lib/figure-scale";
 import { MAX_CUSTOM_ANSWER_SPACE_PX, MIN_CUSTOM_ANSWER_SPACE_PX, normalizeCustomAnswerSpacePx } from "@/lib/exam-answer-space";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 
 const logger = createLogger('api:exams:id');
 
@@ -25,18 +26,13 @@ const updateFigureSchema = z.object({
  * GET /api/exams/:id
  * 试卷详情，含每题内容、来源短 ID 与历次录入的结果
  */
-export async function GET(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export const GET = withUser(async (
+    _req: Request,
+    { user, params }: AuthenticatedContext & { params: Promise<{ id: string }> }
+) => {
     const { id } = await params;
 
     try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const paper = await prisma.examPaper.findUnique({
             where: { id },
             include: {
@@ -74,24 +70,19 @@ export async function GET(
         logger.error({ error }, 'Error fetching exam paper');
         return internalError("Failed to fetch exam paper");
     }
-}
+});
 
 /**
  * PATCH /api/exams/:id
  * 保存试卷配图显示与打印比例、位置及题下留白：指定 questionId 时只改单题，未指定时统一修改本卷全部题目
  */
-export async function PATCH(
+export const PATCH = withUser(async (
     req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+    { user, params }: AuthenticatedContext & { params: Promise<{ id: string }> }
+) => {
     const { id } = await params;
 
     try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const parsed = updateFigureSchema.safeParse(await req.json().catch(() => ({})));
         if (!parsed.success) {
             return validationError("Invalid figure settings", parsed.error.issues);
@@ -128,7 +119,7 @@ export async function PATCH(
         logger.error({ error }, 'Error updating exam figure scale');
         return internalError("Failed to update exam figure scale");
     }
-}
+});
 
 export const PUT = PATCH;
 
@@ -136,18 +127,13 @@ export const PUT = PATCH;
  * DELETE /api/exams/:id
  * 删除试卷；已录入的举一反三记录保留在原题历史中
  */
-export async function DELETE(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = withUser(async (
+    _req: Request,
+    { user, params }: AuthenticatedContext & { params: Promise<{ id: string }> }
+) => {
     const { id } = await params;
 
     try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const paper = await prisma.examPaper.findUnique({ where: { id }, select: { userId: true } });
         if (!paper || paper.userId !== user.id) {
             return notFound("Exam paper not found");
@@ -159,4 +145,4 @@ export async function DELETE(
         logger.error({ error }, 'Error deleting exam paper');
         return internalError("Failed to delete exam paper");
     }
-}
+});

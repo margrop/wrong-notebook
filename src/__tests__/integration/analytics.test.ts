@@ -31,7 +31,7 @@ vi.mock('@/lib/prisma', () => ({
     prisma: {
         errorItem: mocks.mockPrismaErrorItem,
         subject: mocks.mockPrismaSubject,
-        user: { findUnique: vi.fn(async () => ({ masteryThreshold: 50 })) },
+        user: { findUnique: vi.fn(async () => ({ id: 'user-123', email: 'user@example.com', masteryThreshold: 50 })) },
     },
 }));
 
@@ -468,7 +468,7 @@ describe('/api/analytics', () => {
             const data = await response.json();
 
             expect(response.status).toBe(401);
-            expect(data.message).toBe('Unauthorized');
+            expect(data.message).toBe('Authentication required');
         });
 
         it('应该拒绝 session 中没有 user 的请求', async () => {
@@ -481,7 +481,7 @@ describe('/api/analytics', () => {
             const data = await response.json();
 
             expect(response.status).toBe(401);
-            expect(data.message).toBe('Unauthorized');
+            expect(data.message).toBe('Authentication required');
         });
 
         it('应该处理数据库错误', async () => {

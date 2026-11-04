@@ -5,15 +5,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextResponse } from 'next/server';
 
 const mocks = vi.hoisted(() => ({
-    getCurrentUser: vi.fn(),
+    getServerSession: vi.fn(),
     findUnique: vi.fn(),
     update: vi.fn(),
     consumeAiQuota: vi.fn(),
     generateExamPaper: vi.fn(),
 }));
 
-vi.mock('@/lib/prisma', () => ({ prisma: { examPaper: { findUnique: mocks.findUnique, update: mocks.update } } }));
-vi.mock('@/lib/current-user', () => ({ getCurrentUser: mocks.getCurrentUser }));
+vi.mock('@/lib/prisma', () => ({
+    prisma: {
+        examPaper: { findUnique: mocks.findUnique, update: mocks.update },
+        user: { findUnique: vi.fn(async () => ({ id: 'user-1', email: 'user@example.com' })) },
+    },
+}));
+vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }));
+vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.mock('@/lib/ai-quota', () => ({ consumeAiQuota: mocks.consumeAiQuota }));
 vi.mock('@/lib/exam', () => ({ generateExamPaper: mocks.generateExamPaper }));
 vi.mock('@/lib/logger', () => ({ createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }) }));
@@ -28,13 +34,13 @@ const retry = (body?: unknown) => POST(
 describe('POST /api/exams/:id/retry', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mocks.getCurrentUser.mockResolvedValue({ id: 'user-1', role: 'user' });
+        mocks.getServerSession.mockResolvedValue({ user: { id: 'user-1', email: 'user@example.com' }, expires: '2099-01-01' });
         mocks.findUnique.mockResolvedValue({ userId: 'user-1' });
         mocks.consumeAiQuota.mockResolvedValue(null);
     });
 
     it('未登录时返回 401', async () => {
-        mocks.getCurrentUser.mockResolvedValue(null);
+        mocks.getServerSession.mockResolvedValue(null);
         expect((await retry()).status).toBe(401);
         expect(mocks.update).not.toHaveBeenCalled();
     });
