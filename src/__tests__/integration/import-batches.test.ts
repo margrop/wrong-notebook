@@ -100,6 +100,17 @@ async function getBatch(id: string, image = false) {
     return { response, batch: (await response.json()).batch };
 }
 const start = (id: string, body: Record<string, unknown>) => START(json(body), params(id));
+/** 按草稿中的题目顺序取出入库的错题（并发保存时 createdAt 可能相同，不能据此排序） */
+async function savedItemsInDraftOrder(batchId: string) {
+    const batch = await database.importBatch.findUniqueOrThrow({ where: { id: batchId }, select: { draft: true } });
+    const keys = (JSON.parse(batch.draft ?? '{"items":[]}') as { items: { key: string }[] }).items.map((item) => item.key);
+    const tasks = await database.importTask.findMany({ where: { batchId }, select: { batchItemKey: true, errorItemId: true } });
+    const ids = keys
+        .map((key) => tasks.find((task) => task.batchItemKey === key)?.errorItemId)
+        .filter((id): id is string => !!id);
+    const items = await database.errorItem.findMany({ where: { id: { in: ids } } });
+    return ids.map((id) => items.find((item) => item.id === id)!);
+}
 const waitSplit = async (id: string) => {
     await waitForImportTaskForTest(id);
 };
@@ -201,7 +212,7 @@ describe('文字多题批次', () => {
         expect(await database.importTask.count({ where: { batchId: batch.id } })).toBe(8);
         expect(mocks.reanswerQuestion).toHaveBeenCalledTimes(8);
         expect(await database.aiUsage.count({ where: { kind: 'reanswer' } })).toBe(8);
-        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        const items = await savedItemsInDraftOrder(batch.id);
         expect(items).toHaveLength(8);
         expect(items.every((item) => item.subjectId === 'math' && item.userId === 'user-1')).toBe(true);
         expect(items.map((item) => item.questionText)).toContain(draft.items[0].text);
@@ -737,7 +748,7 @@ describe('AI 只补标签（analysis=tags）', () => {
         expect(mocks.analyzeImage).not.toHaveBeenCalled();
         expect(await database.aiUsage.count({ where: { kind: 'retag' } })).toBe(2);
 
-        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        const items = await savedItemsInDraftOrder(batch.id);
         expect(items).toHaveLength(2);
         // 草稿答案解析保留
         expect(items[0].answerText).toBe('2');
@@ -814,7 +825,7 @@ describe('AI 只补标签（analysis=tags）', () => {
         expect(mocks.suggestKnowledgeTags).toHaveBeenCalledTimes(2);
         const { batch: current } = await getBatch(batch.id);
         expect(current).toMatchObject({ phase: 'done', counts: { saved: 2, failed: 0 } });
-        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        const items = await savedItemsInDraftOrder(batch.id);
         expect(items).toHaveLength(2);
         expect(items[0].answerText).toBe('2');
         expect(items[1].answerText).toBe('4');
@@ -902,7 +913,7 @@ describe('按原样入库（analysis=none）', () => {
         expect(mocks.analyzeImage).not.toHaveBeenCalled();
         expect(await database.aiUsage.count()).toBe(0);
 
-        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        const items = await savedItemsInDraftOrder(batch.id);
         expect(items).toHaveLength(2);
         expect(items.every((item) => item.subjectId === 'math' && item.userId === 'user-1')).toBe(true);
         expect(items[0].questionText).toContain('计算 1 + 1');
@@ -919,7 +930,7 @@ describe('按原样入库（analysis=none）', () => {
         await start(batch.id, { version: batch.version, analysis: 'none' });
         await waitForImportBatchTasksForTest(batch.id);
 
-        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        const items = await savedItemsInDraftOrder(batch.id);
         expect(items).toHaveLength(2);
         expect(items[0].questionText).toContain('某商店上午卖出 30 件');
         expect(items[0].questionText).toContain('全天卖出多少件');
@@ -1030,7 +1041,7 @@ describe('按原样入库（analysis=none）', () => {
         await start(batch.id, { version: batch.version, analysis: 'none' });
         await waitForImportBatchTasksForTest(batch.id);
 
-        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        const items = await savedItemsInDraftOrder(batch.id);
         expect(items).toHaveLength(2);
         // 第一题无答案：占位空格还原为空串
         expect(items[0].answerText).toBe('');
@@ -1056,7 +1067,7 @@ describe('按原样入库（analysis=none）', () => {
         expect(started.status).toBe(202);
         await waitForImportBatchTasksForTest(batch.id);
 
-        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        const items = await savedItemsInDraftOrder(batch.id);
         expect(items).toHaveLength(2);
         expect(items[0].originalImageUrl).toBe(imageData);
         expect(items[1].originalImageUrl).toBe('');
