@@ -5,6 +5,7 @@
  * 1. 实例化 GeminiProvider。
  * 2. 测试 generateSimilarQuestion (生成相似题) 功能。
  * 3. 测试 analyzeImage (图片分析) 功能。
+ * 运行：npx tsx --conditions=react-server scripts/test-ai-gemini.ts（提供商模块带 server-only 保护，需以 react-server 条件解析）
  * 用途：用于验证 Gemini API 配置是否正确以及核心功能是否可用。
  */
 import { GeminiProvider } from "../src/lib/ai/gemini-provider";

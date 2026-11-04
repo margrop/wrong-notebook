@@ -2,6 +2,9 @@
  * 云端语音合成：MiniMax（T2A v2）、千问（百炼 Qwen-Audio-TTS）、智谱 GLM-TTS、阶跃星辰与火山引擎豆包语音，均返回单声道 PCM 采样。
  * API Key 复用「AI 设置」中对应国产大模型渠道的配置；火山引擎豆包语音使用语音设置中单独填写的 Key。
  */
+
+import "server-only";
+
 import crypto from "crypto";
 import { resolveVendorConfig } from "@/lib/ai/vendor-presets";
 import type { VendorConfig } from "@/lib/ai/vendor-presets";

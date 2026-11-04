@@ -1,3 +1,5 @@
+import "server-only";
+
 import { randomBytes } from "crypto";
 import { BASE58_ALPHABET, SHORT_ID_LENGTH } from "@/lib/short-id-format";
 

@@ -12,6 +12,9 @@
  *   多实例部署（Vercel）时按心跳超时判断。
  * - 待校对与失败的任务一直保留到用户处理或丢弃；已保存的任务保留 7 天，入库后清空图片（原图已在错题中）。
  */
+
+import "server-only";
+
 import { randomUUID } from "node:crypto";
 import { after, NextResponse } from "next/server";
 import type { ImportTask, Prisma, User } from "@prisma/client";

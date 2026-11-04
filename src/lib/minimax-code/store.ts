@@ -2,6 +2,9 @@
  * MiniMax Code 登录凭据与签到记录，保存在配置目录的 minimax-code.json（与 app-config.json 同目录，不入库）。
  * 单独存放是因为 refresh token 一次性轮换：刷新后必须立即落盘，不能被设置页保存整份配置时覆盖。
  */
+
+import "server-only";
+
 import fs from 'fs';
 import path from 'path';
 import type { DeviceLogin } from './api';

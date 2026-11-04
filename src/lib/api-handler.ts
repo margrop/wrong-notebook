@@ -12,6 +12,9 @@
  *   export const POST = withRecoverableResponse(withUser(handler));
  * 这样鉴权失败不会被暂存，成功响应才会按请求编号暂存供断线后取回。
  */
+
+import "server-only";
+
 import { getServerSession } from "next-auth";
 import type { Session } from "next-auth";
 import type { User } from "@prisma/client";

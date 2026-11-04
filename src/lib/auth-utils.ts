@@ -1,3 +1,5 @@
+import "server-only";
+
 import { Session } from "next-auth"
 
 export function isAdmin(user: { role?: string } | null | undefined) {

@@ -1,3 +1,5 @@
+import "server-only";
+
 import { AIService } from "./types";
 import { GeminiProvider } from "./gemini-provider";
 import { OpenAIProvider } from "./openai-provider";

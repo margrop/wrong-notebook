@@ -8,6 +8,9 @@
  *   沿用已有的后台执行、判重、年级/卷别规则、中断恢复与重试，只有真正建出的任务计 AI 额度。
  * - 所有读写都按用户过滤，其他用户的批次一律视为不存在。
  */
+
+import "server-only";
+
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import type { Prisma, User } from "@prisma/client";

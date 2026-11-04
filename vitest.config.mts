@@ -10,6 +10,7 @@ export default defineConfig({
         setupFiles: ['./src/__tests__/setup.ts'],
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url)),
+            'server-only': fileURLToPath(new URL('./src/__tests__/stubs/server-only.ts', import.meta.url)),
         },
         include: ['src/__tests__/**/*.test.ts', 'src/__tests__/**/*.test.tsx'],
         exclude: ['node_modules', '.next', 'dist'],

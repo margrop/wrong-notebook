@@ -6,6 +6,9 @@
  *   - 模型：Anthropic Messages 兼容接口 https://agent.minimax.cn/mavis/api/v1/llm/v1/messages
  *   - refresh token 一次性轮换：刷新成功后旧值立即作废，调用方必须马上保存新值
  */
+
+import "server-only";
+
 import crypto from 'crypto';
 
 export const MINIMAX_CODE_ACCOUNT_BASE = 'https://account.minimax.cn';

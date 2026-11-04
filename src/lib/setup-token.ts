@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";

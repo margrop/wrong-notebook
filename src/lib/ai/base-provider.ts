@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
 import type { QuestionSplitInput, QuestionSplitResult } from './question-split';

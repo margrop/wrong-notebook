@@ -3,6 +3,9 @@
  * 同一段讲解只合成一次，重复播放不再调用服务商；可强制重新合成。
  * 缓存随数据备份导出、导入：导出与用户动画讲解文字一致的语音，导入时按同样的规则写回缓存。
  */
+
+import "server-only";
+
 import crypto from "crypto";
 import fs from "fs/promises";
 import path from "path";

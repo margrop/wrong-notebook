@@ -58,6 +58,7 @@ bash scripts/ci.sh          # 完整 CI（要求 Node.js 22 及以上，含生�
 - 导入顺序：React/Next → 第三方 → `@/components` → `@/lib` → types → styles。
 - 路径别名 `@/` 指向 `src/`。
 - API 错误使用 `@/lib/api-errors`；日志后端用 `@/lib/logger`，前端用 `@/lib/frontend-logger`，不要直接 `console.log`。
+- 只能在服务端运行的 `src/lib` 模块在首行加 `import "server-only"`（如 `prisma.ts`、`logger.ts`、`auth.ts`、`api-handler.ts`、`config/store.ts`、`ai/index.ts`、`ai/base-provider.ts` 及直接导入 Node 内置模块、`next-auth`、`@prisma/client` 运行时的模块），防止被客户端组件误引。
 - 新路由使用 `@/lib/api-handler` 的 `withUser`/`withAdmin` 处理鉴权（自动完成会话校验、用户查询与异常捕获），与 `withRecoverableResponse` 组合时后者放外层。
 - 界面文本放在 `@/lib/translations.ts`（入口，实际文案按语言拆分在 `src/lib/i18n/en.ts` / `src/lib/i18n/zh.ts`），组件中用 `t.section.key`，缺省回退英文。中英文 key 必须一致（`translations.test.ts` 会检查）。
 - 页面须同时适配 PC 和移动端（移动优先）。
