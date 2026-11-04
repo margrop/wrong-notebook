@@ -1,3 +1,5 @@
+import { AI_DAILY_LIMIT_MESSAGES } from '@/lib/ai-limit-message';
+
 /** 中文界面文案（从 src/lib/translations.ts 拆分而来，纯移动，勿改文案） */
 export const zh = {
         questionGrade: {
@@ -910,7 +912,7 @@ export const zh = {
             AI_NOT_FOUND: "资源不存在 (404)，请检查端点 URL 或模型名称。",
             AI_SERVICE_UNAVAILABLE: "AI 服务不可用 (503)，无可用渠道。",
             AI_UNKNOWN_ERROR: "发生未知 AI 错误。",
-            AI_DAILY_LIMIT_EXCEEDED: "今天的 AI 使用次数已达上限，请明天再试，或请管理员调整额度。",
+            AI_DAILY_LIMIT_EXCEEDED: AI_DAILY_LIMIT_MESSAGES.zh,
             AI_OUTPUT_TRUNCATED: "AI 思考过程过长，输出额度用尽仍未给出结果。请重试，或把图片裁剪到只包含一道题。",
             AI_IMAGE_NOT_SUPPORTED: "当前 AI 模型不支持图片输入。请换用支持图片的模型，或改用文字录入。",
             SPLIT_NO_QUESTIONS: "没有识别到题目。请检查照片或文字后重试，也可以改用手工框选。",

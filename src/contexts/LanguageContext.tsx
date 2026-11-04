@@ -1,12 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useSyncExternalStore } from 'react';
-import { translations, Language } from '@/lib/translations';
+import React, { createContext, useContext, useEffect, useState, useSyncExternalStore } from 'react';
+import { zh } from '@/lib/i18n/zh';
+import type { Translations, Language } from '@/lib/translations';
 
 interface LanguageContextType {
     language: Language;
     setLanguage: (lang: Language) => void;
-    t: typeof translations['en'];
+    t: Translations;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -31,19 +32,46 @@ function readLanguage(): Language {
     return saved === 'zh' || saved === 'en' ? saved : DEFAULT_LANGUAGE;
 }
 
+// 英文文案按需加载：模块级缓存 Promise 与结果，只加载一次，之后挂载的组件可直接同步取用
+let enTranslationPromise: Promise<Translations> | null = null;
+let loadedEnTranslations: Translations | null = null;
+export function loadEnTranslations(): Promise<Translations> {
+    if (!enTranslationPromise) {
+        enTranslationPromise = import('@/lib/i18n/en').then((mod) => {
+            loadedEnTranslations = mod.en;
+            return mod.en;
+        });
+    }
+    return enTranslationPromise;
+}
+
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
     // 服务端渲染与水合阶段使用默认语言，之后读取保存的语言
     const language = useSyncExternalStore(subscribeLanguage, readLanguage, () => DEFAULT_LANGUAGE);
+    const [enTranslations, setEnTranslations] = useState<Translations | null>(() => loadedEnTranslations);
+
+    useEffect(() => {
+        if (language === 'en' && enTranslations === null) {
+            let cancelled = false;
+            loadEnTranslations().then((loaded) => {
+                if (!cancelled) setEnTranslations(loaded);
+            });
+            return () => { cancelled = true; };
+        }
+    }, [language, enTranslations]);
 
     const handleSetLanguage = (lang: Language) => {
         localStorage.setItem(STORAGE_KEY, lang);
         languageListeners.forEach((listener) => listener());
     };
 
+    // 英文文案尚未加载完成时先回退到中文，避免整页闪白
+    const t = language === 'en' && enTranslations ? enTranslations : zh;
+
     const value = {
         language,
         setLanguage: handleSetLanguage,
-        t: translations[language],
+        t,
     };
 
     return (

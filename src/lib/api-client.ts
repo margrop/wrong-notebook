@@ -1,5 +1,5 @@
 import { toast } from "@/lib/feedback";
-import { translations } from "@/lib/translations";
+import { AI_DAILY_LIMIT_MESSAGES } from "@/lib/ai-limit-message";
 
 type RequestOptions = RequestInit & {
     params?: Record<string, string>;
@@ -24,13 +24,13 @@ export class ApiError extends Error {
  */
 function notifyAiDailyLimit(data: unknown) {
     if (typeof data !== 'object' || data === null || !('code' in data) || data.code !== 'AI_DAILY_LIMIT_EXCEEDED') return;
-    let language: keyof typeof translations = 'zh';
+    let language: keyof typeof AI_DAILY_LIMIT_MESSAGES = 'zh';
     try {
         if (localStorage.getItem('app-language') === 'en') language = 'en';
     } catch {
         // 无法读取时使用默认语言
     }
-    toast.warning(translations[language].errors.AI_DAILY_LIMIT_EXCEEDED);
+    toast.warning(AI_DAILY_LIMIT_MESSAGES[language]);
 }
 
 /** 断线后轮询结果的间隔 */

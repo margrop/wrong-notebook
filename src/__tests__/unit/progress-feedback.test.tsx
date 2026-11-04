@@ -4,7 +4,7 @@ import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProgressFeedback } from '@/components/ui/progress-feedback';
 import type { ProgressStatus } from '@/components/ui/progress-feedback';
-import { LanguageProvider } from '@/contexts/LanguageContext';
+import { LanguageProvider, loadEnTranslations } from '@/contexts/LanguageContext';
 
 let root: Root;
 let container: HTMLDivElement;
@@ -107,6 +107,8 @@ describe('按阶段估算进度并显示实际用时', () => {
     it('长任务使用时分秒格式，英文界面也明确标注估算', async () => {
         localStorage.setItem('app-language', 'en');
         await renderStatus('analyzing');
+        // 英文文案按需加载，等待加载完成后再断言
+        await act(async () => { await loadEnTranslations(); });
         advance(3615);
         expect(container.textContent).toContain('Waiting for AI analysis...');
         expect(container.textContent).toContain('Stage estimate: 50%');

@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SvgAnimationExplainer } from '@/components/svg-animation-explainer';
-import { LanguageProvider } from '@/contexts/LanguageContext';
+import { LanguageProvider, loadEnTranslations } from '@/contexts/LanguageContext';
 
 const mocks = vi.hoisted(() => ({
     post: vi.fn(),
@@ -44,6 +44,8 @@ async function render(props: { svgAnimation?: string | null; hasOtherLanguage?: 
             <SvgAnimationExplainer errorItemId="e1" svgAnimation={props.svgAnimation} hasOtherLanguage={props.hasOtherLanguage} onChange={props.onChange ?? vi.fn()} />
         </LanguageProvider>,
     ));
+    // 英文文案按需加载，等待加载完成后再交互
+    await act(async () => { await loadEnTranslations(); });
 }
 
 const clickButton = (text: string) => act(async () => {

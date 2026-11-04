@@ -1,3 +1,5 @@
+import { AI_DAILY_LIMIT_MESSAGES } from '@/lib/ai-limit-message';
+
 /** 英文界面文案（从 src/lib/translations.ts 拆分而来，纯移动，勿改文案） */
 export const en = {
         questionGrade: {
@@ -911,7 +913,7 @@ export const en = {
             AI_NOT_FOUND: "Resource not found (404). Please check endpoint URL or model name.",
             AI_SERVICE_UNAVAILABLE: "AI service unavailable (503). No available channel.",
             AI_UNKNOWN_ERROR: "Unknown AI error occurred.",
-            AI_DAILY_LIMIT_EXCEEDED: "You have used up today's AI allowance. Try again tomorrow or ask an administrator to raise the limit.",
+            AI_DAILY_LIMIT_EXCEEDED: AI_DAILY_LIMIT_MESSAGES.en,
             AI_OUTPUT_TRUNCATED: "The AI spent its whole output budget thinking and returned no answer. Please try again, or crop the image to a single question.",
             AI_IMAGE_NOT_SUPPORTED: "The current AI model does not accept images. Switch to a model with image input, or enter the questions as text.",
             SPLIT_NO_QUESTIONS: "No questions were found. Check the photo or text, try again, or draw boxes manually.",
