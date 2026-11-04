@@ -57,6 +57,7 @@ The JSON question exchange format is documented in the [question exchange format
 - **Word formulas**: formulas inserted with Word's built-in equation editor (Insert → Equation) are converted to LaTeX for KaTeX rendering — inline formulas become `$…$` and display equations become `$$…$$`; fractions, radicals, superscripts/subscripts, ∑/∫/∏, equation systems, matrices and other common structures are supported. OLE equation objects such as MathType are not OMML and appear in the docx as images; they are kept as the "[图片]" placeholder for now (counted in the import warning `OLE_EQUATION:N`). Unrecognized OMML structures keep their text and are reported in the `MATH_UNSUPPORTED:元素名` warning. Legacy .doc binary files must first be saved as .docx in Word before importing.
 - **Images**: currently output the placeholder "[图片]"; support is planned for a later version.
 - **Strikethrough and hidden text**: skipped during parsing; revisions keep insertions and skip deletions.
+- **PDF text layer**: PDF files must have a text layer (text embedded by Word or a generator, selectable in a viewer). Double-column layouts are read left column first, then right; repeated headers and footers (including page numbers such as "Page 3" or "- 3 -") are removed. Scanned PDFs have no text layer and cannot be imported—use **Take photo** or image upload instead (automatic conversion of scanned PDFs is planned for a later version). Password-protected PDFs are not supported.
 
 #### Excel / CSV column names
 
