@@ -265,7 +265,7 @@ describe('/api/exams', () => {
         it('注册测试 provider 后组卷使用它选出的题，注销后不再可用', async () => {
             const { registerExamSourceProvider, unregisterExamSourceProvider } = await import('@/lib/exam/exam-sources');
             const selected = [
-                { id: 'e9', shortId: 'ZZZZZZ', questionText: '题9', practiceCount: 0, inExam: false },
+                { id: 'e9', shortId: 'ZZZZZZ', questionText: '题9', questionType: 'calculation', practiceCount: 0, inExam: false },
             ];
             registerExamSourceProvider({
                 key: 'test-bank',
@@ -458,6 +458,78 @@ describe('/api/exams', () => {
             mocks.examPaper.findUnique.mockResolvedValueOnce({ userId: 'user-1' });
             mocks.examQuestion.updateMany.mockResolvedValueOnce({ count: 0 });
             expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { questionId: 'q-other', score: 2 }), params('p1'))).status).toBe(404);
+        });
+    });
+
+    describe('PATCH 按题型分大题开关', () => {
+        it('开启与关闭 groupByType，与配图、分值更新互不影响', async () => {
+            mocks.examPaper.findUnique.mockResolvedValue({ userId: 'user-1' });
+            mocks.examPaper.update.mockResolvedValue({});
+
+            const on = await UPDATE_SCALE(json('http://localhost', 'PATCH', { groupByType: true }), params('p1'));
+            expect(on.status).toBe(200);
+            expect(await on.json()).toEqual({ groupByType: true });
+            expect(mocks.examPaper.update).toHaveBeenCalledWith({
+                where: { id: 'p1' },
+                data: { groupByType: true },
+            });
+
+            const off = await UPDATE_SCALE(json('http://localhost', 'PATCH', { groupByType: false }), params('p1'));
+            expect(off.status).toBe(200);
+            expect(mocks.examPaper.update).toHaveBeenLastCalledWith({
+                where: { id: 'p1' },
+                data: { groupByType: false },
+            });
+            // 不触碰题目表
+            expect(mocks.examQuestion.updateMany).not.toHaveBeenCalled();
+        });
+
+        it('校验类型与归属：非布尔、多余字段与他人试卷', async () => {
+            mocks.examPaper.findUnique.mockResolvedValue({ userId: 'user-1' });
+
+            for (const body of [{ groupByType: 'true' }, { groupByType: 1 }, {}, { groupByType: true, score: 2 }]) {
+                expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', body), params('p1'))).status).toBe(400);
+            }
+            expect(mocks.examPaper.update).not.toHaveBeenCalled();
+
+            mocks.examPaper.findUnique.mockResolvedValueOnce({ userId: 'other' });
+            expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { groupByType: true }), params('p1'))).status).toBe(404);
+            expect(mocks.examPaper.update).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('创建试卷时快照题型', () => {
+        const options = { subjectIds: ['s1'], scope: 'all' as const, count: 2 };
+
+        it('generate 模式创建题目时快照来源错题题型', async () => {
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            mocks.errorItem.findMany.mockResolvedValue([
+                { id: 'e1', shortId: 'AAAAAA', questionType: 'single_choice', _count: { practiceRecords: 0, examQuestions: 0 } },
+                { id: 'e2', shortId: 'BBBBBB', questionType: null, _count: { practiceRecords: 1, examQuestions: 0 } },
+            ]);
+            mocks.examPaper.create.mockResolvedValue({ id: 'p1', title: '数学', requestedCount: 2, _count: { questions: 2 } });
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', { ...options, difficulty: 'medium' }));
+            expect(response.status).toBe(201);
+            const created = mocks.examPaper.create.mock.calls[0][0].data;
+            expect(created.questions.create.map((question: { questionType: string | null }) => question.questionType)).toEqual(['single_choice', null]);
+        });
+
+        it('原题直出模式从原题快照题型', async () => {
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            mocks.errorItem.findMany
+                .mockResolvedValueOnce([
+                    { id: 'e1', shortId: 'AAAAAA', questionText: '题1', _count: { practiceRecords: 0, examQuestions: 0 } },
+                ])
+                .mockResolvedValueOnce([
+                    { id: 'e1', shortId: 'AAAAAA', questionText: '题1', answerText: null, analysis: null, figureSvg: null, figureScale: 100, figureAlign: 'center', answerSpacePx: null, questionType: 'fill_blank' },
+                ]);
+            mocks.examPaper.create.mockResolvedValue({ id: 'p1', title: '数学', requestedCount: 1, _count: { questions: 1 } });
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', { ...options, count: 1, mode: 'original' }));
+            expect(response.status).toBe(201);
+            const created = mocks.examPaper.create.mock.calls[0][0].data;
+            expect(created.questions.create[0].questionType).toBe('fill_blank');
         });
     });
 

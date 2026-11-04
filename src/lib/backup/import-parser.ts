@@ -106,6 +106,8 @@ export interface NormalizedExamPaper {
     scope: string;
     mode: string;
     difficulty: string;
+    /** 旧版文件缺省 false */
+    groupByType: boolean;
     requestedCount: number;
     tagNames: string | null;
     statuses: string[];
@@ -181,6 +183,8 @@ function normalizeExamPaper(paper: ImportedBackupExamPaper): NormalizedExamPaper
         difficulty: mode === 'original'
             ? 'original'
             : (EXAM_DIFFICULTIES as readonly string[]).includes(paper.difficulty) ? paper.difficulty : 'medium',
+        // 旧版文件没有该字段，缺省不按题型分大题
+        groupByType: paper.groupByType === true,
         requestedCount: Number.isInteger(paper.requestedCount) && paper.requestedCount > 0 ? paper.requestedCount : questions.length,
         tagNames: typeof paper.tagNames === 'string' ? paper.tagNames : null,
         // 导出时还在生成的题目不会继续生成，按失败处理，可在试卷页重新生成

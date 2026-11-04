@@ -114,8 +114,8 @@ export function pickLeastPracticed<T extends { practiceCount: number; inExam?: b
 export async function selectSourceItems(userId: string, selection: ExamSelection) {
     const candidates = await prisma.errorItem.findMany({
         where: buildSourceWhere(userId, selection, await getMasteryThreshold(userId)),
-        // 只有原题直出需要判断题干，其他模式不读取题干全文
-        select: { id: true, shortId: true, questionText: selection.requireQuestionText === true, _count: { select: { practiceRecords: true, examQuestions: true } } },
+        // 只有原题直出需要判断题干，其他模式不读取题干全文；题型用于创建试卷题目时快照
+        select: { id: true, shortId: true, questionType: true, questionText: selection.requireQuestionText === true, _count: { select: { practiceRecords: true, examQuestions: true } } },
     });
     let items = candidates.map(({ _count, ...item }) => ({
         ...item,
@@ -440,6 +440,7 @@ export function snapshotOriginalQuestion(item: {
     figureScale: number;
     figureAlign: string;
     answerSpacePx: number | null;
+    questionType: string | null;
 }) {
     return {
         questionText: item.questionText,
@@ -449,6 +450,7 @@ export function snapshotOriginalQuestion(item: {
         figureScale: item.figureScale,
         figureAlign: item.figureAlign,
         answerSpacePx: item.answerSpacePx,
+        questionType: item.questionType,
         status: 'ready' as const,
     };
 }

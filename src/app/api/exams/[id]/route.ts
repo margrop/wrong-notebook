@@ -8,6 +8,7 @@ import { FIGURE_ALIGNS, MAX_FIGURE_SCALE, MIN_FIGURE_SCALE, normalizeFigureAlign
 import type { FigureAlign } from "@/lib/figure-scale";
 import { MAX_CUSTOM_ANSWER_SPACE_PX, MIN_CUSTOM_ANSWER_SPACE_PX, normalizeCustomAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import { MAX_EXAM_SCORE, MIN_EXAM_SCORE, normalizeExamScore } from "@/lib/exam/exam-score";
+import { normalizeQuestionType } from "@/lib/question/question-type";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 
@@ -39,6 +40,11 @@ const updateScoreSchema = z.object({
     message: "score is required",
 });
 
+/** 按题型分大题开关；与配图、分值更新互不影响 */
+const updateGroupByTypeSchema = z.object({
+    groupByType: z.boolean(),
+}).strict();
+
 /**
  * GET /api/exams/:id
  * 试卷详情，含每题内容、来源短 ID 与历次录入的结果
@@ -56,7 +62,7 @@ export const GET = withUser(async (
                 questions: {
                     orderBy: { order: 'asc' },
                     include: {
-                        errorItem: { select: { id: true, subject: { select: { name: true } } } },
+                        errorItem: { select: { id: true, questionType: true, subject: { select: { name: true } } } },
                         practiceRecords: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true, result: true, createdAt: true } },
                     },
                 },
@@ -80,6 +86,8 @@ export const GET = withUser(async (
                 figureAlign: normalizeFigureAlign(question.figureAlign),
                 answerSpacePx: normalizeCustomAnswerSpacePx(question.answerSpacePx),
                 score: normalizeExamScore(question.score ?? null),
+                questionType: normalizeQuestionType(question.questionType),
+                errorItemQuestionType: normalizeQuestionType(errorItem?.questionType),
                 notebookName: errorItem?.subject?.name ?? null,
                 attempts: practiceRecords,
             })),
@@ -103,6 +111,23 @@ export const PATCH = withUser(async (
 
     try {
         const body: unknown = await req.json().catch(() => ({}));
+
+        // 按题型分大题开关：请求体含 groupByType 时走此分支（与其他分支互斥，多余字段视为非法）
+        if (typeof body === 'object' && body !== null && 'groupByType' in body) {
+            const groupParsed = updateGroupByTypeSchema.safeParse(body);
+            if (!groupParsed.success) {
+                return validationError("Invalid exam paper update", groupParsed.error.issues);
+            }
+            const paper = await prisma.examPaper.findUnique({ where: { id }, select: { userId: true } });
+            if (!paper || paper.userId !== user.id) {
+                return notFound("Exam paper not found");
+            }
+            await prisma.examPaper.update({
+                where: { id },
+                data: { groupByType: groupParsed.data.groupByType },
+            });
+            return NextResponse.json({ groupByType: groupParsed.data.groupByType });
+        }
 
         // 分值设置与配图/留白设置互斥，先按分值 schema 尝试解析
         const scoreParsed = updateScoreSchema.safeParse(body);

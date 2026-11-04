@@ -15,6 +15,10 @@ export const EXAM_PRINT_CSS = `
 .exam-sheet .exam-answer-key { break-before: page; page-break-before: always; padding-top: 8px; }
 .exam-sheet .exam-answer-key h2 { text-align: center; font-size: 18px; margin: 0 0 12px; }
 .exam-sheet .exam-label { font-weight: 600; color: #444; }
+/* 按题型分大题的标题行：加粗、上下边框，黑白打印醒目 */
+.exam-sheet .exam-section-head { break-after: avoid; page-break-after: avoid; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 16px 0 4px; padding: 6px 0; border-top: 2px solid #111; border-bottom: 1px solid #111; }
+.exam-sheet .exam-section-head h2 { font-size: 16px; margin: 0; }
+.exam-sheet .exam-section-summary { font-size: 13px; color: #333; }
 .exam-sheet .markdown-content p { margin: 4px 0; }
 .exam-sheet .markdown-content img { max-width: 100%; }
 .exam-sheet .question-figure { margin: 8px 0; break-inside: avoid; page-break-inside: avoid; }

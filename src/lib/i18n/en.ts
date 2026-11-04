@@ -1614,6 +1614,12 @@ export const en = {
             totalScore: "Total {total}",
             totalScoreUnscored: "{count} question(s) without score",
             fullScore: "Full score {total}",
+            // 按题型分大题
+            groupByType: "Group by question type",
+            groupByTypeHint: "Questions are grouped into sections like Single Choice and Fill in the Blank; numbering continues across sections, and printing uses the same sections.",
+            sectionSummary: "{count} question(s)",
+            sectionSummaryScored: "{count} question(s), {total} pts in total",
+            sectionSummaryUnscored: "{count} question(s) without score",
             answerKey: "Answer Key",
             answerLabel: "Answer",
             analysisLabel: "Analysis",

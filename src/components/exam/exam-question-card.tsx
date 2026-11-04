@@ -22,6 +22,8 @@ interface ExamQuestionCardProps {
     paperId: string;
     paperMode?: ExamMode;
     question: ExamQuestionDetail;
+    /** 显示题号；缺省用卷内 order。按题型分大题时为全卷连续编号 */
+    displayNumber?: number;
     /** 录入模式下的待保存结果；undefined 表示非录入模式 */
     editingResult?: PracticeResult | null;
     onResultChange?: (result: PracticeResult) => void;
@@ -43,6 +45,7 @@ export function ExamQuestionCard({
     paperId,
     paperMode,
     question,
+    displayNumber,
     editingResult,
     onResultChange,
     onDeleteAttempt,
@@ -69,7 +72,7 @@ export function ExamQuestionCard({
         <Card>
             <CardContent className="space-y-3 pt-4">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="font-semibold">{question.order}.</span>
+                    <span className="font-semibold">{displayNumber ?? question.order}.</span>
                     {question.errorItemId ? (
                         <Link href={`/error-items/${question.errorItemId}`} className="font-mono text-xs text-primary hover:underline">
                             {t.exam.source} {question.sourceShortId}

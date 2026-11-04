@@ -1613,6 +1613,12 @@ export const zh = {
             totalScore: "总分 {total} 分",
             totalScoreUnscored: "{count} 题未设分值",
             fullScore: "满分 {total} 分",
+            // 按题型分大题
+            groupByType: "按题型分大题",
+            groupByTypeHint: "开启后题目按题型分为选择题、填空题等大题，题号全卷连续编号，打印同样分组。",
+            sectionSummary: "共 {count} 题",
+            sectionSummaryScored: "共 {count} 题，共 {total} 分",
+            sectionSummaryUnscored: "{count} 题未设分值",
             answerKey: "参考答案与解析",
             answerLabel: "答案",
             analysisLabel: "解析",

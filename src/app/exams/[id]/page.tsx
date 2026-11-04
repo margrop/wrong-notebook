@@ -152,6 +152,11 @@ export default function ExamDetailPage() {
         } : prev));
     };
 
+    const saveGroupByType = async (groupByType: boolean) => {
+        await apiClient.patch(`/api/exams/${paper.id}`, { groupByType });
+        setPaper((prev) => (prev ? { ...prev, groupByType } : prev));
+    };
+
     const readyScoreSummary = summarizeExamScores(
         paper.questions.filter((question) => question.status === "ready").map((question) => question.score ?? null)
     );
@@ -234,6 +239,7 @@ export default function ExamDetailPage() {
                 <ExamDetailQuestions
                     paperId={paper.id}
                     paperMode={paper.mode}
+                    groupByType={paper.groupByType}
                     questions={paper.questions}
                     draft={draft}
                     onResultChange={(questionId, result) => setDraft((prev) => (prev ? { ...prev, [questionId]: result } : prev))}
@@ -243,6 +249,7 @@ export default function ExamDetailPage() {
                     onSaveFigureScale={saveQuestionFigureScale}
                     onSaveScore={saveQuestionScore}
                     onSaveUniformScore={saveUniformScore}
+                    onSaveGroupByType={saveGroupByType}
                 />
 
                 {draft && (

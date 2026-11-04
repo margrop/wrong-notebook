@@ -6,6 +6,7 @@ import { sanitizeFigureSvg } from "@/lib/figure-svg";
 import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import { normalizeCustomAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import { normalizeExamScore } from "@/lib/exam/exam-score";
+import { normalizeQuestionType } from "@/lib/question/question-type";
 import { mapSubjectIds } from "@/lib/backup/import-parser";
 import type { ImportContext } from "./types";
 
@@ -71,6 +72,7 @@ export async function importExamPapers(ctx: ImportContext): Promise<void> {
                 requestedCount: paper.requestedCount,
                 subjectIds: mapSubjectIds(raw.subjectIds, subjectIdMap),
                 tagNames: paper.tagNames,
+                groupByType: paper.groupByType,
                 resultsRecordedAt: paper.resultsRecordedAt,
                 createdAt: paper.createdAt,
                 updatedAt: paper.updatedAt,
@@ -94,6 +96,7 @@ export async function importExamPapers(ctx: ImportContext): Promise<void> {
                     figureAlign: normalizeFigureAlign(question.figureAlign),
                     answerSpacePx: normalizeCustomAnswerSpacePx(question.answerSpacePx),
                     score: normalizeExamScore(question.score ?? null),
+                    questionType: normalizeQuestionType(question.questionType),
                     error: question.error,
                 },
             });

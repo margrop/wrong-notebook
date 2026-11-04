@@ -132,6 +132,7 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
                     figureScale: true,
                     figureAlign: true,
                     answerSpacePx: true,
+                    questionType: true,
                 },
             });
             // 按抽题顺序（sources）重排，保持 least_practiced / random 的优先级
@@ -190,6 +191,7 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
                         order: index + 1,
                         errorItemId: source.id,
                         sourceShortId: source.shortId!,
+                        questionType: source.questionType,
                     })),
                 },
             },

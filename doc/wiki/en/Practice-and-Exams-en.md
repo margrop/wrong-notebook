@@ -53,6 +53,8 @@ Exam papers keep the source question IDs so you can go back to the originals. Re
 
 Each question can have its own score (0–1000, up to one decimal place such as 2.5), or you can apply a uniform score to every question at once; leaving it empty means no score is set. The paper header shows the total score (only questions with a score are summed, with a note of how many questions have no score). In the printout the question number is followed by "(N pts)", and the full score line sits under the title; papers without any score print exactly as before. Scores are included in backup export and import.
 
+The exam detail page has a "Group by question type" switch: when on, questions are grouped into sections such as Single Choice and Fill in the Blank (in the default question-type order), each section header shows the question count and the score subtotal ("N question(s), X pts in total", noting how many questions have no score when partially set), and question numbers run continuously across sections. Printing and HTML export use the same sections, with bold section titles bordered above and below, suitable for black-and-white printing. The question type is snapshotted from each source question when the paper is created; for older papers without a snapshot, the current type of the linked source question is used, and questions whose source was deleted or whose type is unknown fall into "Other". The switch and the type snapshots are included in backup export and import (backup version 11).
+
 ![Source IDs and recorded results in a generated exam paper](https://raw.githubusercontent.com/margrop/wrong-notebook/a5f816515e3dc31dcdb90c9fa456baed12eef94d/doc/screenshots/en/exam.png)
 
 ## Print and export

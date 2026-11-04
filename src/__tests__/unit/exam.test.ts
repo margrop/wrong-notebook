@@ -167,6 +167,7 @@ describe('snapshotOriginalQuestion', () => {
             figureScale: 65,
             figureAlign: 'left',
             answerSpacePx: 240,
+            questionType: 'solution',
         };
         expect(snapshotOriginalQuestion(item)).toEqual({
             questionText: '求解 x + 2 = 5',
@@ -176,6 +177,7 @@ describe('snapshotOriginalQuestion', () => {
             figureScale: 65,
             figureAlign: 'left',
             answerSpacePx: 240,
+            questionType: 'solution',
             status: 'ready',
         });
     });

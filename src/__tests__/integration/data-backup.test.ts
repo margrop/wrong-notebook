@@ -185,9 +185,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 10 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
+    it('导出文件使用第 11 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(10);
+        expect(backup.version).toBe(11);
         expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
@@ -400,6 +400,46 @@ describe('数据导出后再导入（真实 SQLite）', () => {
 
         // 旧版文件没有 score 字段：导入后分值为空
         expect(legacyPaper.questions[0].score).toBeNull();
+    });
+
+    it('试卷题目的 questionType 快照与 groupByType 开关随备份往返，旧版文件缺省 null/false', async () => {
+        await database.examPaper.create({
+            data: {
+                id: 'paper-sec', userId: 'user-1', title: '分大题卷', status: 'ready', scope: 'all', difficulty: 'medium', mode: 'generate',
+                requestedCount: 2, groupByType: true, subjectIds: JSON.stringify(['math']),
+                createdAt: new Date('2026-10-24T00:00:00Z'),
+                questions: { create: [
+                    { id: 'q-sec-1', order: 0, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'ready', questionText: '题1', questionType: 'single_choice', score: 2 },
+                    { id: 'q-sec-2', order: 1, errorItemId: 'item-2', sourceShortId: 'XyZ789', status: 'ready', questionText: '题2', questionType: null },
+                ] },
+            },
+        });
+        const backup = await exportBackup();
+        const paper = backup.examPapers.find((p: { id: string }) => p.id === 'paper-sec');
+        expect(paper.groupByType).toBe(true);
+        expect(paper.questions[0].questionType).toBe('single_choice');
+        expect(paper.questions[1].questionType ?? null).toBeNull();
+
+        await clearUserData();
+        await importBackup(backup);
+        const restored = await database.examPaper.findFirstOrThrow({ where: { userId: 'user-1', title: '分大题卷' }, include: { questions: { orderBy: { order: 'asc' } } } });
+        expect(restored.groupByType).toBe(true);
+        expect(restored.questions.map((question) => question.questionType)).toEqual(['single_choice', null]);
+
+        // 模拟旧版备份（version 10，无 groupByType 与 questionType 字段）：缺省 false / null
+        const legacyBackup = await exportBackup();
+        legacyBackup.version = 10;
+        for (const legacyPaper of legacyBackup.examPapers) {
+            delete legacyPaper.groupByType;
+            for (const question of legacyPaper.questions) {
+                delete question.questionType;
+            }
+        }
+        await clearUserData();
+        await importBackup(legacyBackup);
+        const legacy = await database.examPaper.findFirstOrThrow({ where: { userId: 'user-1', title: '分大题卷' }, include: { questions: { orderBy: { order: 'asc' } } } });
+        expect(legacy.groupByType).toBe(false);
+        expect(legacy.questions.map((question) => question.questionType)).toEqual([null, null]);
     });
 
     it('云端语音随备份导入、导出：只导出与动画讲解一致的语音，不合法的跳过，已有的不重复写入', async () => {

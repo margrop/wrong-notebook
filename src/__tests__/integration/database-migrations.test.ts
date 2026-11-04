@@ -133,8 +133,8 @@ describe('真实 Prisma 数据库迁移', () => {
         const beforeItems = rows('ErrorItem').map((row) => ({ ...(row as LegacyRow), questionType: (row as LegacyRow).questionType ?? null }));
         const beforeRelated = relatedTables.map((table) => rows(table).map((row) => {
             if (table === 'Subject' || table === 'KnowledgeTag') return { ...row, tagSet: row.tagSet ?? 'default' };
-            if (table === 'ExamQuestion') return { ...row, figureScale: row.figureScale ?? 100, figureAlign: row.figureAlign ?? 'center', answerSpacePx: null, score: null };
-            if (table === 'ExamPaper') return { ...row, mode: row.mode ?? 'generate' };
+            if (table === 'ExamQuestion') return { ...row, figureScale: row.figureScale ?? 100, figureAlign: row.figureAlign ?? 'center', answerSpacePx: null, score: null, questionType: null };
+            if (table === 'ExamPaper') return { ...row, mode: row.mode ?? 'generate', groupByType: row.groupByType ?? 0 };
             return row;
         }));
         closeDatabase();

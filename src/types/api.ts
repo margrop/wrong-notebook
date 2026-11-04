@@ -2,6 +2,7 @@ import { ParsedQuestion } from "@/lib/ai/types";
 import type { VendorConfig, VendorProviderId } from "@/lib/ai/vendor-presets";
 import type { MiniMaxCodeConfig } from "@/lib/minimax-code/constants";
 import type { MasteryStatus } from "@/lib/mastery-status";
+import type { QuestionType } from "@/lib/question/question-type";
 import type { TtsConfig } from "@/lib/tts/constants";
 
 // 通用分页响应类型
@@ -449,6 +450,10 @@ export interface ExamQuestionDetail {
     answerSpacePx?: number | null;
     /** 每题分值（最多一位小数），空表示未设分值 */
     score?: number | null;
+    /** 创建时快照的题型 key（标准 key），空表示旧数据未快照 */
+    questionType?: QuestionType | null;
+    /** 关联错题当前的题型 key（原题可能已删除，为 null）；分组时 questionType 为空回退使用 */
+    errorItemQuestionType?: QuestionType | null;
     error: string | null;
     notebookName: string | null;
     /** 历次录入的结果，按时间正序 */
@@ -469,6 +474,8 @@ export interface ExamPaperDetail {
     difficulty: string;
     mode: ExamMode;
     requestedCount: number;
+    /** 是否按题型分大题显示与打印 */
+    groupByType: boolean;
     resultsRecordedAt: string | null;
     createdAt: string;
     questions: ExamQuestionDetail[];
