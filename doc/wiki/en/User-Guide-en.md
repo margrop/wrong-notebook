@@ -60,6 +60,31 @@ Once the upload finishes, recognition continues on the server. The page shows a 
 
 Drafts awaiting review and failed tasks are kept until you handle or discard them; saved tasks are kept for 7 days. Each task card lists the actual time spent reading, converting, cropping, compressing, receiving, recognizing and saving.
 
+### Excel / CSV question templates
+
+If you already have a question bank in Excel (.xlsx) or CSV format, you can import it directly: the app recognizes the header row and reads question text, answers, analysis and other fields from the columns. There is no need to paste questions one by one, and questions that already include answers and analysis are imported without calling the AI.
+
+**Column names** (Chinese or English; case, full/half-width characters and whitespace are ignored):
+
+| Column | Description |
+| --- | --- |
+| 题干 / 题目 / question / text / stem | Question text (required) |
+| 选项A, 选项B, … | Choice options; when non-empty they are appended to the question text as "A．option" |
+| 答案 / 参考答案 / answer | Reference answer |
+| 解析 / 答案解析 / analysis / explanation | Answer analysis |
+| 知识点 / 考点 / knowledge / tags | Multiple knowledge points separated by 、, ，or ； |
+| 难度 / 难度星级 / difficulty | A number 1–5, a count of ★, or 易/较易/中等/较难/难; also accepts a 0–1 difficulty score (≥0.8→1 star, ≥0.6→2 stars, ≥0.4→3 stars, ≥0.2→4 stars, below→5 stars) |
+| 大题 / 题型分组 / section | Section title; when using multiple worksheets the sheet name is used if no section column is present |
+| 题号 / 序号 / no / label | Original question number |
+| 材料 / 阅读材料 / material | Shared reading material |
+| 错答 / 我的答案 / wrongAnswer | The student's wrong answer |
+| 学科 / 科目 / subject | Subject name |
+| 年级学期 / grade / gradeSemester | Grade and semester |
+| 来源 / 出处 / source | Question source |
+| 题型 / type / questionType | Question type (e.g. multiple choice, fill in the blank) |
+
+CSV files automatically detect comma, semicolon or tab delimiters; UTF-8, UTF-16 and GBK encodings are supported (CSV files exported from Excel in Chinese can be imported directly).
+
 ## Duplicate detection
 
 On import, the question text is compared with the current user's existing questions across all notebooks. The default threshold is 90% and can be changed in your general settings.
