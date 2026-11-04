@@ -1,4 +1,4 @@
-export { getItemTags } from "@/lib/item-tags";
+export { getItemTags } from "@/lib/tags/item-tags";
 
 export interface KnowledgeTag {
     id: string;

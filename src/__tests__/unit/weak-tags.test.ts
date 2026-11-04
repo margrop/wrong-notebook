@@ -1,9 +1,9 @@
 /**
- * src/lib/weak-tags.ts 单元测试
+ * src/lib/tags/weak-tags.ts 单元测试
  * 覆盖分组、未掌握判定、近期正确率、排序与截断逻辑
  */
 import { describe, it, expect } from 'vitest';
-import { buildWeakTags, type WeakTagSourceItem } from '@/lib/weak-tags';
+import { buildWeakTags, type WeakTagSourceItem } from '@/lib/tags/weak-tags';
 
 
 function makeItem(overrides: Partial<WeakTagSourceItem> = {}): WeakTagSourceItem {

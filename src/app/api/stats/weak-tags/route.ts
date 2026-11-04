@@ -8,7 +8,7 @@ import { getMasteryThreshold } from "@/lib/mastery";
 import { PRACTICE_RECORD_COUNT } from "@/lib/mastery-status";
 import { parseStatsRange, getRangeStart } from "@/lib/stats/stats-range";
 import { resolveStatsSubjectId, EXCLUDE_DUPLICATE_IMPORT } from "@/lib/stats/stats-filter";
-import { buildWeakTags, type WeakTagSourceItem } from "@/lib/weak-tags";
+import { buildWeakTags, type WeakTagSourceItem } from "@/lib/tags/weak-tags";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 

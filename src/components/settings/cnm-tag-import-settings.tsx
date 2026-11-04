@@ -5,8 +5,8 @@ import { BookOpen, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ApiError, apiClient } from "@/lib/api-client";
-import { CNM_REPO_URL, CNM_TOPICS_URL } from "@/lib/tag-seed/cnm-tags";
-import type { CnmImportResult, CnmStatus } from "@/lib/tag-seed/cnm-tags";
+import { CNM_REPO_URL, CNM_TOPICS_URL } from "@/lib/tags/seed/cnm-tags";
+import type { CnmImportResult, CnmStatus } from "@/lib/tags/seed/cnm-tags";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withAdmin } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { badRequest, internalError } from "@/lib/api-errors";
-import { CNM_MAX_FILE_BYTES, cnmTopicsSchema, getCnmStatus, importCnmTopics } from "@/lib/tag-seed";
+import { CNM_MAX_FILE_BYTES, cnmTopicsSchema, getCnmStatus, importCnmTopics } from "@/lib/tags/seed";
 import { createLogger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 

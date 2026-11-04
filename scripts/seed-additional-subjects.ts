@@ -6,10 +6,10 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { CHINESE_CURRICULUM, CHINESE_GRADE_ORDER } from '../src/lib/tag-data/chinese';
-import { HISTORY_CURRICULUM, HISTORY_GRADE_ORDER } from '../src/lib/tag-data/history';
-import { GEOGRAPHY_CURRICULUM, GEOGRAPHY_GRADE_ORDER } from '../src/lib/tag-data/geography';
-import { POLITICS_CURRICULUM, POLITICS_GRADE_ORDER } from '../src/lib/tag-data/politics';
+import { CHINESE_CURRICULUM, CHINESE_GRADE_ORDER } from '../src/lib/tags/data/chinese';
+import { HISTORY_CURRICULUM, HISTORY_GRADE_ORDER } from '../src/lib/tags/data/history';
+import { GEOGRAPHY_CURRICULUM, GEOGRAPHY_GRADE_ORDER } from '../src/lib/tags/data/geography';
+import { POLITICS_CURRICULUM, POLITICS_GRADE_ORDER } from '../src/lib/tags/data/politics';
 
 const prisma = new PrismaClient();
 

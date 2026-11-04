@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { inferSubjectFromName } from "@/lib/knowledge-tags";
+import { inferSubjectFromName } from "@/lib/tags/knowledge-tags";
 import { isNotebookSubject, stageFromEducationStage } from "@/lib/notebook-scope";
 
 /**

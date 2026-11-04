@@ -13,10 +13,10 @@ import {
     HISTORY_CURRICULUM, HISTORY_GRADE_ORDER,
     GEOGRAPHY_CURRICULUM, GEOGRAPHY_GRADE_ORDER,
     POLITICS_CURRICULUM, POLITICS_GRADE_ORDER
-} from "@/lib/tag-data";
-import { seedMath, seedStandardSubject } from "@/lib/tag-seed";
+} from "@/lib/tags/data";
+import { seedMath, seedStandardSubject } from "@/lib/tags/seed";
 import { createLogger } from "@/lib/logger";
-import { findParentTagIdForGrade } from "@/lib/tag-recognition";
+import { findParentTagIdForGrade } from "@/lib/tags/tag-recognition";
 
 const logger = createLogger('api:admin:migrate-tags');
 

@@ -6,9 +6,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mocks = vi.hoisted(() => ({ findMany: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({ prisma: { knowledgeTag: { findMany: mocks.findMany } } }));
 
-import { MATH_CURRICULUM } from '@/lib/tag-data/math';
-import { GAOSI_CHAPTER_NAME, MATH_GAOSI_EXTENSION } from '@/lib/tag-data/math-gaosi';
-import { calculateGradeNumber } from '@/lib/knowledge-tags';
+import { MATH_CURRICULUM } from '@/lib/tags/data/math';
+import { GAOSI_CHAPTER_NAME, MATH_GAOSI_EXTENSION } from '@/lib/tags/data/math-gaosi';
+import { calculateGradeNumber } from '@/lib/tags/knowledge-tags';
 import { getMathTagsFromDB } from '@/lib/ai/tag-service';
 
 const PRIMARY_GRADES = ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];

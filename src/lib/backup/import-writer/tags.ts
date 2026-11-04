@@ -2,7 +2,7 @@
  * 导入步骤：系统标签与自定义标签的映射与创建，以及错题标签的预加载。
  * 保留原实现：按导出 id 建立映射、通过 sortTagsByParent 保留父子路径。
  */
-import { sortTagsByParent } from "@/lib/tag-hierarchy";
+import { sortTagsByParent } from "@/lib/tags/tag-hierarchy";
 import type { ImportContext } from "./types";
 
 /** 2. 按体系和父节点路径导入系统标签，保留不同年级下的同名章节与知识点。 */

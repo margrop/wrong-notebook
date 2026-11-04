@@ -1,7 +1,7 @@
 
 import { PrismaClient } from '@prisma/client';
-import { inferSubjectFromName } from '../src/lib/knowledge-tags';
-import { findParentTagIdForGrade } from '../src/lib/tag-recognition';
+import { inferSubjectFromName } from '../src/lib/tags/knowledge-tags';
+import { findParentTagIdForGrade } from '../src/lib/tags/tag-recognition';
 
 const prisma = new PrismaClient();
 

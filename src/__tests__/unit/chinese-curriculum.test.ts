@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isGradeInStage, isValidNotebookScope, NOTEBOOK_STAGES } from '@/lib/notebook-scope';
-import { CHINESE_CURRICULUM, CHINESE_GRADE_ORDER } from '@/lib/tag-data/chinese';
+import { CHINESE_CURRICULUM, CHINESE_GRADE_ORDER } from '@/lib/tags/data/chinese';
 
 describe('语文课程与错题本学段', () => {
     it('小学、初中和高中都可以创建语文错题本', () => {

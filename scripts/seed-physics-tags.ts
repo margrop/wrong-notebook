@@ -6,7 +6,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { PHYSICS_CURRICULUM, PHYSICS_GRADE_ORDER } from '../src/lib/tag-data/physics';
+import { PHYSICS_CURRICULUM, PHYSICS_GRADE_ORDER } from '../src/lib/tags/data/physics';
 
 const prisma = new PrismaClient();
 

@@ -6,7 +6,7 @@
  */
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { createLogger } from "@/lib/logger";
-import { findParentTagIdForGrade } from "@/lib/tag-recognition";
+import { findParentTagIdForGrade } from "@/lib/tags/tag-recognition";
 import { resolveNotebookScope } from "@/lib/notebook-scope";
 
 const logger = createLogger('tag-resolver');

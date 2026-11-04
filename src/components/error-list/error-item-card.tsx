@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { formatDateTime } from "@/lib/date-time";
-import { getItemTags } from "@/lib/item-tags";
+import { getItemTags } from "@/lib/tags/item-tags";
 import { getMistakeStatusLabel } from "@/lib/question/mistake-status";
 import type { ErrorItemSummary } from "@/types/api";
 

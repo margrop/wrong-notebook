@@ -11,7 +11,7 @@ import { needsQuestionGradeRecognition } from "@/lib/question/question-grade";
 import type { QuestionSaveFailure } from "@/lib/question/question-save-failure";
 import { classifyQuestionSaveError } from "@/lib/question/question-save-failure";
 import { createLogger } from "@/lib/logger";
-import { resolveOrCreateTags, inferTagScope } from "@/lib/tag-resolver";
+import { resolveOrCreateTags, inferTagScope } from "@/lib/tags/tag-resolver";
 import { normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
 import { generateUniqueShortId } from "@/lib/short-id";
 import { resolveNotebookForSubject } from "@/lib/notebook-resolver";

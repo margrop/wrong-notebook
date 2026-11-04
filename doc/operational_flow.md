@@ -142,7 +142,7 @@ Zod Schema 验证
 *   `/src/components`: UI 组件 (Shadcn UI + Radix UI)
 *   `/src/lib`: 核心逻辑库
     *   `ai/`: AI 接口封装、Provider 实现、Prompt 模板、Zod Schema
-    *   `knowledge-tags.ts`: 人教版数学课程大纲（七八九年级完整标签库）
+    *   `tags/knowledge-tags.ts`: 人教版数学课程大纲（七八九年级完整标签库）
     *   `prisma.ts`: 数据库客户端单例
     *   `translations.ts`: 中英文翻译资源
 *   `/prisma`: 数据库模型定义 (`schema.prisma`) 和种子数据

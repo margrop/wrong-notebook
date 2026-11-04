@@ -5,7 +5,7 @@ import { forbidden, notFound, badRequest, validationError, internalError } from 
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
-import { resolveOrCreateTags, inferTagScope } from "@/lib/tag-resolver";
+import { resolveOrCreateTags, inferTagScope } from "@/lib/tags/tag-resolver";
 import { normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
 import { getDefaultPaperLevelGroupId } from "@/lib/paper-level";
 import { isValidFigureAlign, isValidFigureScale } from "@/lib/figure-scale";

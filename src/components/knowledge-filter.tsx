@@ -12,7 +12,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
-import { inferSubjectFromName } from "@/lib/knowledge-tags";
+import { inferSubjectFromName } from "@/lib/tags/knowledge-tags";
 import { frontendLogger } from "@/lib/frontend-logger";
 
 interface TagTreeNode {

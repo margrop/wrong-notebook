@@ -13,8 +13,8 @@ import {
     HISTORY_CURRICULUM, HISTORY_GRADE_ORDER,
     GEOGRAPHY_CURRICULUM, GEOGRAPHY_GRADE_ORDER,
     POLITICS_CURRICULUM, POLITICS_GRADE_ORDER
-} from '../src/lib/tag-data';
-import { seedMath, seedStandardSubject } from '../src/lib/tag-seed';
+} from '../src/lib/tags/data';
+import { seedMath, seedStandardSubject } from '../src/lib/tags/seed';
 
 const prisma = new PrismaClient();
 

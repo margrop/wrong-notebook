@@ -95,9 +95,13 @@ wrongNotebook/
 │   │   │   ├── anthropic-provider.ts  # Anthropic 及兼容接口 Provider
 │   │   │   ├── vendor-presets.ts  # 国产大模型官方渠道预设（复用 OpenAI Provider）
 │   │   │   └── tag-service.ts    # 标签查询服务
-│   │   ├── tag-data/             # 预置知识点标签数据 (按学科)
-│   │   │   ├── index.ts, math.ts, physics.ts, chemistry.ts, biology.ts
-│   │   │   ├── english.ts, chinese.ts, history.ts, geography.ts, politics.ts
+│   │   ├── tags/                 # 知识点标签
+│   │   │   ├── data/             # 预置知识点标签数据 (按学科)
+│   │   │   │   ├── index.ts, math.ts, physics.ts, chemistry.ts, biology.ts
+│   │   │   │   ├── english.ts, chinese.ts, history.ts, geography.ts, politics.ts
+│   │   │   ├── knowledge-tags.ts # 年级计算 + 科目推断
+│   │   │   ├── tag-recognition.ts # 标签识别
+│   │   │   └── seed/             # 标签种子导入
 │   │   ├── constants/            # 常量 (pagination.ts)
 │   │   ├── config.ts             # 应用配置 (app-config.json 读写 + env fallback)
 │   │   ├── logger.ts             # 服务端结构化日志 (自定义, 支持 pretty/JSON)
@@ -111,8 +115,6 @@ wrongNotebook/
 │   │   ├── translations.ts       # 国际化翻译
 │   │   ├── markdown-utils.ts     # Markdown 工具
 │   │   ├── image-utils.ts        # 图片压缩/处理
-│   │   ├── knowledge-tags.ts     # 年级计算 + 科目推断
-│   │   ├── tag-recognition.ts    # 标签识别
 │   │   ├── grade-calculator.ts   # 年级计算器
 │   │   ├── scheduler.ts          # 复习计划调度
 │   │   ├── global-proxy.ts       # 全局代理配置

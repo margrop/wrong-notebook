@@ -17,7 +17,7 @@ import { apiClient } from "@/lib/api-client";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { getFixedQuestionGrade } from "@/lib/question/question-grade";
-import { inferSubjectFromName } from "@/lib/knowledge-tags";
+import { inferSubjectFromName } from "@/lib/tags/knowledge-tags";
 import { normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
 import { usePaperGroups } from "@/lib/hooks/use-paper-groups";
 import { getReanswerErrorMessage } from "@/lib/question/reanswer-error";

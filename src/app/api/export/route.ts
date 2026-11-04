@@ -9,7 +9,7 @@ import { formatDateTime } from "@/lib/date-time";
 import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import { normalizeCustomAnswerSpacePx } from "@/lib/exam-answer-space";
 import { exportSpeeches } from "@/lib/tts/speech-cache";
-import { sortTagsByParent } from "@/lib/tag-hierarchy";
+import { sortTagsByParent } from "@/lib/tags/tag-hierarchy";
 import { collectExtensions } from "@/lib/backup-extensions";
 import { BACKUP_VERSION } from "@/lib/backup/format";
 import type { BackupFile } from "@/lib/backup/format";

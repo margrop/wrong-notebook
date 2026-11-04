@@ -28,7 +28,7 @@ import { POST as IMPORT } from '@/app/api/import/route';
 import { sanitizeFigureSvg } from '@/lib/figure-svg';
 import { embedNarration, sanitizeSvgAnimation } from '@/lib/svg-animation';
 import { encodeMp3 } from '@/lib/tts/mp3';
-import { seedChineseTags } from '@/lib/tag-seed';
+import { seedChineseTags } from '@/lib/tags/seed';
 import { BACKUP_EXTENSIONS } from '@/lib/backup-extensions';
 import type { BackupExtension } from '@/lib/backup-extensions';
 

@@ -4,7 +4,7 @@
  * 本文件前后端共用，不要引入服务端模块。
  */
 
-import { inferSubjectFromName } from "@/lib/knowledge-tags";
+import { inferSubjectFromName } from "@/lib/tags/knowledge-tags";
 
 export const NOTEBOOK_STAGES = ["primary", "junior_high", "senior_high"] as const;
 export type NotebookStage = (typeof NOTEBOOK_STAGES)[number];

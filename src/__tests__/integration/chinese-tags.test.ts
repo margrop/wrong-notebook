@@ -11,7 +11,7 @@ vi.mock('@/lib/prisma', () => ({ get prisma() { return mocks.prisma; } }));
 vi.mock('@/lib/logger', () => ({ createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }) }));
 
 import { getNotebookCandidateTags } from '@/lib/ai/tag-service';
-import { seedChineseTags } from '@/lib/tag-seed';
+import { seedChineseTags } from '@/lib/tags/seed';
 
 let database: PrismaClient;
 let directory: string;

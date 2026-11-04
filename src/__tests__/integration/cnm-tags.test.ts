@@ -20,7 +20,7 @@ vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 
 import { GET, POST } from '@/app/api/admin/cnm-tags/route';
 import { getNotebookCandidateTags } from '@/lib/ai/tag-service';
-import { CNM_TAG_SET, cnmGradeNodeName } from '@/lib/tag-seed';
+import { CNM_TAG_SET, cnmGradeNodeName } from '@/lib/tags/seed';
 
 const admin = { user: { id: 'admin-1', email: 'admin@localhost', role: 'admin' }, expires: '2099-01-01' };
 const user = { user: { id: 'user-1', email: 'user@localhost', role: 'user' }, expires: '2099-01-01' };

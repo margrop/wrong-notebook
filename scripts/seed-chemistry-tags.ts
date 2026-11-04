@@ -6,7 +6,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { CHEMISTRY_CURRICULUM, CHEMISTRY_GRADE_ORDER } from '../src/lib/tag-data/chemistry';
+import { CHEMISTRY_CURRICULUM, CHEMISTRY_GRADE_ORDER } from '../src/lib/tags/data/chemistry';
 
 const prisma = new PrismaClient();
 

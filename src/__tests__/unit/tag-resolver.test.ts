@@ -6,10 +6,10 @@ import type { Prisma } from '@prisma/client';
 
 vi.mock('@/lib/prisma', () => ({ prisma: {} }));
 
-vi.mock('@/lib/tag-recognition', () => ({ findParentTagIdForGrade: vi.fn() }));
+vi.mock('@/lib/tags/tag-recognition', () => ({ findParentTagIdForGrade: vi.fn() }));
 
-import { findParentTagIdForGrade } from '@/lib/tag-recognition';
-import { resolveOrCreateTags, inferTagScope } from '@/lib/tag-resolver';
+import { findParentTagIdForGrade } from '@/lib/tags/tag-recognition';
+import { resolveOrCreateTags, inferTagScope } from '@/lib/tags/tag-resolver';
 
 const findParentTagIdForGradeMock = vi.mocked(findParentTagIdForGrade);
 

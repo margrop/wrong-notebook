@@ -6,7 +6,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { BIOLOGY_CURRICULUM, BIOLOGY_GRADE_ORDER } from '../src/lib/tag-data/biology';
+import { BIOLOGY_CURRICULUM, BIOLOGY_GRADE_ORDER } from '../src/lib/tags/data/biology';
 
 const prisma = new PrismaClient();
 

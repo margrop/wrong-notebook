@@ -6,7 +6,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { ENGLISH_CURRICULUM, ENGLISH_GRADE_ORDER } from '../src/lib/tag-data/english';
+import { ENGLISH_CURRICULUM, ENGLISH_GRADE_ORDER } from '../src/lib/tags/data/english';
 
 const prisma = new PrismaClient();
 

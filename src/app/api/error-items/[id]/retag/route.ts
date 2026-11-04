@@ -5,7 +5,7 @@ import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
-import { previewRetagErrorItem, retagErrorItem } from "@/lib/retag";
+import { previewRetagErrorItem, retagErrorItem } from "@/lib/tags/retag";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
 import { retagSchema } from "@/lib/schemas/error-items";

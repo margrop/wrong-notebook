@@ -20,7 +20,7 @@ FROM deps AS db-builder
 ENV DATABASE_URL="file:/app/prisma/dev.db"
 COPY prisma ./prisma
 COPY scripts/rebuild-system-tags.ts scripts/seed-chinese-primary.ts scripts/seed-admin.js ./scripts/
-COPY src/lib/tag-data ./src/lib/tag-data
+COPY src/lib/tags/data ./src/lib/tags/data
 COPY src/lib/seed-chinese-tags.ts src/lib/error-message.ts src/lib/logger.ts src/lib/debug-log.ts ./src/lib/
 RUN npx tsc scripts/rebuild-system-tags.ts scripts/seed-chinese-primary.ts --outDir dist-scripts --esModuleInterop --resolveJsonModule --skipLibCheck --module commonjs --target ES2022 \
     && npx prisma migrate deploy \

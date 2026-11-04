@@ -4,7 +4,7 @@ import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { notFound, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { getRetagJob, startRetagJob } from "@/lib/retag";
+import { getRetagJob, startRetagJob } from "@/lib/tags/retag";
 import { consumeAiQuota } from "@/lib/ai-quota";
 
 const logger = createLogger('api:notebooks:retag');

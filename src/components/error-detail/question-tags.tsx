@@ -5,7 +5,7 @@ import { RetagItemButton } from "@/components/retag-item-button";
 import { TagInput } from "@/components/tag-input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
-import { inferSubjectFromName } from "@/lib/knowledge-tags";
+import { inferSubjectFromName } from "@/lib/tags/knowledge-tags";
 import { EditButton, SaveCancelButtons, SectionHeader } from "./edit-controls";
 import { getItemTags } from "./types";
 import type { ErrorItemDetail } from "./types";

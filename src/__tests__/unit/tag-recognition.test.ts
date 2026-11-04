@@ -6,7 +6,7 @@ import type { Prisma } from '@prisma/client';
 
 vi.mock('@/lib/prisma', () => ({ prisma: {} }));
 
-import { findParentTagIdForGrade } from '@/lib/tag-recognition';
+import { findParentTagIdForGrade } from '@/lib/tags/tag-recognition';
 
 const roots = ['一年级上', '一年级下', '七年级上', '七年级下', '高一上', '高二下', '高三'].map((name) => ({ id: `id-${name}`, name }));
 const findMany = vi.fn();

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getAIService } from "@/lib/ai";
 import { getMathTagsFromDB, getScopeTagsFromDB } from "@/lib/ai/tag-service";
-import { calculateGradeNumber } from "@/lib/knowledge-tags";
+import { calculateGradeNumber } from "@/lib/tags/knowledge-tags";
 import { calculateGrade } from "@/lib/grade-calculator";
 import { resolveNotebookScope, SUBJECT_DISPLAY_NAMES } from "@/lib/notebook-scope";
 import { createLogger } from "@/lib/logger";

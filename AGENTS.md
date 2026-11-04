@@ -21,7 +21,7 @@ wrong-notebook 是一个错题本 Web 应用：上传题目图片或文字，由
 | `src/components/` | React 组件；`ui/` 为基础组件 |
 | `src/lib/` | 业务逻辑与工具：`ai/`、`auth.ts`、`prisma.ts`、`logger.ts`、`api-errors.ts`、`translations.ts`（入口）等 |
 | `src/lib/i18n/` | 界面文案按语言拆分：`en.ts`、`zh.ts`，由 `src/lib/translations.ts` 汇总导出 |
-| `src/lib/tag-data/` | 各学科知识点标签数据 |
+| `src/lib/tags/data/` | 各学科知识点标签数据 |
 | `src/__tests__/unit`、`src/__tests__/integration` | Vitest 测试 |
 | `e2e/` | Playwright 测试 |
 | `prisma/` | `schema.prisma`、迁移、种子数据 |

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { seedStandardSubject } from '@/lib/tag-seed';
+import { seedStandardSubject } from '@/lib/tags/seed';
 
 /** 构造一个最小可用的 TransactionClient mock，记录 create 调用 */
 function createTxMock() {

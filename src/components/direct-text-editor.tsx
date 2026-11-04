@@ -12,7 +12,7 @@ import { TagInput } from "@/components/tag-input";
 import { NotebookSelector } from "@/components/notebook-selector";
 import { PaperGroupSelect } from "@/components/paper-group-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { inferSubjectFromName } from "@/lib/knowledge-tags";
+import { inferSubjectFromName } from "@/lib/tags/knowledge-tags";
 import type { MistakeStatus } from "@/lib/question/mistake-status";
 import { toast } from "@/lib/feedback";
 

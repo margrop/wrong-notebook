@@ -47,7 +47,7 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 // Mock knowledge-tags
-vi.mock('@/lib/knowledge-tags', () => ({
+vi.mock('@/lib/tags/knowledge-tags', () => ({
     normalizeTags: vi.fn((tags: string[]) => tags),
     normalizeTagsByGradeAndSubject: vi.fn((tags: string[]) => tags),
     calculateGradeNumber: vi.fn(() => 7),

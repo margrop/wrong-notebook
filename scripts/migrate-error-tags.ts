@@ -6,7 +6,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { findParentTagIdForGrade } from '../src/lib/tag-recognition';
+import { findParentTagIdForGrade } from '../src/lib/tags/tag-recognition';
 
 const prisma = new PrismaClient();
 
