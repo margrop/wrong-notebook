@@ -5,15 +5,9 @@ import { createLogger } from "@/lib/logger";
 import { startBackgroundTask } from "@/lib/background-tasks";
 import type { BackgroundTaskHandle } from "@/lib/background-tasks";
 import { createErrorResponse, ErrorCode } from "@/lib/api-errors";
-import { prepareImportGrade } from "@/lib/import-question-grade";
-import { needsQuestionGradeRecognition } from "@/lib/question-grade";
-import { generateUniqueShortId } from "@/lib/short-id";
-import { scheduleMasteryEvaluation } from "@/lib/mastery";
-import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from "@/lib/question-deduplication";
+import { importSchema, saveQuestionForUser } from "@/lib/question-save";
 import { parseDifficultyStars } from "@/lib/ai/schema";
-import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
 import { getErrorMessage } from "@/lib/error-message";
-import { resolveOrCreateTags, inferTagScope } from "@/lib/tag-resolver";
 
 const logger = createLogger('api:openclaw:batch-upload');
 
@@ -105,7 +99,7 @@ async function callOpenclawAgent(imageBase64: string, mimeType: string, timeout:
         return data;
     } catch (error) {
         clearTimeout(timeoutId);
-        
+
         if (error instanceof Error && error.name === 'AbortError') {
             logger.error('Openclaw agent timeout');
             return {
@@ -113,86 +107,13 @@ async function callOpenclawAgent(imageBase64: string, mimeType: string, timeout:
                 error: '识别服务超时',
             };
         }
-        
+
         logger.error({ error: getErrorMessage(error) }, 'Openclaw agent request failed');
         return {
             success: false,
             error: `识别服务请求失败: ${getErrorMessage(error)}`,
         };
     }
-}
-
-async function createErrorItem(
-    userId: string,
-    imageBase64: string,
-    mimeType: string,
-    parsedData: OpenclawResponse['data'],
-    finalGradeSemester: string | null,
-    subjectId?: string
-) {
-    const { questionText, answerText, analysis, knowledgePoints, errorType, source } = parsedData || {};
-    const difficultyStars = parseDifficultyStars(parsedData?.difficultyStars);
-
-    const content = {
-        questionText,
-        answerText,
-        analysis,
-        wrongAnswerText: parsedData?.wrongAnswerText,
-        mistakeAnalysis: parsedData?.mistakeAnalysis,
-        originalImageUrl: `data:${mimeType};base64,${imageBase64}`,
-    };
-    const result = await runQuestionImportTransaction(async (tx) => {
-        const duplicate = await findDuplicateQuestion(tx, userId, content);
-        if (duplicate) return recordDuplicateQuestion(tx, userId, duplicate, content);
-
-        const tagNames: string[] = Array.isArray(knowledgePoints) ? knowledgePoints : [];
-
-        const subject = subjectId ? await tx.subject.findUnique({ where: { id: subjectId } }) : null;
-        const { subjectKey, tagSet } = inferTagScope(subject);
-
-        const tagConnections = await resolveOrCreateTags(tx, {
-            userId,
-            tagNames,
-            subjectKey,
-            tagSet,
-            gradeSemester: finalGradeSemester,
-        });
-
-        // 事务内确保默认分组存在（并发安全），并解析默认卷别
-        await ensureDefaultPaperGroups(userId, tx);
-        const defaultPaperLevel = await getDefaultPaperLevelGroupId(userId, difficultyStars, tx);
-
-        const errorItem = await tx.errorItem.create({
-            data: {
-                shortId: await generateUniqueShortId(tx),
-                userId: userId,
-                subjectId: subjectId || undefined,
-                originalImageUrl: `data:${mimeType};base64,${imageBase64}`,
-                ocrText: questionText || null,
-                questionText: questionText || null,
-                answerText: answerText || null,
-                analysis: analysis || null,
-                knowledgePoints: JSON.stringify(tagNames),
-                gradeSemester: finalGradeSemester,
-                paperLevel: defaultPaperLevel,
-                difficultyStars,
-                errorType: errorType || null,
-                source: source || 'Openclaw',
-                masteryLevel: 0,
-                tags: {
-                    connect: tagConnections,
-                },
-            },
-            include: {
-                tags: true,
-                subject: true,
-            },
-        });
-
-        return errorItem;
-    });
-    if ('duplicate' in result && result.duplicate) scheduleMasteryEvaluation([result.id]);
-    return result;
 }
 
 export async function POST(req: Request) {
@@ -377,25 +298,47 @@ export async function POST(req: Request) {
             }
 
             try {
-                const gradeInput = {
-                    questionText: openclawResponse.data.questionText,
-                    recognizedGradeSemester: openclawResponse.data.gradeSemester,
-                };
-                const duplicateBeforeRecognition = needsQuestionGradeRecognition(dbUser, gradeInput)
-                    ? await findDuplicateQuestion(prisma, dbUser.id, gradeInput) : null;
-                const gradeResult = await prepareImportGrade(dbUser, gradeInput, duplicateBeforeRecognition !== null);
-                if (gradeResult.response) {
-                    results.push({ success: false, index: i, error: 'AI_DAILY_LIMIT_EXCEEDED' });
+                const parsed = openclawResponse.data;
+                const payload = importSchema.safeParse({
+                    questionText: parsed.questionText,
+                    answerText: parsed.answerText,
+                    analysis: parsed.analysis,
+                    wrongAnswerText: parsed.wrongAnswerText || null,
+                    mistakeAnalysis: parsed.mistakeAnalysis || null,
+                    knowledgePoints: Array.isArray(parsed.knowledgePoints) ? parsed.knowledgePoints : [],
+                    difficultyStars: parseDifficultyStars(parsed.difficultyStars),
+                    recognizedGradeSemester: parsed.gradeSemester ?? undefined,
+                    originalImageUrl: `data:${mimeType};base64,${base64}`,
+                    subjectId: subjectId || undefined,
+                });
+
+                if (!payload.success) {
+                    results.push({ success: false, index: i, error: `导入失败: 题目数据不合法` });
                     continue;
                 }
-                const errorItem = await createErrorItem(
-                    dbUser.id,
-                    base64,
-                    mimeType,
-                    openclawResponse.data,
-                    gradeResult.gradeSemester,
-                    subjectId
-                );
+
+                const response = await saveQuestionForUser(dbUser, payload.data, {
+                    extraErrorItemData: {
+                        ocrText: parsed.questionText || null,
+                        errorType: parsed.errorType || null,
+                        source: parsed.source || 'Openclaw',
+                    },
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.json().catch(() => ({}));
+                    const message = typeof errorBody === 'object' && errorBody !== null && 'message' in errorBody
+                        ? String((errorBody as { message?: unknown }).message)
+                        : 'QUESTION_SAVE_FAILED';
+                    results.push({
+                        success: false,
+                        index: i,
+                        error: message === 'AI_DAILY_LIMIT_EXCEEDED' ? 'AI_DAILY_LIMIT_EXCEEDED' : `导入失败: ${message}`,
+                    });
+                    continue;
+                }
+
+                const errorItem = await response.json();
 
                 results.push({
                     success: true,
@@ -427,10 +370,10 @@ export async function POST(req: Request) {
         if (successCount === 0) currentTask.fail('ALL_FAILED');
         else currentTask.succeed();
 
-        logger.info({ 
-            total: results.length, 
-            success: successCount, 
-            failed: failCount 
+        logger.info({
+            total: results.length,
+            success: successCount,
+            failed: failCount
         }, 'Batch upload completed');
 
         const statusCode = failCount === 0 ? 201 : 207;

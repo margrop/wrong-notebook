@@ -54,6 +54,8 @@ export type ImportQuestionInput = z.infer<typeof importSchema>;
 export interface SaveQuestionOptions {
     /** 在写入错题（或重复题的做错记录）的同一数据库事务内执行；抛错时整笔回滚 */
     afterWrite?: (tx: Prisma.TransactionClient, saved: { id: string; duplicate: boolean }) => Promise<void>;
+    /** 追加到 ErrorItem 创建数据中的额外字段（如 ocrText、errorType、source），与默认字段不冲突时使用 */
+    extraErrorItemData?: Partial<Prisma.ErrorItemUncheckedCreateInput>;
 }
 
 /**
@@ -173,6 +175,7 @@ async function saveQuestion(user: User, body: ImportQuestionInput, options: Save
                     figureAlign: body.figureAlign,
                     geogebraCommands: geogebraCommands || null,
                     masteryLevel: 0,
+                    ...options.extraErrorItemData,
                     tags: {
                         connect: tagConnections,
                     },
