@@ -22,6 +22,7 @@ import { sanitizeFigureSvg } from "@/lib/figure-svg";
 import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import { normalizeCustomAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import { sanitizeSvgAnimation } from "@/lib/svg-animation";
+import { normalizeQuestionType } from "@/lib/question/question-type";
 import { EXAM_DIFFICULTIES, EXAM_MODES, EXAM_SCOPES } from "@/lib/exam/exam";
 import { isPracticeResult } from "@/lib/mastery";
 
@@ -93,6 +94,7 @@ export interface NormalizedErrorItem {
     lastPractice: string | null;
     createdAt: Date | undefined;
     updatedAt: Date | undefined;
+    questionType: string | null;
 }
 
 /** 规范化的试卷：枚举与日期字段已按导入侧取值 */
@@ -161,6 +163,7 @@ function normalizeErrorItem(item: ImportedBackupErrorItem): NormalizedErrorItem 
         lastPractice: safeLastPractice(item.lastPractice),
         createdAt: safeParseDate(item.createdAt),
         updatedAt: safeParseDate(item.updatedAt),
+        questionType: normalizeQuestionType(item.questionType),
     };
 }
 

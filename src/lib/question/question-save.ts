@@ -19,6 +19,7 @@ import { scheduleMasteryEvaluation } from "@/lib/mastery";
 import type { QuestionSaveOrigin } from "@/lib/question/question-save-hooks";
 import { QUESTION_SAVE_HOOKS } from "@/lib/question/question-save-hooks";
 import { getErrorMessage } from "@/lib/error-message";
+import { normalizeQuestionType } from "@/lib/question/question-type";
 import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from "@/lib/question/question-deduplication";
 import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
@@ -49,6 +50,8 @@ export const importSchema = z.object({
     figureScale: z.number().int().min(MIN_FIGURE_SCALE).max(MAX_FIGURE_SCALE).default(DEFAULT_FIGURE_SCALE),
     figureAlign: z.enum(FIGURE_ALIGNS).default(DEFAULT_FIGURE_ALIGN),
     geogebraCommands: z.string().nullish(),
+    // 宽松接受：无法识别的题型在保存时规范化为 null，不因此拒绝整题
+    questionType: z.string().max(200).nullish(),
 });
 
 export type ImportQuestionInput = z.infer<typeof importSchema>;
@@ -117,6 +120,8 @@ async function saveQuestionInner(user: User, body: ImportQuestionInput, options:
         difficultyStars,
         geogebraCommands,
     } = body;
+    // 题型规范化：无法识别时存 null
+    const questionType = normalizeQuestionType(body.questionType);
     // 配图 SVG 入库前再净化一次，无效时丢弃
     const figureSvg = sanitizeFigureSvg(body.figureSvg);
     const hasFigure = !!body.hasFigure || figureSvg !== null;
@@ -208,6 +213,7 @@ async function saveQuestionInner(user: User, body: ImportQuestionInput, options:
                     figureScale: body.figureScale,
                     figureAlign: body.figureAlign,
                     geogebraCommands: geogebraCommands || null,
+                    questionType,
                     masteryLevel: 0,
                     ...options.extraErrorItemData,
                     tags: {

@@ -883,6 +883,23 @@ export const zh = {
             selectFile: "选择文件",
             noFileSelected: "未选择文件",
         },
+        questionType: {
+            label: "题型",
+            notSet: "未设置",
+            clear: "清除",
+            names: {
+                single_choice: "单选题",
+                multiple_choice: "多选题",
+                true_false: "判断题",
+                fill_blank: "填空题",
+                calculation: "计算题",
+                solution: "解答题",
+                reading: "阅读理解",
+                cloze: "完形填空",
+                writing: "写作",
+                other: "其他",
+            } as Record<string, string>,
+        },
         questionSave: {
             invalidField: "{field}填写有误，请检查后重新保存。",
             tooLong: "{field}最多允许 {maximum} 个字符，请缩短后重新保存。",

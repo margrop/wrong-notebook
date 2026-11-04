@@ -95,6 +95,7 @@ export interface ErrorItem {
     figureScale?: number;            // 配图显示与打印比例，默认 100%
     figureAlign?: 'left' | 'center' | 'right' | string; // 配图显示与打印位置，默认 center
     answerSpacePx?: number | null;   // 打印时手动设置的题下留白（px），为空时按全局档位
+    questionType?: string | null;    // 题型，取值来自 question-type.ts
 
     createdAt: string;
     updatedAt: string;
@@ -103,7 +104,7 @@ export interface ErrorItem {
 /** 列表卡片数据；不包含原图、解答和动画等详情字段。 */
 export type ErrorItemSummary = Pick<ErrorItem,
     'id' | 'shortId' | 'questionText' | 'mistakeStatus' | 'knowledgePoints' |
-    'difficultyStars' | 'masteryStatus' | 'masteryProbability' | 'createdAt'
+    'difficultyStars' | 'masteryStatus' | 'masteryProbability' | 'createdAt' | 'questionType'
 > & { tags?: Pick<Tag, 'name'>[] };
 
 /** 打印所需内容，独立于完整详情与列表卡片的数据类型。 */

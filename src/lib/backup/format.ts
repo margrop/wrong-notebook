@@ -8,7 +8,7 @@ import { z } from "zod";
  */
 
 /** 当前备份文件版本号 */
-export const BACKUP_VERSION = 8;
+export const BACKUP_VERSION = 9;
 
 /** 备份文件中的用户对象 */
 export interface BackupUser {
@@ -115,6 +115,8 @@ export interface BackupErrorItem {
     figureAlign?: string;
     /** version 4 起导出，旧版备份缺省为按全局留白档位 */
     answerSpacePx?: number | null;
+    /** version 9 起导出，旧版备份缺省为 null */
+    questionType?: string | null;
     /** 以下字段 version 2 起导出 */
     geogebraCommands?: string | null;
     svgAnimation?: string | null;

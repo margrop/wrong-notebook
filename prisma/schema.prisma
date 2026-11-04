@@ -136,6 +136,8 @@ model ErrorItem {
   mistakeAnalysis  String? // Analysis of why the wrong answer happened
   mistakeStatus    String? // not_attempted, wrong_attempt, unknown
   knowledgePoints  String? // [DEPRECATED] JSON string - kept for migration only
+  // 题型，取值来自 src/lib/question/question-type.ts 的 QUESTION_TYPES
+  questionType     String?
   geogebraCommands String? // GeoGebra commands for interactive demo (JSON or newline-separated)
   svgAnimation     String? // AI 生成的 SVG 动画讲解（已净化），中文版
   svgAnimationEn   String? // 英文版 SVG 动画讲解（已净化），界面为英文时使用

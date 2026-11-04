@@ -108,6 +108,7 @@ describe('真实 Prisma 数据库迁移', () => {
                 expect.objectContaining({ name: 'figureScale', dflt_value: '100' }),
                 expect.objectContaining({ name: 'figureAlign', dflt_value: "'center'" }),
                 expect.objectContaining({ name: 'answerSpacePx', notnull: 0, dflt_value: null }),
+                expect.objectContaining({ name: 'questionType', notnull: 0, dflt_value: null }),
             ]));
         expect(database!.prepare('PRAGMA table_info("ExamQuestion")').all())
             .toEqual(expect.arrayContaining([
@@ -128,7 +129,8 @@ describe('真实 Prisma 数据库迁移', () => {
         openDatabase();
         seedLegacyData();
         if (hasScale) database!.exec('UPDATE "ErrorItem" SET figureScale=65');
-        const beforeItems = rows('ErrorItem');
+        interface LegacyRow { [key: string]: unknown; userId?: string; paperLevel?: string; id?: string; }
+        const beforeItems = rows('ErrorItem').map((row) => ({ ...(row as LegacyRow), questionType: (row as LegacyRow).questionType ?? null }));
         const beforeRelated = relatedTables.map((table) => rows(table).map((row) => {
             if (table === 'Subject' || table === 'KnowledgeTag') return { ...row, tagSet: row.tagSet ?? 'default' };
             if (table === 'ExamQuestion') return { ...row, figureScale: row.figureScale ?? 100, figureAlign: row.figureAlign ?? 'center', answerSpacePx: null };
@@ -169,7 +171,8 @@ describe('真实 Prisma 数据库迁移', () => {
             INSERT INTO "ErrorItem" (id, userId, originalImageUrl, paperLevel, figureScale, updatedAt)
                 VALUES ('existing-item', 'existing-user', 'original', 'custom-group', 175, '2026-10-01');
         `);
-        const beforeItems = rows('ErrorItem').map((item) => ({ ...item, figureAlign: 'center', answerSpacePx: null }));
+        interface LegacyRow { [key: string]: unknown; questionType?: unknown; }
+        const beforeItems = rows('ErrorItem').map((item) => ({ ...(item as LegacyRow), figureAlign: 'center', answerSpacePx: null, questionType: (item as LegacyRow).questionType ?? null }));
         const beforeGroups = rows('PaperGroup');
         closeDatabase();
 

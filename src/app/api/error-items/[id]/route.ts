@@ -10,6 +10,7 @@ import { normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
 import { getDefaultPaperLevelGroupId } from "@/lib/paper-level";
 import { isValidFigureAlign, isValidFigureScale } from "@/lib/figure-scale";
 import { updateErrorItemSchema } from "@/lib/schemas/error-items";
+import { normalizeQuestionType } from "@/lib/question/question-type";
 
 const logger = createLogger('api:error-items:id');
 
@@ -53,7 +54,7 @@ export const PUT = withUser(async (req: Request, { user, params }: RouteContext 
         if (!parsed.success) {
             return validationError("Invalid request body", parsed.error.issues);
         }
-        const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands, difficultyStars } = parsed.data;
+        const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands, difficultyStars, questionType } = parsed.data;
         const { figureScale, figureAlign } = parsed.data;
         if (figureScale !== undefined && !isValidFigureScale(figureScale)) {
             return badRequest("figureScale must be an integer from 10 to 200");
@@ -65,6 +66,19 @@ export const PUT = withUser(async (req: Request, { user, params }: RouteContext 
         if (difficultyStars !== undefined && difficultyStars !== null
             && !(Number.isInteger(difficultyStars) && difficultyStars >= 1 && difficultyStars <= 5)) {
             return badRequest("difficultyStars must be an integer from 1 to 5");
+        }
+        // 题型：null 或空串表示清除，无法识别时返回 400
+        let normalizedQuestionType: string | null | undefined;
+        if (questionType !== undefined) {
+            if (questionType === null || questionType.trim() === '') {
+                normalizedQuestionType = null;
+            } else {
+                const normalized = normalizeQuestionType(questionType);
+                if (!normalized) {
+                    return badRequest("Invalid questionType");
+                }
+                normalizedQuestionType = normalized;
+            }
         }
 
         const errorItem = await prisma.errorItem.findUnique({
@@ -123,6 +137,7 @@ export const PUT = withUser(async (req: Request, { user, params }: RouteContext 
         }
         if (geogebraCommands !== undefined) updateData.geogebraCommands = geogebraCommands || null;
         if (difficultyStars !== undefined) updateData.difficultyStars = difficultyStars;
+        if (normalizedQuestionType !== undefined) updateData.questionType = normalizedQuestionType;
 
         logger.info({ id }, 'Updating error item');
 

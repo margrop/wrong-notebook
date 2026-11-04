@@ -16,6 +16,7 @@ export const updateErrorItemSchema = z.object({
     mistakeStatus: z.string().nullable().optional(),
     geogebraCommands: z.string().nullable().optional(),
     difficultyStars: z.number().int().min(1).max(5).nullable().optional(),
+    questionType: z.string().max(200).nullable().optional(),
     figureScale: z.number().optional().refine(
         (value) => value === undefined || isValidFigureScale(value),
         { message: "figureScale must be an integer from 10 to 200" },

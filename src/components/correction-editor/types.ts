@@ -6,6 +6,7 @@ export interface CorrectionDraft extends ParsedQuestion {
     gradeSemester?: string | null;
     paperLevel?: string;
     geogebraCommands?: string;
+    questionType?: string | null;
 }
 
 export type UpdateDraft = (fields: Partial<CorrectionDraft>) => void;

@@ -185,9 +185,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 8 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
+    it('导出文件使用第 9 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(8);
+        expect(backup.version).toBe(9);
         expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
@@ -252,6 +252,30 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(item.figureScale).toBe(100);
         expect(item.figureAlign).toBe('center');
         expect(item.figureSvg).toBe(figure);
+    });
+
+    it('题型字段随备份往返，旧版文件没有该字段时导入为 null', async () => {
+        await database.errorItem.update({ where: { id: 'item-1' }, data: { questionType: 'fill_blank' } });
+        const backup = await exportBackup();
+        const backupItem = backup.errorItems.find((item: { id: string }) => item.id === 'item-1');
+        expect(backupItem.questionType).toBe('fill_blank');
+        expect(backup.errorItems.find((item: { id: string }) => item.id === 'item-2').questionType ?? null).toBeNull();
+
+        await clearUserData();
+        await importBackup(backup);
+        const restored = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1', shortId: 'AbC234' } });
+        expect(restored.questionType).toBe('fill_blank');
+
+        // 模拟旧版备份：去掉 questionType 字段
+        const legacyBackup = await exportBackup();
+        legacyBackup.version = 8;
+        for (const item of legacyBackup.errorItems) {
+            delete item.questionType;
+        }
+        await clearUserData();
+        await importBackup(legacyBackup);
+        const legacyItem = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1', shortId: 'AbC234' } });
+        expect(legacyItem.questionType).toBeNull();
     });
 
     it.each([undefined, null, -1, 601, 50.5, '120'])('旧备份或非法单题留白 %s 导入为空，按全局留白档位', async (answerSpacePx) => {

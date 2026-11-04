@@ -368,6 +368,40 @@ describe('/api/error-items', () => {
             expect(mocks.mockPrismaErrorItem.create.mock.calls[1][0].data).toMatchObject({ hasFigure: false, figureSvg: null });
         });
 
+        it.each(['single_choice', 'solution', 'calculation', 'reading'])('创建时保留标准题型 key %s', async (questionType) => {
+            mocks.mockPrismaErrorItem.create.mockResolvedValue({ id: 'error-item-1', userId: 'user-123' });
+            const response = await POST(new Request('http://localhost/api/error-items', {
+                method: 'POST',
+                body: JSON.stringify({ questionText: '新题', questionType }),
+            }));
+            expect(response.status).toBe(201);
+            expect(mocks.mockPrismaErrorItem.create.mock.calls[0][0].data.questionType).toBe(questionType);
+        });
+
+        it('创建时把中文题型别名规范化为标准 key', async () => {
+            mocks.mockPrismaErrorItem.create.mockResolvedValue({ id: 'error-item-1', userId: 'user-123' });
+            const response = await POST(new Request('http://localhost/api/error-items', {
+                method: 'POST',
+                body: JSON.stringify({ questionText: '新题', questionType: '填空题' }),
+            }));
+            expect(response.status).toBe(201);
+            expect(mocks.mockPrismaErrorItem.create.mock.calls[0][0].data.questionType).toBe('fill_blank');
+        });
+
+        it('创建时未提供题型或无法识别时存 null', async () => {
+            mocks.mockPrismaErrorItem.create.mockResolvedValue({ id: 'error-item-1', userId: 'user-123' });
+            await POST(new Request('http://localhost/api/error-items', {
+                method: 'POST',
+                body: JSON.stringify({ questionText: '新题' }),
+            }));
+            await POST(new Request('http://localhost/api/error-items', {
+                method: 'POST',
+                body: JSON.stringify({ questionText: '新题', questionType: '未知题型' }),
+            }));
+            expect(mocks.mockPrismaErrorItem.create.mock.calls[0][0].data.questionType).toBeNull();
+            expect(mocks.mockPrismaErrorItem.create.mock.calls[1][0].data.questionType).toBeNull();
+        });
+
         it('未提供难度星级时保存为空', async () => {
             mocks.mockPrismaErrorItem.create.mockResolvedValue({ id: 'error-item-1', userId: 'user-123' });
 
@@ -378,6 +412,8 @@ describe('/api/error-items', () => {
 
             expect(mocks.mockPrismaErrorItem.create.mock.calls[0][0].data.difficultyStars).toBeNull();
         });
+
+
 
         it('应该成功创建错题并关联到科目', async () => {
             const errorItemData = {
@@ -740,6 +776,30 @@ describe('/api/error-items', () => {
                 expect((await put(value)).status).toBe(400);
             }
             expect(mocks.mockPrismaErrorItem.update).toHaveBeenCalledTimes(2);
+        });
+
+        it('可以修改和清空题型，无法识别的题型返回 400', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({ id: 'error-item-1', userId: 'user-123', questionType: null });
+            mocks.mockPrismaErrorItem.update.mockResolvedValue({ id: 'error-item-1', userId: 'user-123' });
+            const put = (questionType: unknown) => PUT(new Request('http://localhost/api/error-items/error-item-1', {
+                method: 'PUT',
+                body: JSON.stringify({ questionType }),
+            }), { params: Promise.resolve({ id: 'error-item-1' }) });
+
+            expect((await put('single_choice')).status).toBe(200);
+            expect(mocks.mockPrismaErrorItem.update.mock.calls[0][0].data.questionType).toBe('single_choice');
+            // 中文别名也可识别
+            expect((await put('填空题')).status).toBe(200);
+            expect(mocks.mockPrismaErrorItem.update.mock.calls[1][0].data.questionType).toBe('fill_blank');
+            expect((await put(null)).status).toBe(200);
+            expect(mocks.mockPrismaErrorItem.update.mock.calls[2][0].data.questionType).toBeNull();
+            // 空串与 null 一样表示清除
+            expect((await put('')).status).toBe(200);
+            expect(mocks.mockPrismaErrorItem.update.mock.calls[3][0].data.questionType).toBeNull();
+            for (const value of ['unknown_type', 123, {}]) {
+                expect((await put(value)).status).toBe(400);
+            }
+            expect(mocks.mockPrismaErrorItem.update).toHaveBeenCalledTimes(4);
         });
 
         it('字段类型非法时返回 400', async () => {

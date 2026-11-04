@@ -884,6 +884,23 @@ export const en = {
             selectFile: "Select File",
             noFileSelected: "No file selected",
         },
+        questionType: {
+            label: "Question Type",
+            notSet: "Not set",
+            clear: "Clear",
+            names: {
+                single_choice: "Single Choice",
+                multiple_choice: "Multiple Choice",
+                true_false: "True / False",
+                fill_blank: "Fill in the Blank",
+                calculation: "Calculation",
+                solution: "Solution",
+                reading: "Reading Comprehension",
+                cloze: "Cloze",
+                writing: "Writing",
+                other: "Other",
+            } as Record<string, string>,
+        },
         questionSave: {
             invalidField: "{field} is invalid. Please check it and try again.",
             tooLong: "{field} must contain at most {maximum} characters.",

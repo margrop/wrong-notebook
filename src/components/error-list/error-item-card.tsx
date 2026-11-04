@@ -71,6 +71,11 @@ export function ErrorItemCard({ item, selectMode, selected, onToggleSelect, sele
                     <CardContent>
                         <QuestionSummary text={item.questionText} maxLength={SUMMARY_LENGTH} className="text-sm line-clamp-3" />
                         <div className="flex flex-wrap items-center gap-2 mt-3">
+                            {item.questionType && (
+                                <Badge variant="outline" className="text-xs bg-background">
+                                    {t.questionType.names?.[item.questionType] || item.questionType}
+                                </Badge>
+                            )}
                             <Badge variant="secondary" className="text-xs">
                                 {getMistakeStatusLabel(item.mistakeStatus, language)}
                             </Badge>
