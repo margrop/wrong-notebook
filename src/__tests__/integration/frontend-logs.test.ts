@@ -58,4 +58,11 @@ describe('POST /api/logs/frontend', () => {
         expect(mocks.logger.info).toHaveBeenCalledTimes(50);
         expect(mocks.logger.info.mock.calls[0][1]).toHaveLength(2000);
     });
+
+    it('非法请求体返回 400', async () => {
+        const response = await POST(makeRequest(null));
+
+        expect(response.status).toBe(400);
+        expect(mocks.logger.info).not.toHaveBeenCalled();
+    });
 });

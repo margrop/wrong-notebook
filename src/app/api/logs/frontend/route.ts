@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createLogger } from '@/lib/logger';
 import { withUser } from '@/lib/api-handler';
 import type { AuthenticatedContext } from '@/lib/api-handler';
+import { badRequest } from '@/lib/api-errors';
+import { frontendLogsSchema, parseFrontendLogEntry } from '@/lib/schemas/logs';
 
 const logger = createLogger('frontend-logs');
 
@@ -11,20 +13,6 @@ const MAX_MESSAGE_LENGTH = 2000;
 
 export const runtime = 'nodejs';
 
-interface FrontendLogEntry {
-  level: 'info' | 'warn' | 'error';
-  prefix: string;
-  message: string;
-  context?: Record<string, unknown>;
-  timestamp: string;
-  url?: string;
-  userAgent?: string;
-}
-
-interface BatchLogRequest {
-  logs: FrontendLogEntry[];
-}
-
 /**
  * POST /api/logs/frontend
  *
@@ -33,14 +21,24 @@ interface BatchLogRequest {
  */
 export const POST = withUser(async (request: Request, { user }: AuthenticatedContext) => {
   try {
-    const body = await request.json() as Partial<BatchLogRequest> & FrontendLogEntry;
+    const rawBody: unknown = await request.json().catch(() => null);
+    const parsed = frontendLogsSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return badRequest('Invalid log payload');
+    }
 
     // 支持批量日志格式 { logs: [...] } 和单条日志格式
-    const logs: FrontendLogEntry[] = (Array.isArray(body.logs) ? body.logs : [body]).slice(0, MAX_LOGS_PER_REQUEST);
+    const rawLogs: unknown[] = Array.isArray(parsed.data.logs)
+      ? parsed.data.logs
+      : [parsed.data];
+    const logs = rawLogs.slice(0, MAX_LOGS_PER_REQUEST);
 
-    for (const entry of logs) {
+    for (const raw of logs) {
+      const entry = parseFrontendLogEntry(raw);
+      if (!entry) continue;
+
       const { level, prefix, context = {}, timestamp, url, userAgent } = entry;
-      const message = String(entry.message ?? '').slice(0, MAX_MESSAGE_LENGTH);
+      const message = entry.message.slice(0, MAX_MESSAGE_LENGTH);
 
       // Build log context
       const logContext = {
