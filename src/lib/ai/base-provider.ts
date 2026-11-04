@@ -11,6 +11,7 @@ import { parseGradeRecognition, parseMasteryEvaluation, parseAnswerGrading, norm
 import { extractTag, parseQuestionResponse, splitKnowledgePoints } from './response-parser';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
+import { parseErrorCode } from './error-classification';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
 import { parseRecognizedGrade } from '../question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
@@ -65,34 +66,9 @@ export abstract class BaseAIProvider implements AIService {
             if (error.message.startsWith('AI_RESPONSE_ERROR:')) {
                 throw error;
             }
-            const msg = error.message.toLowerCase();
-            if (msg.includes('fetch failed') || msg.includes('network') || msg.includes('connect')) {
-                throw new Error("AI_CONNECTION_FAILED", { cause: error });
-            }
-            if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('aborted') || msg.includes('408')) {
-                throw new Error("AI_TIMEOUT_ERROR", { cause: error });
-            }
-            if (msg.includes('quota') || msg.includes('额度') || msg.includes('rate limit') || msg.includes('429') || msg.includes('too many')) {
-                throw new Error("AI_QUOTA_EXCEEDED", { cause: error });
-            }
-            if (msg.includes('403') || msg.includes('forbidden') || msg.includes('permission')) {
-                throw new Error("AI_PERMISSION_DENIED", { cause: error });
-            }
-            if (msg.includes('404') || msg.includes('not found') || msg.includes('does not exist')) {
-                throw new Error("AI_NOT_FOUND", { cause: error });
-            }
-            if (msg.includes('500') || msg.includes('502') || msg.includes('503') || msg.includes('504') ||
-                msg.includes('无可用') || msg.includes('overloaded') || msg.includes('unavailable')) {
-                throw new Error("AI_SERVICE_UNAVAILABLE", { cause: error });
-            }
-            if (msg.includes('invalid json') || msg.includes('parse')) {
-                throw new Error("AI_RESPONSE_ERROR", { cause: error });
-            }
-            if (msg.includes('api key') || msg.includes('unauthorized') || msg.includes('401')) {
-                throw new Error("AI_AUTH_ERROR", { cause: error });
-            }
         }
-        throw new Error("AI_UNKNOWN_ERROR", { cause: error });
+        const code = parseErrorCode(error);
+        throw new Error(code, { cause: error });
     }
 
     async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: GradeLevel | null, subject?: string | null, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ParsedQuestion> {

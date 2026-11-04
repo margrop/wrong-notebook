@@ -5,6 +5,7 @@ import { BaseAIProvider } from './base-provider';
 import { createLogger } from '../logger';
 import { trimTrailingSlashes } from '../utils';
 import { withModelOutputLimit } from './truncation';
+import { parseErrorCode } from './error-classification';
 
 const logger = createLogger('ai:anthropic');
 
@@ -157,18 +158,7 @@ export class AnthropicProvider extends BaseAIProvider {
             if (status >= 500) throw new Error("AI_SERVICE_UNAVAILABLE", { cause: error }); // 含 529 overloaded
         }
 
-        if (error instanceof Error) {
-            const msg = error.message.toLowerCase();
-            if (msg.includes('fetch failed') || msg.includes('network') || msg.includes('connect')) {
-                throw new Error("AI_CONNECTION_FAILED", { cause: error });
-            }
-            if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('aborted')) {
-                throw new Error("AI_TIMEOUT_ERROR", { cause: error });
-            }
-            if (msg.includes('invalid json') || msg.includes('parse') || msg.includes('json') || msg.includes('missing critical xml')) {
-                throw new Error("AI_RESPONSE_ERROR", { cause: error });
-            }
-        }
-        throw new Error("AI_UNKNOWN_ERROR", { cause: error });
+        const code = parseErrorCode(error);
+        throw new Error(code, { cause: error });
     }
 }

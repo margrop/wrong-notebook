@@ -1,6 +1,9 @@
 /**
- * AI 错误消息 → 标准化错误代码的归类逻辑。
+ * AI 错误消息 → 标准化错误代码的单一归类逻辑。
  * 前端负责翻译错误码显示给用户。
+ *
+ * 规则来源：合并 base-provider.ts handleError、anthropic-provider.ts handleError
+ * 与 ai/test 路由 parseErrorCode 的关键词匹配，取最完整并集。
  */
 
 const AI_ERROR_CODES = [
@@ -8,6 +11,15 @@ const AI_ERROR_CODES = [
     'AI_PERMISSION_DENIED', 'AI_NOT_FOUND', 'AI_RESPONSE_ERROR',
     'AI_AUTH_ERROR', 'AI_SERVICE_UNAVAILABLE', 'AI_UNKNOWN_ERROR'
 ] as const;
+
+export type AIErrorCode = typeof AI_ERROR_CODES[number];
+
+/**
+ * 判断错误消息中是否已包含标准 AI 错误码（AI Provider 已归类过）。
+ */
+export function isAIErrorCode(msg: string): boolean {
+    return AI_ERROR_CODES.some(code => msg.includes(code));
+}
 
 /**
  * 解析错误并返回标准化错误代码。
@@ -31,11 +43,11 @@ export function parseErrorCode(error: unknown): string {
         return 'AI_AUTH_ERROR';
     }
     // 权限错误
-    if (msgLower.includes('403') || msgLower.includes('forbidden')) {
+    if (msgLower.includes('403') || msgLower.includes('forbidden') || msgLower.includes('permission')) {
         return 'AI_PERMISSION_DENIED';
     }
     // 资源不存在 / 模型不存在 / 404
-    if (msgLower.includes('404') || msgLower.includes('not found')) {
+    if (msgLower.includes('404') || msgLower.includes('not found') || msgLower.includes('does not exist')) {
         return 'AI_NOT_FOUND';
     }
     // 频率限制 / 配额
@@ -53,11 +65,12 @@ export function parseErrorCode(error: unknown): string {
         return 'AI_TIMEOUT_ERROR';
     }
     // 服务器错误
-    if (msgLower.includes('500') || msgLower.includes('502') || msgLower.includes('503') || msgLower.includes('504') || msgLower.includes('overloaded')) {
-        return 'AI_UNKNOWN_ERROR';
+    if (msgLower.includes('500') || msgLower.includes('502') || msgLower.includes('503') || msgLower.includes('504') ||
+        msgLower.includes('无可用') || msgLower.includes('overloaded') || msgLower.includes('unavailable')) {
+        return 'AI_SERVICE_UNAVAILABLE';
     }
     // AI 响应格式错误
-    if (msgLower.includes('invalid json') || msgLower.includes('parse') || msgLower.includes('missing critical xml')) {
+    if (msgLower.includes('invalid json') || msgLower.includes('parse') || msgLower.includes('json') || msgLower.includes('missing critical xml')) {
         return 'AI_RESPONSE_ERROR';
     }
 
