@@ -30,11 +30,11 @@ type OpenAIUserContent = string | Array<
 >;
 
 export class OpenAIProvider extends BaseAIProvider implements AIService {
-    protected readonly providerName = 'OpenAI';
-    private openai: OpenAI;
-    private model: string;
-    private baseURL: string;
-    private apiKey: string;
+    protected readonly providerName: string = 'OpenAI';
+    protected openai: OpenAI;
+    protected model: string;
+    protected baseURL: string;
+    protected apiKey: string;
     private isLongCat: boolean;
 
     constructor(config?: AIConfig) {
@@ -46,24 +46,38 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
             throw new Error("AI_AUTH_ERROR: OPENAI_API_KEY is required for OpenAI provider");
         }
 
-        this.openai = new OpenAI({
-            apiKey: apiKey,
-            baseURL: baseURL || undefined,
-            defaultHeaders: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            },
-        });
-
         this.model = config?.model || DEFAULT_OPENAI_MODEL;
         this.baseURL = baseURL || 'https://api.openai.com/v1';
         this.apiKey = apiKey;
         this.isLongCat = this.baseURL.includes('longcat.chat');
+        this.openai = this.createClient(config);
 
         logger.info({
             provider: 'OpenAI',
             model: this.model,
             baseURL: this.baseURL
         }, 'AI Provider initialized');
+    }
+
+    /** 创建 SDK 客户端；Azure 等子类可覆盖以使用其他 OpenAI 兼容客户端 */
+    protected createClient(config: AIConfig): OpenAI {
+        return new OpenAI({
+            apiKey: this.apiKey,
+            baseURL: config?.baseUrl || undefined,
+            defaultHeaders: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
+        });
+    }
+
+    /** 请求体中的 model 字段（Azure 使用 deployment 名称） */
+    protected get requestModel(): string {
+        return this.model;
+    }
+
+    /** withModelOutputLimit 使用的模型名（Azure 使用显示名而非 deployment） */
+    protected get outputLimitModel(): string {
+        return this.model;
     }
 
     private adaptMessagesForLongCat(messages: LongCatMessage[]): LongCatMessage[] {
@@ -145,7 +159,7 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
                 }
 
                 return await res.json() as ChatCompletion;
-            }, this.model);
+            }, this.outputLimitModel);
 
             const text = response.choices?.[0]?.message?.content || '';
             if (!text) throw new Error("Empty response from AI");
@@ -153,13 +167,13 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
         }
 
         const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-            model: this.model,
+            model: this.requestModel,
             messages: [
                 { role: "system", content: request.system },
                 { role: "user", content: userContent },
             ],
             max_tokens: maxTokens,
-        }), this.model);
+        }), this.outputLimitModel);
 
         // analyze/similar/reanswer 对空 choices 抛 AI_RESPONSE_ERROR，其余任务按空响应处理（AI_UNKNOWN_ERROR）
         if (request.task === 'analyze' || request.task === 'similar' || request.task === 'reanswer') {

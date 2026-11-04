@@ -1,31 +1,9 @@
 import { AzureOpenAI } from "openai";
-import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
-import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateReanswerRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest, generateTextFixRequest } from './prompt-requests';
-import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
-import type { NarrationSegment } from '../svg-animation';
-import { parseLatexFix } from './latex-fix';
-import type { LatexFixInput, LatexFixResult } from './latex-fix';
-import { getAppConfig } from '../config';
-import { parseGradeRecognition, parseMasteryEvaluation, parseAnswerGrading, normalizeSubject, parseTagSuggestion, parseDifficultyStars, parseFigure } from './schema';
-import { extractTag, parseQuestionResponse, splitKnowledgePoints } from './response-parser';
-import { prefetchSubjectTags } from './tag-service';
-import { createLogger } from '../logger';
-import { AI_OUTPUT_TRUNCATED, withModelOutputLimit } from './truncation';
-import { normalizeMistakeStatusForSave } from '../mistake-status';
-import { parseRecognizedGrade } from '../question-grade';
-import { normalizeGeneratedQuestion } from './generated-question';
-import { normalizeAiQuestionTags } from './knowledge-points';
-import { AI_IMAGE_NOT_SUPPORTED, isImageUnsupportedError, parseQuestionSplit } from './question-split';
-import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
-import { parseTextFix } from './text-fix';
-import type { TextFixInput, TextFixResult } from './text-fix';
+import type OpenAI from "openai";
+import type { AIConfig } from "./types";
+import { OpenAIProvider } from "./openai-provider";
 
-const logger = createLogger('ai:azure');
-
-type AzureUserContent = string | Array<
-    { type: "text"; text: string } |
-    { type: "image_url"; image_url: { url: string } }
->;
+const DEFAULT_API_VERSION = '2024-02-15-preview';
 
 // Azure 配置接口
 export interface AzureConfig {
@@ -36,636 +14,68 @@ export interface AzureConfig {
     model?: string;          // 显示用模型名
 }
 
-export class AzureOpenAIProvider implements AIService {
-    private client: AzureOpenAI;
-    private model: string;
+/** Azure 特有的客户端构造参数，随 AIConfig 一起传给 OpenAIProvider 的 createClient */
+interface AzureClientConfig extends AIConfig {
+    azure: {
+        endpoint: string;
+        deployment: string;
+        apiVersion?: string;
+    };
+}
+
+export class AzureOpenAIProvider extends OpenAIProvider {
+    protected readonly providerName = 'Azure OpenAI';
     private deployment: string;
     private endpoint: string;
 
     constructor(config?: AzureConfig) {
-        const apiKey = config?.apiKey;
-        const endpoint = config?.endpoint;
-        const deployment = config?.deploymentName;
+        const openAIConfig = AzureOpenAIProvider.toOpenAIConfig(config);
+        super(openAIConfig);
+        this.deployment = openAIConfig.azure.deployment;
+        this.endpoint = openAIConfig.azure.endpoint;
+    }
 
-        if (!apiKey) {
+    /** 校验 Azure 必填配置并转为 OpenAIProvider 可用的 AIConfig（含 azure 客户端参数） */
+    private static toOpenAIConfig(config?: AzureConfig): AzureClientConfig {
+        if (!config?.apiKey) {
             throw new Error("AI_AUTH_ERROR: AZURE_OPENAI_API_KEY is required for Azure OpenAI provider");
         }
-
-        if (!endpoint) {
+        if (!config.endpoint) {
             throw new Error("AI_AUTH_ERROR: AZURE_OPENAI_ENDPOINT is required for Azure OpenAI provider");
         }
-
-        if (!deployment) {
+        if (!config.deploymentName) {
             throw new Error("AI_AUTH_ERROR: AZURE_OPENAI_DEPLOYMENT is required for Azure OpenAI provider");
         }
+        return {
+            apiKey: config.apiKey,
+            baseUrl: config.endpoint,
+            model: config.model || config.deploymentName,
+            azure: {
+                endpoint: config.endpoint,
+                deployment: config.deploymentName,
+                apiVersion: config.apiVersion,
+            },
+        };
+    }
 
-        this.client = new AzureOpenAI({
-            apiKey: apiKey,
-            endpoint: endpoint,
-            deployment: deployment,
-            apiVersion: config?.apiVersion || '2024-02-15-preview',
+    /** 使用 AzureOpenAI 客户端（endpoint、deployment、apiVersion 与 OpenAI 不同） */
+    protected createClient(config: AIConfig): OpenAI {
+        const azure = (config as AzureClientConfig).azure;
+        return new AzureOpenAI({
+            apiKey: this.apiKey,
+            endpoint: azure.endpoint,
+            deployment: azure.deployment,
+            apiVersion: azure.apiVersion || DEFAULT_API_VERSION,
         });
-
-        this.model = config?.model || deployment;
-        this.deployment = deployment;
-        this.endpoint = endpoint;
-
-        logger.info({
-            provider: 'Azure OpenAI',
-            model: this.model,
-            deployment: this.deployment,
-            endpoint: endpoint
-        }, 'Azure AI Provider initialized');
     }
 
-    async analyzeImage(
-        imageBase64: string,
-        mimeType: string = 'image/jpeg',
-        language: 'zh' | 'en' = 'zh',
-        grade?: GradeLevel | null,
-        subject?: string | null,
-        gradeSemester?: string | null,
-        candidateTags?: CandidateTags
-    ): Promise<ParsedQuestion> {
-        const config = getAppConfig();
-
-        // 有错题本学段 + 学科时直接使用其全部知识点，否则按学科、年级取标签
-        const tagOptions = candidateTags ? { candidateTags } : await prefetchSubjectTags(subject, grade);
-        const systemPrompt = generateAnalyzeRequest(language, grade, subject, {
-            customTemplate: config.prompts?.analyze,
-            ...tagOptions,
-        }, gradeSemester);
-
-        logger.box('🔍 AI Image Analysis Request', {
-            provider: 'Azure OpenAI',
-            endpoint: this.endpoint,
-            imageSize: `${imageBase64.length} bytes`,
-            mimeType,
-            model: this.model,
-            deployment: this.deployment,
-            language,
-            grade: grade || 'all'
-        });
-        logger.box('📝 Full System Prompt', systemPrompt.system);
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    {
-                        role: "system",
-                        content: systemPrompt.system,
-                    },
-                    {
-                        role: "user",
-                        content: [
-                            { type: "text", text: systemPrompt.user },
-                            {
-                                type: "image_url",
-                                image_url: {
-                                    url: `data:${mimeType};base64,${imageBase64}`,
-                                },
-                            },
-                        ],
-                    },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            logger.box('📦 Full API Response', JSON.stringify(response, null, 2));
-
-            // 检查响应是否有效
-            if (!response || !response.choices || response.choices.length === 0) {
-                logger.error({ response: JSON.stringify(response) }, 'Invalid API response - no choices array');
-                throw new Error("AI_RESPONSE_ERROR: API returned empty or invalid response");
-            }
-
-            const text = response.choices[0]?.message?.content || "";
-
-            logger.box('🤖 AI Raw Response', text);
-
-            if (!text) throw new Error("Empty response from AI");
-            const parsedResult = normalizeAiQuestionTags(parseQuestionResponse(text), tagOptions);
-
-            logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
-
-            return parsedResult;
-
-        } catch (error) {
-            logger.box('❌ Error during AI analysis', {
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined
-            });
-            this.handleError(error);
-            throw error;
-        }
+    /** Azure 请求体中的 model 使用 deployment 名称 */
+    protected override get requestModel(): string {
+        return this.deployment;
     }
 
-    async generateSimilarQuestion(
-        originalQuestion: string,
-        knowledgePoints: string[],
-        language: 'zh' | 'en' = 'zh',
-        difficulty: DifficultyLevel = 'medium',
-        gradeSemester?: string | null,
-        originalFigureSvg?: string | null
-    ): Promise<ParsedQuestion> {
-        const config = getAppConfig();
-        const systemPrompt = generateSimilarQuestionRequest(language, originalQuestion, knowledgePoints, difficulty, {
-            customTemplate: config.prompts?.similar,
-            originalFigureSvg,
-        }, gradeSemester);
-        const userPrompt = systemPrompt.user;
-
-        logger.box('🎯 Generate Similar Question Request', {
-            provider: 'Azure OpenAI',
-            endpoint: this.endpoint,
-            model: this.model,
-            deployment: this.deployment,
-            originalQuestion: originalQuestion.substring(0, 100) + '...',
-            knowledgePoints: knowledgePoints.join(', '),
-            difficulty,
-            language
-        });
-        logger.box('📝 System Prompt', systemPrompt.system);
-        logger.box('📝 User Prompt', userPrompt);
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    {
-                        role: "system",
-                        content: systemPrompt.system,
-                    },
-                    {
-                        role: "user",
-                        content: userPrompt,
-                    },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            // 检查响应是否有效
-            if (!response || !response.choices || response.choices.length === 0) {
-                logger.error({ response: JSON.stringify(response) }, 'Invalid API response - no choices array');
-                throw new Error("AI_RESPONSE_ERROR: API returned empty or invalid response");
-            }
-
-            const text = response.choices[0]?.message?.content || "";
-
-            logger.box('🤖 AI Raw Response', text);
-
-            if (!text) throw new Error("Empty response from AI");
-            const parsedResult = parseQuestionResponse(text);
-
-            logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
-
-            return normalizeGeneratedQuestion(parsedResult);
-
-        } catch (error) {
-            logger.box('❌ Error during similar question generation', {
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined
-            });
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async reanswerQuestion(
-        questionText: string,
-        language: 'zh' | 'en' = 'zh',
-        subject?: string | null,
-        imageBase64?: string,
-        gradeSemester?: string | null,
-        candidateTags?: CandidateTags
-    ): Promise<ReanswerQuestionResult> {
-        const prompt = generateReanswerRequest(language, questionText, subject, { candidateTags }, gradeSemester);
-
-        logger.box('🔄 Reanswer Question Request', {
-            provider: 'Azure OpenAI',
-            endpoint: this.endpoint,
-            model: this.model,
-            deployment: this.deployment,
-            questionLength: questionText.length,
-            subject: subject || 'auto',
-            hasImage: !!imageBase64
-        });
-        logger.debug({ prompt }, 'Full prompt');
-
-        try {
-            // 根据是否有图片构建不同的消息内容
-            let userContent: AzureUserContent = prompt.user;
-            if (imageBase64) {
-                // 如果有图片，构建多模态消息
-                const imageUrl = imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
-                logger.debug({ imageLength: imageUrl.length }, 'Image added to request');
-                userContent = [
-                    { type: "text", text: prompt.user },
-                    { type: "image_url", image_url: { url: imageUrl } }
-                ];
-            } else {
-                logger.debug({ imageBase64Type: typeof imageBase64, hasValue: !!imageBase64 }, 'No image data');
-            }
-
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: userContent }
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            logger.debug({ response: JSON.stringify(response) }, 'Full API response');
-
-            // 检查响应是否有效
-            if (!response || !response.choices || response.choices.length === 0) {
-                logger.error({ response: JSON.stringify(response) }, 'Invalid API response - no choices array');
-                throw new Error("AI_RESPONSE_ERROR: API returned empty or invalid response");
-            }
-
-            const text = response.choices[0]?.message?.content || "";
-
-            logger.debug({ rawResponse: text }, 'AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-
-            // 解析响应
-            const answerText = extractTag(text, "answer_text") || "";
-            const analysis = extractTag(text, "analysis") || "";
-            const knowledgePoints = splitKnowledgePoints(extractTag(text, "knowledge_points"));
-            const wrongAnswerText = extractTag(text, "wrong_answer_text") || "";
-            const mistakeAnalysis = extractTag(text, "mistake_analysis") || "";
-            const mistakeStatus = normalizeMistakeStatusForSave(
-                extractTag(text, "mistake_status"),
-                wrongAnswerText
-            );
-
-            logger.info('Reanswer parsed successfully');
-
-            return normalizeAiQuestionTags({ answerText, analysis, knowledgePoints, wrongAnswerText, mistakeAnalysis, mistakeStatus, subject: normalizeSubject(extractTag(text, "subject")), gradeSemester: parseRecognizedGrade(extractTag(text, "grade_semester")), difficultyStars: parseDifficultyStars(extractTag(text, "difficulty_stars")) }, { candidateTags });
-
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async analyzeForGeogebra(questionText: string, answerText: string, analysis: string, previousErrors?: string): Promise<GeogebraAnalysisResult> {
-        const prompt = generateGeogebraRequest(questionText, answerText, analysis, previousErrors);
-
-        logger.info({
-            provider: 'Azure OpenAI',
-            model: this.model,
-            deployment: this.deployment,
-            questionLength: questionText.length,
-        }, 'GeoGebra Analysis Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user }
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'GeoGebra AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-
-            // Extract JSON from response (handle possible markdown code blocks)
-            let jsonStr = text.trim();
-            const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-            if (jsonMatch) {
-                jsonStr = jsonMatch[1].trim();
-            }
-
-            // Try to find JSON object
-            const objStart = jsonStr.indexOf('{');
-            const objEnd = jsonStr.lastIndexOf('}');
-            if (objStart !== -1 && objEnd !== -1) {
-                jsonStr = jsonStr.substring(objStart, objEnd + 1);
-            }
-
-            const parsed = JSON.parse(jsonStr);
-
-            return {
-                suitable: Boolean(parsed.suitable),
-                commands: Array.isArray(parsed.commands) ? parsed.commands : [],
-                description: parsed.description || "",
-            };
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during GeoGebra analysis');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async evaluateMastery(input: MasteryEvaluationInput): Promise<MasteryEvaluationResult> {
-        const prompt = generateMasteryRequest(input);
-
-        logger.info({
-            provider: 'Azure OpenAI',
-            historyCount: input.history.length,
-        }, 'Mastery Evaluation Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user }
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'Mastery AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return parseMasteryEvaluation(text);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during mastery evaluation');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async recognizeGrade(questionText: string): Promise<string | null> {
-        const prompt = generateGradeRecognitionRequest(questionText);
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [{ role: 'system', content: prompt.system }, { role: 'user', content: prompt.user }],
-                max_tokens: maxTokens,
-            }), this.model);
-            return parseGradeRecognition(response.choices[0]?.message?.content || '');
-        } catch (error) {
-            logger.error({ error }, '识别题目年级失败');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async gradeAnswer(input: AnswerGradingInput): Promise<AnswerGradingResult> {
-        const prompt = generateGradingRequest(input);
-        logger.info({ provider: 'Azure OpenAI' }, 'Answer Grading Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user }
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'Grading AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return parseAnswerGrading(text);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during answer grading');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async suggestKnowledgeTags(input: TagSuggestionInput): Promise<TagSuggestionResult> {
-        const prompt = generateTagSuggestRequest(input);
-
-        logger.info({
-            provider: 'Azure OpenAI',
-            subject: input.subject,
-            allowedTagCount: input.allowedTags.length,
-        }, 'Tag Suggestion Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user }
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'Tag suggestion AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return parseTagSuggestion(text, input.allowedTags);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during tag suggestion');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async generateFigureSvg(imageBase64: string, mimeType: string, questionText?: string | null): Promise<FigureResult> {
-        const prompt = generateFigureRequest(questionText);
-        logger.info({ provider: 'Azure OpenAI', deployment: this.deployment, imageSize: imageBase64.length }, 'Figure SVG Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: [{ type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } }, { type: "text", text: prompt.user }] },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during figure SVG generation');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async fixLatex(input: LatexFixInput): Promise<LatexFixResult> {
-        const prompt = generateLatexFixRequest(input);
-        logger.info({ provider: 'Azure OpenAI', deployment: this.deployment, fields: Object.keys(input) }, 'LaTeX Fix Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'LaTeX fix AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return parseLatexFix(text, input);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during LaTeX fix');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async generateSvgAnimation(questionText: string, answerText: string, analysis: string, figureSvg?: string | null, language: 'zh' | 'en' = 'zh'): Promise<string | null> {
-        const prompt = generateSvgAnimationRequest(questionText, answerText, analysis, figureSvg, language);
-        logger.info({ provider: 'Azure OpenAI', deployment: this.deployment, questionLength: questionText.length }, 'SVG Animation Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'SVG animation AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return sanitizeSvgAnimation(extractTag(text, "svg_animation") || text);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG animation generation');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async generateSvgNarration(questionText: string, answerText: string, analysis: string, svgAnimation: string, language: 'zh' | 'en' = 'zh'): Promise<NarrationSegment[] | null> {
-        const prompt = generateSvgNarrationRequest(questionText, answerText, analysis, svgAnimation, language);
-        logger.info({ provider: 'Azure OpenAI', deployment: this.deployment, svgLength: svgAnimation.length }, 'SVG Narration Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'SVG narration AI raw response');
-
-            if (!text) throw new Error("Empty response from AI");
-            return parseNarration(extractTag(text, "narration") || text);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during SVG narration generation');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async splitQuestions(input: QuestionSplitInput): Promise<QuestionSplitResult> {
-        const prompt = generateQuestionSplitRequest(input);
-        logger.info({ provider: 'Azure OpenAI', deployment: this.deployment, kind: input.kind }, 'Question Split Request');
-        const content: AzureUserContent = input.kind === 'image'
-            ? [{ type: "text", text: prompt.user }, { type: "image_url", image_url: { url: `data:${input.mimeType};base64,${input.imageBase64}` } }]
-            : prompt.user;
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            const text = response.choices[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'Question split AI raw response');
-            if (!text) throw new Error("Empty response from AI");
-            return parseQuestionSplit(text, input);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during question split');
-            if (input.kind === 'image' && isImageUnsupportedError(error)) throw new Error(AI_IMAGE_NOT_SUPPORTED, { cause: error });
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    async fixQuestionText(input: TextFixInput): Promise<TextFixResult> {
-        const prompt = generateTextFixRequest(input);
-        logger.info({ provider: 'Azure OpenAI', deployment: this.deployment, questions: input.length }, 'Text Fix Request');
-
-        try {
-            const response = await withModelOutputLimit((maxTokens) => this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    { role: "system", content: prompt.system },
-                    { role: "user", content: prompt.user },
-                ],
-                max_tokens: maxTokens,
-            }), this.model);
-
-            // 部分网关在上游超时等情况下返回 200 但 choices 为空
-            const text = response.choices?.[0]?.message?.content || '';
-            logger.debug({ rawResponse: text }, 'Text fix AI raw response');
-            if (!text) throw new Error("Empty response from AI");
-            return parseTextFix(text, input);
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during text fix');
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    private handleError(error: unknown) {
-        logger.error({ error }, 'Azure OpenAI error');
-        if (error instanceof Error) {
-            if (error.message === AI_OUTPUT_TRUNCATED || error.message.startsWith('AI_RESPONSE_ERROR:')) {
-                throw error;
-            }
-            const msg = error.message.toLowerCase();
-            if (msg.includes('fetch failed') || msg.includes('network') || msg.includes('connect')) {
-                throw new Error("AI_CONNECTION_FAILED", { cause: error });
-            }
-            // 超时错误 (包括 408 Request Timeout)
-            if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('aborted') || msg.includes('408')) {
-                throw new Error("AI_TIMEOUT_ERROR", { cause: error });
-            }
-            // 配额/频率限制错误
-            if (msg.includes('quota') || msg.includes('额度') || msg.includes('rate limit') || msg.includes('429') || msg.includes('too many')) {
-                throw new Error("AI_QUOTA_EXCEEDED", { cause: error });
-            }
-            // 权限/403 错误
-            if (msg.includes('403') || msg.includes('forbidden') || msg.includes('permission')) {
-                throw new Error("AI_PERMISSION_DENIED", { cause: error });
-            }
-            // 资源不存在/404 错误
-            if (msg.includes('404') || msg.includes('not found') || msg.includes('does not exist')) {
-                throw new Error("AI_NOT_FOUND", { cause: error });
-            }
-            // 服务器错误 (500/502/503/504)
-            if (msg.includes('500') || msg.includes('502') || msg.includes('503') || msg.includes('504') ||
-                msg.includes('无可用') || msg.includes('overloaded') || msg.includes('unavailable')) {
-                throw new Error("AI_SERVICE_UNAVAILABLE", { cause: error });
-            }
-            if (msg.includes('invalid json') || msg.includes('parse')) {
-                throw new Error("AI_RESPONSE_ERROR", { cause: error });
-            }
-            if (msg.includes('api key') || msg.includes('unauthorized') || msg.includes('401')) {
-                throw new Error("AI_AUTH_ERROR", { cause: error });
-            }
-        }
-        throw new Error("AI_UNKNOWN_ERROR", { cause: error });
+    /** Azure 的输出上限按显示用模型名（而非 deployment）查询 */
+    protected override get outputLimitModel(): string {
+        return this.model;
     }
 }
