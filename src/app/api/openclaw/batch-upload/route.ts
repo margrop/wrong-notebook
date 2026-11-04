@@ -8,112 +8,18 @@ import { createErrorResponse, ErrorCode } from "@/lib/api-errors";
 import { importSchema, saveQuestion } from "@/lib/question-save";
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { getErrorMessage } from "@/lib/error-message";
+import { validateImage } from "@/lib/openclaw/image-validation";
+import { callOpenclawAgent } from "@/lib/openclaw/agent-client";
+import type { OpenclawRecognizedData } from "@/lib/openclaw/agent-client";
 
 const logger = createLogger('api:openclaw:batch-upload');
 
 const MAX_IMAGES = 20;
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
 
 interface ImageData {
     base64: string;
     mimeType: string;
     filename: string;
-}
-
-interface OpenclawResponse {
-    success: boolean;
-    data?: {
-        questionText: string;
-        answerText: string;
-        analysis: string;
-        wrongAnswerText?: string;
-        mistakeAnalysis?: string;
-        knowledgePoints: string[];
-        subject?: string;
-        errorType?: string;
-        source?: string;
-        difficultyStars?: number | null;
-        gradeSemester?: string | null;
-    };
-    error?: string;
-}
-
-function validateImage(base64: string, filename: string, mimeType: string): { valid: boolean; error?: string } {
-    if (!base64 || base64.length === 0) {
-        return { valid: false, error: '图片数据为空' };
-    }
-
-    const extension = filename.toLowerCase().substring(filename.lastIndexOf('.'));
-    if (!ALLOWED_EXTENSIONS.includes(extension)) {
-        return { valid: false, error: `不支持的图片格式: ${extension}，仅支持 JPG、PNG` };
-    }
-
-    // mimeType 会写入题目原图的 data URL，须与扩展名一样限定为 JPG、PNG
-    if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-        return { valid: false, error: `不支持的图片类型: ${String(mimeType).slice(0, 50)}，仅支持 image/jpeg、image/png` };
-    }
-
-    const estimatedSize = (base64.length * 3) / 4;
-    if (estimatedSize > MAX_IMAGE_SIZE) {
-        return { valid: false, error: `图片大小超过限制: ${Math.round(estimatedSize / 1024 / 1024)}MB > 5MB` };
-    }
-
-    return { valid: true };
-}
-
-async function callOpenclawAgent(imageBase64: string, mimeType: string, timeout: number): Promise<OpenclawResponse> {
-    const openclawUrl = process.env.OPENCLAW_API_URL || 'http://localhost:8080';
-    const openclawApiKey = process.env.OPENCLAW_API_KEY || '';
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    try {
-        const response = await fetch(`${openclawUrl}/api/recognize`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(openclawApiKey ? { 'Authorization': `Bearer ${openclawApiKey}` } : {}),
-            },
-            body: JSON.stringify({
-                image: imageBase64,
-                mimeType: mimeType,
-            }),
-            signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            logger.error({ status: response.status, error: errorText }, 'Openclaw agent error');
-            return {
-                success: false,
-                error: `识别服务异常: HTTP ${response.status}`,
-            };
-        }
-
-        const data = await response.json() as OpenclawResponse;
-        return data;
-    } catch (error) {
-        clearTimeout(timeoutId);
-
-        if (error instanceof Error && error.name === 'AbortError') {
-            logger.error('Openclaw agent timeout');
-            return {
-                success: false,
-                error: '识别服务超时',
-            };
-        }
-
-        logger.error({ error: getErrorMessage(error) }, 'Openclaw agent request failed');
-        return {
-            success: false,
-            error: `识别服务请求失败: ${getErrorMessage(error)}`,
-        };
-    }
 }
 
 export async function POST(req: Request) {
@@ -298,7 +204,7 @@ export async function POST(req: Request) {
             }
 
             try {
-                const parsed = openclawResponse.data;
+                const parsed: OpenclawRecognizedData = openclawResponse.data;
                 const payload = importSchema.safeParse({
                     questionText: parsed.questionText,
                     answerText: parsed.answerText,
