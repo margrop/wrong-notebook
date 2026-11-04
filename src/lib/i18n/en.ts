@@ -251,6 +251,10 @@ export const en = {
             pdfRendering: "Rendering PDF pages… ({done}/{total})",
             pdfCreatingBatches: "Creating recognition batches… ({done}/{total})",
             pdfConfirm: "Convert to images and import with AI",
+            pdfImageOptionTitle: "Question images (screenshots)",
+            pdfImageOptionWithGraphics: "Questions with graphics (default)",
+            pdfImageOptionAll: "All questions",
+            pdfImageOptionNone: "Do not save",
         },
         upload: {
             // dragDrop: "Click or drag image to upload", // Moved to app

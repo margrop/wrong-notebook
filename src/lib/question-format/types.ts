@@ -62,9 +62,32 @@ export interface QuestionParseError {
     reason: string;
 }
 
+/** PDF 检测出的图形元素（页面坐标，y 自下而上） */
+export interface PdfDetectedGraphic {
+    kind: "image" | "vector";
+    rect: { x: number; y: number; width: number; height: number };
+}
+
 /** 解析结果：成功的题目 + 逐题错误 + 整体警告 */
 export interface QuestionParseResult {
     questions: StructuredQuestion[];
     errors: QuestionParseError[];
     warnings: string[];
+    /**
+     * PDF 解析附加：每道题的版面区域段（与 questions 下标对应），
+     * 用于按区域截图保存题目原图。非 PDF 解析器不设置该字段。
+     */
+    pdfRegions?: Array<Array<{ page: number; rect: { x: number; yTop: number; width: number; height: number } }> | null>;
+    /**
+     * PDF 解析附加：是否检测到图形元素（图片绘制或矢量路径），
+     * 用于摘要页决定「题目原图」选项的默认值。非 PDF 解析器不设置。
+     */
+    pdfHasGraphics?: boolean;
+    /**
+     * PDF 解析附加：每页检测出的图形元素（下标 0 = 第 1 页）。
+     * 用于「有图形的题」选项按题过滤。非 PDF 解析器不设置。
+     */
+    pdfPageGraphics?: PdfDetectedGraphic[][];
+    /** PDF 解析附加：每页高度（pt，下标 0 = 第 1 页），供图形矩形坐标翻转 */
+    pdfPageHeights?: number[];
 }

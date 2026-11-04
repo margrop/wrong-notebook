@@ -1,6 +1,7 @@
 /**
  * E4 任务专用辅助：手写最小 PDF 夹具（不依赖外部 PDF 生成库）。
  * - makeTextPdf：Type1 Helvetica（WinAnsi），输出英文/数字题目文字。
+ * - makeTextPdfWithRects：文字 + 矩形矢量图形（供题目原图截图测试）。
  * - makeScannedPdf：只绘制矩形的空白内容流（无文字层），模拟扫描版 PDF。
  * - makeCorruptPdf：有 %PDF 文件头但内容无效。
  */
@@ -23,6 +24,18 @@ export interface PdfLine {
     size?: number;
 }
 
+/** 矩形绘制（y 为自上而下位置，pt） */
+export interface PdfRect {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    /** 描边灰度 0-1，默认 0（黑） */
+    strokeGray?: number;
+    /** 填充灰度 0-1；设置后填充 */
+    fillGray?: number;
+}
+
 /** 生成一页的文字内容流：每行一个 Tj 调用（y 自上而下，PDF 原点在左下需翻转） */
 function textPageContent(lines: PdfLine[]): string {
     const parts: string[] = [];
@@ -34,6 +47,22 @@ function textPageContent(lines: PdfLine[]): string {
             throw new Error(`e4-helpers 仅支持 WinAnsi 字符：${line.text}`);
         }
         parts.push(`BT /F1 ${size} Tf ${x} ${pdfY} Td (${escapePdfText(line.text)}) Tj ET`);
+    }
+    return parts.join("\n");
+}
+
+/** 矩形绘制内容流（re 操作符） */
+function rectPageContent(rects: PdfRect[]): string {
+    const parts: string[] = [];
+    for (const rect of rects) {
+        const pdfY = PAGE_HEIGHT - rect.y - rect.height;
+        const strokeGray = rect.strokeGray ?? 0;
+        const fillGray = rect.fillGray ?? null;
+        if (fillGray !== null) {
+            parts.push(`q ${fillGray} g ${strokeGray} G ${rect.x} ${pdfY} ${rect.width} ${rect.height} re B Q`);
+        } else {
+            parts.push(`q ${strokeGray} G ${rect.x} ${pdfY} ${rect.width} ${rect.height} re S Q`);
+        }
     }
     return parts.join("\n");
 }
@@ -78,6 +107,15 @@ function makePdfBuffer(pageCount: number, contentFor: (index: number) => string)
 /** 文字版 PDF：pages[i] 为该页的文字行 */
 export function makeTextPdf(pages: PdfLine[][]): ArrayBuffer {
     return makePdfBuffer(pages.length, (index) => textPageContent(pages[index]));
+}
+
+/** 文字版 PDF（含矩形图形）：pages[i] 为该页的文字行与矩形 */
+export function makeTextPdfWithRects(pages: Array<{ lines: PdfLine[]; rects: PdfRect[] }>): ArrayBuffer {
+    return makePdfBuffer(pages.length, (index) => {
+        const text = textPageContent(pages[index].lines);
+        const rects = rectPageContent(pages[index].rects);
+        return [text, rects].filter(Boolean).join("\n");
+    });
 }
 
 /** 扫描版 PDF：N 页、只画矩形没有文字 */

@@ -31,6 +31,11 @@ export interface SplitTextQuestion {
     questionType?: string | null;
     /** 学生的错误作答（识别自【错答】等行首标记） */
     wrongAnswer?: string | null;
+    /**
+     * 本题在分题输入行数组中的范围（含首行题号行，不含下一题首行）。
+     * 仅当调用方按行数组语义传入（如 PDF/DOCX 解析器）时有值；粘贴文字导入未填充。
+     */
+    lineRange?: { from: number; to: number };
 }
 
 export interface TextSplitResult {
@@ -279,7 +284,7 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
         return match ? match.label : null;
     })();
     const single = (ambiguous: boolean): TextSplitResult => ({
-        questions: whole ? [{ label: singleLabel, text: whole, material: null, section: null }] : [],
+        questions: whole ? [{ label: singleLabel, text: whole, material: null, section: null, lineRange: { from: 0, to: end } }] : [],
         ignored: ignoredTail, detected: false, ambiguous, candidateCount: ambiguous ? chain.length : whole ? 1 : 0, overflow: 0, tooLong,
     });
     if (chain.length < 2) {
@@ -376,6 +381,7 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
             text: marked.text,
             material: applicable.length ? applicable.map((material) => material.text).join('\n\n') : null,
             section,
+            lineRange: { from: start, to: stop },
             ...marked.fields,
         });
         for (const paragraph of trailing) pendingMaterials.push({ text: paragraph, range: materialRange(paragraph) });

@@ -18,22 +18,28 @@ import { createCanvasRenderer, sourceImageFromDataUrl } from "@/lib/import/quest
 import { loadPdfjsBrowser } from "@/lib/import/file-parsers/pdf/load-pdfjs";
 import { renderPdfPages } from "@/lib/import/file-parsers/pdf/render-pages";
 import type { PdfDocumentProxyLike, RenderedPdfPage } from "@/lib/import/file-parsers/pdf/render-pages";
+import { captureQuestionImage } from "@/lib/import/file-parsers/pdf/capture";
+import { regionHasGraphics } from "@/lib/import/file-parsers/pdf/graphics";
+import type { PdfGraphicElement } from "@/lib/import/file-parsers/pdf/graphics";
 import {
     createScannedPdfBatches,
     isQuotaError,
 } from "@/lib/import/scanned-pdf-flow";
-import type { QuestionParseResult } from "@/lib/question-format/types";
+import type { QuestionParseResult, StructuredQuestion } from "@/lib/question-format/types";
 import type { Translations } from "@/lib/translations";
 
 export type FileImportPhase =
     | { kind: "pick" }
     | { kind: "parsing"; fileName: string }
     | { kind: "processingImages"; fileName: string; done: number; total: number }
-    | { kind: "summary"; fileName: string; fileType: ImportFileTypeDef; result: QuestionParseResult; summary: FileImportSummary }
+    | { kind: "summary"; fileName: string; fileType: ImportFileTypeDef; result: QuestionParseResult; summary: FileImportSummary; buffer: ArrayBuffer }
     | { kind: "creating"; fileName: string; batchCount: number }
     | { kind: "scanned-pdf"; fileName: string; buffer: ArrayBuffer; pageCount: number }
     | { kind: "rendering-pdf"; fileName: string; rendered: number; total: number }
     | { kind: "creating-pdf-batches"; fileName: string; created: number; total: number };
+
+/** PDF 题目原图选项 */
+export type PdfImageOption = "with-graphics" | "all" | "none";
 
 export interface UseFileImportOptions {
     /** 界面语言（写入批次） */
@@ -50,12 +56,17 @@ export interface UseFileImportOptions {
         renderPages?: (buffer: ArrayBuffer, pages: number[], onProgress: (done: number, total: number) => void) => Promise<RenderedPdfPage[]>;
         createBatches?: typeof createScannedPdfBatches;
     };
+    /** 依赖注入（测试用）：文字版 PDF 题目截图实现 */
+    pdfCaptureDeps?: {
+        captureQuestion?: (doc: PdfDocumentProxyLike, regions: NonNullable<QuestionParseResult["pdfRegions"]>[number]) => Promise<string>;
+        loadDocument?: (buffer: ArrayBuffer) => Promise<PdfDocumentProxyLike>;
+    };
 }
 
 export interface UseFileImportResult {
     phase: FileImportPhase;
     handleFile: (file: File, type: ImportFileTypeDef) => Promise<void>;
-    handleConfirm: () => Promise<void>;
+    handleConfirm: (pdfImageOption?: PdfImageOption) => Promise<void>;
     handleReset: () => void;
     /** 扫描版 PDF：确认页码范围后触发渲染与建批次 */
     handleScannedPdfConfirm: (pages: number[]) => Promise<void>;
@@ -76,8 +87,9 @@ export function scannedPdfPageCount(result: QuestionParseResult): number | null 
  * 「导入题库文件」流程状态：选文件 → 解析 → 图片合成（如有）→ 摘要 → 创建批次并跳转。
  * 只创建 1 个批次时直达批次详情页；多个批次去导入中心列表。
  * 扫描版 PDF（PDF_NO_TEXT_LAYER）提供页码范围选择，转图片后逐页创建 image 批次。
+ * 文字版 PDF 可选按版面区域截图保存题目原图（含图形的题 / 全部题 / 不保存）。
  */
-export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps }: UseFileImportOptions): UseFileImportResult {
+export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps, pdfCaptureDeps }: UseFileImportOptions): UseFileImportResult {
     const router = useRouter();
     const [phase, setPhase] = useState<FileImportPhase>({ kind: "pick" });
 
@@ -120,10 +132,10 @@ export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps }
             setPhase({ kind: "pick" });
             return;
         }
-        setPhase({ kind: "summary", fileName: file.name, fileType: type, result, summary });
+        setPhase({ kind: "summary", fileName: file.name, fileType: type, result, summary, buffer });
     };
 
-    const handleConfirm = async () => {
+    const handleConfirm = async (pdfImageOption: PdfImageOption = "none") => {
         if (phase.kind !== "summary") return;
         if (!notebookId) {
             toast.error(t.notebookRequired);
@@ -134,13 +146,31 @@ export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps }
             return;
         }
         setPhase({ kind: "creating", fileName: phase.fileName, batchCount: Math.ceil(phase.summary.total / 60) });
+
+        // 文字版 PDF：按选项为题目截图保存原图（含图形的题 / 全部题）
+        let questions: StructuredQuestion[] = phase.result.questions;
+        const captureWarnings: string[] = [];
+        if (phase.fileType.key === "pdf" && pdfImageOption !== "none" && phase.result.pdfRegions) {
+            questions = await capturePdfQuestionImages(
+                phase.buffer,
+                phase.result,
+                pdfImageOption,
+                phase.fileName,
+                (done, total) => {
+                    setPhase({ kind: "processingImages", fileName: phase.fileName, done, total });
+                },
+                pdfCaptureDeps,
+                captureWarnings,
+            );
+        }
+
         // 有图片的题需要先合成压缩；通过 phase 切换显示进度
-        const hasImages = phase.result.questions.some((q) => q.images?.length);
+        const hasImages = questions.some((q) => q.images?.length);
         let items;
         try {
             if (hasImages) {
                 const renderer = createCanvasRenderer();
-                items = await structuredQuestionsToItemsAsync(phase.result.questions, {
+                items = await structuredQuestionsToItemsAsync(questions, {
                     renderer,
                     decodeFn: sourceImageFromDataUrl,
                     onProgress: (done, total) => {
@@ -148,13 +178,16 @@ export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps }
                     },
                 });
             } else {
-                items = await structuredQuestionsToItemsAsync(phase.result.questions);
+                items = await structuredQuestionsToItemsAsync(questions);
             }
         } catch (error) {
             frontendLogger.error("[FileImport]", "Process images failed", { error: getErrorMessage(error) });
             toast.error(t.parseFailed);
-            setPhase({ kind: "summary", fileName: phase.fileName, fileType: phase.fileType, result: phase.result, summary: phase.summary });
+            setPhase({ kind: "summary", fileName: phase.fileName, fileType: phase.fileType, result: phase.result, summary: phase.summary, buffer: phase.buffer });
             return;
+        }
+        for (const warning of captureWarnings) {
+            toast.warning(warning);
         }
         setPhase({ kind: "creating", fileName: phase.fileName, batchCount: Math.ceil(phase.summary.total / 60) });
         try {
@@ -173,12 +206,12 @@ export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps }
                 toast.error(t.batchFailed.replace("{index}", String(failure.index + 1)).replace("{error}", getErrorMessage(failure.error)));
             }
             if (batches.length === 0 && failures.length > 0) {
-                setPhase({ kind: "summary", fileName: phase.fileName, fileType: phase.fileType, result: phase.result, summary: phase.summary });
+                setPhase({ kind: "summary", fileName: phase.fileName, fileType: phase.fileType, result: phase.result, summary: phase.summary, buffer: phase.buffer });
             }
         } catch (error) {
             frontendLogger.error("[FileImport]", "Create batches failed", { error: getErrorMessage(error) });
             toast.error(getErrorMessage(error));
-            setPhase({ kind: "summary", fileName: phase.fileName, fileType: phase.fileType, result: phase.result, summary: phase.summary });
+            setPhase({ kind: "summary", fileName: phase.fileName, fileType: phase.fileType, result: phase.result, summary: phase.summary, buffer: phase.buffer });
         }
     };
 
@@ -251,4 +284,101 @@ async function defaultRenderPages(
     const pdfjs = await loadPdfjsBrowser();
     const doc = (await pdfjs.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise) as unknown as PdfDocumentProxyLike;
     return renderPdfPages(doc, { pages, onProgress });
+}
+
+/** 检测某题的区域段是否包含图形（仅当选项为 with-graphics 时用到） */
+function questionHasGraphics(
+    regions: NonNullable<QuestionParseResult["pdfRegions"]>[number],
+    pageGraphics: Map<number, PdfGraphicElement[]>,
+    pageHeights: Map<number, number>,
+): boolean {
+    if (!regions) return false;
+    for (const region of regions) {
+        const height = pageHeights.get(region.page) ?? 0;
+        if (regionHasGraphics(region, pageGraphics, () => height)) return true;
+    }
+    return false;
+}
+
+/**
+ * 文字版 PDF：按选项为题目截图并附加到 question.images（作为 images[0]）。
+ * 单题失败记录 warning 并继续；返回新的题目数组（不修改传入的 result.questions）。
+ */
+async function capturePdfQuestionImages(
+    buffer: ArrayBuffer,
+    result: QuestionParseResult,
+    option: PdfImageOption,
+    fileName: string,
+    onProgress: (done: number, total: number) => void,
+    deps: UseFileImportOptions["pdfCaptureDeps"],
+    warnings: string[],
+): Promise<StructuredQuestion[]> {
+    const regions = result.pdfRegions ?? [];
+    const questions = result.questions;
+    const pageGraphics = new Map<number, PdfGraphicElement[]>();
+    if (result.pdfPageGraphics) {
+        result.pdfPageGraphics.forEach((graphics, index) => {
+            if (graphics.length > 0) pageGraphics.set(index + 1, graphics);
+        });
+    }
+    const pageHeights = new Map<number, number>();
+    if (result.pdfPageHeights) {
+        result.pdfPageHeights.forEach((height, index) => pageHeights.set(index + 1, height));
+    }
+
+    // 找出需要截图的题
+    const needsCapture = questions.map((_, index) => {
+        const region = regions[index];
+        if (!region || region.length === 0) return false;
+        if (option === "all") return true;
+        // with-graphics：区域与任一图形元素相交才截图
+        return questionHasGraphics(region, pageGraphics, pageHeights);
+    });
+
+    const total = needsCapture.filter(Boolean).length;
+    if (total === 0) return questions;
+
+    const loadDocument = deps?.loadDocument ?? defaultLoadDocument;
+    const capture = deps?.captureQuestion ?? ((doc, regionList) => captureQuestionImage(doc, regionList ?? []));
+
+    const doc = await loadDocument(buffer);
+    try {
+        const updated: StructuredQuestion[] = [];
+        let done = 0;
+        for (let index = 0; index < questions.length; index++) {
+            const question = questions[index];
+            const region = regions[index];
+            if (!needsCapture[index] || !region || region.length === 0) {
+                updated.push(question);
+                continue;
+            }
+            try {
+                const dataUrl = await capture(doc, region);
+                updated.push({ ...question, images: [{ dataUrl, alt: fileName }] });
+            } catch (error) {
+                frontendLogger.warn("[FileImport]", "Capture question image failed", {
+                    fileName,
+                    index,
+                    error: getErrorMessage(error),
+                });
+                warnings.push(`第 ${index + 1} 题截图失败：${getErrorMessage(error)}`);
+                updated.push(question);
+            }
+            done += 1;
+            onProgress(done, total);
+        }
+        return updated;
+    } finally {
+        try {
+            await doc.cleanup?.();
+        } catch {
+            // cleanup 失败不影响结果
+        }
+    }
+}
+
+/** 默认加载 pdfjs 文档 */
+async function defaultLoadDocument(buffer: ArrayBuffer): Promise<PdfDocumentProxyLike> {
+    const pdfjs = await loadPdfjsBrowser();
+    return (await pdfjs.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise) as unknown as PdfDocumentProxyLike;
 }

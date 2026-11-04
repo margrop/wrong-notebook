@@ -6,6 +6,8 @@
  * 2. 逐页 getTextContent，按坐标还原行（layout.ts）
  * 3. 全文送 splitQuestionText 分题；几乎没有文字层时返回 PDF_NO_TEXT_LAYER
  * 4. 把 SplitTextQuestion 转为 StructuredQuestion 后调用 parseQuestionFile 规范化
+ * 5. 逐页 getOperatorList 检测图形元素（图片绘制 + 矢量路径），按分题行范围
+ *    计算每题版面区域（regions.ts），作为 pdfRegions / pdfHasGraphics 附加返回
  *
  * 纯函数库，不依赖 Node 专有模块与 Prisma，可在浏览器和服务端同时使用。
  * 连字/全角空格已归一；保留上下标的原始字符（不做公式识别）。
@@ -16,9 +18,13 @@ import type { SplitTextQuestion } from "@/lib/question-split/text";
 import type { TextSplitOptions } from "@/lib/question-split/text";
 import { splitQuestionText } from "@/lib/question-split/text";
 import { linesToText, normalizePdfText, reconstructLines } from "@/lib/import/file-parsers/pdf/layout";
-import type { PdfTextItem } from "@/lib/import/file-parsers/pdf/layout";
+import type { PdfLine, PdfTextItem } from "@/lib/import/file-parsers/pdf/layout";
 import { loadPdfjsBrowser } from "@/lib/import/file-parsers/pdf/load-pdfjs";
 import type { PdfjsModule } from "@/lib/import/file-parsers/pdf/load-pdfjs";
+import { computeAllQuestionRegions } from "@/lib/import/file-parsers/pdf/regions";
+import type { PdfQuestionRegions } from "@/lib/import/file-parsers/pdf/regions";
+import { extractGraphicsFromOperatorList } from "@/lib/import/file-parsers/pdf/graphics";
+import type { GraphicsOpsCodes, OperatorListLike, PdfGraphicElement } from "@/lib/import/file-parsers/pdf/graphics";
 
 export const WARNING_SINGLE_QUESTION = "SINGLE_QUESTION";
 /** 每页文字量低于该值视为「几乎没有文字层」 */
@@ -31,6 +37,8 @@ export interface ParsePdfOptions {
     pdfjs?: PdfjsModule;
     /** 标准字体数据目录（Node 环境解码 Type1 标准字体需要；浏览器无需传） */
     standardFontDataUrl?: string;
+    /** 跳过 getOperatorList 图形检测（测试或不需要截图时减少开销） */
+    skipGraphicsDetection?: boolean;
 }
 
 /** 把 ignored 内容数量放入 warnings：IGNORED_PARAGRAPHS:N */
@@ -51,6 +59,26 @@ function toStructuredInput(question: SplitTextQuestion): Record<string, unknown>
     if (question.wrongAnswer) record.wrongAnswer = question.wrongAnswer;
     if (question.questionType) record.questionType = question.questionType;
     return record;
+}
+
+/** pdfjs OPS 编号：与加载的 pdfjs 版本动态对齐（6.x 为数字枚举） */
+function resolveOpsCodes(pdfjs: PdfjsModule): GraphicsOpsCodes | null {
+    const ops = (pdfjs as unknown as { OPS?: Record<string, number> }).OPS;
+    if (!ops) return null;
+    const keys: Array<keyof GraphicsOpsCodes> = [
+        "save", "restore", "transform",
+        "paintImageMaskXObject", "paintImageMaskXObjectGroup",
+        "paintImageXObject", "paintInlineImageXObject", "paintInlineImageXObjectGroup",
+        "paintImageXObjectRepeat", "paintImageMaskXObjectRepeat", "paintSolidColorImageMask",
+        "constructPath",
+    ];
+    const codes = {} as GraphicsOpsCodes;
+    for (const key of keys) {
+        const value = ops[key];
+        if (typeof value !== "number") return null;
+        codes[key] = value;
+    }
+    return codes;
 }
 
 /**
@@ -75,6 +103,9 @@ export async function parsePdf(buffer: ArrayBuffer, options: ParsePdfOptions = {
 
     const items: PdfTextItem[] = [];
     const pages: Array<{ width: number; height: number }> = [];
+    /** 每页图形元素（parse 内检测，供 pdfRegions / pdfHasGraphics 使用） */
+    const pageGraphics = new Map<number, PdfGraphicElement[]>();
+    const opsCodes = options.skipGraphicsDetection ? null : resolveOpsCodes(pdfjs);
     let pageCount = 0;
     let textCharCount = 0;
     /** 每页文字字符数，用于统计空白页（有文字层但个别页没有文字） */
@@ -85,6 +116,11 @@ export async function parsePdf(buffer: ArrayBuffer, options: ParsePdfOptions = {
             const page = await doc.getPage(pageNumber);
             const viewport = page.getViewport({ scale: 1 });
             pages.push({ width: viewport.width, height: viewport.height });
+            if (opsCodes) {
+                const opList = (await page.getOperatorList()) as unknown as OperatorListLike;
+                const graphics = extractGraphicsFromOperatorList(opList, viewport.width, viewport.height, opsCodes);
+                if (graphics.length > 0) pageGraphics.set(pageNumber, graphics);
+            }
             const content = await page.getTextContent();
             let pageChars = 0;
             for (const item of content.items) {
@@ -125,7 +161,7 @@ export async function parsePdf(buffer: ArrayBuffer, options: ParsePdfOptions = {
         return { questions: [], errors: [{ index: -1, reason: "PDF_NO_TEXT_LAYER" }], warnings: [`PAGES:${pageCount}`] };
     }
 
-    const lines = reconstructLines(items, pages);
+    const lines: PdfLine[] = reconstructLines(items, pages);
     const fullText = linesToText(lines);
     const split = splitQuestionText(fullText, options.splitOptions);
     const warnings: string[] = [`PAGES:${pageCount}`];
@@ -136,5 +172,30 @@ export async function parsePdf(buffer: ArrayBuffer, options: ParsePdfOptions = {
     if (!split.detected && split.questions.length === 1) warnings.push(WARNING_SINGLE_QUESTION);
 
     const result = parseQuestionFile(split.questions.map(toStructuredInput));
-    return { questions: result.questions, errors: result.errors, warnings: [...warnings, ...result.warnings] };
+
+    // 按 parseQuestionFile 的过滤结果对齐区域：errors 中的 index 对应 split.questions 下标
+    const regions: PdfQuestionRegions = computeAllQuestionRegions(
+        split.questions.map((question) => question.lineRange),
+        lines,
+        pages,
+    );
+    const errorIndexes = new Set(result.errors.filter((error) => error.index >= 0).map((error) => error.index));
+    const alignedRegions: PdfQuestionRegions = [];
+    for (let index = 0; index < split.questions.length && alignedRegions.length < result.questions.length; index++) {
+        if (errorIndexes.has(index)) continue;
+        alignedRegions.push(regions[index] ?? null);
+    }
+
+    const pdfHasGraphics = pageGraphics.size > 0;
+    const pdfPageGraphics: QuestionParseResult["pdfPageGraphics"] = Array.from({ length: pageCount }, (_, index) => pageGraphics.get(index + 1) ?? []);
+    const pdfPageHeights = pages.map((page) => page.height);
+    return {
+        questions: result.questions,
+        errors: result.errors,
+        warnings: [...warnings, ...result.warnings],
+        pdfRegions: alignedRegions,
+        pdfHasGraphics,
+        pdfPageGraphics,
+        pdfPageHeights,
+    };
 }

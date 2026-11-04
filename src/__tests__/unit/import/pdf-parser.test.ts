@@ -97,3 +97,65 @@ describe("parsePdf：损坏文件", () => {
         expect(result.errors).toEqual([{ index: -1, reason: "INVALID_PDF" }]);
     });
 });
+
+describe("parsePdf：版面区域与图形检测", () => {
+    it("无图形的 PDF：pdfHasGraphics 为 false，pdfRegions 与题数对齐", async () => {
+        const buffer = makePdfBuffer([
+            { lines: [
+                { text: "1. What is the sum of 2 and 2?", y: 150 },
+                { text: "2. Solve the equation 3x = 9 for x", y: 300 },
+            ] },
+        ]);
+        const result = await parsePdf(buffer, await nodePdfOptions());
+        expect(result.questions).toHaveLength(2);
+        expect(result.pdfHasGraphics).toBe(false);
+        expect(result.pdfRegions).toHaveLength(2);
+        expect(result.pdfRegions?.[0]).not.toBeNull();
+        expect(result.pdfRegions?.[1]).not.toBeNull();
+    });
+
+    it("含矩形图形的 PDF：pdfHasGraphics 为 true，图形元素被检出", async () => {
+        const buffer = makePdfBuffer([
+            { lines: [
+                { text: "1. What is the sum of 2 and 2?", y: 150 },
+                { text: "2. Solve the equation 3x = 9 for x", y: 300 },
+            ], rects: [
+                { x: 100, y: 200, width: 200, height: 80, strokeGray: 0 },
+            ] },
+        ]);
+        const result = await parsePdf(buffer, await nodePdfOptions());
+        expect(result.questions).toHaveLength(2);
+        expect(result.pdfHasGraphics).toBe(true);
+        expect(result.pdfPageGraphics).toBeDefined();
+        expect(result.pdfPageGraphics?.[0]).toHaveLength(1);
+        expect(result.pdfPageGraphics?.[0]?.[0].kind).toBe("vector");
+    });
+
+    it("含图片 XObject 的 PDF：检出图片图形", async () => {
+        const imageData = new Uint8Array([255, 0, 0, 0, 255, 0]);
+        const buffer = makePdfBuffer([
+            { lines: [
+                { text: "1. Look at the image and describe it briefly", y: 150 },
+            ], images: [
+                { x: 100, y: 200, width: 120, height: 90, data: imageData, pixelWidth: 1, pixelHeight: 2 },
+            ] },
+        ]);
+        const result = await parsePdf(buffer, await nodePdfOptions());
+        expect(result.pdfHasGraphics).toBe(true);
+        expect(result.pdfPageGraphics?.[0]?.[0].kind).toBe("image");
+    });
+
+    it("pdfRegions 与 questions 下标一一对应（含错误题时）", async () => {
+        // 第 1 题正常，第 2 题只有题号没有正文（normalizeQuestion 会报错）
+        const buffer = makePdfBuffer([
+            { lines: [
+                { text: "1. Valid question here with enough text", y: 150 },
+                { text: "2.", y: 300 },
+            ] },
+        ]);
+        const result = await parsePdf(buffer, await nodePdfOptions());
+        // 第 2 题 text 为空，parseQuestionFile 会报错误
+        expect(result.questions.length).toBe(1);
+        expect(result.pdfRegions).toHaveLength(1);
+    });
+});

@@ -91,6 +91,7 @@ function FileImportPhaseView({ phase, notebookId, onNotebookChange, onFile, onCo
                 <FileImportSummaryView
                     fileName={phase.fileName}
                     summary={phase.summary}
+                    pdfHasGraphics={phase.result.pdfHasGraphics}
                     notebookId={notebookId}
                     onNotebookChange={onNotebookChange}
                     onConfirm={onConfirm}
