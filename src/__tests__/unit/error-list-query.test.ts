@@ -6,6 +6,7 @@ import {
     buildGradeFilter,
     type ErrorListQueryDeps,
 } from '@/lib/error-list/error-list-query';
+import { parseQuestionTypeFilter } from '@/lib/error-list/error-list-filters';
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from '@/lib/constants/pagination';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ const baseParams = {
     chapter: null,
     gradeSemester: null,
     paperLevel: null,
+    questionTypes: [] as ReturnType<typeof parseQuestionTypeFilter>,
     view: null,
     page: 1,
     pageSize: DEFAULT_PAGE_SIZE,
@@ -104,6 +106,15 @@ describe('parseErrorListQueryParams', () => {
         expect(parseErrorListQueryParams(new URLSearchParams('timeRange=week')).timeRange).toBe('week');
         expect(parseErrorListQueryParams(new URLSearchParams('timeRange=month')).timeRange).toBe('month');
         expect(parseErrorListQueryParams(new URLSearchParams('timeRange=invalid')).timeRange).toBe('all');
+    });
+
+    it('questionTypes 解析合法值并忽略非法值', () => {
+        expect(parseErrorListQueryParams(new URLSearchParams('questionTypes=single_choice,multiple_choice')).questionTypes)
+            .toEqual(['single_choice', 'multiple_choice']);
+        expect(parseErrorListQueryParams(new URLSearchParams('questionTypes=single_choice,unknown,none')).questionTypes)
+            .toEqual(['single_choice', 'none']);
+        expect(parseErrorListQueryParams(new URLSearchParams('questionTypes=unknown')).questionTypes).toEqual([]);
+        expect(parseErrorListQueryParams(new URLSearchParams()).questionTypes).toEqual([]);
     });
 });
 
@@ -281,6 +292,53 @@ describe('buildErrorListWhere', () => {
             { ...baseParams, paperLevel: 'a' }, 'u1', 50, deps
         );
         expect(where.paperLevel).toBe('a');
+    });
+
+    it('questionTypes 只选具体题型时按 in 过滤', async () => {
+        const deps = makeDeps();
+        const where = await buildErrorListWhere(
+            { ...baseParams, questionTypes: ['single_choice', 'multiple_choice'] }, 'u1', 50, deps
+        );
+        expect(where.AND).toEqual([
+            { OR: [{ questionType: { in: ['single_choice', 'multiple_choice'] } }] },
+        ]);
+    });
+
+    it('questionTypes 只选 none 时筛 questionType 为 null 的题', async () => {
+        const deps = makeDeps();
+        const where = await buildErrorListWhere(
+            { ...baseParams, questionTypes: ['none'] }, 'u1', 50, deps
+        );
+        expect(where.AND).toEqual([{ OR: [{ questionType: null }] }]);
+    });
+
+    it('questionTypes 同时选题型与 none 时 OR 合并', async () => {
+        const deps = makeDeps();
+        const where = await buildErrorListWhere(
+            { ...baseParams, questionTypes: ['fill_blank', 'none'] }, 'u1', 50, deps
+        );
+        expect(where.AND).toEqual([
+            { OR: [{ questionType: { in: ['fill_blank'] } }, { questionType: null }] },
+        ]);
+    });
+
+    it('questionTypes 为空数组时不加筛选条件', async () => {
+        const deps = makeDeps();
+        const where = await buildErrorListWhere(
+            { ...baseParams, questionTypes: [] }, 'u1', 50, deps
+        );
+        expect(where).toEqual({ userId: 'u1' });
+    });
+
+    it('questionTypes 与其他 AND 条件共存', async () => {
+        const deps = makeDeps();
+        const where = await buildErrorListWhere(
+            { ...baseParams, query: '方程', questionTypes: ['solution'] }, 'u1', 50, deps
+        );
+        const and = where.AND as Prisma.ErrorItemWhereInput[];
+        expect(and).toHaveLength(2);
+        expect(and[0].OR).toBeDefined(); // query
+        expect(and[1]).toEqual({ OR: [{ questionType: { in: ['solution'] } }] });
     });
 
     it('多个 AND 条件同时存在时合并到 AND 数组', async () => {

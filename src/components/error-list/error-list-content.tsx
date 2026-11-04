@@ -6,6 +6,7 @@ import { GitCompareArrows, Inbox, ListChecks, Printer, Search } from "lucide-rea
 import { ErrorItemCard } from "@/components/error-list/error-item-card";
 import { FilterMenu } from "@/components/error-list/filter-menu";
 import { PaperLevelFilter } from "@/components/error-list/paper-level-filter";
+import { QuestionTypeFilter } from "@/components/error-list/question-type-filter";
 import { ErrorListSelectionBar } from "@/components/error-list-selection-bar";
 import { KnowledgeFilter } from "@/components/knowledge-filter";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination";
 import { buildErrorListParams } from "@/lib/error-list/error-list-filters";
+import { NO_QUESTION_TYPE } from "@/lib/question/question-type";
 import { confirmDialog, toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { locateByShortId } from "@/lib/short-id/short-id-client";
@@ -51,6 +53,7 @@ export function ErrorListContent({ subjectId, subjectName, tagSet = 'default', i
     const [gradeFilter, setGradeFilter] = useState("");
     const [chapterFilter, setChapterFilter] = useState("");
     const [paperLevelFilter, setPaperLevelFilter] = useState<PaperLevel>("all");
+    const [questionTypesFilter, setQuestionTypesFilter] = useState<string[]>([]);
     const [selectedTag, setSelectedTag] = useState<string | null>(initialTag ?? null);
     // 分页状态
     const [page, setPage] = useState(1);
@@ -65,7 +68,8 @@ export function ErrorListContent({ subjectId, subjectName, tagSet = 'default', i
     const filters: ErrorListFilters = useMemo(() => ({
         subjectId, search, mastery: masteryFilter, timeRange: timeFilter, tag: selectedTag,
         gradeSemester: gradeFilter, chapter: chapterFilter, paperLevel: paperLevelFilter,
-    }), [subjectId, search, masteryFilter, timeFilter, selectedTag, gradeFilter, chapterFilter, paperLevelFilter]);
+        questionTypes: questionTypesFilter.map((value) => value === NO_QUESTION_TYPE ? "none" : value) as ErrorListFilters["questionTypes"],
+    }), [subjectId, search, masteryFilter, timeFilter, selectedTag, gradeFilter, chapterFilter, paperLevelFilter, questionTypesFilter]);
 
     const handleFilterChange = ({ gradeSemester, chapter, tag }: KnowledgeFilterChange) => {
         if (gradeSemester !== undefined) setGradeFilter(gradeSemester);
@@ -198,6 +202,11 @@ export function ErrorListContent({ subjectId, subjectName, tagSet = 'default', i
                     <KnowledgeFilter gradeSemester={gradeFilter} tag={selectedTag} onFilterChange={handleFilterChange} subjectName={subjectName} tagSet={tagSet} />
                 </div>
                 <PaperLevelFilter value={paperLevelFilter} onChange={setPaperLevelFilter} />
+            </div>
+
+            <div className="space-y-2">
+                <span className="text-sm text-muted-foreground">{t.questionType.label}</span>
+                <QuestionTypeFilter value={questionTypesFilter} onChange={setQuestionTypesFilter} />
             </div>
 
             {selectedTag && (

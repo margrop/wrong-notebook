@@ -39,7 +39,7 @@ The **Review** page in the navigation lists questions due today, and the home pa
 
 ## Generate an exam paper
 
-1. Open the exam entry and choose the scope: notebooks, knowledge points, mastery and so on, plus the mode (Similar Questions / Original).
+1. Open the exam entry and choose the scope: notebooks, knowledge points, question types, mastery and so on, plus the mode (Similar Questions / Original). Question types are optional (leave empty for no restriction); you can also select one or more types to only pick questions of those types, including "Not set" (questions without a question type).
 2. The system picks questions from that scope (by default **Least practiced first**: questions with fewer practice records come first; for ties, questions that have never appeared in an existing exam paper come first, then random; **Fully random** is also available).
 3. **Similar Questions** (default): the AI generates a variant for each question. Check the progress in background tasks; when it finishes, open the paper and check the questions, figures and answers. You can choose the difficulty (Easy / Medium / Hard / Challenge).
 4. **Original**: uses the original question text, answer, analysis and figure directly. No AI is called and no AI quota is consumed; the paper is ready to print immediately. No difficulty selection needed.

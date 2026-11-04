@@ -7,6 +7,7 @@ import { getMasteryThreshold } from "@/lib/mastery";
 import { DEFAULT_MASTERY_THRESHOLD, masteryStatusWhere } from "@/lib/mastery-status";
 import { startBackgroundTask, trackBackgroundTask } from "@/lib/background-tasks";
 import { resolveNotebookScope, SUBJECT_DISPLAY_NAMES } from "@/lib/notebook-scope";
+import { QUESTION_TYPES } from "@/lib/question/question-type";
 import type { BackgroundTaskHandle } from "@/lib/background-tasks";
 
 const logger = createLogger('exam');
@@ -30,6 +31,8 @@ export interface ExamSelection {
     subjectIds: string[];
     tagNames?: string[];
     paperLevelIds?: string[];
+    /** 题型多选过滤：标准题型 key，"none" 表示未设置题型；缺省/空数组不限制 */
+    questionTypes?: string[];
     scope: ExamScope;
     count: number;
     pickRule?: ExamPickRule;
@@ -57,6 +60,25 @@ export function buildSourceWhere(userId: string, selection: ExamSelection, maste
     }
     if (selection.paperLevelIds && selection.paperLevelIds.length > 0) {
         where.paperLevel = { in: selection.paperLevelIds };
+    }
+    // 题型多选：选 "none" 时包含未设置题型的题，与其他已选题型取 OR；未知题型 key 忽略
+    if (selection.questionTypes && selection.questionTypes.length > 0) {
+        const typeConditions: Prisma.ErrorItemWhereInput[] = [];
+        const concreteTypes = selection.questionTypes.filter(
+            (value) => value !== 'none' && (QUESTION_TYPES as readonly string[]).includes(value)
+        );
+        if (concreteTypes.length > 0) {
+            typeConditions.push({ questionType: { in: concreteTypes } });
+        }
+        if (selection.questionTypes.includes('none')) {
+            typeConditions.push({ questionType: null });
+        }
+        if (typeConditions.length > 0) {
+            const existingAnd = where.AND;
+            const andArray: Prisma.ErrorItemWhereInput[] = Array.isArray(existingAnd) ? [...existingAnd] : existingAnd ? [existingAnd] : [];
+            andArray.push({ OR: typeConditions });
+            where.AND = andArray;
+        }
     }
     // 原题直出模式要求有题干；纯空白无法用 where 判断，在 selectSourceItems 中再过滤
     if (selection.requireQuestionText) {

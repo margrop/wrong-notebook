@@ -17,6 +17,8 @@ const createSchema = z.object({
     subjectIds: z.array(z.string().min(1)).min(1).max(50),
     tagNames: z.array(z.string().trim().min(1)).max(50).optional(),
     paperLevelIds: z.array(z.string().min(1)).max(20).optional(),
+    // 宽松：数组元素为字符串即可，未知题型 key 由 buildSourceWhere 忽略
+    questionTypes: z.array(z.string()).max(20).optional(),
     scope: z.enum(EXAM_SCOPES),
     count: z.number().int().min(1).max(MAX_EXAM_QUESTIONS),
     pickRule: z.enum(EXAM_PICK_RULES).default(DEFAULT_EXAM_PICK_RULE),
@@ -72,7 +74,7 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
         if (!parsed.success) {
             return validationError("Invalid exam options", parsed.error.issues);
         }
-        const { subjectIds, tagNames, paperLevelIds, scope, count, pickRule, difficulty, mode, language } = parsed.data;
+        const { subjectIds, tagNames, paperLevelIds, questionTypes, scope, count, pickRule, difficulty, mode, language } = parsed.data;
         const source = parsed.data.source ?? DEFAULT_EXAM_SOURCE;
         const provider = getExamSourceProvider(source);
         if (!provider) {
@@ -102,6 +104,7 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
             subjectIds: notebooks.map((notebook) => notebook.id),
             tagNames,
             paperLevelIds,
+            questionTypes,
             scope,
             count,
             pickRule,

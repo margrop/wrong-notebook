@@ -1524,6 +1524,7 @@ export const en = {
                 least_practiced: "Questions with fewer practice records come first; for ties, questions never used in an exam come first, then random.",
                 random: "Every matching question has the same chance.",
             },
+            questionTypesHint: "Leave empty for no restriction; \"Not set\" matches questions without a question type.",
             count: "Number of questions",
             difficulty: "Difficulty",
             titleLabel: "Title (optional)",

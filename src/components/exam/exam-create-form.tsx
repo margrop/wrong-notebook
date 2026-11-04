@@ -13,6 +13,8 @@ import { ExamModeToggle } from "@/components/exam/exam-mode-toggle";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
 import { usePaperGroups } from "@/lib/hooks/use-paper-groups";
+import { QUESTION_TYPES, NO_QUESTION_TYPE } from "@/lib/question/question-type";
+import type { QuestionType } from "@/lib/question/question-type";
 import type { ExamMode, ExamPickRule, ExamScope, Notebook } from "@/types/api";
 
 const SCOPES: ExamScope[] = ["unmastered", "mastered", "all"];
@@ -27,6 +29,7 @@ export function ExamCreateForm() {
     const [subjectIds, setSubjectIds] = useState<string[]>([]);
     const [tagNames, setTagNames] = useState<string[]>([]);
     const [paperLevelIds, setPaperLevelIds] = useState<string[]>([]);
+    const [questionTypes, setQuestionTypes] = useState<string[]>([]);
     const [scope, setScope] = useState<ExamScope>("unmastered");
     const [pickRule, setPickRule] = useState<ExamPickRule>("least_practiced");
     const [count, setCount] = useState(10);
@@ -54,6 +57,10 @@ export function ExamCreateForm() {
         setPaperLevelIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]));
     };
 
+    const toggleQuestionType = (type: string) => {
+        setQuestionTypes((prev) => (prev.includes(type) ? prev.filter((value) => value !== type) : [...prev, type]));
+    };
+
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
         if (subjectIds.length === 0) {
@@ -67,6 +74,9 @@ export function ExamCreateForm() {
                 subjectIds,
                 tagNames,
                 paperLevelIds: paperLevelIds.length > 0 ? paperLevelIds : undefined,
+                questionTypes: questionTypes.length > 0
+                    ? questionTypes.map((value) => (value === NO_QUESTION_TYPE ? "none" : value))
+                    : undefined,
                 scope,
                 pickRule,
                 count,
@@ -142,6 +152,38 @@ export function ExamCreateForm() {
                             </div>
                         </div>
                     )}
+
+                    <div className="space-y-2">
+                        <Label>{t.questionType.label}</Label>
+                        <div className="flex flex-wrap gap-2">
+                            {QUESTION_TYPES.map((type) => (
+                                <button
+                                    key={type}
+                                    type="button"
+                                    onClick={() => toggleQuestionType(type)}
+                                    className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                                        questionTypes.includes(type)
+                                            ? "border-primary bg-primary text-primary-foreground"
+                                            : "border-input bg-background hover:bg-muted"
+                                    }`}
+                                >
+                                    {t.questionType.names[type as QuestionType] || type}
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                onClick={() => toggleQuestionType(NO_QUESTION_TYPE)}
+                                className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                                    questionTypes.includes(NO_QUESTION_TYPE)
+                                        ? "border-primary bg-primary text-primary-foreground"
+                                        : "border-input bg-background hover:bg-muted"
+                                }`}
+                            >
+                                {t.questionType.notSet}
+                            </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{t.exam.questionTypesHint}</p>
+                    </div>
 
                     <ExamModeToggle value={mode} onChange={setMode} />
 

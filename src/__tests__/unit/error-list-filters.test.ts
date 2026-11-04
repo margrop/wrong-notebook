@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildErrorListParams, parseErrorListSearchParams } from '@/lib/error-list/error-list-filters';
+import { buildErrorListParams, parseErrorListSearchParams, parseQuestionTypeFilter } from '@/lib/error-list/error-list-filters';
+import type { ErrorListFilters } from '@/lib/error-list/error-list-filters';
 import { getItemTags } from '@/lib/tags/item-tags';
 
-const empty = { search: '', mastery: 'all', timeRange: 'all', tag: null, gradeSemester: '', chapter: '', paperLevel: 'all' } as const;
+const empty: ErrorListFilters = { search: '', mastery: 'all', timeRange: 'all', tag: null, gradeSemester: '', chapter: '', paperLevel: 'all', questionTypes: [] };
 
 describe('错题列表筛选参数', () => {
     it('未筛选时不带任何参数', () => {
@@ -12,10 +13,42 @@ describe('错题列表筛选参数', () => {
     it('各筛选条件转成对应参数名', () => {
         const params = buildErrorListParams({
             subjectId: 'nb', search: '方程', mastery: 'reviewing', timeRange: 'week', tag: '勾股定理', gradeSemester: '初二上', chapter: '第一章', paperLevel: 'b',
+            questionTypes: ['single_choice', 'none'],
         });
         expect(Object.fromEntries(params)).toEqual({
             subjectId: 'nb', query: '方程', mastery: 'reviewing', timeRange: 'week', tag: '勾股定理', gradeSemester: '初二上', chapter: '第一章', paperLevel: 'b',
+            questionTypes: 'single_choice,none',
         });
+    });
+
+    it('题型为空数组时不带参数', () => {
+        expect(buildErrorListParams(empty).toString()).toBe('');
+    });
+});
+
+describe('parseQuestionTypeFilter', () => {
+    it('空值返回空数组', () => {
+        expect(parseQuestionTypeFilter(null)).toEqual([]);
+        expect(parseQuestionTypeFilter('')).toEqual([]);
+    });
+
+    it('解析单个与多个合法题型', () => {
+        expect(parseQuestionTypeFilter('single_choice')).toEqual(['single_choice']);
+        expect(parseQuestionTypeFilter('single_choice,multiple_choice')).toEqual(['single_choice', 'multiple_choice']);
+    });
+
+    it('接受 none 表示未设置题型', () => {
+        expect(parseQuestionTypeFilter('none')).toEqual(['none']);
+        expect(parseQuestionTypeFilter('single_choice,none')).toEqual(['single_choice', 'none']);
+    });
+
+    it('非法值被忽略而不是报错', () => {
+        expect(parseQuestionTypeFilter('unknown')).toEqual([]);
+        expect(parseQuestionTypeFilter('single_choice,unknown,none')).toEqual(['single_choice', 'none']);
+    });
+
+    it('重复值去重', () => {
+        expect(parseQuestionTypeFilter('single_choice,single_choice')).toEqual(['single_choice']);
     });
 });
 

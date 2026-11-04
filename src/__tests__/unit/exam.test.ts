@@ -40,6 +40,44 @@ describe('buildSourceWhere', () => {
         expect(where).not.toHaveProperty('AND');
         expect(where).not.toHaveProperty('tags');
     });
+
+    it('按题型多选过滤：只选具体题型时按 in 过滤', () => {
+        const where = buildSourceWhere('u1', { subjectIds: ['s1'], scope: 'all', count: 5, questionTypes: ['single_choice', 'solution'] });
+        expect(where.AND).toEqual([{ OR: [{ questionType: { in: ['single_choice', 'solution'] } }] }]);
+    });
+
+    it('按题型多选过滤：只选 none 时筛未设置题型的题', () => {
+        const where = buildSourceWhere('u1', { subjectIds: ['s1'], scope: 'all', count: 5, questionTypes: ['none'] });
+        expect(where.AND).toEqual([{ OR: [{ questionType: null }] }]);
+    });
+
+    it('按题型多选过滤：题型与 none 混合时 OR 合并', () => {
+        const where = buildSourceWhere('u1', { subjectIds: ['s1'], scope: 'all', count: 5, questionTypes: ['fill_blank', 'none'] });
+        expect(where.AND).toEqual([{ OR: [{ questionType: { in: ['fill_blank'] } }, { questionType: null }] }]);
+    });
+
+    it('题型筛选与掌握范围条件共存', () => {
+        const where = buildSourceWhere('u1', { subjectIds: ['s1'], scope: 'mastered', count: 5, questionTypes: ['solution'] });
+        expect(where.AND).toEqual([
+            MASTERED,
+            { OR: [{ questionType: { in: ['solution'] } }] },
+        ]);
+    });
+
+    it('questionTypes 未设置或为空数组时不加筛选条件', () => {
+        const where = buildSourceWhere('u1', { subjectIds: ['s1'], scope: 'all', count: 5, questionTypes: [] });
+        expect(where).not.toHaveProperty('AND');
+    });
+
+    it('未知题型 key 被忽略', () => {
+        const where = buildSourceWhere('u1', { subjectIds: ['s1'], scope: 'all', count: 5, questionTypes: ['unknown_type'] });
+        expect(where).not.toHaveProperty('AND');
+    });
+
+    it('未知题型 key 与已知题型混合时仅保留已知值', () => {
+        const where = buildSourceWhere('u1', { subjectIds: ['s1'], scope: 'all', count: 5, questionTypes: ['unknown_type', 'solution'] });
+        expect(where.AND).toEqual([{ OR: [{ questionType: { in: ['solution'] } }] }]);
+    });
 });
 
 describe('sampleItems', () => {

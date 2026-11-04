@@ -5,7 +5,8 @@ import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/lib/constants
 import { isShortId } from "@/lib/short-id/short-id";
 import { isMasteryStatus, masteryStatusWhere } from "@/lib/mastery-status";
 import type { MasteryStatus } from "@/lib/mastery-status";
-import type { TimeFilter } from "@/lib/error-list/error-list-filters";
+import type { TimeFilter, QuestionTypeFilterValue } from "@/lib/error-list/error-list-filters";
+import { QUESTION_TYPE_NONE, parseQuestionTypeFilter } from "@/lib/error-list/error-list-filters";
 
 /** 错题列表查询参数（解析自 URL searchParams） */
 export interface ErrorListQueryParams {
@@ -17,6 +18,7 @@ export interface ErrorListQueryParams {
     chapter: string | null;
     gradeSemester: string | null;
     paperLevel: string | null;
+    questionTypes: QuestionTypeFilterValue[];
     view: string | null;
     page: number;
     pageSize: number;
@@ -60,6 +62,7 @@ export function parseErrorListQueryParams(searchParams: URLSearchParams): ErrorL
         chapter: searchParams.get("chapter"),
         gradeSemester: searchParams.get("gradeSemester"),
         paperLevel: searchParams.get("paperLevel"),
+        questionTypes: parseQuestionTypeFilter(searchParams.get("questionTypes")),
         view: searchParams.get("view"),
         page,
         pageSize,
@@ -173,6 +176,21 @@ export async function buildErrorListWhere(
     // Paper Level filter
     if (params.paperLevel && params.paperLevel !== "all") {
         whereClause.paperLevel = params.paperLevel;
+    }
+
+    // 题型多选筛选：选 "none" 时包含未设置题型的题，与其他已选题型取 OR
+    if (params.questionTypes.length > 0) {
+        const typeConditions: Prisma.ErrorItemWhereInput[] = [];
+        const concreteTypes = params.questionTypes.filter(
+            (value): value is Exclude<QuestionTypeFilterValue, typeof QUESTION_TYPE_NONE> => value !== QUESTION_TYPE_NONE
+        );
+        if (concreteTypes.length > 0) {
+            typeConditions.push({ questionType: { in: concreteTypes } });
+        }
+        if (params.questionTypes.includes(QUESTION_TYPE_NONE)) {
+            typeConditions.push({ questionType: null });
+        }
+        andConditions.push({ OR: typeConditions });
     }
 
     // 将所有 AND 条件合并到 whereClause

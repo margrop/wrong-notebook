@@ -1523,6 +1523,7 @@ export const zh = {
                 least_practiced: "举一反三记录越少的题目越优先抽到；次数相同时优先抽取未出现在已有试卷中的题目，仍相同时随机。",
                 random: "所有符合条件的题目被抽到的机会相同。",
             },
+            questionTypesHint: "不选则不限制题型；「未设置」表示题型为空的题目。",
             count: "题目数量",
             difficulty: "难度",
             titleLabel: "试卷标题（可选）",
