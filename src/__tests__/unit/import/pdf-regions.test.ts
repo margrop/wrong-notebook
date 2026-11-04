@@ -72,11 +72,19 @@ describe("computeQuestionRegions：单栏多题", () => {
         expect(regions[0].rect.height).toBeCloseTo(500 - 300, 1);
     });
 
-    it("最后一题延伸到页脚区顶部", () => {
+    it("最后一题收紧到最后一行文字底部，不截进页面下方空白", () => {
         const regions = computeQuestionRegions(4, 5, lines, singlePage, new Map(), headerFooterZones(singlePage));
         expect(regions).toHaveLength(1);
         expect(regions[0].rect.yTop).toBeCloseTo(500 - 4, 1);
-        expect(regions[0].rect.height).toBeCloseTo(PAGE_H * 0.92 - (500 - 4), 1);
+        // 行高 12，上下各留 4
+        expect(regions[0].rect.height).toBeCloseTo(12 + 8, 1);
+    });
+
+    it("最后一题下方的图形计入区域，延伸到图形底部", () => {
+        const graphics = new Map([[1, [{ x: 100, yTop: 520, width: 200, height: 100 }]]]);
+        const regions = computeQuestionRegions(4, 5, lines, singlePage, new Map(), headerFooterZones(singlePage), graphics);
+        expect(regions[0].rect.yTop).toBeCloseTo(500 - 4, 1);
+        expect(regions[0].rect.yTop + regions[0].rect.height).toBeCloseTo(620 + 4, 1);
     });
 });
 
@@ -87,20 +95,33 @@ describe("computeQuestionRegions：跨页", () => {
         makeLine("2. Second question on page two", 2, 150),
     ];
 
-    it("拆成两段：第 1 页底部 + 第 2 页顶部", () => {
+    it("下一题在下一页时，本题只取本页内容（收紧到最后一行）", () => {
         const regions = computeQuestionRegions(0, 1, lines, pages, new Map(), headerFooterZones(pages));
         expect(regions).toHaveLength(1);
         expect(regions[0].page).toBe(1);
         expect(regions[0].rect.yTop).toBeCloseTo(600 - 4, 1);
-        expect(regions[0].rect.height).toBeCloseTo(PAGE_H * 0.92 - (600 - 4), 1);
+        expect(regions[0].rect.height).toBeCloseTo(12 + 8, 1);
     });
 
-    it("第 2 页题区域：题号行顶部到页脚区顶部（最后一题）", () => {
+    it("第 2 页的最后一题：题号行顶部到最后一行底部", () => {
         const regions = computeQuestionRegions(1, 2, lines, pages, new Map(), headerFooterZones(pages));
         expect(regions).toHaveLength(1);
         expect(regions[0].page).toBe(2);
         expect(regions[0].rect.yTop).toBeCloseTo(150 - 4, 1);
-        expect(regions[0].rect.height).toBeCloseTo(PAGE_H * 0.92 - (150 - 4), 1);
+        expect(regions[0].rect.height).toBeCloseTo(12 + 8, 1);
+    });
+
+    it("题目跨页延续时两段都保留，第 2 页段包含首行上方的配图", () => {
+        const continued = [
+            makeLine("1. Question spanning pages", 1, 700),
+            makeLine("continued text on page two", 2, 300),
+            makeLine("2. Next question", 2, 400),
+        ];
+        const graphics = new Map([[2, [{ x: 100, yTop: 150, width: 200, height: 120 }]]]);
+        const regions = computeQuestionRegions(0, 2, continued, pages, new Map(), headerFooterZones(pages), graphics);
+        expect(regions.map((region) => region.page)).toEqual([1, 2]);
+        expect(regions[1].rect.yTop).toBeCloseTo(150 - 4, 1);
+        expect(regions[1].rect.yTop + regions[1].rect.height).toBeCloseTo(400 - 4, 1);
     });
 });
 
@@ -126,12 +147,12 @@ describe("computeQuestionRegions：双栏", () => {
     });
 });
 
-describe("computeQuestionRegions：页眉页脚排除", () => {
-    it("区域顶部被钳制在页眉区底部", () => {
+describe("computeQuestionRegions：靠近页面顶部的题", () => {
+    it("题目从页面顶部附近开始时不被页眉区比例裁掉（页眉行已在重建文字行时剔除）", () => {
         const lines = [makeLine("1. Near top question", 1, 50)];
         const regions = computeQuestionRegions(0, 1, lines, singlePage, new Map(), headerFooterZones(singlePage));
         expect(regions).toHaveLength(1);
-        expect(regions[0].rect.yTop).toBeCloseTo(PAGE_H * 0.15, 1);
+        expect(regions[0].rect.yTop).toBeCloseTo(50 - 4, 1);
     });
 });
 
@@ -151,5 +172,31 @@ describe("computeAllQuestionRegions", () => {
         expect(regions[1]).not.toBeNull();
         expect(regions[2]).toBeNull();
         expect(regions[3]).toBeNull();
+    });
+});
+
+describe("题号行上方的公式行归入本题", () => {
+    it("紧挨题号行且明显靠右的行并入本题区域，上一题区域止于其上方", () => {
+        const lines = [
+            makeLine("1. First question", 1, 100),
+            makeLine("answer line", 1, 124),
+            makeLine("a + b = 1", 1, 200, 220),
+            makeLine("2. Solve the system", 1, 214),
+            makeLine("c + d = 2", 1, 228, 220),
+        ];
+        const regions = computeAllQuestionRegions([{ from: 0, to: 3 }, { from: 3, to: 5 }], lines, singlePage);
+        expect(regions[1]?.[0].rect.yTop).toBeCloseTo(200 - 4, 1);
+        const first = regions[0]?.[0].rect;
+        expect(first ? first.yTop + first.height : 0).toBeCloseTo(200 - 4, 1);
+    });
+
+    it("不靠右的普通上一行不会被并入", () => {
+        const lines = [
+            makeLine("1. First question", 1, 100),
+            makeLine("last line of question one", 1, 200, 80),
+            makeLine("2. Next question", 1, 214),
+        ];
+        const regions = computeAllQuestionRegions([{ from: 0, to: 2 }, { from: 2, to: 3 }], lines, singlePage);
+        expect(regions[1]?.[0].rect.yTop).toBeCloseTo(214 - 4, 1);
     });
 });

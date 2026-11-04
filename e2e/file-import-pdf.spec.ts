@@ -150,7 +150,7 @@ test('[E2E-F4-6] 损坏的 PDF：显示无效 PDF 的提示，不创建批次', 
 
 /**
  * 文字版 PDF（1 页 2 题，第 2 题下方有矩形图形）。
- * 用于题目原图截图测试：默认「有图形的题」只给第 2 题截图。
+ * 用于题目原图截图测试：选择「有图形的题」时只给第 2 题截图。
  */
 function textPdfWithRect(): ArrayBuffer {
     return makeTextPdfWithRects([
@@ -167,15 +167,17 @@ function textPdfWithRect(): ArrayBuffer {
     ]);
 }
 
-test('[E2E-F4-7] 文字版 PDF 含矩形图形：默认「有图形的题」→ 第 2 题带 data:image 原图，第 1 题为空', async ({ page, scenario }) => {
+test('[E2E-F4-7] 文字版 PDF 含矩形图形：默认「全部题」，改选「有图形的题」→ 第 2 题带 data:image 原图，第 1 题为空', async ({ page, scenario }) => {
     await scenario.login(page);
     await page.goto(`/?notebook=${scenario.book.id}`);
     await uploadPdf(page, textPdfWithRect(), 'text-with-rect.pdf');
 
-    // 摘要视图显示「题目原图」选项，默认选中「有图形的题」
+    // 摘要视图显示「题目原图」选项，默认选中「全部题」；改选「有图形的题」
     await expect(page.getByTestId('file-import-summary')).toContainText('共解析出 2 道题。', { timeout: 30000 });
     await expect(page.getByTestId('pdf-image-option')).toBeVisible();
+    await expect(page.getByTestId('pdf-image-option-all')).toBeChecked();
     const withGraphics = page.getByTestId('pdf-image-option-with-graphics');
+    await withGraphics.check();
     await expect(withGraphics).toBeChecked();
 
     // 确认导入

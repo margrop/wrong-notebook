@@ -21,7 +21,7 @@ interface FileImportSummaryViewProps {
 /** 摘要视图：题数、错误与警告、未导入字段、题目原图选项（PDF）、目标错题本选择与确认 */
 export function FileImportSummaryView({ fileName, summary, pdfHasGraphics, notebookId, onNotebookChange, onConfirm, onReset }: FileImportSummaryViewProps) {
     const { t } = useLanguage();
-    const [pdfImageOption, setPdfImageOption] = useState<PdfImageOption>(pdfHasGraphics ? "with-graphics" : "none");
+    const [pdfImageOption, setPdfImageOption] = useState<PdfImageOption>("all");
     const showPdfImageOption = pdfHasGraphics !== undefined;
     return (
         <div className="space-y-4" data-testid="file-import-summary">

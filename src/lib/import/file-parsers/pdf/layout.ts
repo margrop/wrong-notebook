@@ -159,8 +159,8 @@ function groupIntoLines(items: PdfTextItem[], pages: PageInfo[]): PdfLine[] {
             }
             const height = row.reduce((sum, item) => Math.max(sum, item.height), 0);
             const y = row.reduce((sum, item) => sum + item.y, 0) / row.length;
-            // yTop 为自上而下位置：页高减去行基线 y 再加行高
-            lines.push({ text: text.trimEnd(), x: row[0].x, yTop: pageHeight - y + height, height, page });
+            // yTop 为自上而下的行顶位置：y 是自下而上的基线，行顶在基线之上一个字高处
+            lines.push({ text: text.trimEnd(), x: row[0].x, yTop: pageHeight - y - height, height, page });
         }
     }
     return lines;

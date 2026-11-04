@@ -138,6 +138,7 @@ function columnGeometry(split: ColumnSplit | null, column: number, pageWidth: nu
  * @param pages     每页尺寸
  * @param splits    双栏切分（detectColumnSplits 的结果）
  * @param zones     页眉页脚区域
+ * @param graphics  每页图形外接框（自上而下坐标），用于收紧没有下一题作边界的段底
  */
 export function computeQuestionRegions(
     fromLine: number,
@@ -146,6 +147,7 @@ export function computeQuestionRegions(
     pages: PageSize[],
     splits: Map<number, ColumnSplit>,
     zones: Map<number, PdfHeaderFooterZone>,
+    graphics: Map<number, PdfRect[]> = new Map(),
 ): PdfPageRegion[] {
     if (fromLine < 0 || fromLine >= lines.length) return [];
     const stop = Math.min(toLine, lines.length);
@@ -190,19 +192,37 @@ export function computeQuestionRegions(
             const first = columnLines[0];
             const geometry = columnGeometry(split, column, info.width);
 
-            // 段顶：本题在该栏的首行顶部；后续栏/页段从内容顶部开始
+            // 段顶：本题在该栏的首行文字顶部（页眉页脚行在重建文字行时已剔除，不再按固定比例裁剪）。
+            // 题目延续到新的栏/页时，首行之上、页眉区以下属于本栏的图形（如延续的配图）一并包含。
             const isFirstSegment = page === startPage && column === columnIndexOf(firstLine, splits.get(startPage) ?? null);
-            let regionTop = isFirstSegment ? first.yTop - REGION_PADDING : zone.top;
-            regionTop = Math.max(regionTop, zone.top);
+            let regionTop = Math.max(0, first.yTop - REGION_PADDING);
+            if (!isFirstSegment) {
+                for (const box of graphics.get(page) ?? []) {
+                    const inColumn = box.x < geometry.right && box.x + box.width > geometry.left;
+                    if (inColumn && box.yTop >= zone.top && box.yTop + box.height <= first.yTop) {
+                        regionTop = Math.min(regionTop, Math.max(0, box.yTop - REGION_PADDING));
+                    }
+                }
+            }
 
             // 段底：同栏下一题首行顶部；否则延伸到底部
             let regionBottom: number;
             if (nextIsAt(page, column, split)) {
                 regionBottom = nextLine!.yTop - REGION_PADDING;
             } else {
-                regionBottom = zone.bottom;
+                // 没有下一题作边界（最后一题、或题目延续到下一栏/页）：收紧到本段最后一行文字与段内图形的底部，
+                // 避免截进大片空白
+                const last = columnLines[columnLines.length - 1];
+                let contentBottom = last.yTop + last.height;
+                for (const box of graphics.get(page) ?? []) {
+                    const inColumn = box.x < geometry.right && box.x + box.width > geometry.left;
+                    if (inColumn && box.yTop >= regionTop && box.yTop < zone.bottom) {
+                        contentBottom = Math.max(contentBottom, box.yTop + box.height);
+                    }
+                }
+                regionBottom = contentBottom + REGION_PADDING;
             }
-            regionBottom = Math.min(regionBottom, zone.bottom);
+            regionBottom = Math.min(regionBottom, info.height);
 
             if (regionBottom <= regionTop) continue;
 
@@ -249,17 +269,45 @@ function unionRect(a: PdfRect, b: PdfRect): PdfRect {
 }
 
 /**
+ * 从题号行向上合并紧挨着的「缩进行」：同页同栏、与下面一行几乎没有间隙、且明显比题号行靠右开始。
+ * 典型情况是多行公式（方程组、分式）的首行高于题号行，文字重建时排在题号行之前。
+ */
+export function extendStartUpward(fromLine: number, lines: PdfLine[], splits: Map<number, ColumnSplit>): number {
+    const first = lines[fromLine];
+    if (!first) return fromLine;
+    const split = splits.get(first.page) ?? null;
+    const column = columnIndexOf(first, split);
+    let start = fromLine;
+    while (start > 0) {
+        const above = lines[start - 1];
+        const below = lines[start];
+        if (above.page !== first.page || columnIndexOf(above, split) !== column) break;
+        const gap = below.yTop - (above.yTop + above.height);
+        const indented = above.x > first.x + first.height * 2;
+        if (gap > first.height * 0.8 || !indented) break;
+        start -= 1;
+    }
+    return start;
+}
+
+/**
  * 为全部题目计算区域段（与 questions 下标对应；lineRange 缺失/越界时为 null）。
  */
 export function computeAllQuestionRegions(
     lineRanges: Array<{ from: number; to: number } | undefined>,
     lines: PdfLine[],
     pages: PageSize[],
+    graphics: Map<number, PdfRect[]> = new Map(),
 ): PdfQuestionRegions {
     const splits = detectColumnSplits(lines, pages);
     const zones = headerFooterZones(pages);
-    return lineRanges.map((range) => {
+    // 题号行上方紧挨着的公式行（如方程组的首行）归入本题：调整各题起始行，上一题的区域也随之止于这些行之上
+    const starts = lineRanges.map((range) => (range ? extendStartUpward(range.from, lines, splits) : undefined));
+    return lineRanges.map((range, index) => {
         if (!range || range.from < 0 || range.from >= lines.length) return null;
-        return computeQuestionRegions(range.from, range.to, lines, pages, splits, zones);
+        const from = starts[index] ?? range.from;
+        const nextStart = starts.slice(index + 1).find((start) => start !== undefined);
+        const to = nextStart !== undefined && nextStart < range.to ? nextStart : range.to;
+        return computeQuestionRegions(from, to, lines, pages, splits, zones, graphics);
     });
 }

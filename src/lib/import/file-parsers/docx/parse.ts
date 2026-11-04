@@ -21,7 +21,7 @@
  * 纯函数库，不依赖 Node 专有模块与 Prisma，可在浏览器和服务端同时使用。
  */
 import type { QuestionParseResult } from "@/lib/question-format/types";
-import { parseQuestionFile } from "@/lib/question-format/parse";
+import { parseQuestionFile, withoutExchangeFormatWarnings } from "@/lib/question-format/parse";
 import type { SplitTextQuestion } from "@/lib/question-split/text";
 import { splitQuestionText } from "@/lib/question-split/text";
 import type { TextSplitOptions } from "@/lib/question-split/text";
@@ -304,6 +304,6 @@ export async function parseDocx(
     return {
         questions: result.questions,
         errors: result.errors,
-        warnings: [...warnings, ...result.warnings],
+        warnings: [...warnings, ...withoutExchangeFormatWarnings(result.warnings)],
     };
 }

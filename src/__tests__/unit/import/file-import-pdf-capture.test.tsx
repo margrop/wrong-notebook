@@ -1,7 +1,7 @@
 /**
  * useFileImport 文字版 PDF 题目原图截图分支测试：
  * - 解析结果含 pdfRegions/pdfHasGraphics 时摘要页显示「题目原图」选项；
- * - 选择「有图形的题」（默认）只给含图形的题截图；
+ * - 默认「全部题」；选择「有图形的题」只给含图形的题截图；
  * - 选择「全部题」给所有题截图；
  * - 选择「不保存」不截图；
  * - 单题截图失败不阻断其他题，记录 warning。
@@ -144,33 +144,37 @@ function makeParseResult(hasGraphics: boolean): QuestionParseResult {
 }
 
 describe("FileImportPanel：文字版 PDF 题目原图选项", () => {
-    it("含图形时摘要页显示「题目原图」选项，默认选中「有图形的题」", async () => {
+    it("含图形时摘要页显示「题目原图」选项，默认选中「全部题」", async () => {
         pdfParseResultRef.value = makeParseResult(true);
         await render();
         await pickPdfFile();
         expect(container.textContent).toContain("题目原图");
+        const all = container.querySelector('[data-testid="pdf-image-option-all"]') as HTMLInputElement;
+        expect(all.checked).toBe(true);
         const withGraphics = container.querySelector('[data-testid="pdf-image-option-with-graphics"]') as HTMLInputElement;
-        expect(withGraphics.checked).toBe(true);
+        expect(withGraphics.checked).toBe(false);
         const none = container.querySelector('[data-testid="pdf-image-option-none"]') as HTMLInputElement;
         expect(none.checked).toBe(false);
     });
 
-    it("不含图形时默认选中「不保存」，「有图形的题」禁用", async () => {
+    it("不含图形时仍默认「全部题」（保留原题样子），「有图形的题」禁用", async () => {
         pdfParseResultRef.value = makeParseResult(false);
         await render();
         await pickPdfFile();
         const withGraphics = container.querySelector('[data-testid="pdf-image-option-with-graphics"]') as HTMLInputElement;
         expect(withGraphics.disabled).toBe(true);
-        const none = container.querySelector('[data-testid="pdf-image-option-none"]') as HTMLInputElement;
-        expect(none.checked).toBe(true);
+        const all = container.querySelector('[data-testid="pdf-image-option-all"]') as HTMLInputElement;
+        expect(all.checked).toBe(true);
     });
 
-    it("选择「有图形的题」（默认）只给第 2 题截图", async () => {
+    it("选择「有图形的题」只给第 2 题截图", async () => {
         pdfParseResultRef.value = makeParseResult(true);
         loadDocumentMock.mockResolvedValue({ numPages: 1, getPage: vi.fn(), cleanup: vi.fn() } as unknown as PdfDocumentProxyLike);
         captureQuestionMock.mockResolvedValue("data:image/jpeg;base64,captured");
         await render("nb-1");
         await pickPdfFile();
+        const withGraphicsRadio = container.querySelector('[data-testid="pdf-image-option-with-graphics"]') as HTMLInputElement;
+        await act(async () => withGraphicsRadio.click());
         const confirmButton = Array.from(container.querySelectorAll("button")).find((btn) =>
             btn.textContent?.includes("导入 2 道题"),
         ) as HTMLButtonElement;

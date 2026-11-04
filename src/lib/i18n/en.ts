@@ -252,8 +252,8 @@ export const en = {
             pdfCreatingBatches: "Creating recognition batches… ({done}/{total})",
             pdfConfirm: "Convert to images and import with AI",
             pdfImageOptionTitle: "Question images (screenshots)",
-            pdfImageOptionWithGraphics: "Questions with graphics (default)",
-            pdfImageOptionAll: "All questions",
+            pdfImageOptionWithGraphics: "Questions with graphics",
+            pdfImageOptionAll: "All questions (default, keeps the original look)",
             pdfImageOptionNone: "Do not save",
         },
         upload: {

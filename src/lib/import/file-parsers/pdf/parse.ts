@@ -13,7 +13,7 @@
  * 连字/全角空格已归一；保留上下标的原始字符（不做公式识别）。
  */
 import type { QuestionParseResult } from "@/lib/question-format/types";
-import { parseQuestionFile } from "@/lib/question-format/parse";
+import { parseQuestionFile, withoutExchangeFormatWarnings } from "@/lib/question-format/parse";
 import type { SplitTextQuestion } from "@/lib/question-split/text";
 import type { TextSplitOptions } from "@/lib/question-split/text";
 import { splitQuestionText } from "@/lib/question-split/text";
@@ -174,10 +174,16 @@ export async function parsePdf(buffer: ArrayBuffer, options: ParsePdfOptions = {
     const result = parseQuestionFile(split.questions.map(toStructuredInput));
 
     // 按 parseQuestionFile 的过滤结果对齐区域：errors 中的 index 对应 split.questions 下标
+    // 图形框转为自上而下坐标，供区域计算收紧段底
+    const graphicsTopDown = new Map(Array.from(pageGraphics.entries()).map(([page, elements]) => {
+        const pageHeight = pages[page - 1]?.height ?? 0;
+        return [page, elements.map(({ rect }) => ({ x: rect.x, yTop: pageHeight - rect.y - rect.height, width: rect.width, height: rect.height }))];
+    }));
     const regions: PdfQuestionRegions = computeAllQuestionRegions(
         split.questions.map((question) => question.lineRange),
         lines,
         pages,
+        graphicsTopDown,
     );
     const errorIndexes = new Set(result.errors.filter((error) => error.index >= 0).map((error) => error.index));
     const alignedRegions: PdfQuestionRegions = [];
@@ -192,7 +198,7 @@ export async function parsePdf(buffer: ArrayBuffer, options: ParsePdfOptions = {
     return {
         questions: result.questions,
         errors: result.errors,
-        warnings: [...warnings, ...result.warnings],
+        warnings: [...warnings, ...withoutExchangeFormatWarnings(result.warnings)],
         pdfRegions: alignedRegions,
         pdfHasGraphics,
         pdfPageGraphics,

@@ -252,8 +252,8 @@ export const zh = {
             pdfCreatingBatches: "正在创建识别批次…（{done}/{total}）",
             pdfConfirm: "转为图片并识别导入",
             pdfImageOptionTitle: "题目原图（截图）",
-            pdfImageOptionWithGraphics: "有图形的题（默认）",
-            pdfImageOptionAll: "全部题",
+            pdfImageOptionWithGraphics: "有图形的题",
+            pdfImageOptionAll: "全部题（默认，可查看原题样子）",
             pdfImageOptionNone: "不保存",
         },
         upload: {

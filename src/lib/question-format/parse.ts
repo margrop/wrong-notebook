@@ -224,6 +224,14 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * 去掉只对题目交换格式文件有意义的警告（缺少 format / version）。
+ * 其他格式的解析器（Word、PDF）复用 parseQuestionFile 做规范化时调用，避免向用户显示无关提示。
+ */
+export function withoutExchangeFormatWarnings(warnings: string[]): string[] {
+    return warnings.filter((warning) => warning !== WARNING_MISSING_FORMAT && warning !== WARNING_MISSING_VERSION);
+}
+
+/**
  * 宽松解析题目交换文件。兼容三种输入形态：
  * 1. 规范对象 { format, version, questions }
  * 2. 裸题目数组（视为 questions）
