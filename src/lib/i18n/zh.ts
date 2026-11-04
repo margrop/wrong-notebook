@@ -239,6 +239,7 @@ export const zh = {
             csvTemplate: "下载 CSV 模板",
             templateFailed: "模板生成失败，请重试。",
             unsupportedType: "该文件类型暂不支持。",
+            processingImages: "正在处理图片 {done}/{total}…",
         },
         upload: {
             // dragDrop: "点击或拖拽上传图片", // Moved to app
@@ -1483,6 +1484,8 @@ export const zh = {
             cropping: "正在裁剪题目图片 {done}/{total}…",
             uploadingImages: "正在上传 {count} 张题目图片（{size}）…",
             imageTextHint: "这里的文字仅用于辨认题目；开始后会按每道题在原图上的区域重新识别。",
+            questionImage: "题目原图",
+            removeImage: "删除图片",
             submitting: "正在提交…",
             discard: "放弃这批",
             discardConfirm: "确定放弃这批题目？已导入的错题不受影响，未完成的结果将被删除。",

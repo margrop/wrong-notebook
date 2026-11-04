@@ -36,7 +36,7 @@ import { parsedQuestionToSavePayload } from "@/lib/question/parsed-question-payl
 import { runSerializedTransaction, serializeWrite } from "@/lib/db-write-queue";
 import { prisma } from "@/lib/prisma";
 import { mapAnalysisError, parseImageDataUrl, splitQuestionsForUser } from "@/lib/question/question-analysis";
-import { batchDraftSchema, draftFromTextSplit, MAX_DRAFT_TEXT_LENGTH, MAX_ITEM_KNOWLEDGE_POINTS, newItemKey, readyItems } from "@/lib/question-split/draft";
+import { batchDraftSchema, draftFromTextSplit, draftImageSchema, MAX_DRAFT_TEXT_LENGTH, MAX_ITEM_KNOWLEDGE_POINTS, newItemKey, readyItems } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftItem } from "@/lib/question-split/draft";
 import { compactLines, composeQuestionInput, MAX_SPLIT_QUESTIONS, MAX_SPLIT_TEXT_LENGTH, splitQuestionText } from "@/lib/question-split/text";
 import { normalizeQuestionType } from "@/lib/question/question-type";
@@ -75,6 +75,8 @@ const structuredItemSchema = z.object({
     difficultyStars: z.number().int().min(1).max(5).nullish(),
     wrongAnswer: z.string().max(MAX_DRAFT_TEXT_LENGTH).nullish(),
     questionType: z.string().max(100).nullish(),
+    /** 题目原图 data URL（Word 内嵌图片或 JSON images 合成）；由草稿 schema 校验 */
+    image: draftImageSchema.nullish(),
 }).strip();
 
 export const createImportBatchSchema = z.object({
@@ -352,6 +354,7 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
                     difficultyStars: item.difficultyStars ?? null,
                     wrongAnswer: item.wrongAnswer?.slice(0, MAX_DRAFT_TEXT_LENGTH) || null,
                     questionType: normalizeQuestionType(item.questionType),
+                    image: item.image ?? null,
                 };
             }),
             ignored: [],
@@ -474,6 +477,11 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
         const total = items.reduce((sum, item) => sum + images.get(item.key)!.imageBase64.length, 0);
         if (total > MAX_START_IMAGES_LENGTH) return validationError('IMPORT_BATCH_TOO_LARGE');
     }
+    if (source === 'text') {
+        // 文字批次：草稿中的题目原图总长度沿用批次图片总上限
+        const total = items.reduce((sum, item) => sum + (item.image?.length ?? 0), 0);
+        if (total > MAX_START_IMAGES_LENGTH) return validationError('IMPORT_BATCH_TOO_LARGE');
+    }
     if (!await ownsNotebook(user.id, batch.targetSubjectId)) return validationError('IMPORT_TASK_INVALID_NOTEBOOK');
 
     const mode: ImportTaskMode = user.confirmBeforeImport ? 'review' : 'auto';
@@ -518,7 +526,8 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
                         subjectId: batch.subjectId,
                         targetSubjectId: batch.targetSubjectId,
                         paperLevel: batch.paperLevel,
-                        imageData: source === 'image' ? image!.imageBase64 : '',
+                        // ai 模式：文字批次仍按文字识别（inputText），图片仅作为原图保存不送 AI
+                        imageData: source === 'image' ? image!.imageBase64 : (item.image ?? ''),
                         imageInfo: image?.imageInfo ? JSON.stringify(image.imageInfo) : null,
                         inputText: source === 'text' ? composeQuestionInput(item) : null,
                         batchId: id,
@@ -610,7 +619,7 @@ async function startWithDraftResults(
                         subjectId: batch.subjectId,
                         targetSubjectId: targetNotebookId,
                         paperLevel: batch.paperLevel,
-                        imageData: '',
+                        imageData: item.image ?? '',
                         inputText: null,
                         result: JSON.stringify(result),
                         batchId: batch.id,

@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronUp, Copy, Crop, FilePlus2, Loader2, Merge, Scissors, Sparkles, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronUp, Copy, Crop, FilePlus2, Loader2, Merge, Scissors, Sparkles, Trash2, X } from "lucide-react";
 import { DraftItemFields } from "@/components/import-batch/draft-item-fields";
 import { RegionThumbnail } from "@/components/import-batch/region-thumbnail";
 import { TextFixPanel } from "@/components/import-batch/text-fix-panel";
@@ -37,6 +37,43 @@ interface DraftItemCardProps {
     /** 照片批次：这道题接到下一页（为空时不显示）；continuing 为正在处理 */
     onContinue?: () => void;
     continuing?: boolean;
+}
+
+/** 题目原图缩略图：点击放大，可删除 */
+function ItemImageThumbnail({ image, alt, onRemove }: { image: string; alt: string; onRemove: () => void }) {
+    const [enlarged, setEnlarged] = useState(false);
+    return (
+        <div className="relative inline-block">
+            <button
+                type="button"
+                onClick={() => setEnlarged(true)}
+                className="block overflow-hidden rounded-lg border"
+                aria-label={alt}
+            >
+                <img src={image} alt={alt} className="max-h-32 w-auto object-contain" />
+            </button>
+            <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-background border shadow-sm"
+                onClick={onRemove}
+                aria-label="删除图片"
+            >
+                <X className="h-3 w-3" />
+            </Button>
+            {enlarged && (
+                <button
+                    type="button"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+                    onClick={() => setEnlarged(false)}
+                    aria-label="关闭大图"
+                >
+                    <img src={image} alt={alt} className="max-h-full max-w-full object-contain" />
+                </button>
+            )}
+        </div>
+    );
 }
 
 /** 分题预览中的一道题：默认折叠显示开头几行，展开后可编辑、拆分、合并、移动、删除 */
@@ -145,6 +182,13 @@ export function DraftItemCard({ item, index, total, source, expanded, onToggleEx
                                 className="min-h-28 font-mono text-sm"
                             />
                             <p className="text-xs text-muted-foreground">{t.importBatch.splitHint}</p>
+                            {item.image && (
+                                <ItemImageThumbnail
+                                    image={item.image}
+                                    alt={t.importBatch.questionImage}
+                                    onRemove={() => onEdit((draft) => updateItem(draft, item.key, { image: null }))}
+                                />
+                            )}
                             <DraftItemFields item={item} onEdit={(change) => onEdit(change)} />
                         </>
                     ) : (

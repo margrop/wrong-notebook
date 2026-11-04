@@ -180,6 +180,18 @@ const WARNING_PARAMETERIZED_CODES: Record<string, { zh: (p: string) => string; e
         zh: (p) => `${p} 个段落未计入题目（标题、说明等）`,
         en: (p) => `${p} paragraph(s) not counted as questions (titles, notes, etc.)`,
     },
+    IMAGE_UNSUPPORTED: {
+        zh: (p) => `以下格式的图片暂不支持导入，已跳过：${p}`,
+        en: (p) => `Image format(s) not supported, skipped: ${p}`,
+    },
+    OLE_EQUATION: {
+        zh: (p) => `${p} 个 MathType 公式对象按图片导入`,
+        en: (p) => `${p} MathType equation object(s) imported as image(s)`,
+    },
+    MATH_UNSUPPORTED: {
+        zh: (p) => `部分 OMML 结构未识别：${p}`,
+        en: (p) => `Some OMML structures not recognized: ${p}`,
+    },
 };
 
 /** 把错误码（可能带 :参数 后缀）映射为可读提示 */

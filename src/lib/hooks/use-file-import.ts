@@ -9,17 +9,19 @@ import type { ImportFileTypeDef } from "@/lib/import/file-read";
 import { getFileParser } from "@/lib/import/file-parsers";
 import { buildImportSummary } from "@/lib/import/file-import-summary";
 import type { FileImportSummary, ImportLanguage } from "@/lib/import/file-import-summary";
-import { structuredQuestionsToItems } from "@/lib/import/structured-to-items";
+import { structuredQuestionsToItemsAsync } from "@/lib/import/structured-to-items";
 import {
     MAX_STRUCTURED_ITEMS_TOTAL,
     createStructuredImportBatches,
 } from "@/lib/import/structured-batches";
+import { createCanvasRenderer, sourceImageFromDataUrl } from "@/lib/import/question-images";
 import type { QuestionParseResult } from "@/lib/question-format/types";
 import type { Translations } from "@/lib/translations";
 
 export type FileImportPhase =
     | { kind: "pick" }
     | { kind: "parsing"; fileName: string }
+    | { kind: "processingImages"; fileName: string; done: number; total: number }
     | { kind: "summary"; fileName: string; fileType: ImportFileTypeDef; result: QuestionParseResult; summary: FileImportSummary }
     | { kind: "creating"; fileName: string; batchCount: number };
 
@@ -40,7 +42,7 @@ export interface UseFileImportResult {
 }
 
 /**
- * 「导入题库文件」流程状态：选文件 → 解析 → 摘要 → 创建批次并跳转。
+ * 「导入题库文件」流程状态：选文件 → 解析 → 图片合成（如有）→ 摘要 → 创建批次并跳转。
  * 只创建 1 个批次时直达批次详情页；多个批次去导入中心列表。
  */
 export function useFileImport({ language, notebookId, texts: t }: UseFileImportOptions): UseFileImportResult {
@@ -93,7 +95,29 @@ export function useFileImport({ language, notebookId, texts: t }: UseFileImportO
             return;
         }
         setPhase({ kind: "creating", fileName: phase.fileName, batchCount: Math.ceil(phase.summary.total / 60) });
-        const items = structuredQuestionsToItems(phase.result.questions);
+        // 有图片的题需要先合成压缩；通过 phase 切换显示进度
+        const hasImages = phase.result.questions.some((q) => q.images?.length);
+        let items;
+        try {
+            if (hasImages) {
+                const renderer = createCanvasRenderer();
+                items = await structuredQuestionsToItemsAsync(phase.result.questions, {
+                    renderer,
+                    decodeFn: sourceImageFromDataUrl,
+                    onProgress: (done, total) => {
+                        setPhase({ kind: "processingImages", fileName: phase.fileName, done, total });
+                    },
+                });
+            } else {
+                items = await structuredQuestionsToItemsAsync(phase.result.questions);
+            }
+        } catch (error) {
+            frontendLogger.error("[FileImport]", "Process images failed", { error: getErrorMessage(error) });
+            toast.error(t.parseFailed);
+            setPhase({ kind: "summary", fileName: phase.fileName, fileType: phase.fileType, result: phase.result, summary: phase.summary });
+            return;
+        }
+        setPhase({ kind: "creating", fileName: phase.fileName, batchCount: Math.ceil(phase.summary.total / 60) });
         try {
             const { batches, failures } = await createStructuredImportBatches(items, {
                 language,

@@ -75,11 +75,13 @@ interface FileImportPhaseViewProps {
     onReset: () => void;
 }
 
-/** 按流程阶段渲染：选择 → 解析中 → 摘要 → 创建中 */
+/** 按流程阶段渲染：选择 → 解析中 → 图片处理中 → 摘要 → 创建中 */
 function FileImportPhaseView({ phase, notebookId, onNotebookChange, onFile, onConfirm, onReset }: FileImportPhaseViewProps) {
     switch (phase.kind) {
         case "parsing":
             return <FileImportBusy textKey="parsing" fileName={phase.fileName} />;
+        case "processingImages":
+            return <FileImportImageProcessing fileName={phase.fileName} done={phase.done} total={phase.total} />;
         case "creating":
             return <FileImportBusy textKey="creating" batchCount={phase.batchCount} />;
         case "summary":
@@ -96,6 +98,19 @@ function FileImportPhaseView({ phase, notebookId, onNotebookChange, onFile, onCo
         default:
             return <FileImportPickView onFile={onFile} />;
     }
+}
+
+/** 图片处理进度（合成与压缩题目图片） */
+function FileImportImageProcessing({ fileName, done, total }: { fileName: string; done: number; total: number }) {
+    const { t } = useLanguage();
+    return (
+        <div className="flex flex-col items-center gap-3 py-10 text-center" role="status">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">
+                {t.fileImport.processingImages.replace("{name}", fileName).replace("{done}", String(done)).replace("{total}", String(total))}
+            </p>
+        </div>
+    );
 }
 
 /** 进行中状态（解析 / 创建批次） */

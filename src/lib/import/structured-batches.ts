@@ -25,6 +25,8 @@ export interface StructuredQuestionItem {
     difficultyStars?: number | null;
     wrongAnswer?: string | null;
     questionType?: string | null;
+    /** 题目原图 data URL（Word 内嵌图片或 JSON images 合成后） */
+    image?: string | null;
 }
 
 /** 单次导入的结构化题目总数上限（与 MAX_CLIENT_SPLIT_QUESTIONS 一致） */
@@ -78,6 +80,7 @@ function normalizeItem(item: StructuredQuestionItem): Record<string, unknown> {
         difficultyStars: item.difficultyStars ?? undefined,
         wrongAnswer: trimmed(item.wrongAnswer),
         questionType: item.questionType?.trim() ? item.questionType.trim().slice(0, 100) : undefined,
+        image: item.image ?? undefined,
     };
 }
 

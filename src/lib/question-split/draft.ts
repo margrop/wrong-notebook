@@ -30,6 +30,14 @@ export type DraftItemFlag = typeof DRAFT_ITEM_FLAGS[number];
 export const MAX_ITEM_KNOWLEDGE_POINTS = 100;
 export const MAX_KNOWLEDGE_POINT_LENGTH = 200;
 
+/** 单张题目图片 data URL 的字符数上限（约 1.5MB）；超限由前端导入阶段丢弃并提示 */
+export const MAX_DRAFT_IMAGE_LENGTH = 3 * 512 * 1024;
+
+/** 题目原图 data URL 的校验（jpeg/png/webp）；失败时返回明确错误码而非笼统 400 */
+export const draftImageSchema = z.string()
+    .max(MAX_DRAFT_IMAGE_LENGTH, 'DRAFT_IMAGE_TOO_LARGE')
+    .regex(/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/, 'DRAFT_IMAGE_INVALID');
+
 /** AI 修正文字的建议：基于 original 生成，用户接受前题目仍按原文解析 */
 export const draftTextFixSchema = z.object({
     /** 生成建议时的题目原文；题目文字已改动时建议作废 */
@@ -65,6 +73,8 @@ export const draftItemSchema = z.object({
     questionType: z.string().max(200).nullish(),
     /** 学生的错误作答；旧草稿没有此字段 */
     wrongAnswer: z.string().max(MAX_DRAFT_TEXT_LENGTH).nullish(),
+    /** 题目原图；旧草稿没有此字段 */
+    image: draftImageSchema.nullish(),
 });
 export type DraftItem = z.infer<typeof draftItemSchema>;
 

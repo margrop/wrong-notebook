@@ -224,6 +224,110 @@ describe("docx 解析：表格", () => {
     });
 });
 
+describe("docx 解析：图片真实提取（T18）", () => {
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+    it("w:drawing 按 rId 提取 png 为 data URL，占位符替换为 [图片]", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("1．如图") + drawingRun() + t("，求值")),
+            rels: '<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>',
+            extraFiles: { "word/media/image1.png": pngBytes },
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(1);
+        expect(result.questions[0].text).toContain("如图[图片]，求值");
+        expect(result.questions[0].images).toHaveLength(1);
+        expect(result.questions[0].images![0].dataUrl).toMatch(/^data:image\/png;base64,/);
+    });
+
+    it("w:pict 按 rId 提取图片", async () => {
+        const pictRun = `<w:r><w:pict><v:shape xmlns:v="urn:schemas-microsoft-com:vml" style="width:100pt;height:50pt"><v:imagedata r:id="rId6"/></v:shape></w:pict></w:r>`;
+        const buffer = makeDocxBuffer({
+            body: para(t("1．如图") + pictRun + t("，求面积")),
+            rels: '<Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/pic.jpg"/>',
+            extraFiles: { "word/media/pic.jpg": new Uint8Array([0xff, 0xd8, 0xff, 0xe0]) },
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("如图[图片]，求面积");
+        expect(result.questions[0].images).toHaveLength(1);
+        expect(result.questions[0].images![0].dataUrl).toMatch(/^data:image\/jpeg;base64,/);
+    });
+
+    it("不支持的格式（emf）跳过并计入 IMAGE_UNSUPPORTED 警告", async () => {
+        const emfRun = `<w:r><w:drawing><wp:inline><a:graphic><a:graphicData><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:blipFill><a:blip r:embed="rId7"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+        const buffer = makeDocxBuffer({
+            body: para(t("1．如图") + emfRun + t("，求值")),
+            rels: '<Relationship Id="rId7" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.emf"/>',
+            extraFiles: { "word/media/image1.emf": new Uint8Array([0x01, 0x00, 0x00, 0x00]) },
+        });
+        const result = await parseDocx(buffer);
+        expect(result.warnings.some((w) => w.startsWith("IMAGE_UNSUPPORTED:") && w.includes("emf"))).toBe(true);
+        expect(result.questions[0].text).toContain("如图[图片]，求值");
+        expect(result.questions[0].images).toBeUndefined();
+    });
+
+    it("多图归属：每题只挂自己的图片", async () => {
+        const drawingRun2 = `<w:r><w:drawing><wp:inline><a:graphic><a:graphicData><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:blipFill><a:blip r:embed="rId5"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+        const buffer = makeDocxBuffer({
+            body: [
+                para(t("1．图一") + drawingRun() + t("，求值")),
+                para(t("2．图二") + drawingRun2 + t("，求面积")),
+            ].join(""),
+            rels: [
+                '<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>',
+                '<Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image2.png"/>',
+            ].join(""),
+            extraFiles: {
+                "word/media/image1.png": pngBytes,
+                "word/media/image2.png": new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x11, 0x22, 0x33, 0x44]),
+            },
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(2);
+        expect(result.questions[0].images).toHaveLength(1);
+        expect(result.questions[0].images![0].dataUrl).toContain("iVBORw");
+        expect(result.questions[1].images).toHaveLength(1);
+        expect(result.questions[1].images![0].dataUrl).not.toBe(result.questions[0].images![0].dataUrl);
+    });
+
+    it("答案中的图片归属该题", async () => {
+        const buffer = makeDocxBuffer({
+            body: [
+                para(t("1．求值")),
+                para(t("【答案】") + drawingRun()),
+            ].join(""),
+            rels: '<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>',
+            extraFiles: { "word/media/image1.png": pngBytes },
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions).toHaveLength(1);
+        expect(result.questions[0].answer).toContain("[图片]");
+        expect(result.questions[0].images).toHaveLength(1);
+    });
+
+    it("MathType OLE 公式对象的预览图也作为图片导入", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("1．") + oleEquationRun()),
+            rels: '<Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>',
+            extraFiles: { "word/media/image1.png": pngBytes },
+        });
+        const result = await parseDocx(buffer);
+        // OLE_EQUATION 计数与图片提取共存
+        expect(result.warnings).toContain("OLE_EQUATION:1");
+        expect(result.questions[0].text).toContain("[图片]");
+        expect(result.questions[0].images).toHaveLength(1);
+    });
+
+    it("无 rels 时图片退回 [图片] 占位（不挂 images）", async () => {
+        const buffer = makeDocxBuffer({
+            body: para(t("1．如图") + drawingRun() + t("，求值")),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toContain("如图[图片]，求值");
+        expect(result.questions[0].images).toBeUndefined();
+    });
+});
+
 describe("docx 解析：图片与公式占位", () => {
     it("图片输出 [图片]，OMML 公式默认转为 $…$（T19 起替换 [公式] 占位）", async () => {
         const buffer = makeDocxBuffer({

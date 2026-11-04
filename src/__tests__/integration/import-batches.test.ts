@@ -1039,4 +1039,66 @@ describe('按原样入库（analysis=none）', () => {
         expect(items[1].answerText).toBe('');
         expect(mocks.reanswerQuestion).not.toHaveBeenCalled();
     });
+
+    it('带 image 的题按原样入库后 originalImageUrl 为该图（T18）', async () => {
+        const imageData = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA==';
+        const { batch } = await create({
+            source: 'text',
+            items: [
+                { text: '1．如图，求面积。', answer: '12', image: imageData },
+                { text: '2．计算 1+1。', answer: '2' },
+            ],
+            targetSubjectId: 'math',
+        });
+        expect(batch.selectedCount).toBe(2);
+
+        const started = await start(batch.id, { version: batch.version, analysis: 'none' });
+        expect(started.status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+
+        const items = await database.errorItem.findMany({ orderBy: { createdAt: 'asc' } });
+        expect(items).toHaveLength(2);
+        expect(items[0].originalImageUrl).toBe(imageData);
+        expect(items[1].originalImageUrl).toBe('');
+        expect(mocks.reanswerQuestion).not.toHaveBeenCalled();
+        expect(await database.aiUsage.count()).toBe(0);
+    });
+
+    it('ai 模式带 image 的题：图片作为原图保存，不送 AI（T18）', async () => {
+        const imageData = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA==';
+        const { batch } = await create({
+            source: 'text',
+            items: [
+                { text: '1．如图，求面积。', image: imageData },
+            ],
+            targetSubjectId: 'math',
+        });
+
+        const started = await start(batch.id, { version: batch.version, analysis: 'ai' });
+        expect(started.status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+
+        // ai 模式调用 reanswer（文字识别），不调用 analyzeImage
+        expect(mocks.reanswerQuestion).toHaveBeenCalledTimes(1);
+        expect(mocks.analyzeImage).not.toHaveBeenCalled();
+
+        const items = await database.errorItem.findMany();
+        expect(items).toHaveLength(1);
+        expect(items[0].originalImageUrl).toBe(imageData);
+    });
+
+    it('批次开始时图片总长度超限返回明确错误（T18）', async () => {
+        // MAX_DRAFT_IMAGE_LENGTH 远小于 MAX_START_IMAGES_LENGTH，
+        // 创建时 draftItemSchema 会校验单张图片长度，超限返回 400
+        const bigImage = `data:image/png;base64,${'A'.repeat(2 * 1024 * 1024)}`;
+        const { response, data } = await create({
+            source: 'text',
+            items: [
+                { text: '1．题一', image: bigImage },
+            ],
+            targetSubjectId: 'math',
+        });
+        expect(response.status).toBe(400);
+        expect(data.message).toBe('IMPORT_BATCH_INVALID_INPUT');
+    });
 });

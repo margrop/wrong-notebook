@@ -239,6 +239,7 @@ export const en = {
             csvTemplate: "Download CSV template",
             templateFailed: "Failed to generate the template. Please try again.",
             unsupportedType: "This file type is not supported yet.",
+            processingImages: "Processing images {done}/{total}…",
         },
         upload: {
             // dragDrop: "Click or drag image to upload", // Moved to app
@@ -1484,6 +1485,8 @@ export const en = {
             cropping: "Cropping question images {done}/{total}…",
             uploadingImages: "Uploading {count} question images ({size})…",
             imageTextHint: "The text here only helps you recognize each question. After you start, each question is recognized again from its area on the photo.",
+            questionImage: "Question image",
+            removeImage: "Remove image",
             submitting: "Submitting…",
             discard: "Discard batch",
             discardConfirm: "Discard this batch? Questions already imported are kept; unfinished results will be deleted.",

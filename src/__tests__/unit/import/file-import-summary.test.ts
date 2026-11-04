@@ -50,14 +50,14 @@ describe("describeIgnoredFields", () => {
         const texts = describeIgnoredFields(
             [
                 { field: "subject", count: 2 },
-                { field: "images", count: 1 },
+                { field: "figureSvg", count: 1 },
             ],
             "zh",
         );
         expect(texts[0]).toContain("学科");
         expect(texts[0]).toContain("2");
-        const enTexts = describeIgnoredFields([{ field: "images", count: 3 }], "en");
-        expect(enTexts[0]).toContain("images");
+        const enTexts = describeIgnoredFields([{ field: "figureSvg", count: 3 }], "en");
+        expect(enTexts[0]).toContain("figureSvg");
         expect(enTexts[0]).toContain("3 questions");
     });
 });
