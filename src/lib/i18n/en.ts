@@ -356,8 +356,11 @@ export const en = {
             batchDeleteSuccess: "Deleted successfully",
             exportJson: "Export JSON",
             exportJsonDialog: {
-                title: "Export as Question Exchange JSON",
-                description: "Selected error items will be exported as a Question Exchange JSON v1 file for importing into other systems or backing up question content.",
+                title: "Export Selected Error Items",
+                description: "Selected error items are first exported as Question Exchange JSON, then converted in the browser to the file format you choose.",
+                formatJson: "JSON",
+                formatExcel: "Excel",
+                excelNote: "Excel columns match the question bank import template, so the file can be re-imported via Question Bank Import; images are not written to Excel.",
                 includeImages: "Include original images (larger file)",
                 export: "Export",
                 exporting: "Exporting...",

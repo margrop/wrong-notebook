@@ -356,8 +356,11 @@ export const zh = {
             batchDeleteSuccess: "删除成功",
             exportJson: "导出 JSON",
             exportJsonDialog: {
-                title: "导出为题目交换格式 JSON",
-                description: "选中的错题将导出为题目交换格式 JSON v1 文件，可用于在其他系统中导入或备份题目内容。",
+                title: "导出选中的错题",
+                description: "选中的错题将先导出为题目交换格式 JSON，再在浏览器端转换为你选择的文件格式。",
+                formatJson: "JSON",
+                formatExcel: "Excel",
+                excelNote: "Excel 列与题库导入模板一致，可直接通过「题库导入」再导入；图片不会写入 Excel。",
                 includeImages: "包含原图（文件会变大）",
                 export: "导出",
                 exporting: "导出中...",
