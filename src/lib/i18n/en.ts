@@ -1545,6 +1545,11 @@ export const en = {
             noSource: "No questions match these conditions.",
             fewerThanRequested: "Only {actual} questions matched; the exam has {actual} questions.",
             noNotebook: "Select at least one notebook",
+            parallelLabel: "Generate A/B papers simultaneously",
+            parallelHint: "Generate two parallel papers with no overlapping questions. Paper A and Paper B are balanced by question type and difficulty, suitable for class quizzes or comparison practice.",
+            parallelCreated: "Papers A and B have been generated. Check the exam list.",
+            parallelNotEnough: "Not enough questions matched to generate two papers. Paper A has been created.",
+            parallelQuotaExceeded: "Insufficient AI quota to generate two papers. Paper A has been created.",
             status: {
                 generating: "Generating",
                 ready: "Generated",

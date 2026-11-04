@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { TagInput } from "@/components/tag-input";
 import { ExamModeToggle } from "@/components/exam/exam-mode-toggle";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -20,6 +21,16 @@ import type { ExamMode, ExamPickRule, ExamScope, Notebook } from "@/types/api";
 const SCOPES: ExamScope[] = ["unmastered", "mastered", "all"];
 const PICK_RULES: ExamPickRule[] = ["least_practiced", "random"];
 const DIFFICULTIES = ["easy", "medium", "hard", "harder"] as const;
+
+interface CreateExamResponse {
+    id: string;
+    title: string;
+    requestedCount: number;
+    questionCount: number;
+    papers?: { id: string; title: string; questionCount: number }[];
+    warning?: string;
+    error?: string;
+}
 
 /** 新建试卷：选择错题本、范围、题量与难度 */
 export function ExamCreateForm() {
@@ -36,8 +47,10 @@ export function ExamCreateForm() {
     const [difficulty, setDifficulty] = useState<typeof DIFFICULTIES[number]>("medium");
     const [mode, setMode] = useState<ExamMode>("generate");
     const [title, setTitle] = useState("");
+    const [parallel, setParallel] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
     const { groups: paperGroups, loading: groupsLoading } = usePaperGroups();
 
     useEffect(() => {
@@ -69,8 +82,9 @@ export function ExamCreateForm() {
         }
         setSubmitting(true);
         setError(null);
+        setNotice(null);
         try {
-            const paper = await apiClient.post<{ id: string }>("/api/exams", {
+            const paper = await apiClient.post<CreateExamResponse>("/api/exams", {
                 subjectIds,
                 tagNames,
                 paperLevelIds: paperLevelIds.length > 0 ? paperLevelIds : undefined,
@@ -84,7 +98,18 @@ export function ExamCreateForm() {
                 mode,
                 title: title.trim() || undefined,
                 language,
+                parallel: parallel || undefined,
             });
+            if (paper.papers && paper.papers.length > 1) {
+                // A/B 卷都创建成功，提示 B 卷已生成
+                setNotice(t.exam.parallelCreated);
+            } else if (paper.warning === "PARALLEL_NOT_ENOUGH") {
+                // 源题不足，只创建了 A 卷
+                setNotice(t.exam.parallelNotEnough);
+            } else if (paper.error === "PARALLEL_B_QUOTA_EXCEEDED") {
+                // 第二卷 AI 额度不足
+                setNotice(t.exam.parallelQuotaExceeded);
+            }
             router.push(`/exams/${paper.id}`);
         } catch (err) {
             const message = (err as { data?: { message?: string } })?.data?.message;
@@ -249,11 +274,24 @@ export function ExamCreateForm() {
                     </div>
 
                     <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-4">
+                            <Label htmlFor="exam-parallel">{t.exam.parallelLabel}</Label>
+                            <Switch
+                                id="exam-parallel"
+                                checked={parallel}
+                                onCheckedChange={setParallel}
+                            />
+                        </div>
+                        <p className="text-xs text-muted-foreground">{t.exam.parallelHint}</p>
+                    </div>
+
+                    <div className="space-y-2">
                         <Label htmlFor="exam-title">{t.exam.titleLabel}</Label>
                         <Input id="exam-title" value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} />
                     </div>
 
                     {error && <p className="text-sm text-destructive">{error}</p>}
+                    {notice && <p className="text-sm text-primary">{notice}</p>}
 
                     <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
                         {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}

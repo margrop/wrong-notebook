@@ -1,6 +1,7 @@
 /**
  * /api/exams 错题试卷 API 集成测试
  */
+import { NextResponse } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mocks = vi.hoisted(() => {
@@ -46,6 +47,7 @@ vi.mock('@/lib/mastery', async (importOriginal) => ({
 vi.mock('next-auth', () => ({ getServerSession: vi.fn(() => Promise.resolve(mocks.session)) }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.mock('@/lib/config', () => ({ getAppTimeZone: vi.fn(() => 'Asia/Shanghai') }));
+vi.mock('@/lib/ai-quota', () => ({ consumeAiQuota: vi.fn(() => Promise.resolve(null)) }));
 
 import { POST as CREATE, GET as LIST } from '@/app/api/exams/route';
 import { GET as DETAIL, PATCH as UPDATE_SCALE, DELETE } from '@/app/api/exams/[id]/route';
@@ -265,7 +267,7 @@ describe('/api/exams', () => {
         it('注册测试 provider 后组卷使用它选出的题，注销后不再可用', async () => {
             const { registerExamSourceProvider, unregisterExamSourceProvider } = await import('@/lib/exam/exam-sources');
             const selected = [
-                { id: 'e9', shortId: 'ZZZZZZ', questionText: '题9', questionType: 'calculation', practiceCount: 0, inExam: false },
+                { id: 'e9', shortId: 'ZZZZZZ', questionText: '题9', questionType: 'calculation', practiceCount: 0, inExam: false, difficultyStars: null },
             ];
             registerExamSourceProvider({
                 key: 'test-bank',
@@ -743,6 +745,170 @@ describe('/api/exams', () => {
             });
             expect(mocks.examQuestion.update).toHaveBeenCalledWith({ where: { id: 'q2' }, data: { status: 'failed', error: 'SOURCE_DELETED' } });
             expect(mocks.examPaper.update).toHaveBeenLastCalledWith({ where: { id: 'p1' }, data: { status: 'partial' } });
+        });
+    });
+
+    describe('POST 创建 A/B 平行卷 parallel', () => {
+        const parallelOptions = { subjectIds: ['s1'], scope: 'unmastered', count: 2, difficulty: 'medium', parallel: true };
+
+        const parallelSources = [
+            { id: 'e1', shortId: 'AAAAAA', questionText: '题1', questionType: 'single_choice', difficultyStars: 2, _count: { practiceRecords: 0, examQuestions: 0 } },
+            { id: 'e2', shortId: 'BBBBBB', questionText: '题2', questionType: 'single_choice', difficultyStars: 3, _count: { practiceRecords: 0, examQuestions: 0 } },
+            { id: 'e3', shortId: 'CCCCCC', questionText: '题3', questionType: 'fill_blank', difficultyStars: 1, _count: { practiceRecords: 0, examQuestions: 0 } },
+            { id: 'e4', shortId: 'DDDDDD', questionText: '题4', questionType: 'fill_blank', difficultyStars: 4, _count: { practiceRecords: 0, examQuestions: 0 } },
+        ];
+
+        it('parallel 生成模式：两卷题目互不重复，响应包含 papers 数组', async () => {
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            mocks.errorItem.findMany.mockResolvedValue(parallelSources);
+            mocks.examPaper.create
+                .mockResolvedValueOnce({ id: 'pA', title: '数学 2026-11-04 13:00（A 卷）', requestedCount: 2, _count: { questions: 2 } })
+                .mockResolvedValueOnce({ id: 'pB', title: '数学 2026-11-04 13:00（B 卷）', requestedCount: 2, _count: { questions: 2 } });
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', parallelOptions));
+
+            expect(response.status).toBe(201);
+            const body = await response.json();
+            expect(body.id).toBe('pA');
+            expect(body.papers).toHaveLength(2);
+            expect(body.papers[0].id).toBe('pA');
+            expect(body.papers[1].id).toBe('pB');
+            expect(body.warning).toBeUndefined();
+
+            // 验证 A 卷和 B 卷的 errorItemId 不重复
+            const callA = mocks.examPaper.create.mock.calls[0][0].data;
+            const callB = mocks.examPaper.create.mock.calls[1][0].data;
+            const idsA = callA.questions.create.map((q: { errorItemId: string }) => q.errorItemId);
+            const idsB = callB.questions.create.map((q: { errorItemId: string }) => q.errorItemId);
+            for (const id of idsB) {
+                expect(idsA).not.toContain(id);
+            }
+            // 验证标题包含 A 卷和 B 卷后缀
+            expect(callA.title).toContain('（A 卷）');
+            expect(callB.title).toContain('（B 卷）');
+        });
+
+        it('parallel 原题直出模式：两卷题目互不重复', async () => {
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            mocks.errorItem.findMany
+                .mockResolvedValueOnce(parallelSources)
+                .mockResolvedValueOnce([
+                    { id: 'e1', shortId: 'AAAAAA', questionText: '题1', answerText: '答1', analysis: '析1', figureSvg: null, figureScale: 100, figureAlign: 'center', answerSpacePx: null, questionType: 'single_choice' },
+                    { id: 'e2', shortId: 'BBBBBB', questionText: '题2', answerText: '答2', analysis: '析2', figureSvg: null, figureScale: 100, figureAlign: 'center', answerSpacePx: null, questionType: 'single_choice' },
+                    { id: 'e3', shortId: 'CCCCCC', questionText: '题3', answerText: '答3', analysis: '析3', figureSvg: null, figureScale: 100, figureAlign: 'center', answerSpacePx: null, questionType: 'fill_blank' },
+                    { id: 'e4', shortId: 'DDDDDD', questionText: '题4', answerText: '答4', analysis: '析4', figureSvg: null, figureScale: 100, figureAlign: 'center', answerSpacePx: null, questionType: 'fill_blank' },
+                ]);
+            mocks.examPaper.create
+                .mockResolvedValueOnce({ id: 'pA', title: '数学（A 卷）', requestedCount: 2, _count: { questions: 2 } })
+                .mockResolvedValueOnce({ id: 'pB', title: '数学（B 卷）', requestedCount: 2, _count: { questions: 2 } });
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', {
+                ...parallelOptions, mode: 'original',
+            }));
+
+            expect(response.status).toBe(201);
+            const body = await response.json();
+            expect(body.papers).toHaveLength(2);
+            const callA = mocks.examPaper.create.mock.calls[0][0].data;
+            const callB = mocks.examPaper.create.mock.calls[1][0].data;
+            const idsA = callA.questions.create.map((q: { errorItemId: string }) => q.errorItemId);
+            const idsB = callB.questions.create.map((q: { errorItemId: string }) => q.errorItemId);
+            for (const id of idsB) {
+                expect(idsA).not.toContain(id);
+            }
+        });
+
+        it('parallel 源题不足 2×count 但 B 卷至少 1 题：创建两卷并返回 warning', async () => {
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            // 只有 3 题，count=2，不足 2×count=4
+            mocks.errorItem.findMany.mockResolvedValue(parallelSources.slice(0, 3));
+            mocks.examPaper.create
+                .mockResolvedValueOnce({ id: 'pA', title: '数学（A 卷）', requestedCount: 2, _count: { questions: 2 } })
+                .mockResolvedValueOnce({ id: 'pB', title: '数学（B 卷）', requestedCount: 2, _count: { questions: 1 } });
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', parallelOptions));
+
+            expect(response.status).toBe(201);
+            const body = await response.json();
+            expect(body.warning).toBe('PARALLEL_NOT_ENOUGH');
+            expect(body.papers).toHaveLength(2);
+            expect(body.papers[0].questionCount).toBe(2);
+            expect(body.papers[1].questionCount).toBe(1);
+        });
+
+        it('parallel 连 B 卷 1 题都没有：只创建 A 卷并返回 warning', async () => {
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            // 只有 2 题，count=2，B 卷 0 题
+            mocks.errorItem.findMany.mockResolvedValue(parallelSources.slice(0, 2));
+            mocks.examPaper.create.mockResolvedValueOnce({ id: 'pA', title: '数学（A 卷）', requestedCount: 2, _count: { questions: 2 } });
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', parallelOptions));
+
+            expect(response.status).toBe(201);
+            const body = await response.json();
+            expect(body.warning).toBe('PARALLEL_NOT_ENOUGH');
+            expect(body.papers).toHaveLength(1);
+            expect(mocks.examPaper.create).toHaveBeenCalledTimes(1);
+        });
+
+        it('parallel 举一反三模式 B 卷 AI 额度不足：只创建 A 卷并返回明确错误，不带题目不足 warning', async () => {
+            const { consumeAiQuota } = await import('@/lib/ai-quota');
+            const consumeMock = vi.mocked(consumeAiQuota);
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            mocks.errorItem.findMany.mockResolvedValue(parallelSources);
+            mocks.examPaper.create.mockResolvedValueOnce({ id: 'pA', title: '数学（A 卷）', requestedCount: 2, _count: { questions: 2 } });
+            // A 卷额度通过，B 卷额度不足
+            consumeMock
+                .mockResolvedValueOnce(null)
+                .mockResolvedValueOnce(NextResponse.json({ message: 'AI_DAILY_LIMIT_EXCEEDED' }, { status: 429 }));
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', parallelOptions));
+
+            expect(response.status).toBe(201);
+            const body = await response.json();
+            expect(body.error).toBe('PARALLEL_B_QUOTA_EXCEEDED');
+            // 题目充足（4 题 = 2×count），不应带题目不足 warning
+            expect(body.warning).toBeUndefined();
+            expect(body.papers).toHaveLength(1);
+            expect(body.papers[0].id).toBe('pA');
+            expect(mocks.examPaper.create).toHaveBeenCalledTimes(1);
+        });
+
+        it('parallel 举一反三模式题目不足且 B 卷额度不足：同时返回 warning 与 error', async () => {
+            const { consumeAiQuota } = await import('@/lib/ai-quota');
+            const consumeMock = vi.mocked(consumeAiQuota);
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            // 只有 3 题，count=2，不足 2×count=4
+            mocks.errorItem.findMany.mockResolvedValue(parallelSources.slice(0, 3));
+            mocks.examPaper.create.mockResolvedValueOnce({ id: 'pA', title: '数学（A 卷）', requestedCount: 2, _count: { questions: 2 } });
+            consumeMock
+                .mockResolvedValueOnce(null)
+                .mockResolvedValueOnce(NextResponse.json({ message: 'AI_DAILY_LIMIT_EXCEEDED' }, { status: 429 }));
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', parallelOptions));
+
+            expect(response.status).toBe(201);
+            const body = await response.json();
+            expect(body.warning).toBe('PARALLEL_NOT_ENOUGH');
+            expect(body.error).toBe('PARALLEL_B_QUOTA_EXCEEDED');
+            expect(body.papers).toHaveLength(1);
+        });
+
+        it('parallel=false 行为完全不变：只创建一份试卷，无 papers 数组', async () => {
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            mocks.errorItem.findMany.mockResolvedValue(parallelSources);
+            mocks.examPaper.create.mockResolvedValue({ id: 'p1', title: '数学', requestedCount: 2, _count: { questions: 2 } });
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', {
+                subjectIds: ['s1'], scope: 'unmastered', count: 2, difficulty: 'medium', parallel: false,
+            }));
+
+            expect(response.status).toBe(201);
+            const body = await response.json();
+            expect(body.id).toBe('p1');
+            expect(body).not.toHaveProperty('papers');
+            expect(body).not.toHaveProperty('warning');
+            expect(mocks.examPaper.create).toHaveBeenCalledTimes(1);
         });
     });
 });

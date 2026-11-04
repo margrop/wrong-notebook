@@ -1544,6 +1544,11 @@ export const zh = {
             noSource: "没有符合条件的错题。",
             fewerThanRequested: "符合条件的错题只有 {actual} 道，试卷共 {actual} 题。",
             noNotebook: "请至少选择一个错题本",
+            parallelLabel: "同时生成 A/B 卷",
+            parallelHint: "同时生成两份题目互不重复的平行试卷。A 卷与 B 卷按题型与难度均衡分配，适合课堂测验或对比练习。",
+            parallelCreated: "A、B 两份试卷已生成，可在试卷列表查看。",
+            parallelNotEnough: "符合条件的题目不足以生成两份试卷，已创建 A 卷。",
+            parallelQuotaExceeded: "AI 额度不足以同时生成两份试卷，已创建 A 卷。",
             status: {
                 generating: "生成中",
                 ready: "已生成",

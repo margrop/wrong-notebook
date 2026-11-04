@@ -3,7 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { badRequest, validationError, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { DEFAULT_EXAM_PICK_RULE, EXAM_DIFFICULTIES, EXAM_MODES, EXAM_PICK_RULES, EXAM_SCOPES, MAX_EXAM_QUESTIONS, generateExamPaper, snapshotOriginalQuestion } from "@/lib/exam/exam";
+import { DEFAULT_EXAM_PICK_RULE, EXAM_DIFFICULTIES, EXAM_MODES, EXAM_PICK_RULES, EXAM_SCOPES, MAX_EXAM_QUESTIONS, createExamPaperFromSources } from "@/lib/exam/exam";
+import type { CreateExamPaperFromSourcesArgs } from "@/lib/exam/exam";
+import { splitParallelSources } from "@/lib/exam/exam-parallel";
 import { DEFAULT_EXAM_SOURCE, getExamSourceProvider } from "@/lib/exam/exam-sources";
 import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
@@ -27,6 +29,8 @@ const createSchema = z.object({
     title: z.string().trim().max(100).optional(),
     language: z.enum(['zh', 'en']).optional(),
     source: z.string().trim().min(1).max(50).optional(),
+    /** 同时生成 A/B 平行卷（两卷题目互不重复） */
+    parallel: z.boolean().default(false),
 });
 
 /**
@@ -75,6 +79,7 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
             return validationError("Invalid exam options", parsed.error.issues);
         }
         const { subjectIds, tagNames, paperLevelIds, questionTypes, scope, count, pickRule, difficulty, mode, language } = parsed.data;
+        const parallel = parsed.data.parallel;
         const source = parsed.data.source ?? DEFAULT_EXAM_SOURCE;
         const provider = getExamSourceProvider(source);
         if (!provider) {
@@ -100,13 +105,14 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
             }
         }
 
+        // A/B 卷一次多取最多 2×count 道互不重复的源题
         const sources = await provider.select(user.id, {
             subjectIds: notebooks.map((notebook) => notebook.id),
             tagNames,
             paperLevelIds,
             questionTypes,
             scope,
-            count,
+            count: parallel ? count * 2 : count,
             pickRule,
             requireQuestionText: mode === 'original',
             source,
@@ -115,52 +121,87 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
             return badRequest("NO_SOURCE_ITEMS");
         }
 
-        const title = parsed.data.title
+        const baseTitle = parsed.data.title
             || `${notebooks.map((notebook) => notebook.name).join('、')} ${formatDateTime(new Date(), 'yyyy-MM-dd HH:mm', getAppTimeZone())}`;
 
+        const buildPaperArgs = (title: string, selectedSources: typeof sources): CreateExamPaperFromSourcesArgs => ({
+            userId: user.id,
+            mode,
+            title,
+            scope,
+            difficulty: difficulty ?? 'medium',
+            requestedCount: count,
+            subjectIdsJson: JSON.stringify(notebooks.map((notebook) => notebook.id)),
+            tagNamesJson: tagNames && tagNames.length > 0 ? JSON.stringify(tagNames) : null,
+            sources: selectedSources,
+            language,
+        });
+
+        if (parallel) {
+            const suffixA = language === 'en' ? ' (Paper A)' : '（A 卷）';
+            const suffixB = language === 'en' ? ' (Paper B)' : '（B 卷）';
+            const { paperA, paperB, warning } = splitParallelSources(sources, count);
+            const papers = [];
+            const bodyWarning = warning;
+            let bodyError: string | undefined;
+
+            if (mode === 'generate') {
+                if (!difficulty) {
+                    return validationError("Difficulty is required for generate mode", [{ code: 'required', path: ['difficulty'], message: 'Difficulty is required' }]);
+                }
+                // 举一反三模式：两卷分别消耗 AI 额度；B 卷额度不足时不创建并返回错误，A 卷保留
+                const limitedA = await consumeAiQuota(user, 'exam');
+                if (limitedA) return limitedA;
+                const createdA = await createExamPaperFromSources({
+                    ...buildPaperArgs(baseTitle + suffixA, paperA),
+                    logLabel: 'Parallel exam paper A created',
+                });
+                papers.push({ id: createdA.id, title: createdA.title, questionCount: createdA._count.questions });
+                const limitedB = await consumeAiQuota(user, 'exam');
+                if (limitedB) {
+                    // 第二卷额度不足：不创建 B 卷，A 卷保留
+                    bodyError = 'PARALLEL_B_QUOTA_EXCEEDED';
+                } else if (paperB.length > 0) {
+                    const createdB = await createExamPaperFromSources({
+                        ...buildPaperArgs(baseTitle + suffixB, paperB),
+                        logLabel: 'Parallel exam paper B created',
+                    });
+                    papers.push({ id: createdB.id, title: createdB.title, questionCount: createdB._count.questions });
+                }
+            } else {
+                // 原题直出：一次查询拿到 A、B 两卷所需的完整题目快照（在 createExamPaperFromSources 内按卷查询）
+                const createdA = await createExamPaperFromSources({
+                    ...buildPaperArgs(baseTitle + suffixA, paperA),
+                    logLabel: 'Parallel exam paper A created',
+                });
+                papers.push({ id: createdA.id, title: createdA.title, questionCount: createdA._count.questions });
+                if (paperB.length > 0) {
+                    const createdB = await createExamPaperFromSources({
+                        ...buildPaperArgs(baseTitle + suffixB, paperB),
+                        logLabel: 'Parallel exam paper B created',
+                    });
+                    papers.push({ id: createdB.id, title: createdB.title, questionCount: createdB._count.questions });
+                }
+            }
+
+            const first = papers[0];
+            const body: Record<string, unknown> = {
+                id: first.id,
+                title: first.title,
+                requestedCount: count,
+                questionCount: first.questionCount,
+                papers,
+            };
+            if (bodyWarning) body.warning = bodyWarning;
+            if (bodyError) body.error = bodyError;
+            return NextResponse.json(body, { status: 201 });
+        }
+
         if (mode === 'original') {
-            // 原题直出：不消耗 AI 额度，直接复制原题快照，试卷立即可打印
-            const items = await prisma.errorItem.findMany({
-                where: { id: { in: sources.map((s) => s.id) } },
-                select: {
-                    id: true,
-                    shortId: true,
-                    questionText: true,
-                    answerText: true,
-                    analysis: true,
-                    figureSvg: true,
-                    figureScale: true,
-                    figureAlign: true,
-                    answerSpacePx: true,
-                    questionType: true,
-                },
+            const paper = await createExamPaperFromSources({
+                ...buildPaperArgs(baseTitle, sources),
+                logLabel: 'Original exam paper created',
             });
-            // 按抽题顺序（sources）重排，保持 least_practiced / random 的优先级
-            const itemMap = new Map(items.map((item) => [item.id, item]));
-            const orderedItems = sources.map((s) => itemMap.get(s.id)!).filter(Boolean);
-            const paper = await prisma.examPaper.create({
-                data: {
-                    userId: user.id,
-                    title,
-                    status: 'ready',
-                    scope,
-                    difficulty: 'original',
-                    mode: 'original',
-                    requestedCount: count,
-                    subjectIds: JSON.stringify(notebooks.map((notebook) => notebook.id)),
-                    tagNames: tagNames && tagNames.length > 0 ? JSON.stringify(tagNames) : null,
-                    questions: {
-                        create: orderedItems.map((item, index) => ({
-                            order: index + 1,
-                            errorItemId: item.id,
-                            sourceShortId: item.shortId!,
-                            ...snapshotOriginalQuestion(item),
-                        })),
-                    },
-                },
-                select: { id: true, title: true, requestedCount: true, _count: { select: { questions: true } } },
-            });
-            logger.info({ paperId: paper.id, count: sources.length, requested: count, mode: 'original' }, 'Original exam paper created');
             return NextResponse.json({
                 id: paper.id,
                 title: paper.title,
@@ -176,31 +217,7 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
         const limited = await consumeAiQuota(user, 'exam');
         if (limited) return limited;
 
-        const paper = await prisma.examPaper.create({
-            data: {
-                userId: user.id,
-                title,
-                scope,
-                difficulty,
-                mode: 'generate',
-                requestedCount: count,
-                subjectIds: JSON.stringify(notebooks.map((notebook) => notebook.id)),
-                tagNames: tagNames && tagNames.length > 0 ? JSON.stringify(tagNames) : null,
-                questions: {
-                    create: sources.map((source, index) => ({
-                        order: index + 1,
-                        errorItemId: source.id,
-                        sourceShortId: source.shortId!,
-                        questionType: source.questionType,
-                    })),
-                },
-            },
-            select: { id: true, title: true, requestedCount: true, _count: { select: { questions: true } } },
-        });
-
-        void generateExamPaper(paper.id, language || 'zh');
-
-        logger.info({ paperId: paper.id, count: sources.length, requested: count }, 'Exam paper created');
+        const paper = await createExamPaperFromSources(buildPaperArgs(baseTitle, sources));
         return NextResponse.json({
             id: paper.id,
             title: paper.title,
