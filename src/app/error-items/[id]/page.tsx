@@ -149,7 +149,7 @@ export default function ErrorDetailPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                        <FixLatexButton errorItemId={item.id} fields={item} onDone={updateItem} />
+                        <FixLatexButton errorItemId={item.id} fields={item} onDone={updateItem} onReload={reload} />
                         <Link href={`/practice?id=${item.id}`}>
                             <Button variant="outline" size="sm">
                                 <RefreshCw className="mr-2 h-4 w-4" />
@@ -179,7 +179,7 @@ export default function ErrorDetailPage() {
                         cardClassName="border-primary/20"
                         titleClassName="text-primary"
                         contentClassName="font-semibold"
-                        headerActions={<RegenerateAnswerButton errorItemId={item.id} onDone={(updated) => updateItem({ answerText: updated.answerText ?? "", analysis: updated.analysis ?? "" })} />}
+                        headerActions={<RegenerateAnswerButton errorItemId={item.id} onDone={(updated) => updateItem({ answerText: updated.answerText ?? "", analysis: updated.analysis ?? "" })} onReload={reload} />}
                     >
                         {item.referenceImageUrl && (
                             <div className="pt-3">

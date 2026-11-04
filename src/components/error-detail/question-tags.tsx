@@ -38,7 +38,7 @@ export function QuestionTags({ item, educationStage, onChanged }: QuestionTagsPr
         <div className="space-y-2">
             <SectionHeader
                 title={<h4 className="text-sm font-semibold">{t.editor?.tags || "Knowledge Tags"}</h4>}
-                actions={!field.editing && <div className="flex"><RetagItemButton errorItemId={item.id} onDone={onChanged} /><EditButton onClick={field.start} /></div>}
+                actions={!field.editing && <div className="flex"><RetagItemButton errorItemId={item.id} onDone={onChanged} onReload={onChanged} /><EditButton onClick={field.start} /></div>}
             />
             {field.editing ? (
                 <div className="space-y-3">

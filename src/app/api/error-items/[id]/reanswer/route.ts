@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAIService } from "@/lib/ai";
-import { notFound, badRequest, internalError } from "@/lib/api-errors";
+import { notFound, badRequest, internalError, taskAlreadyRunning } from "@/lib/api-errors";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
-import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
+import { describeQuestion, findRunningTask, reserveBackgroundTask, runReservedTask } from "@/lib/background-tasks";
 import { resolveNotebookScope, SUBJECT_DISPLAY_NAMES } from "@/lib/notebook-scope";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
@@ -53,12 +53,28 @@ async function handlePost(
         const image = item.originalImageUrl?.startsWith('data:') ? item.originalImageUrl : undefined;
 
         const questionText = item.questionText;
-        const limited = await consumeAiQuota(user, 'reanswer');
-        if (limited) return limited;
 
-        const result = await trackBackgroundTask(
-            { userId: user.id, kind: 'reanswer', subject: describeQuestion(item), link: `/error-items/${id}` },
-            () => getAIService().reanswerQuestion(questionText, language, subject, image, item.gradeSemester)
+        // 按目标防重复：同一题目同一时刻只允许一个「重新解答」任务（reserve 失败返回 409，不扣额度、不调用 AI）
+        const target = `error-item:${id}:reanswer`;
+        const handle = reserveBackgroundTask({
+            userId: user.id,
+            kind: 'reanswer',
+            subject: describeQuestion(item),
+            link: `/error-items/${id}`,
+            target,
+        });
+        if (!handle) {
+            return taskAlreadyRunning(findRunningTask(user.id, target) ?? { id: '', kind: 'reanswer', startedAt: '', target });
+        }
+
+        const limited = await consumeAiQuota(user, 'reanswer');
+        if (limited) {
+            handle.cancel();
+            return limited;
+        }
+
+        const result = await runReservedTask(handle, () =>
+            getAIService().reanswerQuestion(questionText, language, subject, image, item.gradeSemester)
         );
         if (!result.answerText.trim() && !result.analysis.trim()) {
             return badRequest("EMPTY_ANSWER");

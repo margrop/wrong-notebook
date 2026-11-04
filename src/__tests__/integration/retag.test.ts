@@ -2,6 +2,7 @@
  * 知识点重新生成 API 集成测试
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { NextResponse } from 'next/server';
 
 const mocks = vi.hoisted(() => ({
     user: { findUnique: vi.fn() },
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     suggestKnowledgeTags: vi.fn(),
     getMathTagsFromDB: vi.fn(),
     getScopeTagsFromDB: vi.fn(),
+    consumeAiQuota: vi.fn(),
     session: { user: { email: 'user@example.com' }, expires: '2099-01-01' },
 }));
 
@@ -22,9 +24,11 @@ vi.mock('@/lib/ai', () => ({ getAIService: vi.fn(() => ({ suggestKnowledgeTags: 
 vi.mock('@/lib/ai/tag-service', () => ({ getMathTagsFromDB: mocks.getMathTagsFromDB, getScopeTagsFromDB: mocks.getScopeTagsFromDB }));
 vi.mock('next-auth', () => ({ getServerSession: vi.fn(() => Promise.resolve(mocks.session)) }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
+vi.mock('@/lib/ai-quota', () => ({ consumeAiQuota: mocks.consumeAiQuota }));
 
 import { POST as RETAG_ITEM } from '@/app/api/error-items/[id]/retag/route';
 import { GET as JOB_STATUS, POST as START_JOB } from '@/app/api/notebooks/[id]/retag/route';
+import { resetBackgroundTasksForTest } from '@/lib/background-tasks';
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
@@ -48,7 +52,9 @@ const item = {
 describe('知识点重新生成', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        resetBackgroundTasksForTest();
         mocks.user.findUnique.mockResolvedValue({ id: 'user-1' });
+        mocks.consumeAiQuota.mockResolvedValue(null);
         mocks.getScopeTagsFromDB.mockResolvedValue(['鸡兔同笼', '假设法解鸡兔同笼', '植树问题']);
         mocks.getMathTagsFromDB.mockResolvedValue(['鸡兔同笼', '假设法解鸡兔同笼', '植树问题']);
         // 模拟默认分组：key='a' → group-a，key='b' → group-b
@@ -230,6 +236,46 @@ describe('知识点重新生成', () => {
 
         expect(response.status).toBe(500);
         expect((await response.json()).message).toBe('AI_AUTH_ERROR');
+    });
+
+    it('按目标防重复：并发两次第二个 409，只扣一次额度、只调用一次 AI；任务结束后可再次发起', async () => {
+        mocks.errorItem.findUnique.mockResolvedValue(item);
+        mocks.knowledgeTag.findMany.mockResolvedValue([{ id: 'tag-b', name: '鸡兔同笼' }]);
+        let finish!: (value: unknown) => void;
+        mocks.suggestKnowledgeTags
+            .mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }))
+            .mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 2, questionType: null });
+
+        const first = RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'));
+        await vi.waitFor(() => expect(mocks.suggestKnowledgeTags).toHaveBeenCalledTimes(1));
+
+        const second = await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'));
+        expect(second.status).toBe(409);
+        expect((await second.json()).code).toBe('TASK_ALREADY_RUNNING');
+        expect(mocks.consumeAiQuota).toHaveBeenCalledTimes(1);
+        expect(mocks.suggestKnowledgeTags).toHaveBeenCalledTimes(1);
+
+        finish({ tags: ['鸡兔同笼'], difficultyStars: 2, questionType: null });
+        expect((await first).status).toBe(200);
+
+        // 任务结束后可再次发起（预占已释放）
+        expect((await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'))).status).toBe(200);
+        expect(mocks.consumeAiQuota).toHaveBeenCalledTimes(2);
+    });
+
+    it('按目标防重复：额度不足返回 429，预占已撤下、可再次发起', async () => {
+        mocks.errorItem.findUnique.mockResolvedValue(item);
+        mocks.knowledgeTag.findMany.mockResolvedValue([{ id: 'tag-b', name: '鸡兔同笼' }]);
+        mocks.consumeAiQuota.mockResolvedValueOnce(
+            NextResponse.json({ code: 'AI_DAILY_LIMIT_EXCEEDED' }, { status: 429 }),
+        );
+        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['鸡兔同笼'], difficultyStars: 2, questionType: null });
+
+        expect((await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'))).status).toBe(429);
+        expect(mocks.suggestKnowledgeTags).not.toHaveBeenCalled();
+
+        expect((await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'))).status).toBe(200);
+        expect(mocks.suggestKnowledgeTags).toHaveBeenCalledTimes(1);
     });
 
     it('批量任务在后台逐题处理并汇报进度', async () => {

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { notFound, badRequest, internalError } from "@/lib/api-errors";
+import { notFound, badRequest, internalError, taskAlreadyRunning } from "@/lib/api-errors";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
-import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
+import { describeQuestion, findRunningTask, reserveBackgroundTask, runReservedTask } from "@/lib/background-tasks";
 import { previewRetagErrorItem, retagErrorItem } from "@/lib/tags/retag";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
@@ -32,12 +32,28 @@ async function handlePost(
         if (!item || item.userId !== user.id) {
             return notFound("Item not found");
         }
-        const limited = await consumeAiQuota(user, 'retag');
-        if (limited) return limited;
 
-        const result = await trackBackgroundTask(
-            { userId: user.id, kind: 'retag', subject: describeQuestion(item), link: `/error-items/${id}` },
-            () => preview ? previewRetagErrorItem(id, user.id) : retagErrorItem(id, user.id)
+        // 按目标防重复：同一题目同一时刻只允许一个「重新标注」任务（reserve 失败返回 409，不扣额度、不调用 AI）
+        const target = `error-item:${id}:retag`;
+        const handle = reserveBackgroundTask({
+            userId: user.id,
+            kind: 'retag',
+            subject: describeQuestion(item),
+            link: `/error-items/${id}`,
+            target,
+        });
+        if (!handle) {
+            return taskAlreadyRunning(findRunningTask(user.id, target) ?? { id: '', kind: 'retag', startedAt: '', target });
+        }
+
+        const limited = await consumeAiQuota(user, 'retag');
+        if (limited) {
+            handle.cancel();
+            return limited;
+        }
+
+        const result = await runReservedTask(handle, () =>
+            preview ? previewRetagErrorItem(id, user.id) : retagErrorItem(id, user.id)
         );
         return NextResponse.json(result);
     } catch (error) {

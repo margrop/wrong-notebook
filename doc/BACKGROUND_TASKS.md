@@ -1,7 +1,17 @@
 # 后台任务防重复机制
 
 本文说明 wrong-notebook 中「同一操作目标的后台任务防重复触发」的通用机制与接入步骤。
-AI 修正文字（fix-text）已接入，后续接入点（重新解题、生成动画讲解等）按本文照做即可。
+
+## 已接入功能
+
+| 功能 | 路由 | target |
+| --- | --- | --- |
+| AI 修正文字（fix-text，分题预览） | `POST /api/import-batches/:id/text-fix` | `import-batch:<id>:fix-text` |
+| 重新解答（错题详情页） | `POST /api/error-items/:id/reanswer` | `error-item:<id>:reanswer` |
+| 修复 LaTeX（错题详情页） | `POST /api/error-items/:id/fix-latex` | `error-item:<id>:fix-latex` |
+| 单题重新标注（错题详情页） | `POST /api/error-items/:id/retag` | `error-item:<id>:retag` |
+
+后续接入点（生成动画讲解等）按本文照做即可。
 
 ## 约定
 
