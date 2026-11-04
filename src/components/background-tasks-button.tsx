@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -10,12 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { apiClient } from "@/lib/api-client";
+import { backgroundTaskStore } from "@/lib/background-task-store";
 import { formatDateTime } from "@/lib/date-time";
 import type { BackgroundTask } from "@/lib/background-tasks";
-
-/** 弹框打开时的刷新间隔；关闭时只低频刷新进行中的数量 */
-const OPEN_POLL_MS = 2000;
-const CLOSED_POLL_MS = 15000;
 
 // 登录、注册和打印页面不显示
 const HIDDEN_PATHS = [/^\/login/, /^\/register/, /^\/print-preview/, /^\/exams\/[^/]+\/print/];
@@ -35,32 +32,19 @@ export function BackgroundTasksButton() {
     const { status } = useSession();
     const pathname = usePathname();
     const [open, setOpen] = useState(false);
-    const [tasks, setTasks] = useState<BackgroundTask[]>([]);
+    const [tasks, setTasks] = useState<BackgroundTask[]>(() => backgroundTaskStore.getSnapshot());
     const [now, setNow] = useState(() => Date.now());
 
     const hidden = status !== "authenticated" || HIDDEN_PATHS.some((pattern) => pattern.test(pathname || ""));
 
-    const refresh = useCallback(async () => {
-        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-        try {
-            const result = await apiClient.get<{ tasks: BackgroundTask[] }>("/api/tasks");
-            setTasks(result.tasks);
-            setNow(Date.now());
-        } catch {
-            // 查询失败时保留上次结果，下次轮询再试
-        }
-    }, []);
-
+    // 与 useRunningTask 等共用同一份轮询结果（backgroundTaskStore），不各自发起请求
     useEffect(() => {
         if (hidden) return;
-        // 立即查询一次（放到下一轮事件循环，避免在 effect 中同步更新状态），之后定时刷新
-        const first = setTimeout(refresh, 0);
-        const timer = setInterval(refresh, open ? OPEN_POLL_MS : CLOSED_POLL_MS);
-        return () => {
-            clearTimeout(first);
-            clearInterval(timer);
-        };
-    }, [hidden, open, refresh]);
+        return backgroundTaskStore.subscribe((next) => {
+            setTasks(next);
+            setNow(Date.now());
+        });
+    }, [hidden]);
 
     if (hidden) return null;
 
@@ -74,8 +58,8 @@ export function BackgroundTasksButton() {
 
     const clearFinished = async () => {
         try {
-            const result = await apiClient.delete<{ tasks: BackgroundTask[] }>("/api/tasks");
-            setTasks(result.tasks);
+            await apiClient.delete<{ tasks: BackgroundTask[] }>("/api/tasks");
+            await backgroundTaskStore.refresh();
         } catch {
             // 忽略，下次轮询会刷新
         }

@@ -1030,6 +1030,7 @@ export const en = {
             IMPORT_TASK_NOT_FOUND: "The recognition task does not exist or has been discarded.",
             IMPORT_TASK_BUSY: "This task is being saved. Please wait.",
             IMPORT_TASK_NOT_RETRYABLE: "This task cannot be retried right now.",
+            TASK_ALREADY_RUNNING: "This operation is already in progress. Please wait for it to finish.",
             SERVER_RESTARTED: "Interrupted by a server restart. Please try again.",
             GENERIC_ERROR: "Failed to generate question.",
             reanswer: {
@@ -1445,6 +1446,8 @@ export const en = {
                 unchanged: "{count} questions need no fix.",
                 failed: "{count} questions could not be fixed and keep their original text.",
                 pendingHint: "{count} suggested fixes are not accepted yet; those questions will be solved with their original text.",
+                waiting: "AI text fix is in progress, please wait…",
+                waitingOtherDevice: "AI text fix finished on another page; the result is not synced to this page.",
             },
             fields: {
                 title: "Answers & knowledge points",

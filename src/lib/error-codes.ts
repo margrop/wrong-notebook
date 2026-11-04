@@ -33,6 +33,8 @@ export const ErrorCode = {
     // 冲突 (409)
     CONFLICT: 'CONFLICT',
     ALREADY_EXISTS: 'ALREADY_EXISTS',
+    /** 同一目标的后台任务正在运行（按 target 防重复），body 中附带原任务 */
+    TASK_ALREADY_RUNNING: 'TASK_ALREADY_RUNNING',
 
     // 服务器错误 (500)
     INTERNAL_ERROR: 'INTERNAL_ERROR',

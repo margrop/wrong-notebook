@@ -5,10 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     clearFinishedBackgroundTasks,
     describeQuestion,
+    findRunningTask,
     FINISHED_TASK_TTL_MS,
     flushBackgroundTasksForTest,
     listBackgroundTasks,
     resetBackgroundTasksForTest,
+    reserveBackgroundTask,
+    runReservedTask,
     SERVER_RESTARTED,
     startBackgroundTask,
     trackBackgroundTask,
@@ -73,6 +76,68 @@ describe('后台事务登记', () => {
         expect(describeQuestion({ shortId: 'hA6PB9', questionText: '已知 $\\frac{1}{2}x = 3$，\n求 **x** 的值，并说明理由，写出完整的过程和步骤' }))
             .toBe('hA6PB9 已知 1 2 x = 3，求 x 的值，并说明理…');
         expect(describeQuestion({ questionText: '' })).toBe('—');
+    });
+});
+
+describe('按目标防重复（reserveBackgroundTask）', () => {
+    const target = 'import-batch:abc:fix-text';
+
+    it('同一用户同一 target 已有 running 任务时返回 null，同步调用两次只有一个成功', () => {
+        const first = reserveBackgroundTask({ userId: 'u1', kind: 'fix_text', target });
+        const second = reserveBackgroundTask({ userId: 'u1', kind: 'fix_text', target });
+        expect(first).not.toBeNull();
+        expect(second).toBeNull();
+        expect(listBackgroundTasks('u1')).toHaveLength(1);
+        expect(listBackgroundTasks('u1')[0].target).toBe(target);
+    });
+
+    it('不同用户、不同 target 互不影响', () => {
+        expect(reserveBackgroundTask({ userId: 'u1', kind: 'fix_text', target })).not.toBeNull();
+        expect(reserveBackgroundTask({ userId: 'u2', kind: 'fix_text', target })).not.toBeNull();
+        expect(reserveBackgroundTask({ userId: 'u1', kind: 'fix_text', target: 'import-batch:other:fix-text' })).not.toBeNull();
+        expect(listBackgroundTasks('u1')).toHaveLength(2);
+    });
+
+    it('cancel 后撤下预占，可再次预占，不留下记录', () => {
+        const handle = reserveBackgroundTask({ userId: 'u1', kind: 'fix_text', target });
+        expect(handle).not.toBeNull();
+        handle!.cancel();
+        expect(listBackgroundTasks('u1')).toHaveLength(0);
+        expect(findRunningTask('u1', target)).toBeNull();
+        expect(reserveBackgroundTask({ userId: 'u1', kind: 'fix_text', target })).not.toBeNull();
+    });
+
+    it('任务结束后可再次预占同一 target', async () => {
+        const first = reserveBackgroundTask({ userId: 'u1', kind: 'fix_text', target });
+        expect(first).not.toBeNull();
+        await runReservedTask(first!, async () => 'ok');
+        expect(findRunningTask('u1', target)).toBeNull();
+        const second = reserveBackgroundTask({ userId: 'u1', kind: 'fix_text', target });
+        expect(second).not.toBeNull();
+        expect(second!.id).not.toBe(first!.id);
+    });
+
+    it('预占任务失败后可再次预占同一 target', async () => {
+        const first = reserveBackgroundTask({ userId: 'u1', kind: 'fix_text', target });
+        expect(first).not.toBeNull();
+        await expect(runReservedTask(first!, async () => { throw new Error('AI_TIMEOUT_ERROR'); })).rejects.toThrow('AI_TIMEOUT_ERROR');
+        expect(listBackgroundTasks('u1')[0]).toMatchObject({ status: 'failed', error: 'AI_TIMEOUT_ERROR' });
+        expect(findRunningTask('u1', target)).toBeNull();
+        expect(reserveBackgroundTask({ userId: 'u1', kind: 'fix_text', target })).not.toBeNull();
+    });
+
+    it('cancel 后 succeed/fail 不再生效', () => {
+        const handle = reserveBackgroundTask({ userId: 'u1', kind: 'fix_text', target });
+        expect(handle).not.toBeNull();
+        handle!.cancel();
+        handle!.succeed();
+        expect(listBackgroundTasks('u1')).toHaveLength(0);
+    });
+
+    it('startBackgroundTask 与 trackBackgroundTask 也能带 target 并出现在列表中', () => {
+        startBackgroundTask({ userId: 'u1', kind: 'fix_text', target: 'import-batch:x:fix-text' }).succeed();
+        const listed = listBackgroundTasks('u1');
+        expect(listed[0].target).toBe('import-batch:x:fix-text');
     });
 });
 

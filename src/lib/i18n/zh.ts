@@ -1029,6 +1029,7 @@ export const zh = {
             IMPORT_TASK_NOT_FOUND: "识别任务不存在或已被丢弃。",
             IMPORT_TASK_BUSY: "任务正在保存，请稍候。",
             IMPORT_TASK_NOT_RETRYABLE: "该任务暂时不能重试。",
+            TASK_ALREADY_RUNNING: "该操作正在进行中，请等待完成。",
             SERVER_RESTARTED: "服务重启导致处理中断，请重试。",
             GENERIC_ERROR: "生成题目失败，请稍后重试。",
             reanswer: {
@@ -1444,6 +1445,8 @@ export const zh = {
                 unchanged: "{count} 题无需修正。",
                 failed: "{count} 题修正失败，已保留原文。",
                 pendingHint: "还有 {count} 题的修正建议未接受，开始后这些题按原文解析。",
+                waiting: "AI 修正正在进行中，请稍候…",
+                waitingOtherDevice: "AI 修正已在其他页面完成，结果未同步到此页。",
             },
             fields: {
                 title: "答案与知识点",

@@ -12,6 +12,7 @@ import {
     validationError,
     conflict,
     internalError,
+    taskAlreadyRunning,
     ErrorCode,
 } from '@/lib/api-errors';
 
@@ -161,6 +162,18 @@ describe('lib/api-errors', () => {
             const response = conflict('Resource already exists');
             const data = await response.json();
             expect(data.code).toBe('CONFLICT');
+        });
+    });
+
+    describe('taskAlreadyRunning (409)', () => {
+        it('应该返回 409 状态码与 TASK_ALREADY_RUNNING 错误码', async () => {
+            const task = { id: 'task-1', kind: 'fix_text' as const, startedAt: '2026-11-04T10:00:00Z', target: 'import-batch:abc:fix-text' };
+            const response = taskAlreadyRunning(task);
+            expect(response.status).toBe(409);
+            const data = await response.json();
+            expect(data.code).toBe('TASK_ALREADY_RUNNING');
+            expect(data.message).toBe('TASK_ALREADY_RUNNING');
+            expect(data.details.task).toEqual(task);
         });
     });
 

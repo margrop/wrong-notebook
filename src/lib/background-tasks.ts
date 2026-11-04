@@ -5,6 +5,17 @@
  * 登记表保存在进程内存中（生产环境为单个容器），并在变化后写入配置目录的 background-tasks.json：
  * 服务重启后仍能看到最近结束的事务；重启时还在进行的事务（AI 调用已随进程中断）标记为失败，提示用户重新操作。
  * 已结束的事务保留一段时间后自动清理。
+ *
+ * 「按目标防重复」约定：同一用户对同一个操作目标，同一时刻只允许一个 running 事务。
+ * target 命名约定为 `<对象类型>:<id>:<动作>`，全小写、冒号分隔，例如：
+ *   - import-batch:abc123:fix-text    分题预览的「AI 修正文字」
+ *   - error-item:xyz:reanswer        重新解题
+ *   - error-item:xyz:svg-animation   生成动画讲解
+ * 服务端用 reserveBackgroundTask 预占：检查与登记之间没有 await，并发请求只有一个成功；
+ * 额度不足等原因放弃时调用 handle.cancel() 撤下预占，不留下失败记录；
+ * 之后用 runReservedTask 包装执行，结束时会自动 succeed/fail。
+ * 前端用 useRunningTask(target) 查询同 target 的进行中任务、禁用按钮，收到 TASK_ALREADY_RUNNING 时
+ * 调用 backgroundTaskStore.refresh() 取回任务状态并等待。详见 doc/BACKGROUND_TASKS.md。
  */
 
 import "server-only";
@@ -46,6 +57,8 @@ export interface BackgroundTask {
     error: string | null;
     /** 可跳转查看的页面 */
     link: string | null;
+    /** 操作对象标识，格式 `<对象类型>:<id>:<动作>`；同一用户同一 target 同时只允许一个 running 任务 */
+    target: string | null;
     startedAt: string;
     finishedAt: string | null;
 }
@@ -60,13 +73,22 @@ export interface BackgroundTaskInput {
     subject?: string | null;
     link?: string | null;
     total?: number;
+    /** 操作对象标识：`<对象类型>:<id>:<动作>`；提供后按 target 防重复（reserveBackgroundTask） */
+    target?: string | null;
 }
+
+/** reserveBackgroundTask 的入参：target 必填 */
+export type ReservedTaskInput = BackgroundTaskInput & { target: string };
 
 export interface BackgroundTaskHandle {
     id: string;
+    /** 预占的 target；普通 startBackgroundTask 为 null */
+    target: string | null;
     setProgress: (done: number, total?: number, failed?: number) => void;
     succeed: () => void;
     fail: (error: unknown) => void;
+    /** 预占后未真正开始（额度不足等）时撤下登记，不留任何记录 */
+    cancel: () => void;
 }
 
 /** 已结束的事务保留时长 */
@@ -176,8 +198,8 @@ function errorMessage(error: unknown): string {
     return (message.startsWith('AI_') ? message.split(':')[0] : message).slice(0, 200);
 }
 
-/** 登记一个后台事务 */
-export function startBackgroundTask(input: BackgroundTaskInput): BackgroundTaskHandle {
+/** 内部：登记一个后台事务并返回句柄；target 由调用方决定 */
+function createTask(input: BackgroundTaskInput, target: string | null): BackgroundTaskHandle {
     const now = Date.now();
     prune(now);
     const id = `${now.toString(36)}-${(sequence++).toString(36)}`;
@@ -190,12 +212,14 @@ export function startBackgroundTask(input: BackgroundTaskInput): BackgroundTaskH
         progress: input.total !== undefined ? { done: 0, total: input.total, failed: 0 } : null,
         error: null,
         link: input.link ?? null,
+        target,
         startedAt: new Date(now).toISOString(),
         finishedAt: null,
     };
     tasks.set(id, task);
     scheduleSave();
 
+    let cancelled = false;
     const finish = (status: BackgroundTaskStatus, error: string | null) => {
         if (task.status !== 'running') return;
         task.status = status;
@@ -205,31 +229,91 @@ export function startBackgroundTask(input: BackgroundTaskInput): BackgroundTaskH
     };
     return {
         id,
+        target,
         setProgress: (done, total, failed) => {
+            if (cancelled) return;
             task.progress = { done, total: total ?? task.progress?.total ?? done, failed: failed ?? task.progress?.failed ?? 0 };
             scheduleSave();
         },
-        succeed: () => finish('succeeded', null),
+        succeed: () => {
+            if (cancelled) return;
+            finish('succeeded', null);
+        },
         fail: (error) => {
+            if (cancelled) return;
             finish('failed', errorMessage(error));
             logger.debug({ taskId: id, kind: task.kind, error: task.error }, 'Background task failed');
+        },
+        cancel: () => {
+            // 预占后未真正开始：直接删除登记，不留失败记录
+            cancelled = true;
+            tasks.delete(id);
+            scheduleSave();
         },
     };
 }
 
+/** 登记一个后台事务 */
+export function startBackgroundTask(input: BackgroundTaskInput): BackgroundTaskHandle {
+    return createTask(input, input.target ?? null);
+}
+
 /**
- * 登记事务并执行 operation：正常返回标记成功，抛错标记失败后继续抛出
+ * 预占一个后台事务：同一用户同一 target 已有 running 任务时返回 null，
+ * 否则同步登记（检查与登记之间没有 await，并发请求只有一个成功）并返回句柄。
+ * 之后用 runReservedTask 包装执行；未真正开始时调用 handle.cancel() 撤下登记。
  */
-export async function trackBackgroundTask<T>(input: BackgroundTaskInput, operation: (task: BackgroundTaskHandle) => Promise<T>): Promise<T> {
-    const task = startBackgroundTask(input);
+export function reserveBackgroundTask(input: ReservedTaskInput): BackgroundTaskHandle | null {
+    ensureLoaded();
+    prune(Date.now());
+    const existing = findRunningTask(input.userId, input.target);
+    if (existing) return null;
+    return createTask(input, input.target);
+}
+
+/**
+ * 在预占句柄上执行 operation：正常返回标记成功，抛错标记失败后继续抛出。
+ * 路由三步写法：reserveBackgroundTask → consumeAiQuota → runReservedTask。
+ */
+export async function runReservedTask<T>(handle: BackgroundTaskHandle, operation: (task: BackgroundTaskHandle) => Promise<T>): Promise<T> {
     try {
-        const result = await operation(task);
-        task.succeed();
+        const result = await operation(handle);
+        handle.succeed();
         return result;
     } catch (error) {
-        task.fail(error);
+        handle.fail(error);
         throw error;
     }
+}
+
+/** 查询当前用户在指定 target 上正在运行的任务（含用户级查询，供路由复用） */
+export function findRunningTask(userId: string, target: string): BackgroundTask | null {
+    ensureLoaded();
+    for (const task of tasks.values()) {
+        if (task.userId === userId && task.target === target && task.status === 'running') {
+            return {
+                id: task.id,
+                kind: task.kind,
+                subject: task.subject,
+                status: task.status,
+                progress: task.progress && { ...task.progress },
+                error: task.error,
+                link: task.link,
+                target: task.target,
+                startedAt: task.startedAt,
+                finishedAt: task.finishedAt,
+            };
+        }
+    }
+    return null;
+}
+
+/**
+ * 登记事务并执行 operation：正常返回标记成功，抛错标记失败后继续抛出。
+ * 按 target 防重复的路由请改用 reserveBackgroundTask + runReservedTask（见文件顶部注释）。
+ */
+export async function trackBackgroundTask<T>(input: BackgroundTaskInput, operation: (task: BackgroundTaskHandle) => Promise<T>): Promise<T> {
+    return runReservedTask(startBackgroundTask(input), operation);
 }
 
 /**
@@ -251,6 +335,7 @@ export function listBackgroundTasks(userId: string): BackgroundTask[] {
         progress: task.progress && { ...task.progress },
         error: task.error,
         link: task.link,
+        target: task.target,
         startedAt: task.startedAt,
         finishedAt: task.finishedAt,
     }));

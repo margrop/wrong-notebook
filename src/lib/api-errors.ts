@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { ErrorCode } from "@/lib/error-codes";
 import type { ErrorCodeType } from "@/lib/error-codes";
+import type { BackgroundTask } from "@/lib/background-tasks";
 
 export { ErrorCode } from "@/lib/error-codes";
 export type { ErrorCodeType } from "@/lib/error-codes";
@@ -87,6 +88,14 @@ export function validationError(message: string, errors?: unknown): NextResponse
  */
 export function conflict(message: string): NextResponse<ApiErrorResponse> {
     return createErrorResponse(message, 409, ErrorCode.CONFLICT);
+}
+
+/**
+ * 409 Conflict - 同一目标的后台任务正在运行（按 target 防重复）。
+ * body 中附带原任务（id、kind、startedAt、target），前端可据 waitingTask.target 进入等待。
+ */
+export function taskAlreadyRunning(task: Pick<BackgroundTask, "id" | "kind" | "startedAt" | "target">): NextResponse<ApiErrorResponse> {
+    return createErrorResponse("TASK_ALREADY_RUNNING", 409, ErrorCode.TASK_ALREADY_RUNNING, { task });
 }
 
 /**

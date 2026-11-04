@@ -65,6 +65,15 @@ describe('/api/tasks', () => {
         expect((await (await DELETE()).json()).tasks.map((task: { kind: string }) => task.kind)).toEqual(['exam']);
     });
 
+    it('返回中包含 target 字段（按目标防重复）', async () => {
+        startBackgroundTask({ userId: 'user-1', kind: 'fix_text', target: 'import-batch:abc:fix-text' }).succeed();
+        startBackgroundTask({ userId: 'user-1', kind: 'fix_text' });
+
+        const tasks = (await (await GET()).json()).tasks as Array<{ kind: string; target: string | null; status: string }>;
+        expect(tasks.find((task) => task.status === 'succeeded')?.target).toBe('import-batch:abc:fix-text');
+        expect(tasks.find((task) => task.status === 'running')?.target).toBeNull();
+    });
+
     it('未登录返回 401', async () => {
         mocks.session = null;
         expect((await GET()).status).toBe(401);
