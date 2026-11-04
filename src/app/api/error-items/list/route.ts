@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
-import { unauthorized, internalError } from "@/lib/api-errors";
+import { internalError } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
 import { ERROR_ITEM_LIST_SELECT, ERROR_ITEM_PRINT_SELECT, printImageUrl } from "@/lib/error-list-select";
 import { parseErrorListQueryParams, buildErrorListWhere } from "@/lib/error-list-query";
@@ -11,24 +11,11 @@ import { masteryStatusOf } from "@/lib/mastery-status";
 
 const logger = createLogger('api:error-items:list');
 
-export async function GET(req: Request) {
-    const session = await getServerSession(authOptions);
-
+export const GET = withUser(async (req: Request, { user }: AuthenticatedContext) => {
     const { searchParams } = new URL(req.url);
     const params = parseErrorListQueryParams(searchParams);
 
     try {
-        let user;
-        if (session?.user?.email) {
-            user = await prisma.user.findUnique({
-                where: { email: session.user.email },
-            });
-        }
-
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const whereClause = await buildErrorListWhere(params, user.id, user.masteryThreshold, prisma);
 
         // 获取总数
@@ -58,7 +45,7 @@ export async function GET(req: Request) {
         logger.error({ error }, 'Error fetching items');
         return internalError("Failed to fetch error items");
     }
-}
+});
 
 /**
  * 打印视图：读取解答与配图；base64 原图换成懒加载的图片接口链接，外部链接原样返回。

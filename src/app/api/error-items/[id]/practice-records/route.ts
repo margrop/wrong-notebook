@@ -1,28 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/current-user";
-import { unauthorized, forbidden, notFound, internalError } from "@/lib/api-errors";
+import { forbidden, notFound, internalError } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
 import { masteryStatusOf } from "@/lib/mastery-status";
 
 const logger = createLogger('api:error-items:practice-records');
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 /**
  * GET /api/error-items/:id/practice-records
  * 返回错题的掌握概率与举一反三历史（按时间倒序）
  */
-export async function GET(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export const GET = withUser(async (_req: Request, { user, params }: RouteContext & AuthenticatedContext) => {
     const { id } = await params;
 
     try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const item = await prisma.errorItem.findUnique({
             where: { id },
             select: {
@@ -77,4 +72,4 @@ export async function GET(
         logger.error({ error }, 'Error fetching practice records');
         return internalError("Failed to fetch practice records");
     }
-}
+});

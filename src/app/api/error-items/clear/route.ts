@@ -1,25 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
-import { unauthorized, internalError } from "@/lib/api-errors";
+import { internalError } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger('api:error-items:clear');
 
-export async function DELETE() {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user) {
-        return unauthorized();
-    }
-
-    const userId = session.user.id;
-
+export const DELETE = withUser(async (_req: Request, { user }: AuthenticatedContext) => {
     try {
         // Delete all error items for this user
         await prisma.errorItem.deleteMany({
-            where: { userId }
+            where: { userId: user.id }
         });
 
         return NextResponse.json({ message: "Error data cleared successfully" });
@@ -27,4 +19,4 @@ export async function DELETE() {
         logger.error({ error }, 'Error clearing error data');
         return internalError("Failed to clear error data");
     }
-}
+});

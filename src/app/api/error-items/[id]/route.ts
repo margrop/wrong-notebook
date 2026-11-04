@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
-import { unauthorized, forbidden, notFound, badRequest, internalError } from "@/lib/api-errors";
+import { forbidden, notFound, badRequest, internalError } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
 import { resolveOrCreateTags, inferTagScope } from "@/lib/tag-resolver";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
@@ -12,25 +12,12 @@ import { isValidFigureAlign, isValidFigureScale } from "@/lib/figure-scale";
 
 const logger = createLogger('api:error-items:id');
 
-export async function GET(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+export const GET = withUser(async (_req: Request, { user, params }: RouteContext & AuthenticatedContext) => {
     const { id } = await params;
-    const session = await getServerSession(authOptions);
 
     try {
-        let user;
-        if (session?.user?.email) {
-            user = await prisma.user.findUnique({
-                where: { email: session.user.email },
-            });
-        }
-
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const errorItem = await prisma.errorItem.findUnique({
             where: {
                 id: id,
@@ -55,27 +42,12 @@ export async function GET(
         logger.error({ error }, 'Error fetching item');
         return internalError("Failed to fetch error item");
     }
-}
+});
 
-export async function PUT(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export const PUT = withUser(async (req: Request, { user, params }: RouteContext & AuthenticatedContext) => {
     const { id } = await params;
-    const session = await getServerSession(authOptions);
 
     try {
-        let user;
-        if (session?.user?.email) {
-            user = await prisma.user.findUnique({
-                where: { email: session.user.email },
-            });
-        }
-
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const body = await req.json();
         const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands, difficultyStars } = body;
         const { figureScale, figureAlign } = body;
@@ -196,4 +168,4 @@ export async function PUT(
         logger.error({ error }, 'Error updating item');
         return internalError("Failed to update error item");
     }
-}
+});

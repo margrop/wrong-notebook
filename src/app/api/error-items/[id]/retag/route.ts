@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
-import { unauthorized, notFound, badRequest, internalError } from "@/lib/api-errors";
+import { notFound, badRequest, internalError } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { previewRetagErrorItem, retagErrorItem } from "@/lib/retag";
@@ -10,6 +11,8 @@ import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:error-items:retag');
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 /**
  * POST /api/error-items/:id/retag
  * 用 AI 从当前知识点库中重新选取本题的知识点（替换系统标签，保留自定义标签）
@@ -17,16 +20,11 @@ const logger = createLogger('api:error-items:retag');
  */
 async function handlePost(
     req: Request,
-    { params }: { params: Promise<{ id: string }> }
+    { user, params }: RouteContext & AuthenticatedContext
 ) {
     const { id } = await params;
 
     try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const body = await req.json().catch(() => ({})) as { preview?: unknown };
         const item = await prisma.errorItem.findUnique({ where: { id }, select: { userId: true, shortId: true, questionText: true } });
         if (!item || item.userId !== user.id) {
@@ -55,4 +53,4 @@ async function handlePost(
 }
 
 /** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
-export const POST = withRecoverableResponse(handlePost);
+export const POST = withRecoverableResponse(withUser(handlePost));

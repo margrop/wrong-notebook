@@ -6,6 +6,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Use vi.hoisted to ensure mocks are initialized before module imports
 const mocks = vi.hoisted(() => ({
+    mockPrismaUser: {
+        findUnique: vi.fn(),
+    },
     mockPrismaPracticeRecord: {
         groupBy: vi.fn(),
         findMany: vi.fn(),
@@ -32,10 +35,10 @@ const mocks = vi.hoisted(() => ({
 // Mock Prisma client
 vi.mock('@/lib/prisma', () => ({
     prisma: {
+        user: mocks.mockPrismaUser,
         practiceRecord: mocks.mockPrismaPracticeRecord,
         errorItem: mocks.mockPrismaErrorItem,
         subject: mocks.mockPrismaSubject,
-        user: { findUnique: vi.fn(async () => ({ id: 'user-123', email: 'user@example.com', masteryThreshold: 50 })) },
     },
 }));
 
@@ -64,6 +67,12 @@ describe('/api/stats', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
+        mocks.mockPrismaUser.findUnique.mockResolvedValue({
+            id: 'user-123',
+            email: 'user@example.com',
+            name: 'Test User',
+            masteryThreshold: 50,
+        });
     });
 
     describe('GET /api/stats/practice (获取练习统计)', () => {
@@ -682,7 +691,7 @@ describe('/api/stats', () => {
             const data = await response.json();
 
             expect(response.status).toBe(401);
-            expect(data.message).toBe('Unauthorized');
+            expect(data.message).toBe('Authentication required');
         });
 
         it('应该拒绝 session 中没有 user 的请求', async () => {
@@ -696,7 +705,7 @@ describe('/api/stats', () => {
             const data = await response.json();
 
             expect(response.status).toBe(401);
-            expect(data.message).toBe('Unauthorized');
+            expect(data.message).toBe('Authentication required');
         });
 
         it('应该处理数据库错误', async () => {

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAIService } from "@/lib/ai";
-import { getCurrentUser } from "@/lib/current-user";
-import { unauthorized, notFound, badRequest, internalError } from "@/lib/api-errors";
+import { notFound, badRequest, internalError } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { consumeAiQuota } from "@/lib/ai-quota";
@@ -18,18 +19,13 @@ type RouteContext = { params: Promise<{ id: string }> };
  * 由 AI 为已生成的动画补写语音讲解稿，写入动画 SVG 后保存，画面不变（替换已有的讲解稿）
  * 请求体 { language: 'zh' | 'en' }：处理该语言的动画，讲解使用该语言，未指定时为中文
  */
-async function handlePost(req: Request, { params }: RouteContext) {
+async function handlePost(req: Request, { user, params }: RouteContext & AuthenticatedContext) {
     const { id } = await params;
     const body = await req.json().catch(() => ({})) as { language?: unknown };
     const language = body.language === 'en' ? 'en' : 'zh';
     const field = language === 'en' ? 'svgAnimationEn' : 'svgAnimation';
 
     try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const item = await prisma.errorItem.findUnique({
             where: { id },
             select: { userId: true, shortId: true, questionText: true, answerText: true, analysis: true, svgAnimation: true, svgAnimationEn: true },
@@ -73,4 +69,4 @@ async function handlePost(req: Request, { params }: RouteContext) {
 }
 
 /** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
-export const POST = withRecoverableResponse(handlePost);
+export const POST = withRecoverableResponse(withUser(handlePost));

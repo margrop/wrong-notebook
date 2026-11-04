@@ -1,31 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
-import { unauthorized, notFound, badRequest, internalError } from "@/lib/api-errors";
+import { notFound, badRequest, internalError } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger('api:error-items:notes');
 
-export async function PATCH(
-    req: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+export const PATCH = withUser(async (req: Request, { user, params }: RouteContext & AuthenticatedContext) => {
     const { id } = await params;
-    const session = await getServerSession(authOptions);
 
     try {
-        let user;
-        if (session?.user?.email) {
-            user = await prisma.user.findUnique({
-                where: { email: session.user.email },
-            });
-        }
-
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const { userNotes } = await req.json();
         if (userNotes !== null && typeof userNotes !== 'string') {
             return badRequest("userNotes must be a string");
@@ -50,4 +37,4 @@ export async function PATCH(
         logger.error({ error }, 'Error updating notes');
         return internalError("Failed to update notes");
     }
-}
+});

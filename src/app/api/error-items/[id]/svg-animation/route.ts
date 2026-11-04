@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAIService } from "@/lib/ai";
-import { getCurrentUser } from "@/lib/current-user";
-import { unauthorized, notFound, badRequest, internalError } from "@/lib/api-errors";
+import { notFound, badRequest, internalError } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { consumeAiQuota } from "@/lib/ai-quota";
@@ -36,17 +37,12 @@ async function findOwnedItem(id: string, userId: string) {
  * 由 AI 根据题目、答案和解析生成 SVG 动画讲解并保存（覆盖该语言已有的动画）
  * 请求体 { language: 'zh' | 'en' }：动画中的文字使用该语言，未指定时为中文
  */
-async function handlePost(req: Request, { params }: RouteContext) {
+async function handlePost(req: Request, { user, params }: RouteContext & AuthenticatedContext) {
     const { id } = await params;
     const body = await req.json().catch(() => ({})) as { language?: unknown };
     const language = parseLanguage(body.language);
 
     try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
-
         const item = await findOwnedItem(id, user.id);
         if (!item) {
             return notFound("Item not found");
@@ -90,15 +86,11 @@ async function handlePost(req: Request, { params }: RouteContext) {
  * DELETE /api/error-items/:id/svg-animation?language=zh|en
  * 删除指定语言已生成的 SVG 动画讲解，另一语言的动画保留；未指定时为中文
  */
-export async function DELETE(req: Request, { params }: RouteContext) {
+export const DELETE = withUser(async (req: Request, { user, params }: RouteContext & AuthenticatedContext) => {
     const { id } = await params;
     const language = parseLanguage(new URL(req.url).searchParams.get('language'));
 
     try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
         if (!await findOwnedItem(id, user.id)) {
             return notFound("Item not found");
         }
@@ -110,7 +102,7 @@ export async function DELETE(req: Request, { params }: RouteContext) {
         logger.error({ error }, 'Error deleting SVG animation');
         return internalError("Failed to delete SVG animation");
     }
-}
+});
 
 /** 耗时 AI 请求：浏览器中断连接后，前端可通过 /api/requests/:id 取回响应 */
-export const POST = withRecoverableResponse(handlePost);
+export const POST = withRecoverableResponse(withUser(handlePost));

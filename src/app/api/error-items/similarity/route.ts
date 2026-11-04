@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { badRequest, internalError, notFound, unauthorized, validationError } from '@/lib/api-errors';
-import { getCurrentUser } from '@/lib/current-user';
+import { badRequest, internalError, notFound, validationError } from '@/lib/api-errors';
+import { withUser } from '@/lib/api-handler';
+import type { AuthenticatedContext } from '@/lib/api-handler';
 import { createLogger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 import { calculateQuestionSimilarity, DEFAULT_QUESTION_DUPLICATE_THRESHOLD, duplicateQuestionSimilarity } from '@/lib/question-similarity';
@@ -11,10 +12,8 @@ const schema = z.object({ ids: z.tuple([z.string().min(1).max(200), z.string().m
     .refine(({ ids }) => ids[0] !== ids[1], { message: 'Select two different questions' });
 
 /** 只比较当前用户的两道题，使用与自动导入相同的相似度定义，不写入练习记录。 */
-export async function POST(req: Request) {
+export const POST = withUser(async (req: Request, { user }: AuthenticatedContext) => {
     try {
-        const user = await getCurrentUser();
-        if (!user) return unauthorized();
         const parsed = schema.safeParse(await req.json());
         if (!parsed.success) return validationError('Invalid question selection', parsed.error.issues);
         const items = await prisma.errorItem.findMany({
@@ -37,4 +36,4 @@ export async function POST(req: Request) {
         logger.error({ error }, '相似度比较失败');
         return internalError('Failed to compare questions');
     }
-}
+});

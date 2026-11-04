@@ -1,27 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/current-user";
-import { unauthorized, notFound, internalError } from "@/lib/api-errors";
+import { notFound, internalError } from "@/lib/api-errors";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { createLogger } from "@/lib/logger";
 import { isShortId } from "@/lib/short-id";
 
 const logger = createLogger('api:error-items:short');
 
+type RouteContext = { params: Promise<{ shortId: string }> };
+
 /**
  * GET /api/error-items/short/:shortId
  * 按短 ID 定位当前用户的题目
  */
-export async function GET(
-    req: Request,
-    { params }: { params: Promise<{ shortId: string }> }
-) {
+export const GET = withUser(async (_req: Request, { user, params }: RouteContext & AuthenticatedContext) => {
     const { shortId } = await params;
 
     try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return unauthorized("Authentication required");
-        }
         if (!isShortId(shortId)) {
             return notFound("Item not found");
         }
@@ -39,4 +35,4 @@ export async function GET(
         logger.error({ error }, 'Error locating item by short ID');
         return internalError("Failed to locate error item");
     }
-}
+});
