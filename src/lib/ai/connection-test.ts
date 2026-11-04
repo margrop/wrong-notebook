@@ -1,5 +1,34 @@
 import { isVendorProvider } from "@/lib/ai/vendor-presets";
 import type { AppConfig } from "@/types/api";
+import type { VendorProviderId } from "@/lib/ai/vendor-presets";
+
+/** /api/ai/test 的请求体 */
+export interface AITestRequest {
+    provider: 'openai' | 'gemini' | 'azure' | 'anthropic' | 'minimax-code' | VendorProviderId;
+    /** MiniMax Code 使用已登录的凭据，不需要 apiKey */
+    apiKey?: string;
+    baseUrl?: string;
+    model?: string;
+    // Azure 特有
+    endpoint?: string;
+    deploymentName?: string;
+    apiVersion?: string;
+    // 语言
+    language?: 'zh' | 'en';
+}
+
+/** /api/ai/test 的响应体 */
+export interface AITestResponse {
+    success: boolean;
+    textSupport: boolean;
+    visionSupport: boolean;
+    textError?: string;
+    visionError?: string;
+    /** 服务商的原始报错，便于管理员排查 */
+    textErrorDetail?: string;
+    visionErrorDetail?: string;
+    modelInfo?: string;
+}
 
 /** 设置页「测试连接」发给 /api/ai/test 的请求体；缺少必填项时返回错误码 */
 export type ConnectionTestRequest =
