@@ -112,3 +112,35 @@ BACKUP_EXTENSIONS.push(bankMeta);
 | `tagIdMap` | 自定义标签 ID 映射 |
 | `examPaperIdMap` | 试卷 ID 映射 |
 | `examQuestionIdMap` | 试卷题目 ID 映射 |
+
+## 组卷选题来源
+
+文件：`src/lib/exam/exam-sources.ts`
+
+「举一反三」与「原题直出」两种模式的选题逻辑可插拔：上游默认注册 `error-items`（从错题本按掌握情况与抽题规则选题），fork 项目可注册自己的 provider（如按知识点×题型×难度配比从 AI 题库选题），复用后续的出题、打印、成绩记录流程。
+
+```ts
+import type { ExamSourceProvider } from "@/lib/exam/exam-sources";
+import { registerExamSourceProvider } from "@/lib/exam/exam-sources";
+
+const bankProvider: ExamSourceProvider = {
+    key: "question-bank",
+    select: async (userId, selection) => {
+        // 按 fork 项目的规则选题，返回与默认实现相同结构的原题列表
+        // 每项需包含 { id, shortId, questionText?, practiceCount, inExam }
+        return [];
+    },
+};
+
+registerExamSourceProvider(bankProvider);
+```
+
+调用方在创建试卷时通过 `source` 字段指定来源：
+
+```ts
+// POST /api/exams
+{ "subjectIds": ["..."], "scope": "unmastered", "count": 10, "difficulty": "hard", "source": "question-bank" }
+```
+
+- `source` 缺省为 `error-items`（错题本来源），未注册的 source 返回 `VALIDATION_ERROR`（`code: invalid_source`）。
+- `source` 目前不持久化到试卷：重试失败题目时不重新选题，只重新生成已有题目的答案，因此不影响现有流程；如需在后续流程（如打印、成绩分析）中感知来源，fork 项目需自行扩展。

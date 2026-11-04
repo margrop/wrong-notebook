@@ -3,7 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { badRequest, validationError, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { DEFAULT_EXAM_PICK_RULE, EXAM_DIFFICULTIES, EXAM_MODES, EXAM_PICK_RULES, EXAM_SCOPES, MAX_EXAM_QUESTIONS, generateExamPaper, selectSourceItems, snapshotOriginalQuestion } from "@/lib/exam/exam";
+import { DEFAULT_EXAM_PICK_RULE, EXAM_DIFFICULTIES, EXAM_MODES, EXAM_PICK_RULES, EXAM_SCOPES, MAX_EXAM_QUESTIONS, generateExamPaper, snapshotOriginalQuestion } from "@/lib/exam/exam";
+import { DEFAULT_EXAM_SOURCE, getExamSourceProvider } from "@/lib/exam/exam-sources";
 import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
 import { consumeAiQuota } from "@/lib/ai-quota";
@@ -23,6 +24,7 @@ const createSchema = z.object({
     mode: z.enum(EXAM_MODES).default('generate'),
     title: z.string().trim().max(100).optional(),
     language: z.enum(['zh', 'en']).optional(),
+    source: z.string().trim().min(1).max(50).optional(),
 });
 
 /**
@@ -71,6 +73,11 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
             return validationError("Invalid exam options", parsed.error.issues);
         }
         const { subjectIds, tagNames, paperLevelIds, scope, count, pickRule, difficulty, mode, language } = parsed.data;
+        const source = parsed.data.source ?? DEFAULT_EXAM_SOURCE;
+        const provider = getExamSourceProvider(source);
+        if (!provider) {
+            return validationError("Unknown exam source", [{ code: 'invalid_source', path: ['source'], message: `Unknown exam source: ${source}` }]);
+        }
 
         // 只允许使用自己的错题本
         const notebooks = await prisma.subject.findMany({
@@ -91,7 +98,7 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
             }
         }
 
-        const sources = await selectSourceItems(user.id, {
+        const sources = await provider.select(user.id, {
             subjectIds: notebooks.map((notebook) => notebook.id),
             tagNames,
             paperLevelIds,
@@ -99,6 +106,7 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
             count,
             pickRule,
             requireQuestionText: mode === 'original',
+            source,
         });
         if (sources.length === 0) {
             return badRequest("NO_SOURCE_ITEMS");

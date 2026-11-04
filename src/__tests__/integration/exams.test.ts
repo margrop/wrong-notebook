@@ -247,6 +247,59 @@ describe('/api/exams', () => {
 
             expect(response.status).toBe(400);
         });
+
+        it('传入未注册的选题来源 source 时返回校验错误', async () => {
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', {
+                ...options, source: 'unknown-source',
+            }));
+
+            expect(response.status).toBe(400);
+            const body = await response.json();
+            expect(body.code).toBe('VALIDATION_ERROR');
+            expect(body.details).toEqual([{ code: 'invalid_source', path: ['source'], message: 'Unknown exam source: unknown-source' }]);
+            expect(mocks.examPaper.create).not.toHaveBeenCalled();
+        });
+
+        it('注册测试 provider 后组卷使用它选出的题，注销后不再可用', async () => {
+            const { registerExamSourceProvider, unregisterExamSourceProvider } = await import('@/lib/exam/exam-sources');
+            const selected = [
+                { id: 'e9', shortId: 'ZZZZZZ', questionText: '题9', practiceCount: 0, inExam: false },
+            ];
+            registerExamSourceProvider({
+                key: 'test-bank',
+                select: async (userId: string, selection: { count: number }) => {
+                    expect(userId).toBe('user-1');
+                    expect(selection.count).toBe(1);
+                    return selected;
+                },
+            });
+            try {
+                mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+                mocks.examPaper.create.mockResolvedValue({ id: 'p1', title: '数学', requestedCount: 1, _count: { questions: 1 } });
+
+                const response = await CREATE(json('http://localhost/api/exams', 'POST', {
+                    subjectIds: ['s1'], scope: 'unmastered', count: 1, difficulty: 'hard', source: 'test-bank',
+                }));
+
+                expect(response.status).toBe(201);
+                const created = mocks.examPaper.create.mock.calls[0][0].data;
+                expect(created.questions.create.map((question: { errorItemId: string; sourceShortId: string }) => [question.errorItemId, question.sourceShortId]))
+                    .toEqual([['e9', 'ZZZZZZ']]);
+                // 测试 provider 不查错题库
+                expect(mocks.errorItem.findMany).not.toHaveBeenCalled();
+            } finally {
+                unregisterExamSourceProvider('test-bank');
+            }
+
+            // 注销后再用该 source 应返回校验错误
+            mocks.subject.findMany.mockResolvedValue([{ id: 's1', name: '数学' }]);
+            const response = await CREATE(json('http://localhost/api/exams', 'POST', {
+                subjectIds: ['s1'], scope: 'unmastered', count: 1, difficulty: 'hard', source: 'test-bank',
+            }));
+            expect(response.status).toBe(400);
+        });
     });
 
     it('GET 列表返回生成与录入进度', async () => {

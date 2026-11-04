@@ -35,6 +35,8 @@ export interface ExamSelection {
     pickRule?: ExamPickRule;
     /** 原题直出模式要求题目必须有题干文字 */
     requireQuestionText?: boolean;
+    /** 选题来源 key，缺省为默认错题本来源（见 exam-sources.ts 的 DEFAULT_EXAM_SOURCE） */
+    source?: string;
 }
 
 /** 构造抽题条件：限定错题本、掌握范围（按用户的已掌握阈值），可选按知识点标签和卷别分组 */
