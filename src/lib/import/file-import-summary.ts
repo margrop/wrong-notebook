@@ -56,6 +56,18 @@ const GLOBAL_ERROR_CODES: Record<string, { zh: string; en: string }> = {
         zh: "题目格式不正确（questions 应为题目数组）",
         en: 'Invalid question format ("questions" should be an array of questions)',
     },
+    PDF_NO_TEXT_LAYER: {
+        zh: "这是扫描版 PDF（没有文字层），可在下方选择页码范围转为图片，由 AI 识别分题导入",
+        en: "This is a scanned PDF (no text layer). You can select a page range below to convert it to images and import with AI recognition.",
+    },
+    PDF_ENCRYPTED: {
+        zh: "这是加密 PDF，暂不支持导入，请先去除密码后重试",
+        en: "This PDF is password-protected and cannot be imported; please remove the password and try again",
+    },
+    INVALID_PDF: {
+        zh: "无法读取该 PDF 文件，文件可能已损坏或不是有效的 PDF",
+        en: "Cannot read this PDF file; it may be corrupted or not a valid PDF",
+    },
 };
 
 /** 逐题错误码映射（index ≥ 0） */
@@ -191,6 +203,14 @@ const WARNING_PARAMETERIZED_CODES: Record<string, { zh: (p: string) => string; e
     MATH_UNSUPPORTED: {
         zh: (p) => `部分 OMML 结构未识别：${p}`,
         en: (p) => `Some OMML structures not recognized: ${p}`,
+    },
+    PAGES: {
+        zh: (p) => `共 ${p} 页`,
+        en: (p) => `${p} page${p === "1" ? "" : "s"} in total`,
+    },
+    EMPTY_PAGES: {
+        zh: (p) => `其中 ${p} 页没有文字内容（空白页或纯图片页），未计入题目`,
+        en: (p) => `${p} page${p === "1" ? " has" : "s have"} no text content (blank or image-only) and were not counted as questions`,
     },
 };
 

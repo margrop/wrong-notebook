@@ -8,6 +8,7 @@ import { parseJsonQuestionFile } from "@/lib/import/file-parsers/json";
 import { parseDocx } from "@/lib/import/file-parsers/docx";
 import { parseXlsxFile } from "@/lib/import/file-parsers/xlsx";
 import { parseCsvText } from "@/lib/import/file-parsers/csv";
+import { parsePdf } from "@/lib/import/file-parsers/pdf";
 import { decodeTextFile } from "@/lib/import/file-read";
 import { MAX_CLIENT_SPLIT_QUESTIONS, MAX_CLIENT_SPLIT_TEXT_LENGTH } from "@/lib/question-split/text";
 import { parseTableRows } from "@/lib/import/file-parsers/table";
@@ -21,8 +22,13 @@ export interface FileParserInput {
 
 export type FileParser = (file: FileParserInput) => Promise<QuestionParseResult>;
 
-/** docx 解析器注入的客户端分题上限：长文档不被默认 60 题截断 */
+/** docx / pdf 解析器注入的客户端分题上限：长文档不被默认 60 题截断 */
 const DOCX_SPLIT_OPTIONS = {
+    maxLength: MAX_CLIENT_SPLIT_TEXT_LENGTH,
+    maxQuestions: MAX_CLIENT_SPLIT_QUESTIONS,
+};
+
+const PDF_SPLIT_OPTIONS = {
     maxLength: MAX_CLIENT_SPLIT_TEXT_LENGTH,
     maxQuestions: MAX_CLIENT_SPLIT_QUESTIONS,
 };
@@ -42,6 +48,7 @@ export const FILE_PARSERS: Partial<Record<ImportFileTypeKey, FileParser>> = {
     docx: (file) => parseDocx(file.buffer, {}, DOCX_SPLIT_OPTIONS),
     xlsx: (file) => parseXlsxFile(file.buffer),
     csv: parseCsvFile,
+    pdf: (file) => parsePdf(file.buffer, { splitOptions: PDF_SPLIT_OPTIONS }),
 };
 
 /** 按类型 key 取解析器；未注册（如 text）返回 null */

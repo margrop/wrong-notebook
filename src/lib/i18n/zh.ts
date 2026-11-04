@@ -240,6 +240,17 @@ export const zh = {
             templateFailed: "模板生成失败，请重试。",
             unsupportedType: "该文件类型暂不支持。",
             processingImages: "正在处理图片 {done}/{total}…",
+            pdfScannedTitle: "这是扫描版 PDF（共 {count} 页）",
+            pdfScannedHint: "没有可提取的文字层。可把页面转为图片，由 AI 识别并自动分题导入；每页消耗一次 AI 分题额度。",
+            pdfPageRangeLabel: "页码范围（单次最多 {max} 页）",
+            pdfPageRangePlaceholder: "如 1-3,5；默认全部",
+            pdfPageRangeInvalid: "页码范围无效：{message}",
+            pdfRenderFailed: "PDF 页面渲染失败，请重试。",
+            pdfQuotaExceeded: "第 {page} 页：AI 额度不足，批次未创建。已创建的批次保留。",
+            pdfPageFailed: "第 {page} 页创建批次失败：{error}",
+            pdfRendering: "正在渲染 PDF 页面…（{done}/{total}）",
+            pdfCreatingBatches: "正在创建识别批次…（{done}/{total}）",
+            pdfConfirm: "转为图片并识别导入",
         },
         upload: {
             // dragDrop: "点击或拖拽上传图片", // Moved to app

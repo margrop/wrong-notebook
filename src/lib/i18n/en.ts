@@ -240,6 +240,17 @@ export const en = {
             templateFailed: "Failed to generate the template. Please try again.",
             unsupportedType: "This file type is not supported yet.",
             processingImages: "Processing images {done}/{total}…",
+            pdfScannedTitle: "This is a scanned PDF ({count} pages)",
+            pdfScannedHint: "It has no extractable text layer. You can convert pages to images and have AI recognize and split the questions; each page uses one AI split quota.",
+            pdfPageRangeLabel: "Page range (at most {max} pages per import)",
+            pdfPageRangePlaceholder: "e.g. 1-3,5; default is all pages",
+            pdfPageRangeInvalid: "Invalid page range: {message}",
+            pdfRenderFailed: "Failed to render PDF pages. Please try again.",
+            pdfQuotaExceeded: "Page {page}: insufficient AI quota, batch not created. Already created batches are kept.",
+            pdfPageFailed: "Failed to create batch for page {page}: {error}",
+            pdfRendering: "Rendering PDF pages… ({done}/{total})",
+            pdfCreatingBatches: "Creating recognition batches… ({done}/{total})",
+            pdfConfirm: "Convert to images and import with AI",
         },
         upload: {
             // dragDrop: "Click or drag image to upload", // Moved to app

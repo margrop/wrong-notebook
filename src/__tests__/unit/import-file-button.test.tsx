@@ -52,7 +52,7 @@ describe('ImportFileButton', () => {
     it('不支持的类型提示错误且不回调', async () => {
         const onFile = vi.fn();
         await render(onFile);
-        await act(async () => pickFile(new File(['x'], 'doc.pdf')));
+        await act(async () => pickFile(new File(['x'], 'image.png', { type: 'image/png' })));
         expect(toast.error).toHaveBeenCalled();
         expect(onFile).not.toHaveBeenCalled();
     });

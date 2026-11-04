@@ -3,7 +3,7 @@
  * 浏览器与服务端通用的纯函数，不依赖 DOM 之外的 Node 模块。
  */
 
-export type ImportFileTypeKey = "text" | "docx" | "xlsx" | "csv" | "json";
+export type ImportFileTypeKey = "text" | "docx" | "xlsx" | "csv" | "json" | "pdf";
 
 export type ImportFileCategory = "text" | "doc" | "sheet" | "data" | "pdf";
 
@@ -65,6 +65,13 @@ export const IMPORT_FILE_TYPES: readonly ImportFileTypeDef[] = [
         mimeTypes: ["application/json"],
         maxBytes: 50 * 1024 * 1024,
         category: "data",
+    },
+    {
+        key: "pdf",
+        extensions: [".pdf"],
+        mimeTypes: ["application/pdf"],
+        maxBytes: 50 * 1024 * 1024,
+        category: "pdf",
     },
 ];
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { IMPORT_FILE_TYPES, decodeTextFile, detectImportFileType } from "@/lib/import/file-read";
+import { IMPORT_FILE_TYPES, BANK_FILE_TYPES, TEXT_FILE_TYPES, decodeTextFile, detectImportFileType } from "@/lib/import/file-read";
 
 function bytesOf(...bytes: number[]): ArrayBuffer {
     return new Uint8Array(bytes).buffer;
@@ -81,7 +81,7 @@ describe("detectImportFileType", () => {
 
     it("不支持的扩展名与 MIME 返回 null", () => {
         expect(detectImportFileType("a.png", "image/png")).toBeNull();
-        expect(detectImportFileType("a.pdf", "application/pdf")).toBeNull();
+        expect(detectImportFileType("a.zip", "application/zip")).toBeNull();
     });
 
     it("IMPORT_FILE_TYPES 中纯文本最大 2MB，题库文件有各自上限", () => {
@@ -91,5 +91,20 @@ describe("detectImportFileType", () => {
         expect(IMPORT_FILE_TYPES.find((t) => t.key === "xlsx")?.maxBytes).toBe(20 * 1024 * 1024);
         expect(IMPORT_FILE_TYPES.find((t) => t.key === "csv")?.maxBytes).toBe(10 * 1024 * 1024);
         expect(IMPORT_FILE_TYPES.find((t) => t.key === "docx")?.maxBytes).toBe(50 * 1024 * 1024);
+    });
+
+    it("识别 pdf 类型：按扩展名与 MIME，上限 50MB，归入题库文件", () => {
+        const pdf = IMPORT_FILE_TYPES.find((t) => t.key === "pdf");
+        expect(pdf).toBeDefined();
+        expect(pdf?.extensions).toEqual([".pdf"]);
+        expect(pdf?.mimeTypes).toContain("application/pdf");
+        expect(pdf?.maxBytes).toBe(50 * 1024 * 1024);
+        expect(pdf?.category).toBe("pdf");
+        expect(detectImportFileType("a.pdf", "")?.key).toBe("pdf");
+        expect(detectImportFileType("a.pdf", "application/pdf")?.key).toBe("pdf");
+        expect(detectImportFileType("a.PDF", "")?.key).toBe("pdf");
+        // pdf 不在 TEXT_FILE_TYPES 中，但在 BANK_FILE_TYPES 中
+        expect(TEXT_FILE_TYPES.some((t) => t.key === "pdf")).toBe(false);
+        expect(BANK_FILE_TYPES.some((t) => t.key === "pdf")).toBe(true);
     });
 });

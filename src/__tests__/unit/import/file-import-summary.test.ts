@@ -16,6 +16,15 @@ describe("describeQuestionError", () => {
         expect(describeQuestionError("TEXT_COLUMN_NOT_FOUND", "en")).toContain("column");
     });
 
+    it("PDF 相关错误码返回中英文提示", () => {
+        expect(describeQuestionError("PDF_NO_TEXT_LAYER", "zh")).toContain("扫描版");
+        expect(describeQuestionError("PDF_NO_TEXT_LAYER", "en")).toContain("scanned");
+        expect(describeQuestionError("PDF_ENCRYPTED", "zh")).toContain("加密");
+        expect(describeQuestionError("PDF_ENCRYPTED", "en")).toContain("password");
+        expect(describeQuestionError("INVALID_PDF", "zh")).toContain("损坏");
+        expect(describeQuestionError("INVALID_PDF", "en")).toContain("corrupted");
+    });
+
     it("参数化错误码解析参数", () => {
         expect(describeQuestionError("UNKNOWN_COLUMN:难度星级", "zh")).toContain("难度星级");
         expect(describeQuestionError("UNKNOWN_COLUMN:难度星级", "en")).toContain("难度星级");
@@ -42,6 +51,14 @@ describe("describeWarning", () => {
         const text = describeWarning("[Sheet1] UNKNOWN_COLUMN:备注", "zh");
         expect(text).toContain("[Sheet1]");
         expect(text).toContain("备注");
+    });
+
+    it("PDF 页数与空白页警告解析参数", () => {
+        expect(describeWarning("PAGES:3", "zh")).toContain("3");
+        expect(describeWarning("PAGES:1", "en")).toContain("1 page");
+        expect(describeWarning("PAGES:2", "en")).toContain("2 pages");
+        expect(describeWarning("EMPTY_PAGES:2", "zh")).toContain("2");
+        expect(describeWarning("EMPTY_PAGES:1", "en")).toContain("1 page");
     });
 });
 

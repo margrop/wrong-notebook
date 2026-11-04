@@ -41,11 +41,12 @@ The **Import question file** entry on the home page imports existing question ba
 | Word | .docx | 50 MB | Paragraphs, auto numbering, tables and inline tags |
 | Excel | .xlsx | 20 MB | Header row detected; sheet names used as sections when there is no section column |
 | CSV | .csv | 10 MB | Comma/semicolon/tab and UTF-8/UTF-16/GBK auto-detected |
+| PDF | .pdf | 50 MB | Requires a text layer; scanned PDFs auto-convert to images for AI recognition (see below) |
 
 - **Flow**: choose a file → parse (with progress) → image composition (if any) → summary (total questions, parse errors with reasons, warnings, not-yet-imported fields) → choose a target notebook (required) → create batches and go to the import center. At most 2000 questions per import; questions with parse errors are not imported.
 - **Not-yet-imported fields**: subject, grade/semester, source, figure SVG and extension fields are not written to the draft yet; the import summary shows how many questions carry each.
 - **Templates**: Excel / CSV templates (with sample data and column descriptions) can be downloaded from the import page; column names accept Chinese and English.
-- **Not yet supported**: PDF is planned for a later version; EMF/WMF/TIFF and other image formats that browsers cannot render are not supported (a warning is shown); legacy .doc binary files must first be saved as .docx in Word before importing.
+- **Not yet supported**: image formats browsers cannot render (EMF/WMF/TIFF, etc.) are skipped with a warning; legacy .doc binary files must first be saved as .docx in Word before importing.
 
 The JSON question exchange format is documented in the [question exchange format spec](../QUESTION_FORMAT.md).
 
@@ -57,7 +58,7 @@ The JSON question exchange format is documented in the [question exchange format
 - **Word formulas**: formulas inserted with Word's built-in equation editor (Insert → Equation) are converted to LaTeX for KaTeX rendering — inline formulas become `$…$` and display equations become `$$…$$`; fractions, radicals, superscripts/subscripts, ∑/∫/∏, equation systems, matrices and other common structures are supported. OLE equation objects such as MathType are not OMML and appear in the docx as images; their preview images are imported as question images (counted in the import warning `OLE_EQUATION:N`). Unrecognized OMML structures keep their text and are reported in the `MATH_UNSUPPORTED:元素名` warning. Legacy .doc binary files must first be saved as .docx in Word before importing.
 - **Images**: embedded images in Word (w:drawing and w:pict) are imported as the question's original image — images in the question body, answer, and analysis are attributed to the corresponding question in order of appearance; multiple images are merged vertically into one and compressed to a long edge of ≤ 1600 pixels and about ≤ 1 MB. EMF/WMF/TIFF and other formats that browsers cannot render are not supported (counted in the `IMAGE_UNSUPPORTED:format` warning) and appear as the "[图片]" placeholder in the text.
 - **Strikethrough and hidden text**: skipped during parsing; revisions keep insertions and skip deletions.
-- **PDF text layer**: PDF files must have a text layer (text embedded by Word or a generator, selectable in a viewer). Double-column layouts are read left column first, then right; repeated headers and footers (including page numbers such as "Page 3" or "- 3 -") are removed. Scanned PDFs have no text layer and cannot be imported—use **Take photo** or image upload instead (automatic conversion of scanned PDFs is planned for a later version). Password-protected PDFs are not supported.
+- **PDF text layer**: PDF files must have a text layer (text embedded by Word or a generator, selectable in a viewer). Double-column layouts are read left column first, then right; repeated headers and footers (including page numbers such as "Page 3" or "- 3 -") are removed. Scanned PDFs have no text layer; when imported, the app shows "This is a scanned PDF" and lets you pick a page range (up to 20 pages per import) to convert to images, which are then recognized and split by AI — each page uses one AI split quota. A PDF with a text layer but some blank pages imports normally using the text layer, and the warning notes the blank page count. Password-protected PDFs are not supported.
 
 #### Excel / CSV column names
 

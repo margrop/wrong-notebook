@@ -76,6 +76,8 @@ export async function parsePdf(buffer: ArrayBuffer, options: ParsePdfOptions = {
     const pages: Array<{ width: number; height: number }> = [];
     let pageCount = 0;
     let textCharCount = 0;
+    /** 每页文字字符数，用于统计空白页（有文字层但个别页没有文字） */
+    const perPageChars: number[] = [];
     try {
         pageCount = doc.numPages;
         for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
@@ -83,6 +85,7 @@ export async function parsePdf(buffer: ArrayBuffer, options: ParsePdfOptions = {
             const viewport = page.getViewport({ scale: 1 });
             pages.push({ width: viewport.width, height: viewport.height });
             const content = await page.getTextContent();
+            let pageChars = 0;
             for (const item of content.items) {
                 if (!("str" in item)) continue;
                 const text = normalizePdfText(item.str);
@@ -97,8 +100,11 @@ export async function parsePdf(buffer: ArrayBuffer, options: ParsePdfOptions = {
                     height: item.height,
                     page: pageNumber,
                 });
-                textCharCount += text.trim().length;
+                const trimmed = text.trim().length;
+                pageChars += trimmed;
+                textCharCount += trimmed;
             }
+            perPageChars.push(pageChars);
         }
     } catch (error) {
         const name = error instanceof Error ? error.name : "";
@@ -122,6 +128,9 @@ export async function parsePdf(buffer: ArrayBuffer, options: ParsePdfOptions = {
     const fullText = linesToText(lines);
     const split = splitQuestionText(fullText, options.splitOptions);
     const warnings: string[] = [`PAGES:${pageCount}`];
+    // 带文字层但个别页没有任何文字：提示空白页数（不阻断导入）
+    const emptyPages = perPageChars.filter((count) => count === 0).length;
+    if (emptyPages > 0) warnings.push(`EMPTY_PAGES:${emptyPages}`);
     if (split.ignored.length > 0) warnings.push(ignoredWarning(split.ignored.length));
     if (!split.detected && split.questions.length === 1) warnings.push(WARNING_SINGLE_QUESTION);
 
