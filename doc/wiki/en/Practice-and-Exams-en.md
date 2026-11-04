@@ -51,6 +51,8 @@ In the exam list a paper shows Generating, then Generated (or Partly failed / Fa
 
 Exam papers keep the source question IDs so you can go back to the originals. Results can be correct, wrong or not attempted; the same question can keep several results, all linked to the original question's review history.
 
+Each question can have its own score (0–1000, up to one decimal place such as 2.5), or you can apply a uniform score to every question at once; leaving it empty means no score is set. The paper header shows the total score (only questions with a score are summed, with a note of how many questions have no score). In the printout the question number is followed by "(N pts)", and the full score line sits under the title; papers without any score print exactly as before. Scores are included in backup export and import.
+
 ![Source IDs and recorded results in a generated exam paper](https://raw.githubusercontent.com/margrop/wrong-notebook/a5f816515e3dc31dcdb90c9fa456baed12eef94d/doc/screenshots/en/exam.png)
 
 ## Print and export

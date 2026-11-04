@@ -8,6 +8,7 @@ import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
 import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import { normalizeCustomAnswerSpacePx } from "@/lib/exam/exam-answer-space";
+import { normalizeExamScore } from "@/lib/exam/exam-score";
 import { exportSpeeches } from "@/lib/tts/speech-cache";
 import { sortTagsByParent } from "@/lib/tags/tag-hierarchy";
 import { collectExtensions } from "@/lib/backup-extensions";
@@ -158,6 +159,7 @@ export async function GET(req: Request) {
                     figureScale: normalizeFigureScale(question.figureScale),
                     figureAlign: normalizeFigureAlign(question.figureAlign),
                     answerSpacePx: normalizeCustomAnswerSpacePx(question.answerSpacePx),
+                    score: normalizeExamScore(question.score ?? null),
                 })),
             })),
             paperGroups,

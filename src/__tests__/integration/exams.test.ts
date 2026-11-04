@@ -400,6 +400,67 @@ describe('/api/exams', () => {
         });
     });
 
+    describe('PATCH 保存试卷题目分值', () => {
+        it('设置、批量统一与清空单题分值', async () => {
+            mocks.examPaper.findUnique.mockResolvedValue({ userId: 'user-1' });
+            mocks.examQuestion.updateMany.mockResolvedValue({ count: 1 });
+
+            const single = await UPDATE_SCALE(json('http://localhost', 'PATCH', { questionId: 'q1', score: 2.5 }), params('p1'));
+            expect(single.status).toBe(200);
+            expect(await single.json()).toEqual({ questionId: 'q1', score: 2.5 });
+            expect(mocks.examQuestion.updateMany).toHaveBeenCalledWith({
+                where: { id: 'q1', paperId: 'p1' },
+                data: { score: 2.5 },
+            });
+
+            mocks.examQuestion.updateMany.mockResolvedValue({ count: 3 });
+            const uniform = await UPDATE_SCALE(json('http://localhost', 'PATCH', { score: 4 }), params('p1'));
+            expect(uniform.status).toBe(200);
+            expect(await uniform.json()).toEqual({ score: 4 });
+            expect(mocks.examQuestion.updateMany).toHaveBeenLastCalledWith({
+                where: { paperId: 'p1' },
+                data: { score: 4 },
+            });
+
+            mocks.examQuestion.updateMany.mockResolvedValue({ count: 1 });
+            const clear = await UPDATE_SCALE(json('http://localhost', 'PATCH', { questionId: 'q1', score: null }), params('p1'));
+            expect(clear.status).toBe(200);
+            expect(mocks.examQuestion.updateMany).toHaveBeenLastCalledWith({
+                where: { id: 'q1', paperId: 'p1' },
+                data: { score: null },
+            });
+
+            // 统一清空整卷分值
+            mocks.examQuestion.updateMany.mockResolvedValue({ count: 3 });
+            const clearAll = await UPDATE_SCALE(json('http://localhost', 'PATCH', { score: null }), params('p1'));
+            expect(clearAll.status).toBe(200);
+            expect(mocks.examQuestion.updateMany).toHaveBeenLastCalledWith({
+                where: { paperId: 'p1' },
+                data: { score: null },
+            });
+        });
+
+        it('校验分值范围、小数位、必填与归属', async () => {
+            mocks.examPaper.findUnique.mockResolvedValue({ userId: 'user-1' });
+
+            // 缺少 score
+            expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', {}), params('p1'))).status).toBe(400);
+            // 越界与非法小数位
+            for (const score of [0, -1, 1000.1, 2.55, 0.15, '2.5']) {
+                expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { questionId: 'q1', score }), params('p1'))).status).toBe(400);
+            }
+
+            // 他人的试卷
+            mocks.examPaper.findUnique.mockResolvedValueOnce({ userId: 'other' });
+            expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { score: 2 }), params('p1'))).status).toBe(404);
+
+            // 题目不属于该试卷
+            mocks.examPaper.findUnique.mockResolvedValueOnce({ userId: 'user-1' });
+            mocks.examQuestion.updateMany.mockResolvedValueOnce({ count: 0 });
+            expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { questionId: 'q-other', score: 2 }), params('p1'))).status).toBe(404);
+        });
+    });
+
     describe('POST 录入结果', () => {
         const paper = {
             userId: 'user-1',

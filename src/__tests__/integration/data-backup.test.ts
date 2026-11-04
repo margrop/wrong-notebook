@@ -185,9 +185,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 9 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
+    it('导出文件使用第 10 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(9);
+        expect(backup.version).toBe(10);
         expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
@@ -328,7 +328,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
                 subjectIds: JSON.stringify(['math']), tagNames: JSON.stringify(['自定义标签']), resultsRecordedAt: new Date('2026-10-22T00:00:00Z'),
                 createdAt: new Date('2026-10-21T00:00:00Z'),
                 questions: { create: [
-                    { id: 'question-1', order: 0, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', answerText: '答', analysis: '析', figureSvg: figure, figureScale: 75, figureAlign: 'right', answerSpacePx: 180 },
+                    { id: 'question-1', order: 0, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', answerText: '答', analysis: '析', figureSvg: figure, figureScale: 75, figureAlign: 'right', answerSpacePx: 180, score: 2.5 },
                     { id: 'question-2', order: 1, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'pending' },
                 ] },
             },
@@ -340,6 +340,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(backup.examPapers[0].questions[0].figureScale).toBe(75);
         expect(backup.examPapers[0].questions[0].figureAlign).toBe('right');
         expect(backup.examPapers[0].questions[0].answerSpacePx).toBe(180);
+        expect(backup.examPapers[0].questions[0].score).toBe(2.5);
         await clearUserData();
         const { stats } = await importBackup(backup);
         expect(stats.examPapersCreated).toBe(1);
@@ -353,9 +354,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             resultsRecordedAt: new Date('2026-10-22T00:00:00Z'), createdAt: new Date('2026-10-21T00:00:00Z'),
         });
         expect(paper.questions).toMatchObject([
-            { order: 0, errorItemId: item.id, sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', figureSvg: figure, figureScale: 75, figureAlign: 'right', answerSpacePx: 180 },
-            // 导出时仍在生成的题目按失败导入，缺省配图比例为 100、位置为居中，留白按全局档位
-            { order: 1, errorItemId: item.id, status: 'failed', figureScale: 100, figureAlign: 'center', answerSpacePx: null },
+            { order: 0, errorItemId: item.id, sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', figureSvg: figure, figureScale: 75, figureAlign: 'right', answerSpacePx: 180, score: 2.5 },
+            // 导出时仍在生成的题目按失败导入，缺省配图比例为 100、位置为居中，留白按全局档位，分值未设
+            { order: 1, errorItemId: item.id, status: 'failed', figureScale: 100, figureAlign: 'center', answerSpacePx: null, score: null },
         ]);
         expect(await database.practiceRecord.findFirstOrThrow({ where: { source: 'exam' } })).toMatchObject({ examQuestionId: paper.questions[0].id, errorItemId: item.id });
 
@@ -393,9 +394,12 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         legacyBackup.version = 7;
         await clearUserData();
         await importBackup(legacyBackup);
-        const legacyPaper = await database.examPaper.findFirstOrThrow({ where: { userId: 'user-1' } });
+        const legacyPaper = await database.examPaper.findFirstOrThrow({ where: { userId: 'user-1' }, include: { questions: { orderBy: { order: 'asc' } } } });
         expect(legacyPaper.mode).toBe('generate');
         expect(legacyPaper.difficulty).toBe('hard');
+
+        // 旧版文件没有 score 字段：导入后分值为空
+        expect(legacyPaper.questions[0].score).toBeNull();
     });
 
     it('云端语音随备份导入、导出：只导出与动画讲解一致的语音，不合法的跳过，已有的不重复写入', async () => {

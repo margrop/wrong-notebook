@@ -13,6 +13,7 @@ import { PracticeResultPicker } from "@/components/practice-result-picker";
 import { QuestionFigure } from "@/components/question-figure";
 import { FigureScaleEditor } from "@/components/error-detail/figure-scale-editor";
 import { ExamQuestionRegenerate } from "@/components/exam/exam-question-regenerate";
+import { ExamQuestionScoreInput } from "@/components/exam/exam-question-score-input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { FigureAlign } from "@/lib/figure-scale";
 import type { ExamMode, ExamQuestionDetail, PracticeResult } from "@/types/api";
@@ -34,6 +35,8 @@ interface ExamQuestionCardProps {
     previewFigureAlign?: FigureAlign | null;
     /** 单题保存配图显示与打印比例、位置 */
     onSaveFigureScale?: (questionId: string, figureScale: number, figureAlign: FigureAlign) => Promise<void>;
+    /** 单题保存分值；null 表示清空该题分值 */
+    onSaveScore?: (questionId: string, score: number | null) => Promise<void>;
 }
 
 export function ExamQuestionCard({
@@ -47,6 +50,7 @@ export function ExamQuestionCard({
     previewFigureScale,
     previewFigureAlign,
     onSaveFigureScale,
+    onSaveScore,
 }: ExamQuestionCardProps) {
     const { t } = useLanguage();
     const { timeZone } = useTimeZone();
@@ -76,6 +80,16 @@ export function ExamQuestionCard({
                         </span>
                     )}
                     {question.notebookName && <Badge variant="secondary">{question.notebookName}</Badge>}
+                    {onSaveScore && (
+                        <span className="ml-auto">
+                            <ExamQuestionScoreInput
+                                questionId={question.id}
+                                score={question.score ?? null}
+                                disabled={isEditing}
+                                onSave={onSaveScore}
+                            />
+                        </span>
+                    )}
                 </div>
 
                 {question.attempts.length > 0 && (

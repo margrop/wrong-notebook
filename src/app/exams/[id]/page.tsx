@@ -12,11 +12,12 @@ import { Input } from "@/components/ui/input";
 import { BackButton } from "@/components/ui/back-button";
 import { PageLoading } from "@/components/ui/page-loading";
 import { ExamFigureScaleBar } from "@/components/exam/exam-figure-scale-bar";
-import { ExamQuestionCard } from "@/components/exam/exam-question-card";
 import { ExamStatusBadge } from "@/components/exam/exam-status-badge";
+import { ExamDetailQuestions } from "./exam-detail-questions";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
 import { apiClient } from "@/lib/api-client";
+import { formatExamScore, summarizeExamScores } from "@/lib/exam/exam-score";
 import type { FigureAlign } from "@/lib/figure-scale";
 import type { ExamPaperDetail, PracticeResult } from "@/types/api";
 import { confirmDialog } from "@/lib/feedback";
@@ -135,6 +136,26 @@ export default function ExamDetailPage() {
         } : prev));
     };
 
+    const saveQuestionScore = async (questionId: string, score: number | null) => {
+        await apiClient.patch(`/api/exams/${paper.id}`, { questionId, score });
+        setPaper((prev) => (prev ? {
+            ...prev,
+            questions: prev.questions.map((question) => (question.id === questionId ? { ...question, score } : question)),
+        } : prev));
+    };
+
+    const saveUniformScore = async (score: number | null) => {
+        await apiClient.patch(`/api/exams/${paper.id}`, { score });
+        setPaper((prev) => (prev ? {
+            ...prev,
+            questions: prev.questions.map((question) => ({ ...question, score })),
+        } : prev));
+    };
+
+    const readyScoreSummary = summarizeExamScores(
+        paper.questions.filter((question) => question.status === "ready").map((question) => question.score ?? null)
+    );
+
     return (
         <main className="mx-auto min-h-screen max-w-6xl px-4 py-6 md:px-8 md:py-8">
             <div className="space-y-6 pb-24">
@@ -146,6 +167,14 @@ export default function ExamDetailPage() {
                             <ExamStatusBadge status={paper.status} recorded={recorded} />
                             {paper.mode === 'original' && <Badge variant="secondary">{t.exam.modes.original}</Badge>}
                             <span>{t.exam.progress.replace("{ready}", String(readyCount)).replace("{total}", String(paper.questions.length))}</span>
+                            {readyScoreSummary.total !== null && (
+                                <span>
+                                    {t.exam.totalScore.replace("{total}", formatExamScore(readyScoreSummary.total))}
+                                    {readyScoreSummary.unscored > 0 && (
+                                        <span className="text-xs">（{t.exam.totalScoreUnscored.replace("{count}", String(readyScoreSummary.unscored))}）</span>
+                                    )}
+                                </span>
+                            )}
                             <span>{formatDateTime(paper.createdAt, "yyyy-MM-dd HH:mm", timeZone)}</span>
                         </div>
                     </div>
@@ -202,23 +231,19 @@ export default function ExamDetailPage() {
                     />
                 )}
 
-                <div className="space-y-3">
-                    {paper.questions.map((question) => (
-                        <ExamQuestionCard
-                            key={question.id}
-                            paperId={paper.id}
-                            paperMode={paper.mode}
-                            question={question}
-                            editingResult={draft ? draft[question.id] ?? null : undefined}
-                            onResultChange={(result) => setDraft((prev) => (prev ? { ...prev, [question.id]: result } : prev))}
-                            onDeleteAttempt={deleteAttempt}
-                            onRegenerated={load}
-                            previewFigureScale={uniformPreview.scale}
-                            previewFigureAlign={uniformPreview.align}
-                            onSaveFigureScale={saveQuestionFigureScale}
-                        />
-                    ))}
-                </div>
+                <ExamDetailQuestions
+                    paperId={paper.id}
+                    paperMode={paper.mode}
+                    questions={paper.questions}
+                    draft={draft}
+                    onResultChange={(questionId, result) => setDraft((prev) => (prev ? { ...prev, [questionId]: result } : prev))}
+                    onDeleteAttempt={deleteAttempt}
+                    onRegenerated={load}
+                    uniformPreview={uniformPreview}
+                    onSaveFigureScale={saveQuestionFigureScale}
+                    onSaveScore={saveQuestionScore}
+                    onSaveUniformScore={saveUniformScore}
+                />
 
                 {draft && (
                     <div className="fixed inset-x-0 bottom-16 z-30 border-t bg-background/95 p-3 backdrop-blur md:bottom-0">

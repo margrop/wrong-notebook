@@ -7,10 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BackButton } from "@/components/ui/back-button";
-import { FigureScaleEditor } from "@/components/error-detail/figure-scale-editor";
 import { ExamFigureScaleBar } from "@/components/exam/exam-figure-scale-bar";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { AnswerSpaceControl } from "@/components/print-preview/answer-space-control";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
 import { apiClient } from "@/lib/api-client";
@@ -19,13 +16,13 @@ import {
     ANSWER_SPACE_STORAGE_KEY,
     DEFAULT_ANSWER_SPACE_MODE,
     isAnswerSpaceMode,
-    resolveQuestionAnswerSpacePx,
 } from "@/lib/exam/exam-answer-space";
 import type { AnswerSpaceMode } from "@/lib/exam/exam-answer-space";
 import { useSavedAnswerSpaces } from "@/lib/hooks/use-saved-answer-spaces";
 import type { AnswerSpaceChange } from "@/lib/hooks/use-saved-answer-spaces";
 import type { FigureAlign } from "@/lib/figure-scale";
 import type { ExamPaperDetail } from "@/types/api";
+import { ExamPrintSheet } from "./exam-print-sheet";
 
 const EMPTY_QUESTIONS: ExamPaperDetail["questions"] = [];
 
@@ -86,8 +83,8 @@ export default function ExamPrintPage() {
 
     if (!paper) return <div className="p-8 text-center">{t.common.loading}</div>;
 
-    const questions = paper.questions.filter((question) => question.status === "ready" && question.questionText);
-    const figureQuestions = questions.filter((question) => Boolean(question.figureSvg));
+    const figureQuestions = paper.questions.filter((question) => question.status === "ready" && question.questionText && Boolean(question.figureSvg));
+    const readyCount = paper.questions.filter((question) => question.status === "ready" && question.questionText).length;
 
     const saveQuestionFigureScale = async (questionId: string, figureScale: number, figureAlign: FigureAlign) => {
         await apiClient.patch(`/api/exams/${paper.id}`, { questionId, figureScale, figureAlign });
@@ -165,7 +162,7 @@ export default function ExamPrintPage() {
                     {answerSpaceSaveFailed && (
                         <p className="w-full text-xs text-destructive">{t.exam.answerSpaceSaveFailed}</p>
                     )}
-                    {questions.length < paper.questions.length && (
+                    {readyCount < paper.questions.length && (
                         <p className="w-full text-xs text-muted-foreground">{t.exam.notReadyHint}</p>
                     )}
                     {figureQuestions.length > 0 && (
@@ -179,74 +176,16 @@ export default function ExamPrintPage() {
                 </div>
             </div>
 
-            <div ref={sheetRef} className="exam-sheet">
-                <h1>{paper.title}</h1>
-                <div className="exam-meta">
-                    <span>{t.exam.nameLine}{t.common.colon}________</span>
-                    <span>{t.exam.dateLine}{t.common.colon}________</span>
-                    <span>{t.exam.scoreLine}{t.common.colon}________</span>
-                </div>
-                {questions.map((question, index) => (
-                    <section key={question.id} className="exam-question">
-                        <div className="exam-question-head">
-                            <span>{index + 1}.</span>
-                            <span className="exam-source">{t.exam.sourceLabel}: {question.sourceShortId}</span>
-                        </div>
-                        <MarkdownRenderer content={question.questionText!} />
-                        <FigureScaleEditor
-                            key={`${question.id}-${question.figureScale ?? 100}-${question.figureAlign ?? "center"}`}
-                            svg={question.figureSvg}
-                            scale={question.figureScale}
-                            align={question.figureAlign}
-                            previewScaleOverride={uniformPreview.scale}
-                            previewAlignOverride={uniformPreview.align}
-                            onSave={(figureScale, figureAlign) => saveQuestionFigureScale(question.id, figureScale, figureAlign)}
-                        />
-                        {(() => {
-                            const effectivePx = resolveQuestionAnswerSpacePx(answerSpace, question.questionText!, customSpaces[question.id]);
-                            return (
-                                <>
-                                    <div
-                                        className="exam-answer-space"
-                                        style={{ minHeight: `${effectivePx}px` }}
-                                    />
-                                    <AnswerSpaceControl
-                                        effectivePx={effectivePx}
-                                        isCustom={typeof customSpaces[question.id] === "number"}
-                                        onChange={(px) => setQuestionCustomSpace(question.id, px)}
-                                        onReset={() => setQuestionCustomSpace(question.id, null)}
-                                    />
-                                </>
-                            );
-                        })()}
-                    </section>
-                ))}
-                {includeAnswers && (
-                    <section className="exam-answer-key">
-                        <h2>{t.exam.answerKey}</h2>
-                        {questions.map((question, index) => (
-                            <div key={question.id} className="exam-question">
-                                <div className="exam-question-head">
-                                    <span>{index + 1}.</span>
-                                    <span className="exam-source">{t.exam.sourceLabel}: {question.sourceShortId}</span>
-                                </div>
-                                {question.answerText && (
-                                    <div>
-                                        <span className="exam-label">{t.exam.answerLabel}{t.common.colon}</span>
-                                        <MarkdownRenderer content={question.answerText} />
-                                    </div>
-                                )}
-                                {question.analysis && (
-                                    <div>
-                                        <span className="exam-label">{t.exam.analysisLabel}{t.common.colon}</span>
-                                        <MarkdownRenderer content={question.analysis} />
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </section>
-                )}
-            </div>
+            <ExamPrintSheet
+                ref={sheetRef}
+                paper={paper}
+                includeAnswers={includeAnswers}
+                answerSpace={answerSpace}
+                customSpaces={customSpaces}
+                uniformPreview={uniformPreview}
+                onSaveFigureScale={saveQuestionFigureScale}
+                onChangeCustomSpace={setQuestionCustomSpace}
+            />
         </main>
     );
 }

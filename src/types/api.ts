@@ -447,6 +447,8 @@ export interface ExamQuestionDetail {
     figureAlign?: 'left' | 'center' | 'right' | string;
     /** 打印时手动设置的题下留白（px），为空时按全局档位 */
     answerSpacePx?: number | null;
+    /** 每题分值（最多一位小数），空表示未设分值 */
+    score?: number | null;
     error: string | null;
     notebookName: string | null;
     /** 历次录入的结果，按时间正序 */
