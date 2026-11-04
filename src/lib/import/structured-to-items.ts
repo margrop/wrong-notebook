@@ -132,7 +132,7 @@ export async function structuredQuestionsToItemsAsync(
         renderer?: ImageRenderer;
         decodeFn?: DecodeFn;
         onProgress?: ImageProgressCallback;
-        /** 注入 metafile 渲染实现（测试中替换为假渲染器）；缺省动态加载 rtf.js（仅浏览器） */
+        /** 注入 metafile 渲染实现（测试中替换为假渲染器）；缺省使用自研 WMF 渲染器（仅浏览器光栅化） */
         metafileDeps?: RenderMetafileDeps;
         /** 输出：metafile 渲染成功/失败计数 */
         metafileCounts?: MetafileRenderCounts;

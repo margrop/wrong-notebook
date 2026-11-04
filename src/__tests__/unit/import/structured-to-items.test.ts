@@ -176,12 +176,9 @@ describe("structuredQuestionsToItemsAsync：metafile（WMF/EMF）渲染", () => 
         },
     };
 
-    /** 注入的假 metafile 渲染器：wmf/emf 一律渲染为固定 PNG */
+    /** 注入的假 metafile 渲染器：WMF 渲染为固定 SVG，光栅化为固定 PNG */
     const metafileDeps = {
-        loadModule: async () => ({
-            WMFJS: { Renderer: class { render() { return document.createElementNS("http://www.w3.org/2000/svg", "svg"); } }, loggingEnabled: () => undefined },
-            EMFJS: { Renderer: class { render() { return document.createElementNS("http://www.w3.org/2000/svg", "svg"); } }, loggingEnabled: () => undefined },
-        }),
+        renderWmfSvg: () => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>',
         rasterize: async () => "data:image/png;base64,METAFILEPNG",
     };
 
@@ -192,13 +189,13 @@ describe("structuredQuestionsToItemsAsync：metafile（WMF/EMF）渲染", () => 
         height: dataUrl.length,
     });
 
-    it("待渲染 metafile 图片先渲染为 PNG 再参与合成", async () => {
+    it("待渲染 WMF 图片先渲染为 PNG 再参与合成", async () => {
         const questions: StructuredQuestion[] = [
             {
                 text: "a",
                 images: [
                     { dataUrl: "data:image/wmf;base64,AAAA", alt: "metafile;200x100" },
-                    { dataUrl: "data:image/emf;base64,BBBB", alt: "metafile;300x150" },
+                    { dataUrl: "data:image/wmf;base64,BBBB", alt: "metafile;300x150" },
                 ],
             },
         ];
@@ -213,6 +210,28 @@ describe("structuredQuestionsToItemsAsync：metafile（WMF/EMF）渲染", () => 
         // 两张一起 composite：宽 33、高 33×2 + 16 = 82
         expect(items[0].image).toBe("composite:33x82:2");
         expect(counts).toEqual({ rendered: 2, failed: 0 });
+    });
+
+    it("EMF 待渲染图片本任务起不再渲染，剔除并计入 failed", async () => {
+        const questions: StructuredQuestion[] = [
+            {
+                text: "a",
+                images: [
+                    { dataUrl: "data:image/emf;base64,BBBB", alt: "metafile;300x150" },
+                    { dataUrl: "data:image/png;base64,AAAA" },
+                ],
+            },
+        ];
+        const counts = { rendered: 0, failed: 0 };
+        const items = await structuredQuestionsToItemsAsync(questions, {
+            renderer: fakeRenderer,
+            decodeFn: squareDecode,
+            metafileDeps,
+            metafileCounts: counts,
+        });
+        // EMF 渲染失败被剔除，普通 PNG 走 renderSingle 单图路径
+        expect(items[0].image).toMatch(/^single:/);
+        expect(counts).toEqual({ rendered: 0, failed: 1 });
     });
 
     it("metafile 渲染失败剔除并计入 failed，其余图片照常合成", async () => {

@@ -146,27 +146,29 @@ export function oleObjectRun(imageRid = "rIdWmf", objectRid = "rIdOle", style = 
 
 /**
  * 最小可用的 WMF 字节（placeable WMF：头 + 标准头 + SetWindowOrg + SetWindowExt + 矩形 + EOF）。
- * 可被 rtf.js 的 WMFJS.Renderer 解析并渲染出一个黑色矩形 SVG，供测试真实渲染路径。
+ * 可被自研 WMF 渲染器（src/lib/import/file-parsers/docx/wmf/）解析并渲染出含矩形与 viewBox 的 SVG，
+ * 供测试真实渲染路径。
  */
 export function minimalWmfBytes(): Uint8Array {
     // 以 16 位小端字为单位依次写入
     const words: number[] = [];
-    // placeable 头：key 0x9AC6CDD7、hmf、bbox(left,top,right,bottom)、inch、reserved、checksum
-    words.push(0xcdd7, 0x9ac6, 0, 0, 0, 400, 300, 0, 576, 0, 0, 0, 0);
+    // placeable 头（11 字 = 22 字节）：key(2) + hmf(1) + bbox(4) + inch(1) + reserved(2) + checksum(1)
+    words.push(0xcdd7, 0x9ac6, 0, 0, 0, 400, 300, 576, 0, 0, 0);
     // 标准 metafile 头（9 字）：type、headerSize、version、size(2 字)、objects、maxRecord(2 字)、numOfParams
     words.push(1, 9, 0x0300, 0, 0, 0, 0x002c, 0, 0);
+    // 记录格式：size(DWORD，占 2 字：低字在前) + func(1 字) + params
     // SetWindowOrg(0, 0)：size=5、func=0x020B
-    words.push(5, 0x020b, 0, 0);
+    words.push(5, 0, 0x020b, 0, 0);
     // SetWindowExt(400, 300)：size=5、func=0x020C
-    words.push(5, 0x020c, 400, 300);
+    words.push(5, 0, 0x020c, 400, 300);
     // 矩形：MoveTo(0,0)、四次 LineTo
-    words.push(5, 0x0214, 0, 0);
-    words.push(5, 0x0213, 400, 0);
-    words.push(5, 0x0213, 400, 300);
-    words.push(5, 0x0213, 0, 300);
-    words.push(5, 0x0213, 0, 0);
+    words.push(5, 0, 0x0214, 0, 0);
+    words.push(5, 0, 0x0213, 400, 0);
+    words.push(5, 0, 0x0213, 400, 300);
+    words.push(5, 0, 0x0213, 0, 300);
+    words.push(5, 0, 0x0213, 0, 0);
     // EOF：size=3、func=0
-    words.push(3, 0);
+    words.push(3, 0, 0);
     const bytes = new Uint8Array(words.length * 2);
     const view = new DataView(bytes.buffer);
     for (let i = 0; i < words.length; i++) view.setUint16(i * 2, words[i], true);

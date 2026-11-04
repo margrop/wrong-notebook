@@ -1,15 +1,18 @@
 /**
  * Word（.docx）中 WMF/EMF 图片（MathType/公式编辑器 OLE 对象的预览图等）的浏览器端渲染。
  *
- * - rtf.js 的 WMFJS/EMFJS 渲染器把 WMF/EMF 字节解析为 SVG（文档排版坐标）；
- *   这里用 Image + canvas 把 SVG 光栅化为白底 PNG data URL，供题目原图合成。
- * - 只在遇到 wmf/emf 时才动态 import('rtf.js')，不进入首屏包与服务端包。
- * - 纯计算（目标尺寸、像素换算）与 DOM/canvas 部分分离，测试可注入假渲染器。
+ * - WMF 用自研轻量渲染器（src/lib/import/file-parsers/docx/wmf/）解析并输出 SVG，
+ *   支持 MathType 的 TA_UPDATECP 文字定位与 dx 数组逐字定位（rtf.js 不支持，文字全堆在 (0,0)）；
+ * - EMF 暂不渲染（MathType 公式预览图基本为 WMF），计入 METAFILE_FAILED 警告；
+ * - 这里用 Image + canvas 把 SVG 光栅化为白底 PNG data URL，供题目原图合成；
+ * - 纯计算（目标尺寸、像素换算）与 DOM/canvas 部分分离，测试可注入假渲染器；
  * - 待渲染图片以 data:image/wmf;base64,… / data:image/emf;base64,… 挂在题目 images 上，
  *   显示尺寸（渲染目标像素）通过 alt 的结构化前缀传递（见 METAFILE_ALT_PREFIX）。
  *
  * 纯函数库，不依赖 Node 专有模块与 Prisma，可在浏览器和服务端同时使用。
  */
+
+import { wmfBytesToSvg } from "./wmf";
 
 /** 光栅化输出的最长边（像素），与题目原图合成上限一致 */
 export const METAFILE_MAX_LONG_EDGE = 1600;
@@ -28,36 +31,29 @@ export const METAFILE_FALLBACK_HEIGHT = 600;
 /** alt 结构化前缀：待渲染 metafile 图片的 alt 形如 "metafile;800x600"（宽×高为渲染目标像素） */
 export const METAFILE_ALT_PREFIX = "metafile;";
 
-/** metafile 渲染器的最小接口（对应 rtf.js 的 WMFJS.Renderer / EMFJS.Renderer） */
-export interface MetafileRendererLike {
-    render(settings: {
-        width: string;
-        height: string;
-        xExt: number;
-        yExt: number;
-        mapMode: number;
-        wExt?: number;
-        hExt?: number;
-    }): SVGElement;
+/**
+ * 把 WMF 字节渲染为 SVG 字符串；解析失败返回 null。
+ * 抽出独立函数便于测试注入与错误边界控制。
+ */
+function renderWmfToSvg(bytes: ArrayBuffer): string | null {
+    try {
+        const uint8 = new Uint8Array(bytes);
+        return wmfBytesToSvg(uint8);
+    } catch {
+        return null;
+    }
 }
 
-/** 注入的 rtf.js 模块最小类型（只用到的部分） */
-export interface RtfJsModule {
-    WMFJS: {
-        Renderer: new (blob: ArrayBuffer) => MetafileRendererLike;
-        loggingEnabled(enabled: boolean): unknown;
-    };
-    EMFJS: {
-        Renderer: new (blob: ArrayBuffer) => MetafileRendererLike;
-        loggingEnabled(enabled: boolean): unknown;
-    };
-}
-
-/** 可注入的依赖集合（测试中替换为假实现，jsdom 中无需真实 DOM/canvas） */
-export interface RenderMetafileDeps {
-    loadModule?: () => Promise<RtfJsModule>;
-    /** 把渲染出的 SVG 光栅化为 PNG data URL；返回 null 表示失败 */
-    rasterize?: (svg: SVGElement) => Promise<string | null>;
+/** 把 SVG 字符串解析为 DOM 元素（jsdom/浏览器环境） */
+function svgTextToElement(svgText: string): SVGElement {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, "image/svg+xml");
+    const svg = doc.documentElement;
+    // jsdom 中 SVG 命名空间的元素可能不是 SVGElement 实例，用 tagName 兜底判断
+    if (!svg || svg.tagName.toLowerCase() !== "svg" || !svg.getAttribute("viewBox")) {
+        throw new Error("METAFILE_SVG_PARSE_FAILED");
+    }
+    return svg as unknown as SVGElement;
 }
 
 /** 目标输出尺寸（纯计算） */
@@ -143,17 +139,17 @@ export function computeMetafilePixelSize(
     return { width, height };
 }
 
+/** 可注入的依赖集合（测试中替换为假实现，jsdom 中无需真实 DOM/canvas） */
+export interface RenderMetafileDeps {
+    /** 把 WMF 字节渲染为 SVG 字符串；返回 null 表示失败（测试中注入假实现） */
+    renderWmfSvg?: (bytes: ArrayBuffer) => string | null;
+    /** 把渲染出的 SVG 光栅化为 PNG data URL；返回 null 表示失败 */
+    rasterize?: (svg: SVGElement) => Promise<string | null>;
+}
+
 /** pt → px（96dpi，纯计算） */
 export function ptToPx(pt: number): number {
     return (pt * 96) / 72;
-}
-
-let cachedModule: Promise<RtfJsModule> | null = null;
-
-/** 默认加载器：动态 import rtf.js，只在遇到 metafile 时进入 bundle */
-function defaultLoadModule(): Promise<RtfJsModule> {
-    cachedModule ??= import("rtf.js") as unknown as Promise<RtfJsModule>;
-    return cachedModule;
 }
 
 /** 浏览器端默认光栅化：SVG → Image → canvas → 白底 PNG data URL；任何一步失败返回 null */
@@ -206,7 +202,9 @@ export function parseSvgLength(value: string | null): number | null {
 
 /**
  * 把 WMF/EMF 字节渲染为 PNG data URL。
- * 渲染失败（格式不识别、光栅化失败、输出超限）返回 null，由调用方计入 METAFILE_FAILED 警告。
+ * WMF 用自研渲染器解析为 SVG 后光栅化；EMF 暂不渲染（MathType 公式基本都是 WMF），直接返回 null，
+ * 由调用方计入 METAFILE_FAILED 警告。
+ * 渲染失败（格式不识别、解析失败、光栅化失败、输出超限）返回 null。
  */
 export async function renderMetafileToPng(
     bytes: ArrayBuffer,
@@ -214,28 +212,14 @@ export async function renderMetafileToPng(
     target: MetafileTargetSize,
     deps: RenderMetafileDeps = {},
 ): Promise<string | null> {
-    const loadModule = deps.loadModule ?? defaultLoadModule;
+    void target; // target 保留在签名中，兼容既有调用与测试注入；SVG viewBox 本身携带尺寸
+    if (format === "emf") return null;
+    const renderSvg = deps.renderWmfSvg ?? renderWmfToSvg;
     const rasterize = deps.rasterize ?? defaultRasterize;
     try {
-        const rtfJs = await loadModule();
-        rtfJs.WMFJS.loggingEnabled(false);
-        rtfJs.EMFJS.loggingEnabled(false);
-        const renderer = format === "wmf"
-            ? new rtfJs.WMFJS.Renderer(bytes)
-            : new rtfJs.EMFJS.Renderer(bytes);
-        const settings: Parameters<MetafileRendererLike["render"]>[0] = {
-            width: `${target.width}px`,
-            height: `${target.height}px`,
-            xExt: target.width,
-            yExt: target.height,
-            mapMode: 8,
-        };
-        if (format === "emf") {
-            settings.wExt = target.width;
-            settings.hExt = target.height;
-        }
-        const svg = renderer.render(settings);
-        if (!svg) return null;
+        const svgText = renderSvg(bytes);
+        if (svgText === null) return null;
+        const svg = svgTextToElement(svgText);
         return await rasterize(svg);
     } catch {
         return null;
