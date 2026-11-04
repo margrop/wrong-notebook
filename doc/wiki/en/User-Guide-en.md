@@ -171,7 +171,7 @@ Generated animations and GeoGebra demos can be deleted after confirmation. Check
 
 ## Filters and batch actions
 
-Filter by mastery status, knowledge point, question type, time, grade and semester, or paper level, then act on the results in bulk or print them. Question types support multi-select, including "Not set" (questions without a question type). Before deleting, confirm the filters and selection; [back up your data](Backup-and-Restore-en) when it must be kept long term.
+Filter by mastery status, knowledge point, question type, time, grade and semester, or paper level, then act on the results in bulk or print them. Question types support multi-select, including "Not set" (questions without a question type). The multi-select bar's **Export JSON** exports selected error items as a [Question Exchange JSON v1](../QUESTION_FORMAT.md) file containing only question content, without practice records or other data; for a full backup use **Settings → Data Management → Export Data**. Before deleting, confirm the filters and selection; [back up your data](Backup-and-Restore-en) when it must be kept long term.
 
 ## Markdown and formulas
 

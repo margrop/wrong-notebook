@@ -354,6 +354,18 @@ export const zh = {
             selectedCount: "已选 {count} 项",
             confirmBatchDelete: "确定删除 {count} 道错题？",
             batchDeleteSuccess: "删除成功",
+            exportJson: "导出 JSON",
+            exportJsonDialog: {
+                title: "导出为题目交换格式 JSON",
+                description: "选中的错题将导出为题目交换格式 JSON v1 文件，可用于在其他系统中导入或备份题目内容。",
+                includeImages: "包含原图（文件会变大）",
+                export: "导出",
+                exporting: "导出中...",
+                cancel: "取消",
+                success: "导出成功",
+                failed: "导出失败，请重试",
+                emptyQuestionWarning: "有 {count} 道题因题干为空被跳过",
+            },
         },
         notebooks: {
             title: "我的错题本",

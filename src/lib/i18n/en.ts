@@ -354,6 +354,18 @@ export const en = {
             selectedCount: "{count} selected",
             confirmBatchDelete: "Delete {count} items?",
             batchDeleteSuccess: "Deleted successfully",
+            exportJson: "Export JSON",
+            exportJsonDialog: {
+                title: "Export as Question Exchange JSON",
+                description: "Selected error items will be exported as a Question Exchange JSON v1 file for importing into other systems or backing up question content.",
+                includeImages: "Include original images (larger file)",
+                export: "Export",
+                exporting: "Exporting...",
+                cancel: "Cancel",
+                success: "Export successful",
+                failed: "Export failed, please try again",
+                emptyQuestionWarning: "{count} item(s) skipped due to empty question text",
+            },
         },
         notebooks: {
             title: "My Notebooks",

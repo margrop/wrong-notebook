@@ -6,7 +6,8 @@ Web export is for moving personal learning data; restoring a whole site requires
 
 | Method | Contents | Use |
 | --- | --- | --- |
-| Web JSON export | Notebooks, system and custom tags, questions, review schedules, practice records, random exam papers, unprocessed recognition tasks and some profile data | Keeping personal data, importing supported fields |
+| Web JSON export (full backup) | Notebooks, system and custom tags, questions, review schedules, practice records, random exam papers, unprocessed recognition tasks and some profile data | Keeping personal data, importing supported fields |
+| Question Exchange JSON (Export JSON) | Selected error item question content (question text, answer, analysis, knowledge points, difficulty, figures, optional original images) | Exchanging question content, cross-system import |
 | Full-site file backup | The complete SQLite database, `config/`, deployment configuration and any certificates | Disaster recovery, moving the site, preparing a rollback before upgrades |
 
 The JSON export does not include full user accounts with passwords or the server AI configuration. Even when an admin exports all data, it does not replace a full-site backup.
@@ -14,6 +15,17 @@ The JSON export does not include full user accounts with passwords or the server
 ## Web export and import
 
 Export JSON from the data management section in the settings and keep it safe. When a regular user imports, the email in the export file must match the current account; admins can import and export data for all users.
+
+### Export JSON (Question Exchange Format)
+
+The error list's multi-select bar provides an "Export JSON" feature that exports selected error items as a [Question Exchange JSON v1](../QUESTION_FORMAT.md) file. Unlike a full backup, the exchange format contains only question content (question text, answer, analysis, knowledge points, difficulty, figures, etc.) and does not include practice records, review schedules, exam papers, user preferences, or other data.
+
+- Only error items belonging to the current user are exported; ids not owned by the user are silently ignored.
+- Optional "Include original images": when enabled, if the original image is a base64 inline image (PNG/JPEG/WebP), it is placed into the `images` field.
+- Questions with empty question text are skipped and counted in `warnings` as `EMPTY_QUESTION_TEXT_SKIPPED`.
+- The export result can be parsed directly by `parseQuestionFile`, achieving a round-trip.
+
+### Full backup export
 
 System and custom tags retain their tag system and parent-child hierarchy. Identically named chapters and knowledge points under different grades are restored separately, and questions reconnect to the specific nodes recorded in the backup. This includes Chinese grades, chapters, knowledge points and custom tags beneath them. Import supports older backups whose child nodes appear before their parents; repeating an import does not duplicate tags at the same path.
 

@@ -6,6 +6,17 @@
 - JSON Schema：`doc/schemas/questions-v1.schema.json`（draft 2020-12）
 - 完整示例：`doc/schemas/questions-v1.example.json`
 
+## 从错题本导出
+
+错题本的多选栏提供「导出 JSON」功能，将选中的错题导出为题目交换格式 JSON v1 文件（`POST /api/error-items/export-questions`）。
+
+- 只导出属于当前用户的错题；不属于自己的 id 会被静默忽略。
+- 可选「包含原图」：开启后，若 `originalImageUrl` 是 `data:image/png|jpeg|webp` 的 base64 内嵌图片，则放入 `images` 字段。
+- 题干为空的题目会被跳过，并在响应 `warnings` 中计入 `EMPTY_QUESTION_TEXT_SKIPPED`。
+- 导出结果可直接被 `parseQuestionFile` 解析，实现往返闭环。
+
+**与完整备份的区别**：题目交换格式只包含题目内容（题干、答案、解析、知识点、难度等），不含练习记录、复习计划、试卷、用户偏好等数据。完整备份请使用「设置 → 数据管理 → 导出数据」。
+
 ## 设计原则
 
 - **向前兼容**：解析器宽松，未知字段忽略；新增字段不升版本，破坏性变化才升版本号。

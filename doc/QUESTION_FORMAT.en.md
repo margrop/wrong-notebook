@@ -6,6 +6,17 @@ This document defines the **Wrong Notebook Question Exchange Format JSON v1**: u
 - JSON Schema: `doc/schemas/questions-v1.schema.json` (draft 2020-12)
 - Full example: `doc/schemas/questions-v1.example.json`
 
+## Exporting from the Notebook
+
+The error list's multi-select bar provides an "Export JSON" feature that exports selected error items as a Question Exchange JSON v1 file (`POST /api/error-items/export-questions`).
+
+- Only error items belonging to the current user are exported; ids not owned by the user are silently ignored.
+- Optional "Include original images": when enabled, if `originalImageUrl` is a base64 inline image with prefix `data:image/png|jpeg|webp`, it is placed into the `images` field.
+- Questions with empty question text are skipped and counted in `warnings` as `EMPTY_QUESTION_TEXT_SKIPPED`.
+- The export result can be parsed directly by `parseQuestionFile`, achieving a round-trip.
+
+**Difference from full backup**: the question exchange format contains only question content (question text, answer, analysis, knowledge points, difficulty, etc.) and does not include practice records, review schedules, exam papers, user preferences, or other data. For a full backup, use "Settings → Data Management → Export Data".
+
 ## Design Principles
 
 - **Forward compatible**: the parser is lenient and ignores unknown fields; adding fields does not bump the version, only breaking changes do.
