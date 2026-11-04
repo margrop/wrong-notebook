@@ -4,7 +4,8 @@ import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { badRequest, conflict, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { isValidNotebookScope, stageFromEducationStage, STAGE_SUBJECTS, type NotebookSubject } from "@/lib/notebook-scope";
+import { createNotebookSchema } from "@/lib/schemas/notebooks";
+import { stageFromEducationStage, STAGE_SUBJECTS, type NotebookSubject } from "@/lib/notebook-scope";
 
 const logger = createLogger('api:notebooks');
 
@@ -84,18 +85,17 @@ export const GET = withUser(async (req, ctx) => {
  * 创建新错题本
  */
 async function handlePost(req: Request, { user }: AuthenticatedContext) {
-    const body = await req.json();
-    const { name, stage, subjectKey, tagSet } = body;
-
-    if (typeof name !== "string" || !name.trim()) {
-        return badRequest("Notebook name is required");
-    }
-    // 学段和学科只能在创建时选择，之后不可修改
-    if (!isValidNotebookScope(stage, subjectKey)) {
+    const parsed = createNotebookSchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        if (issue?.path[0] === 'name') {
+            return badRequest("Notebook name is required");
+        }
         return badRequest("A valid stage and subject are required");
     }
+    const { name, stage, subjectKey } = parsed.data;
     // 标签体系：非空字符串，默认 default
-    const finalTagSet = typeof tagSet === 'string' && tagSet.trim() ? tagSet.trim() : 'default';
+    const finalTagSet = parsed.data.tagSet?.trim() || 'default';
 
     // 检查是否已存在同名错题本
     const existing = await prisma.subject.findUnique({

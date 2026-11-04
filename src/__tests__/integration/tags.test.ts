@@ -345,4 +345,56 @@ describe('/api/tags', () => {
             expect(data.suggestions).not.toContain('函数');
         });
     });
+
+    describe('POST /api/tags (创建标签)', () => {
+        beforeEach(() => {
+            mocks.mockGetServerSession.mockResolvedValue({ user: { email: 'user@example.com' }, expires: '2099-01-01' });
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ id: 'user-1', email: 'user@example.com' });
+        });
+
+        it('缺少 name 或 subject 时返回 400', async () => {
+            const { POST } = await import('@/app/api/tags/route');
+            for (const body of [{ name: '标签' }, { subject: 'math' }, { name: '', subject: 'math' }]) {
+                const response = await POST(new Request('http://localhost/api/tags', {
+                    method: 'POST',
+                    body: JSON.stringify(body),
+                    headers: { 'Content-Type': 'application/json' },
+                }));
+                expect(response.status).toBe(400);
+            }
+        });
+
+        it('parentId 为 null、tagSet 为空串时按缺省处理，不返回 400', async () => {
+            const { POST } = await import('@/app/api/tags/route');
+            const response = await POST(new Request('http://localhost/api/tags', {
+                method: 'POST',
+                body: JSON.stringify({ name: '标签', subject: 'math', parentId: null, tagSet: '  ' }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+            expect(response.status).not.toBe(400);
+        });
+
+        it('parentId 为非法类型时返回 400', async () => {
+            const { POST } = await import('@/app/api/tags/route');
+            const response = await POST(new Request('http://localhost/api/tags', {
+                method: 'POST',
+                body: JSON.stringify({ name: '标签', subject: 'math', parentId: 123 }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+            expect(response.status).toBe(400);
+        });
+    });
+
+    describe('DELETE /api/tags (删除标签)', () => {
+        beforeEach(() => {
+            mocks.mockGetServerSession.mockResolvedValue({ user: { email: 'user@example.com' }, expires: '2099-01-01' });
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ id: 'user-1', email: 'user@example.com' });
+        });
+
+        it('缺少 id 查询参数时返回 400', async () => {
+            const { DELETE } = await import('@/app/api/tags/route');
+            const response = await DELETE(new Request('http://localhost/api/tags'));
+            expect(response.status).toBe(400);
+        });
+    });
 });

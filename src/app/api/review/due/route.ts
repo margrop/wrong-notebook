@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
-import { internalError } from "@/lib/api-errors";
+import { internalError, badRequest } from "@/lib/api-errors";
 import { getAppTimeZone } from "@/lib/config";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/lib/constants/pagination";
+import { reviewDueQuerySchema } from "@/lib/schemas/practice";
 import { createLogger } from "@/lib/logger";
 import { getMasteryThreshold } from "@/lib/mastery";
 import { PRACTICE_RECORD_COUNT, masteryStatusOf } from "@/lib/mastery-status";
@@ -15,9 +16,17 @@ const logger = createLogger('api:review:due');
 /** 今日待复习：按作答历史推算到期的错题，最早到期的排在前面 */
 async function handleGet(req: Request, { user }: AuthenticatedContext) {
     const { searchParams } = new URL(req.url);
-    const subjectId = searchParams.get("subjectId");
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
-    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(MIN_PAGE_SIZE, parseInt(searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE));
+    const parsedQuery = reviewDueQuerySchema.safeParse({
+        subjectId: searchParams.get("subjectId") ?? undefined,
+        page: searchParams.get("page") ?? undefined,
+        pageSize: searchParams.get("pageSize") ?? undefined,
+    });
+    if (!parsedQuery.success) {
+        return badRequest("Invalid query parameters");
+    }
+    const { subjectId } = parsedQuery.data;
+    const page = Math.max(1, parsedQuery.data.page ?? 1);
+    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(MIN_PAGE_SIZE, parsedQuery.data.pageSize ?? DEFAULT_PAGE_SIZE));
 
     try {
         const timeZone = getAppTimeZone();

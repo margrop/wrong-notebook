@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { getAIService } from "@/lib/ai";
-import { notFound, internalError } from "@/lib/api-errors";
+import { badRequest, notFound, internalError } from "@/lib/api-errors";
+import { generatePracticeSchema } from "@/lib/schemas/practice";
 import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { parseLastPractice, serializeLastPractice } from "@/lib/last-practice";
@@ -45,7 +46,11 @@ export const GET = withUser(handleGet);
 
 async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
     try {
-        const { errorItemId, language, difficulty } = await req.json();
+        const parsed = generatePracticeSchema.safeParse(await req.json().catch(() => null));
+        if (!parsed.success) {
+            return badRequest("errorItemId is required");
+        }
+        const { errorItemId, language, difficulty } = parsed.data;
 
         const errorItemWithSubject = await prisma.errorItem.findUnique({
             where: { id: errorItemId },

@@ -302,6 +302,34 @@ describe('/api/practice', () => {
             expect(data.message).toBe('Item not found');
         });
 
+        it('缺少 errorItemId 时返回 400', async () => {
+            const request = new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({ language: 'zh' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await GENERATE_POST(request);
+            const data = await response.json();
+
+            expect(response.status).toBe(400);
+            expect(data.message).toBe('errorItemId is required');
+            expect(mocks.mockAIService.generateSimilarQuestion).not.toHaveBeenCalled();
+        });
+
+        it('difficulty 取值非法时返回 400', async () => {
+            const request = new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({ errorItemId: 'error-item-1', language: 'zh', difficulty: 'extreme' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await GENERATE_POST(request);
+
+            expect(response.status).toBe(400);
+            expect(mocks.mockAIService.generateSimilarQuestion).not.toHaveBeenCalled();
+        });
+
         it('应该正确解析知识点标签', async () => {
             mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
             mocks.mockAIService.generateSimilarQuestion.mockResolvedValue({

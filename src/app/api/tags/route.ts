@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { withUser } from '@/lib/api-handler';
 import type { AuthenticatedContext } from '@/lib/api-handler';
+import { createTagSchema, deleteTagQuerySchema } from '@/lib/schemas/tags';
 import { createLogger } from '@/lib/logger';
 import type { KnowledgeTag } from '@prisma/client';
 
@@ -148,16 +149,16 @@ export const GET = withUser(async (req, ctx) => {
  * tagSet 缺省为 'default'；父节点必须属于同一学科和同一标签体系
  */
 async function handlePost(request: NextRequest, { user }: AuthenticatedContext) {
-    const body = await request.json();
-    const { name, subject, parentId } = body;
-    const tagSet = typeof body.tagSet === 'string' && body.tagSet.trim() ? body.tagSet.trim() : 'default';
-
-    if (typeof name !== 'string' || !name.trim() || typeof subject !== 'string' || !subject) {
+    const parsed = createTagSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        if (issue?.path[0] === 'parentId') {
+            return NextResponse.json({ error: 'Invalid parentId' }, { status: 400 });
+        }
         return NextResponse.json({ error: 'Name and subject are required' }, { status: 400 });
     }
-    if (parentId !== undefined && parentId !== null && typeof parentId !== 'string') {
-        return NextResponse.json({ error: 'Invalid parentId' }, { status: 400 });
-    }
+    const { name, subject, parentId } = parsed.data;
+    const tagSet = parsed.data.tagSet?.trim() || 'default';
 
     // 父节点须是同一学科、同一体系下当前用户可见的标签，避免挂到其他体系或别人的标签下
     if (parentId) {
@@ -222,11 +223,11 @@ export const POST = withUser(async (req, ctx) => {
  */
 async function handleDelete(request: NextRequest, { user }: AuthenticatedContext) {
     const { searchParams } = new URL(request.url);
-    const tagId = searchParams.get('id');
-
-    if (!tagId) {
+    const parsed = deleteTagQuerySchema.safeParse({ id: searchParams.get('id') });
+    if (!parsed.success) {
         return NextResponse.json({ error: 'Tag ID is required' }, { status: 400 });
     }
+    const { id: tagId } = parsed.data;
 
     // 只能删除自己的自定义标签
     const tag = await prisma.knowledgeTag.findFirst({

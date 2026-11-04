@@ -69,4 +69,11 @@ describe('GET /api/review/due', () => {
         const response = await get();
         expect(response.status).toBe(401);
     });
+
+    it('page 或 pageSize 为非数字时返回 400', async () => {
+        for (const query of ['?page=abc', '?pageSize=xyz', '?page=-1', '?pageSize=0']) {
+            const response = await get(query);
+            expect(response.status).toBe(400);
+        }
+    });
 });

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { forbidden, notFound, badRequest, internalError } from "@/lib/api-errors";
+import { updateNotebookSchema } from "@/lib/schemas/notebooks";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger('api:notebooks:id');
@@ -74,12 +75,11 @@ async function handlePut(
         return forbidden("Not authorized to update this notebook");
     }
 
-    const body = await req.json();
-    const { name } = body;
-
-    if (!name || !name.trim()) {
+    const parsed = updateNotebookSchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
         return badRequest("Notebook name is required");
     }
+    const { name } = parsed.data;
 
     const updated = await prisma.subject.update({
         where: { id },
