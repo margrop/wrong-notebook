@@ -61,7 +61,7 @@ bash scripts/ci.sh          # 完整 CI（要求 Node.js 22 及以上，含生�
 - 新路由使用 `@/lib/api-handler` 的 `withUser`/`withAdmin` 处理鉴权（自动完成会话校验、用户查询与异常捕获），与 `withRecoverableResponse` 组合时后者放外层。
 - 界面文本放在 `@/lib/translations.ts`（入口，实际文案按语言拆分在 `src/lib/i18n/en.ts` / `src/lib/i18n/zh.ts`），组件中用 `t.section.key`，缺省回退英文。中英文 key 必须一致（`translations.test.ts` 会检查）。
 - 页面须同时适配 PC 和移动端（移动优先）。
-- 修改 AI 调用时同步更新所有提供商（`gemini-provider.ts`、`openai-provider.ts`、`azure-provider.ts`、`anthropic-provider.ts`），提示词集中在 `prompts.ts`。
+- 修改 AI 调用时同步更新所有提供商（`gemini-provider.ts`、`openai-provider.ts`、`azure-provider.ts`、`anthropic-provider.ts`），提示词集中在 `prompts/` 目录。
 - AI 调用不要写死 `max_tokens`：OpenAI、Azure、Anthropic 一律经 `withModelOutputLimit`（`src/lib/ai/truncation.ts`）按模型最大输出请求（已知模型查 `model-output-limits.ts`，未知模型默认 256K，超限时自动降级）；新增模型的官方输出上限补到 `model-output-limits.ts`。推理模型的思考也计入输出，小上限会导致正文为空。
 - MiniMax、智谱 GLM、DeepSeek、Kimi、千问 Qwen、阶跃星辰 StepFun、火山引擎豆包等国产大模型官方渠道复用 `OpenAIProvider`，默认地址和模型集中在 `src/lib/ai/vendor-presets.ts`；新增渠道只需加预设并同步文档与测试。
 
