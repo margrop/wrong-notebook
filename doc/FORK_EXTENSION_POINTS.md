@@ -144,3 +144,34 @@ registerExamSourceProvider(bankProvider);
 
 - `source` 缺省为 `error-items`（错题本来源），未注册的 source 返回 `VALIDATION_ERROR`（`code: invalid_source`）。
 - `source` 目前不持久化到试卷：重试失败题目时不重新选题，只重新生成已有题目的答案，因此不影响现有流程；如需在后续流程（如打印、成绩分析）中感知来源，fork 项目需自行扩展。
+
+## 题目保存钩子
+
+文件：`src/lib/question/question-save-hooks.ts`
+
+fork 项目可在题目入库时同步写自己的数据（如题库索引、自定义关联表），只需注册钩子，无需改动 `question-save.ts`：
+
+```ts
+import type { QuestionSaveHook } from "@/lib/question/question-save-hooks";
+import { registerQuestionSaveHook } from "@/lib/question/question-save-hooks";
+
+const myHook: QuestionSaveHook = async (tx, event) => {
+    // event: { userId, errorItemId, duplicate, origin, input }
+    await tx.myTable.create({ data: { errorItemId: event.errorItemId } });
+};
+
+registerQuestionSaveHook(myHook);
+```
+
+事务语义：
+
+- 钩子在错题写入的**同一数据库事务**内执行，位于 `options.afterWrite` 之后。
+- 任何钩子抛错都会使整笔事务回滚（与 `afterWrite` 一致），并记录 `logger.error`。
+- 重复题（`duplicate: true`）同样触发钩子，此时 `errorItemId` 指向原有题目，未新建错题。
+
+`origin` 字段区分入库路径：`manual`（单题保存 API）、`import-task`（识别导入任务）、`openclaw`（Openclaw 批量上传）。
+
+注意：
+
+- 钩子在事务内运行，执行时间直接拉长事务持有时间；**不要在钩子里调用外部网络或执行耗时计算**，只做同库的数据写入。
+- 进程内按注册顺序依次执行；`clearQuestionSaveHooksForTest` 仅供测试清空注册表。

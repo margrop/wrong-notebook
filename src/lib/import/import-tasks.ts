@@ -282,6 +282,7 @@ async function saveTask(task: ImportTask, user: User, input: unknown): Promise<S
     const parsed = importSchema.safeParse(input);
     const result: SaveQuestionResult = parsed.success
         ? await saveQuestion(user, parsed.data, {
+            origin: 'import-task',
             // 与错题写入同一事务：任务已不在保存中（被丢弃或判为中断）时整笔回滚，不留下未关联的错题
             afterWrite: async (tx, saved) => {
                 const linked = await tx.importTask.updateMany({

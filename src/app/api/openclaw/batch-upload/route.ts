@@ -224,6 +224,7 @@ export async function POST(req: Request) {
                 }
 
                 const saveResult = await saveQuestion(dbUser, payload.data, {
+                    origin: 'openclaw',
                     extraErrorItemData: {
                         ocrText: parsed.questionText || null,
                         errorType: parsed.errorType || null,

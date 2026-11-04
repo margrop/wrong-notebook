@@ -16,6 +16,9 @@ import { normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
 import { generateUniqueShortId } from "@/lib/short-id/short-id";
 import { resolveNotebookForSubject } from "@/lib/notebook-resolver";
 import { scheduleMasteryEvaluation } from "@/lib/mastery";
+import type { QuestionSaveOrigin } from "@/lib/question/question-save-hooks";
+import { QUESTION_SAVE_HOOKS } from "@/lib/question/question-save-hooks";
+import { getErrorMessage } from "@/lib/error-message";
 import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from "@/lib/question/question-deduplication";
 import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
@@ -55,6 +58,8 @@ export interface SaveQuestionOptions {
     afterWrite?: (tx: Prisma.TransactionClient, saved: { id: string; duplicate: boolean }) => Promise<void>;
     /** 追加到 ErrorItem 创建数据中的额外字段（如 ocrText、errorType、source），与默认字段不冲突时使用 */
     extraErrorItemData?: Partial<Prisma.ErrorItemUncheckedCreateInput>;
+    /** 题目入库的来源路径，缺省 'manual'；全局钩子按此区分来源（见 question-save-hooks.ts） */
+    origin?: QuestionSaveOrigin;
 }
 
 /** 新题写入结果（ErrorItem 记录及其标签、错题本） */
@@ -229,8 +234,24 @@ async function saveQuestionInner(user: User, body: ImportQuestionInput, options:
     };
     const result = await runQuestionImportTransaction(async (tx) => {
         const written = await write(tx);
+        const duplicate = 'duplicate' in written && written.duplicate === true;
         // 与错题写入同一事务提交：调用方的关联记录（如识别任务标记已保存）失败时整笔回滚
-        await options.afterWrite?.(tx, { id: written.id, duplicate: 'duplicate' in written && written.duplicate === true });
+        await options.afterWrite?.(tx, { id: written.id, duplicate });
+        // 全局钩子（fork 扩展点）在 afterWrite 之后、同一事务内依次执行；抛错时整笔回滚
+        for (const hook of QUESTION_SAVE_HOOKS) {
+            try {
+                await hook(tx, { userId: user.id, errorItemId: written.id, duplicate, origin: options.origin ?? 'manual', input: body });
+            } catch (hookError) {
+                logger.error({
+                    error: hookError,
+                    errorMessage: getErrorMessage(hookError),
+                    errorItemId: written.id,
+                    userId: user.id,
+                    origin: options.origin ?? 'manual',
+                }, 'Question save hook failed');
+                throw hookError;
+            }
+        }
         return written;
     });
     const duplicate = 'duplicate' in result && result.duplicate === true;
