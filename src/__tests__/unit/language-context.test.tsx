@@ -6,10 +6,17 @@ import { LanguageProvider, loadEnTranslations, useLanguage } from '@/contexts/La
 import { zh } from '@/lib/i18n/zh';
 import { localStorageMock } from '../setup';
 
-// 计数 en 模块被加载的次数：zh 用户不应触发；en 用户最多触发一次（模块级缓存）
+// 计数 en 模块被加载的次数：zh 用户不应触发；en 用户最多触发一次（模块级缓存）。
+// 加载被闸门挡住，由测试决定何时完成，才能稳定断言「加载完成前先显示中文」的中间状态。
+const enGate = vi.hoisted(() => {
+    let release: () => void = () => {};
+    const opened = new Promise<void>((resolve) => { release = resolve; });
+    return { opened, release: () => release() };
+});
 let enLoadCount = 0;
 vi.mock('@/lib/i18n/en', async (importOriginal) => {
     enLoadCount += 1;
+    await enGate.opened;
     const mod = await importOriginal<typeof import('@/lib/i18n/en')>();
     return mod;
 });
@@ -61,7 +68,8 @@ describe('LanguageProvider 按需加载英文文案', () => {
         expect(container.querySelector('[data-testid="language"]')?.textContent).toBe('en');
         expect(container.querySelector('[data-testid="text"]')?.textContent).toBe(zh.common.loading);
 
-        // 等待动态 import 完成
+        // 放行英文模块并等待动态 import 完成
+        enGate.release();
         await act(async () => {
             await loadEnTranslations();
         });
@@ -71,6 +79,7 @@ describe('LanguageProvider 按需加载英文文案', () => {
     });
 
     it('en 模块只动态加载一次（模块级缓存），重复切换不重复加载', async () => {
+        enGate.release();
         localStorageMock.setItem('app-language', 'en');
 
         await act(async () => root.render(<LanguageProvider><Probe /></LanguageProvider>));
