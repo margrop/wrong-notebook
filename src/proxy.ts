@@ -5,9 +5,17 @@ import { createLogger } from "@/lib/logger";
 
 const logger = createLogger('proxy');
 
+/** 登录与否都能访问的公开页面：使用协议要在 /initialize 未登录时也能打开 */
+const PUBLIC_PATHS = ["/eula"];
+
+function isPublicPath(path: string): boolean {
+    return PUBLIC_PATHS.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
+
 export async function proxy(req: NextRequest) {
     // 页面请求的登录保护（Next.js 16 起由 middleware 更名为 proxy，运行在 Node.js 运行时）
     logger.debug({ method: req.method, path: req.nextUrl.pathname }, 'Processing request');
+    if (isPublicPath(req.nextUrl.pathname)) return NextResponse.next();
 
     try {
         const token = await getToken({

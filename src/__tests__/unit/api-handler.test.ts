@@ -7,7 +7,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mocks = vi.hoisted(() => ({
     getServerSession: vi.fn(),
     userFindUnique: vi.fn(),
+    isEulaPending: vi.fn(() => false),
 }));
+
+vi.mock('@/lib/eula/server', () => ({ isEulaPending: mocks.isEulaPending }));
 
 vi.mock('next-auth', () => ({
     getServerSession: mocks.getServerSession,
@@ -194,6 +197,41 @@ describe('withAdmin', () => {
 
         expect(response.status).toBe(200);
         expect(handler).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('withAdmin 的协议升级门禁', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mocks.getServerSession.mockResolvedValue(adminSession);
+        mocks.userFindUnique.mockResolvedValue(adminUser);
+    });
+
+    it('协议待重新同意时，写操作返回 409 EULA_PENDING，GET 不受影响', async () => {
+        mocks.isEulaPending.mockReturnValue(true);
+        const handler = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
+        const wrapped = withAdmin(handler);
+
+        const post = await wrapped(new Request('http://localhost/api/admin/test', { method: 'POST' }));
+        expect(post.status).toBe(409);
+        expect(await post.json()).toMatchObject({ code: 'EULA_PENDING' });
+        expect((await wrapped(new Request('http://localhost/api/admin/test'))).status).toBe(200);
+        expect(handler).toHaveBeenCalledTimes(1);
+    });
+
+    it('同意接口（allowEulaPending）不被拦截；普通用户路由不受影响', async () => {
+        mocks.isEulaPending.mockReturnValue(true);
+        const handler = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
+        expect((await withAdmin(handler, { allowEulaPending: true })(new Request('http://localhost/x', { method: 'POST' }))).status).toBe(200);
+        expect((await withUser(handler)(new Request('http://localhost/x', { method: 'DELETE' }))).status).toBe(200);
+    });
+
+    it('读取协议状态出错时不拦截', async () => {
+        mocks.isEulaPending.mockImplementation(() => { throw new Error('config broken'); });
+        const handler = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
+        expect((await withAdmin(handler)(new Request('http://localhost/x', { method: 'PUT' }))).status).toBe(200);
+        mocks.isEulaPending.mockReset();
+        mocks.isEulaPending.mockReturnValue(false);
     });
 });
 

@@ -51,6 +51,16 @@ describe('proxy', () => {
             expect(response).toBeNull();
         });
 
+        it('使用协议 /eula 登录与否都能访问，不跳转', async () => {
+            vi.mocked(getToken).mockResolvedValue(null);
+            expect((await proxy(new NextRequest('http://localhost:3000/eula')))?.headers.get('location')).toBeFalsy();
+            vi.mocked(getToken).mockResolvedValue({ id: 'u1', role: 'user' } as JWT);
+            expect((await proxy(new NextRequest('http://localhost:3000/eula')))?.headers.get('location')).toBeFalsy();
+            // 前缀相似的路径不算公开页
+            vi.mocked(getToken).mockResolvedValue(null);
+            expect((await proxy(new NextRequest('http://localhost:3000/eula-x')))?.headers.get('location')).toContain('/login');
+        });
+
         it('应该允许未认证用户访问注册页', async () => {
             vi.mocked(getToken).mockResolvedValue(null);
 

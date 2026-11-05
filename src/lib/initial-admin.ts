@@ -14,6 +14,8 @@ const initialAdminSchema = z.object({
     name: z.string().trim().min(1).max(50).optional(),
     // bcrypt 哈希，如 $2a$12$…
     passwordHash: z.string().regex(/^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/),
+    // 安装向导中勾选同意的使用协议版本（如 v1）；旧版向导没有此字段，按存量实例处理
+    eulaAcceptedVersion: z.string().trim().regex(/^v\d{1,4}$/).optional(),
 });
 
 export type InitialAdmin = z.infer<typeof initialAdminSchema>;

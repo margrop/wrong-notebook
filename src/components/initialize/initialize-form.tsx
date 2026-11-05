@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Loader2 } from "lucide-react";
+import { EulaConsent } from "@/components/eula/eula-consent";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -26,12 +27,17 @@ export function InitializeForm({ token, onAlreadyInitialized }: InitializeFormPr
     const [email, setEmail] = useState(DEFAULT_ADMIN_EMAIL);
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [eulaAccepted, setEulaAccepted] = useState(false);
     const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+        if (!eulaAccepted) {
+            setError(t.eula.consentRequired);
+            return;
+        }
         if (password !== confirmPassword) {
             setError(texts.passwordMismatch);
             return;
@@ -46,7 +52,7 @@ export function InitializeForm({ token, onAlreadyInitialized }: InitializeFormPr
             const res = await fetch("/api/initialize", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token, name, email, password }),
+                body: JSON.stringify({ token, name, email, password, eulaAccepted }),
             });
             if (!res.ok) {
                 const data = await res.json().catch(() => ({})) as { code?: string };
@@ -93,10 +99,11 @@ export function InitializeForm({ token, onAlreadyInitialized }: InitializeFormPr
                 <label htmlFor="confirmPassword" className="text-sm font-medium">{t.auth.confirmPassword}</label>
                 <Input id="confirmPassword" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} minLength={6} required />
             </div>
+            <EulaConsent checked={eulaAccepted} onCheckedChange={setEulaAccepted} disabled={submitting} />
             {error && (
                 <div className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">{error}</div>
             )}
-            <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+            <Button type="submit" size="lg" className="w-full" disabled={submitting || !eulaAccepted}>
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {submitting ? texts.submitting : texts.submit}
             </Button>

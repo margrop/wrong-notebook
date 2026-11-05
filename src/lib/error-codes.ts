@@ -41,6 +41,8 @@ export const ErrorCode = {
     ALREADY_EXISTS: 'ALREADY_EXISTS',
     /** 同一目标的后台任务正在运行（按 target 防重复），body 中附带原任务 */
     TASK_ALREADY_RUNNING: 'TASK_ALREADY_RUNNING',
+    /** 使用协议已升级，管理员重新同意前不能执行管理写操作 */
+    EULA_PENDING: 'EULA_PENDING',
 
     // 服务器错误 (500)
     INTERNAL_ERROR: 'INTERNAL_ERROR',

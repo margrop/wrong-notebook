@@ -5,12 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { LogOut, Shield } from "lucide-react";
+import { EulaUpgradeDialog } from "@/components/eula/eula-upgrade-dialog";
 import { ImportTasksIndicator } from "@/components/import-tasks/import-tasks-indicator";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { APP_BRAND, NAV_ITEMS, isBarePath } from "@/lib/app-navigation";
+import { useEulaGate } from "@/lib/hooks/use-eula-gate";
 import { useSetupRedirect } from "@/lib/hooks/use-setup-redirect";
 import { cn } from "@/lib/utils";
 
@@ -22,9 +24,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const isAdmin = session?.user?.role === "admin";
     const isBare = isBarePath(pathname);
     useSetupRedirect(isAdmin && !isBare);
+    // 协议升级后管理员必须重新同意；/setup 等无导航页面同样拦截，普通用户不受影响
+    const eulaGate = useEulaGate(isAdmin && status === "authenticated");
+    const gate = eulaGate.pending && eulaGate.status
+        ? <EulaUpgradeDialog status={eulaGate.status} onAccept={eulaGate.accept} />
+        : null;
 
     if (isBare || status === "unauthenticated") {
-        return <>{children}</>;
+        return <>{children}{gate}</>;
     }
 
     const userName = session?.user?.name || session?.user?.email || "";
@@ -96,6 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </header>
 
             <div className="pb-20 md:pb-0">{children}</div>
+            {gate}
 
             <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t bg-card/90 backdrop-blur-md md:hidden print:hidden">
                 <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${NAV_ITEMS.length}, minmax(0, 1fr))` }}>

@@ -4,10 +4,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { badRequest, conflict, createErrorResponse, ErrorCode, forbidden, internalError, tooManyRequests, validationError } from "@/lib/api-errors";
 import { DEFAULT_ADMIN_PASSWORD } from "@/lib/default-admin";
+import { acceptEula } from "@/lib/eula/server";
 import { isInitialized } from "@/lib/initialization";
 import { createLogger } from "@/lib/logger";
 import { getClientIp, registerIpLimiter } from "@/lib/rate-limit";
 import { claimSetupToken } from "@/lib/setup-token";
+import { recordEvent } from "@/lib/telemetry/server";
 
 const logger = createLogger("api:initialize");
 
@@ -17,7 +19,19 @@ const initializeSchema = z.object({
     email: z.string().trim().regex(/^[^\s@]+@[^\s@]+$/),
     name: z.string().trim().min(1).max(50),
     password: z.string().min(6).refine((value) => value !== DEFAULT_ADMIN_PASSWORD),
+    // 管理员必须同意使用协议（只针对管理员，普通用户注册不涉及）
+    eulaAccepted: z.literal(true),
 });
+
+/** 写入同意状态并开启外发，记录安装事件；失败只记日志不回滚，实例停留在“未同意、外发关闭”的安全一侧 */
+async function recordInstallConsent(): Promise<void> {
+    try {
+        await acceptEula({ acceptedBy: "initialize", trigger: "install", enableForwarding: true });
+    } catch (error) {
+        logger.error({ error }, "Failed to save EULA consent");
+    }
+    await recordEvent("app_installed", { method: "setup-token" });
+}
 
 /**
  * POST /api/initialize
@@ -60,6 +74,7 @@ export async function POST(req: Request) {
             });
             claim.consume();
             logger.info({ userId: user.id }, "Initial admin created");
+            await recordInstallConsent();
             return NextResponse.json({ user }, { status: 201 });
         } catch (error) {
             claim.release();

@@ -42,6 +42,9 @@ vi.mock('@/lib/config', () => ({
     updateAppConfig: mocks.mockUpdateAppConfig,
 }));
 
+// 协议门禁会额外读取一次配置，这里固定为已同意，避免消耗用例中 mockReturnValueOnce 的配置
+vi.mock('@/lib/eula/server', () => ({ isEulaPending: () => false }));
+
 const mockGetServerSession = vi.hoisted(() => vi.fn());
 const mockUserFindUnique = vi.hoisted(() => vi.fn());
 vi.mock('next-auth', () => ({ getServerSession: mockGetServerSession }));
@@ -270,6 +273,27 @@ describe('/api/settings', () => {
             expect(updateCall.openai?.instances?.length).toBe(1);
             expect(updateCall.openai?.instances?.[0]?.apiKey).toBe('sk-test-key');
             expect(updateCall.gemini?.apiKey).toBe('AIza-test-key');
+        });
+
+        it('通用设置不能读写协议同意状态与遥测开关', async () => {
+            const current = mocks.mockGetAppConfig();
+            mocks.mockGetAppConfig.mockReturnValue({ ...current, eula: { acceptedVersion: 'v1' }, telemetry: { forwarding: true } } as ReturnType<typeof mocks.mockGetAppConfig>);
+            try {
+                const got = await (await GET()).json();
+                expect(got).not.toHaveProperty('eula');
+                expect(got).not.toHaveProperty('telemetry');
+                const response = await POST(new Request('http://localhost/api/settings', {
+                    method: 'POST',
+                    body: JSON.stringify({ aiProvider: 'gemini', eula: { acceptedVersion: 'v9' }, telemetry: { forwarding: true } }),
+                    headers: { 'Content-Type': 'application/json' },
+                }));
+                expect(response.status).toBe(200);
+                const updateCall = mocks.mockUpdateAppConfig.mock.calls[0][0];
+                expect(updateCall).not.toHaveProperty('eula');
+                expect(updateCall).not.toHaveProperty('telemetry');
+            } finally {
+                mocks.mockGetAppConfig.mockReturnValue(current);
+            }
         });
 
         it('国产大模型渠道同样保留掩码 API Key 的原有值', async () => {

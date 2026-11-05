@@ -1,7 +1,9 @@
+import { acceptEula } from "@/lib/eula/server";
 import { prisma } from "@/lib/prisma";
 import { readInitialAdmin, removeInitialAdmin } from "@/lib/initial-admin";
 import { createLogger } from "@/lib/logger";
 import { ensureSetupToken, removeSetupToken } from "@/lib/setup-token";
+import { recordEvent } from "@/lib/telemetry/server";
 
 const logger = createLogger("initialization");
 
@@ -40,6 +42,15 @@ async function createPresetAdmin(): Promise<boolean> {
     removeInitialAdmin();
     removeSetupToken();
     logger.info({ userId: user.id, email: preset.email }, "Admin created from installer settings");
+    if (preset.eulaAcceptedVersion) {
+        // 安装向导中已勾选同意：与初始化链接一样写入同意状态并开启外发
+        try {
+            await acceptEula({ acceptedBy: "preset", trigger: "install", version: preset.eulaAcceptedVersion, enableForwarding: true });
+        } catch (error) {
+            logger.error({ error }, "Failed to save EULA consent from installer settings");
+        }
+    }
+    await recordEvent("app_installed", { method: "preset-admin" });
     return true;
 }
 

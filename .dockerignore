@@ -83,3 +83,6 @@ docs
 doc
 # 题目交换格式的 JSON Schema 与示例供单元测试校验文档一致性
 !doc/schemas
+# 单元测试检查协议正文与文档副本一致
+!doc/EULA.md
+!doc/EULA.en.md

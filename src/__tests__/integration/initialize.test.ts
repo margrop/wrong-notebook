@@ -3,7 +3,7 @@
  * 一次性初始化链接：全新安装没有管理员时，用配置目录中的令牌创建第一个管理员（真实 SQLite）
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
@@ -33,7 +33,10 @@ const initialize = (body: object) => POST(new Request('http://localhost/api/init
     body: JSON.stringify(body),
     headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '7.7.7.7' },
 }));
-const valid = (token: string) => ({ token, name: '管理员', email: 'owner@example.com', password: 'secret-pass' });
+const valid = (token: string) => ({ token, name: '管理员', email: 'owner@example.com', password: 'secret-pass', eulaAccepted: true });
+const savedConfig = () => JSON.parse(readFileSync(join(configDir, 'app-config.json'), 'utf8'));
+const telemetryEvents = async () => (await database.telemetryEvent.findMany({ orderBy: { name: 'asc' } }))
+    .map(({ name, payload, local }) => ({ name, payload: JSON.parse(payload ?? '{}'), local }));
 
 beforeAll(() => {
     // 数据库与配置目录都使用系统临时目录，不接触开发或生产数据
@@ -51,9 +54,11 @@ beforeEach(async () => {
     vi.clearAllMocks();
     registerIpLimiter.reset('7.7.7.7');
     await database.user.deleteMany();
+    await database.telemetryEvent.deleteMany();
     configDir = mkdtempSync(join(directory, 'config-'));
     vi.stubEnv('CONFIG_DIR', configDir);
     vi.stubEnv('NEXTAUTH_URL', 'http://192.168.1.10:3000/');
+    vi.stubEnv('TELEMETRY_DISABLED', '');
 });
 
 afterAll(async () => {
@@ -107,6 +112,20 @@ describe('安装程序预设的管理员（initial-admin.json）', () => {
         expect(await compare('nas-secret', admin.password)).toBe(true);
         expect(readdirSync(configDir)).toEqual([]);
         expect(mocks.logger.warn).not.toHaveBeenCalled();
+        // 旧版向导没有同意标记：按存量实例处理，不写同意状态、不外发
+        expect(await database.telemetryEvent.count()).toBe(0);
+    });
+
+    it('预设带协议同意标记时写入同意状态、开启外发并记录安装事件', async () => {
+        writePreset({ email: 'nas@localhost', passwordHash: hashSync('nas-secret', 4), eulaAcceptedVersion: 'v1' });
+
+        await announceSetupLink();
+
+        expect(savedConfig()).toMatchObject({ eula: { acceptedVersion: 'v1', acceptedBy: 'preset' }, telemetry: { forwarding: true, recording: false } });
+        expect(await telemetryEvents()).toEqual([
+            { name: 'app_installed', payload: { method: 'preset-admin' }, local: false },
+            { name: 'eula_accepted', payload: { version: 'v1', trigger: 'install' }, local: false },
+        ]);
     });
 
     it('预设内容无效时删除文件，改为打印初始化链接', async () => {
@@ -142,10 +161,34 @@ describe('POST /api/initialize', () => {
         expect(admin).toMatchObject({ name: '管理员', role: 'admin', isActive: true });
         expect(await compare('secret-pass', admin.password)).toBe(true);
         expect(existsSync(tokenFile())).toBe(false);
-        expect(readdirSync(configDir)).toEqual([]);
+        expect(readdirSync(configDir)).toEqual(['app-config.json']);
+        // 管理员同意协议：写入同意状态并默认开启外发，记录安装与同意事件
+        expect(savedConfig()).toMatchObject({ eula: { acceptedVersion: 'v1', acceptedBy: 'initialize' }, telemetry: { forwarding: true } });
+        expect(await telemetryEvents()).toEqual([
+            { name: 'app_installed', payload: { method: 'setup-token' }, local: false },
+            { name: 'eula_accepted', payload: { version: 'v1', trigger: 'install' }, local: false },
+        ]);
 
         expect((await initialize({ ...valid(token), email: 'second@example.com' })).status).toBe(409);
         expect(await database.user.count()).toBe(1);
+    });
+
+    it('未勾选同意使用协议时返回 400，不创建管理员', async () => {
+        const token = ensureSetupToken();
+
+        expect((await initialize({ ...valid(token), eulaAccepted: false })).status).toBe(400);
+        const { eulaAccepted: _omitted, ...withoutConsent } = valid(token);
+        expect(_omitted).toBe(true);
+        expect((await initialize(withoutConsent)).status).toBe(400);
+        expect(await database.user.count()).toBe(0);
+        expect(ensureSetupToken()).toBe(token);
+    });
+
+    it('TELEMETRY_DISABLED=true 时仍记录同意状态，但不写任何遥测', async () => {
+        vi.stubEnv('TELEMETRY_DISABLED', 'true');
+        expect((await initialize(valid(ensureSetupToken()))).status).toBe(201);
+        expect(savedConfig().eula.acceptedVersion).toBe('v1');
+        expect(await database.telemetryEvent.count()).toBe(0);
     });
 
     it('令牌错误或缺失时拒绝，令牌保留可继续使用', async () => {
