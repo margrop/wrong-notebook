@@ -1,6 +1,9 @@
 "use client";
 
 import { apiClient } from "@/lib/api-client";
+import { firstInSession, trackEvent } from "@/lib/telemetry/client";
+import { isTtsMode } from "@/lib/tts/constants";
+import type { TtsMode } from "@/lib/tts/constants";
 
 /**
  * 云端语音（服务端语音合成）的前端部分：查询朗读方式、请求合成、用同一个 audio 元素播放。
@@ -9,14 +12,29 @@ import { apiClient } from "@/lib/api-client";
 
 export type SpeechMode = "browser" | "cloud";
 
-let modePromise: Promise<SpeechMode> | null = null;
+let modePromise: Promise<{ mode: SpeechMode; ttsMode: TtsMode | null }> | null = null;
+
+function getSpeechInfo(): Promise<{ mode: SpeechMode; ttsMode: TtsMode | null }> {
+    modePromise ??= apiClient.get<{ mode?: string; ttsMode?: string }>("/api/tts")
+        .then((res) => ({
+            mode: (res.mode === "cloud" ? "cloud" : "browser") as SpeechMode,
+            ttsMode: isTtsMode(res.ttsMode) ? res.ttsMode : null,
+        }))
+        .catch(() => ({ mode: "browser" as SpeechMode, ttsMode: null }));
+    return modePromise;
+}
+
+/** 匿名埋点：开始朗读时记录所用的朗读方式，每个会话每种方式只记一次 */
+export function trackTtsUsed(): void {
+    getSpeechInfo().then(({ mode, ttsMode }) => {
+        const value = mode === "browser" ? "browser" : ttsMode;
+        if (value && firstInSession(`tts:${value}`)) trackEvent("tts_used", { mode: value });
+    }).catch(() => undefined);
+}
 
 /** 当前的朗读方式（整页只查询一次）；未登录或查询失败时用浏览器语音 */
 export function getSpeechMode(): Promise<SpeechMode> {
-    modePromise ??= apiClient.get<{ mode?: string }>("/api/tts")
-        .then((res) => (res.mode === "cloud" ? "cloud" : "browser") as SpeechMode)
-        .catch(() => "browser" as SpeechMode);
-    return modePromise;
+    return getSpeechInfo().then((info) => info.mode);
 }
 
 let audioElement: HTMLAudioElement | null = null;

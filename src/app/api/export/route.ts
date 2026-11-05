@@ -14,6 +14,8 @@ import { sortTagsByParent } from "@/lib/tags/tag-hierarchy";
 import { collectExtensions } from "@/lib/backup-extensions";
 import { BACKUP_VERSION } from "@/lib/backup/format";
 import type { BackupFile } from "@/lib/backup/format";
+import { rowsBucket } from "@/lib/telemetry/schema";
+import { recordEvent } from "@/lib/telemetry/server";
 
 const logger = createLogger('api:export');
 
@@ -184,6 +186,7 @@ export async function GET(req: Request) {
             ttsSpeechesCount: ttsSpeeches.length,
         }, 'Data export completed');
 
+        void recordEvent("data_exported", { scope: exportAll ? "all" : "user", rows: rowsBucket(errorItems.length) });
         const jsonString = JSON.stringify(exportData, null, 2);
         const filename = exportAll
             ? `wrong-notebook-export-all-${formatDateTime(new Date(), 'yyyy-MM-dd', getAppTimeZone())}.json`

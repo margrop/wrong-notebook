@@ -12,6 +12,8 @@ import { formatDateTime } from "@/lib/date-time";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
+import { countBucket } from "@/lib/telemetry/schema";
+import { recordEvent } from "@/lib/telemetry/server";
 
 const logger = createLogger('api:exams');
 
@@ -72,7 +74,19 @@ export const GET = withUser(async (_req: Request, { user }: AuthenticatedContext
  * POST /api/exams
  * 按条件与抽题规则（默认优先练习较少的题目）抽取错题，创建试卷并在后台生成举一反三题目
  */
-export const POST = withUser(async (req: Request, { user }: AuthenticatedContext) => {
+export const POST = withUser(async (req: Request, context: AuthenticatedContext) => {
+    const response = await createExam(req, context);
+    // 匿名埋点：组卷成功（按题数分桶）或服务端失败；参数错误等 4xx 不记
+    if (response.status === 201) {
+        const body = await response.clone().json().catch(() => null) as { questionCount?: number } | null;
+        void recordEvent("exam_paper_generation", { ok: true, count: countBucket(body?.questionCount ?? 1) });
+    } else if (response.status >= 500) {
+        void recordEvent("exam_paper_generation", { ok: false, count: "1" });
+    }
+    return response;
+});
+
+async function createExam(req: Request, { user }: AuthenticatedContext): Promise<Response> {
     try {
         const parsed = createSchema.safeParse(await req.json());
         if (!parsed.success) {
@@ -228,4 +242,4 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
         logger.error({ error }, 'Error creating exam paper');
         return internalError("Failed to create exam paper", { error, scope: "api:exams" });
     }
-});
+}

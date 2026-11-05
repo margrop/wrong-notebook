@@ -15,6 +15,7 @@ import { resolveNotebookScope, SUBJECT_DISPLAY_NAMES } from "@/lib/notebook-scop
 import { prisma } from "@/lib/prisma";
 import { normalizeMistakeStatus } from "@/lib/question/mistake-status";
 import { getFixedQuestionGrade, getQuestionGradeContext, resolveQuestionGrade } from "@/lib/question/question-grade";
+import { trackAnalyze } from "@/lib/telemetry/events";
 import type { QuestionGradeProfile } from "@/lib/question/question-grade";
 
 const logger = createLogger('question-analysis');
@@ -98,7 +99,7 @@ export async function analyzeQuestionForUser(input: QuestionAnalysisInput): Prom
     const aiService = await getAIService({ userId: input.userId, kind: 'analyze' });
     const analysisResult = await trackBackgroundTask(
         { userId: input.userId, kind: 'analyze', subject: notebookName, link: input.link ?? null },
-        () => aiService.analyzeImage(base64, mimeType, input.language, userGrade, subjectChinese, userGradeSemester, candidateTags, input.referenceText ?? null)
+        () => trackAnalyze(() => aiService.analyzeImage(base64, mimeType, input.language, userGrade, subjectChinese, userGradeSemester, candidateTags, input.referenceText ?? null))
     );
 
     logger.debug({

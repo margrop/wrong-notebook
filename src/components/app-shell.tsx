@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { APP_BRAND, NAV_ITEMS, isBarePath } from "@/lib/app-navigation";
 import { useEulaGate } from "@/lib/hooks/use-eula-gate";
+import { usePageTelemetry } from "@/lib/hooks/use-page-telemetry";
 import { useSetupRedirect } from "@/lib/hooks/use-setup-redirect";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const isAdmin = session?.user?.role === "admin";
     const isBare = isBarePath(pathname);
     useSetupRedirect(isAdmin && !isBare);
+    usePageTelemetry(pathname, status === "authenticated");
     // 协议升级后管理员必须重新同意；/setup 等无导航页面同样拦截，普通用户不受影响
     const eulaGate = useEulaGate(isAdmin && status === "authenticated");
     const gate = eulaGate.pending && eulaGate.status

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getSpeechAudio, getSpeechMode, isSpeechAudioUnlocked, isSpeechReady, prepareSpeech, unlockSpeechAudio } from "@/lib/cloud-speech";
+import { getSpeechAudio, getSpeechMode, isSpeechAudioUnlocked, isSpeechReady, prepareSpeech, trackTtsUsed, unlockSpeechAudio } from "@/lib/cloud-speech";
 import type { SpeechMode } from "@/lib/cloud-speech";
 import type { NarrationSegment } from "@/lib/svg-animation";
 import { findVoice, getSynth, isSpeechUnlocked, resetSpeechUnlockForTest, unlockSpeech } from "@/lib/svg-narration/browser-speech";
@@ -79,6 +79,11 @@ export function useSvgNarration({ segments, language, errorItemId, holdAnimation
     useEffect(() => {
         holdRef.current = holdAnimation;
     }, [holdAnimation]);
+
+    // 匿名埋点：开始朗读时记录朗读方式（每个会话每种方式一次）
+    useEffect(() => {
+        if (speaking) trackTtsUsed();
+    }, [speaking]);
 
     useEffect(() => {
         enabledRef.current = readStorage(ENABLED_KEY) === "1";

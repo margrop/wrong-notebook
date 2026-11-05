@@ -21,7 +21,9 @@ const bodySchema = z.object({
  * 当前的朗读方式：{ mode: 'browser' | 'cloud' }，播放器据此选择浏览器语音或云端语音
  */
 export const GET = withUser(async () => {
-    return NextResponse.json({ mode: getTtsMode() === 'browser' ? 'browser' : 'cloud' });
+    const ttsMode = getTtsMode();
+    // ttsMode 只是渠道名（如 minimax），不含密钥；前端用于匿名统计朗读方式
+    return NextResponse.json({ mode: ttsMode === 'browser' ? 'browser' : 'cloud', ttsMode });
 });
 
 /**

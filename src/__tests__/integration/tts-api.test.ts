@@ -81,12 +81,12 @@ beforeEach(() => {
 });
 
 describe('云端语音接口', () => {
-    it('返回朗读方式：未设置或浏览器语音为 browser，MiniMax / 千问为 cloud', async () => {
-        expect(await (await getMode()).json()).toEqual({ mode: 'cloud' });
+    it('返回朗读方式：未设置或浏览器语音为 browser，MiniMax / 千问为 cloud，并附带具体渠道', async () => {
+        expect(await (await getMode()).json()).toEqual({ mode: 'cloud', ttsMode: expect.stringMatching(/^(minimax|qwen)$/) });
         mocks.config = { tts: { mode: 'browser' } };
-        expect(await (await getMode()).json()).toEqual({ mode: 'browser' });
+        expect(await (await getMode()).json()).toEqual({ mode: 'browser', ttsMode: 'browser' });
         mocks.config = {};
-        expect(await (await getMode()).json()).toEqual({ mode: 'browser' });
+        expect(await (await getMode()).json()).toEqual({ mode: 'browser', ttsMode: 'browser' });
     });
 
     it('合成后返回编号和版本，音频为归一化到约 -15 LUFS 的 MP3；同样的文字只合成一次', async () => {

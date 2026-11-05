@@ -37,6 +37,8 @@ import { validateAiConfig } from "@/lib/ai-config-validation";
 import { DEFAULT_TIME_ZONE } from "@/lib/date-time";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { trackEvent } from "@/lib/telemetry/client";
+import type { SettingsSection } from "@/lib/telemetry/schema";
 import type { AppConfig } from "@/types/api";
 
 interface SettingsTabProps {
@@ -85,7 +87,7 @@ export function SettingsDialog() {
         }
     }, [open, fetchSettings]);
 
-    const handleSaveSettings = async () => {
+    const handleSaveSettings = async (section: SettingsSection) => {
         const validationError = validateAiConfig(config, t);
         if (validationError) {
             toast.error(validationError);
@@ -98,6 +100,7 @@ export function SettingsDialog() {
             setConfig(updated);
             setTimeZone(updated.timeZone || DEFAULT_TIME_ZONE);
             toast.success(t.settings?.messages?.saved || "Settings saved");
+            trackEvent("settings_changed", { section });
             // 保存成功后滚动到顶部，方便关闭对话框
             dialogContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (error) {
@@ -108,8 +111,8 @@ export function SettingsDialog() {
         }
     };
 
-    const saveButton = (label: string) => (
-        <Button onClick={handleSaveSettings} disabled={saving} className="w-full">
+    const saveButton = (label: string, section: SettingsSection) => (
+        <Button onClick={() => handleSaveSettings(section)} disabled={saving} className="w-full">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {label}
         </Button>
@@ -149,7 +152,7 @@ export function SettingsDialog() {
                     <TabsContent value="general" className="space-y-4 py-4">
                         <GeneralSettings config={config} setConfig={setConfig} isAdmin={isAdmin} disabled={loading || saving} />
                         <PaperGroupSettings />
-                        {isAdmin && saveButton(t.settings?.save || "Save Settings")}
+                        {isAdmin && saveButton(t.settings?.save || "Save Settings", "general")}
                     </TabsContent>
 
                     <TabsContent value="account" className="space-y-4 py-4">
@@ -158,8 +161,8 @@ export function SettingsDialog() {
                     </TabsContent>
 
                     <TabsContent value="ai" className="space-y-4 py-4">
-                        <AiProviderSettings config={config} setConfig={setConfig} loading={loading} saving={saving} onSave={handleSaveSettings} />
-                        {!loading && <TtsSettings config={config} setConfig={setConfig} saving={saving} onSave={handleSaveSettings} />}
+                        <AiProviderSettings config={config} setConfig={setConfig} loading={loading} saving={saving} onSave={() => handleSaveSettings("ai")} />
+                        {!loading && <TtsSettings config={config} setConfig={setConfig} saving={saving} onSave={() => handleSaveSettings("tts")} />}
                     </TabsContent>
 
                     <TabsContent value="prompts" className="space-y-4 py-4">
@@ -167,7 +170,7 @@ export function SettingsDialog() {
                             config={config}
                             onUpdate={(type, value) => setConfig(prev => ({ ...prev, prompts: { ...prev.prompts, [type]: value } }))}
                         />
-                        {saveButton(t.settings?.prompts?.save || "Save Prompt Settings")}
+                        {saveButton(t.settings?.prompts?.save || "Save Prompt Settings", "prompts")}
                     </TabsContent>
 
                     {isAdmin && (

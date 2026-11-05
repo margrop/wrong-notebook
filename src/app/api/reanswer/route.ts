@@ -14,6 +14,7 @@ import { getAppTimeZone } from "@/lib/config";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { reanswerBodySchema } from "@/lib/schemas/ai";
+import { trackReanswer } from "@/lib/telemetry/events";
 
 const logger = createLogger('api:reanswer');
 
@@ -60,7 +61,7 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
         // 根据是否有图片选择不同的重新解题方式
         const result = await trackBackgroundTask(
             { userId: user.id, kind: 'reanswer', subject: describeQuestion({ questionText }) },
-            () => aiService.reanswerQuestion(questionText, language, subject, imageBase64, targetGrade, candidateTags)
+            () => trackReanswer(() => aiService.reanswerQuestion(questionText, language, subject, imageBase64, targetGrade, candidateTags))
         );
 
         logger.info('Reanswer successful');

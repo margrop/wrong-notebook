@@ -13,6 +13,7 @@ import { getApiErrorMessage } from "@/lib/error-message";
 import { confirmDialog, toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { useTelemetryAdmin } from "@/lib/hooks/use-telemetry-admin";
+import { trackEvent } from "@/lib/telemetry/client";
 import type { TelemetryChanges } from "@/lib/hooks/use-telemetry-admin";
 
 /** 管理员“隐私与遥测”分区：协议状态、三个开关、外发地址与保留天数、本实例收集的记录 */
@@ -37,7 +38,10 @@ export function TelemetrySettings() {
             setBusy(false);
         }
     };
-    const save = (changes: TelemetryChanges) => run(() => update(changes), text.saved).catch(() => undefined);
+    const save = (changes: TelemetryChanges) => run(async () => {
+        await update(changes);
+        trackEvent("settings_changed", { section: "telemetry" });
+    }, text.saved).catch(() => undefined);
 
     if (!data) return null;
     const locked = data.lockedByEnv;

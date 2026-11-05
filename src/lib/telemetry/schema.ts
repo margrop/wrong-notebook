@@ -25,6 +25,7 @@ export const TELEMETRY_PAGES = [
 export type TelemetryPage = typeof TELEMETRY_PAGES[number];
 
 export const SETTINGS_SECTIONS = ["general", "ai", "tts", "prompts", "telemetry"] as const;
+export type SettingsSection = typeof SETTINGS_SECTIONS[number];
 
 export const COUNT_BUCKETS = ["1", "2-5", "6-20", ">20"] as const;
 export const ROWS_BUCKETS = ["0", "1-50", "51-500", ">500"] as const;

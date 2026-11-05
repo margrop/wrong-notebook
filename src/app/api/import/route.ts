@@ -9,6 +9,8 @@ import { importSpeeches } from "@/lib/tts/speech-cache";
 import { parseBackupFile } from "@/lib/backup/format";
 import { normalizeBackupForImport } from "@/lib/backup/import-parser";
 import { importBackupData, scheduleImportMasteryEvaluation } from "@/lib/backup/import-writer";
+import { rowsBucket } from "@/lib/telemetry/schema";
+import { recordEvent } from "@/lib/telemetry/server";
 
 const logger = createLogger('api:import');
 
@@ -87,6 +89,7 @@ export async function POST(req: Request) {
                 ...stats,
             }, 'Data import completed');
 
+            void recordEvent("data_imported", { rows: rowsBucket(stats.errorItemsCreated) });
             return NextResponse.json({
                 success: true,
                 stats,
