@@ -33,7 +33,9 @@ test('[E2E-M08] 阈值刷新后生效且重复录入与比较保持正确记录�
     await page.goto(`/notebooks/${scenario.book.id}`);
     await page.getByRole('button', { name: '多选', exact: true }).click();
     const checkboxes = page.getByRole('checkbox');
-    for (let index = 0; index < await checkboxes.count(); index++) await checkboxes.nth(index).check();
+    // 等两道题都渲染出来再勾选，否则列表未加载完时只能勾到部分题目
+    await expect(checkboxes).toHaveCount(2);
+    for (let index = 0; index < 2; index++) await checkboxes.nth(index).check();
     await page.getByRole('button', { name: /相似度/ }).click();
     const comparison = page.getByRole('dialog');
     await expect(comparison.getByText('100%', { exact: true })).toBeVisible();
