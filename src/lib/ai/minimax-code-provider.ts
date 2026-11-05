@@ -1,5 +1,6 @@
 import { AnthropicProvider } from "./anthropic-provider";
 import type { AIService } from "./types";
+import type { CompletionObserver } from "./completion";
 import { MINIMAX_CODE_LLM_BASE_URL } from "../minimax-code/api";
 import { withAccessToken } from "../minimax-code/auth";
 import { DEFAULT_MINIMAX_CODE_MODEL } from "../minimax-code/constants";
@@ -11,17 +12,27 @@ import type { MiniMaxCodeConfig } from "../minimax-code/constants";
  */
 export class MiniMaxCodeProvider implements AIService {
     private model: string;
+    private completionObserver?: CompletionObserver;
 
     constructor(config?: MiniMaxCodeConfig) {
         this.model = config?.model?.trim() || DEFAULT_MINIMAX_CODE_MODEL;
     }
 
+    /** 补全观察者传给每次创建的 Anthropic 提供商 */
+    observeCompletions(observer: CompletionObserver | undefined): void {
+        this.completionObserver = observer;
+    }
+
     private run<T>(call: (provider: AnthropicProvider) => Promise<T>): Promise<T> {
-        return withAccessToken((authToken) => call(new AnthropicProvider({
-            authToken,
-            baseUrl: MINIMAX_CODE_LLM_BASE_URL,
-            model: this.model,
-        })));
+        return withAccessToken((authToken) => {
+            const provider = new AnthropicProvider({
+                authToken,
+                baseUrl: MINIMAX_CODE_LLM_BASE_URL,
+                model: this.model,
+            });
+            provider.observeCompletions(this.completionObserver);
+            return call(provider);
+        });
     }
 
     analyzeImage(...args: Parameters<AIService['analyzeImage']>) {

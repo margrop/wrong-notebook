@@ -8,12 +8,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockAzureCompletionCreate = vi.hoisted(() => vi.fn());
 
 // Mock Azure OpenAI SDK
-vi.mock('openai', () => {
+vi.mock('openai', async () => {
+    const { sdkMethod } = await import('../../helpers/sdk-response');
     return {
         AzureOpenAI: class MockAzureOpenAI {
             chat = {
                 completions: {
-                    create: mockAzureCompletionCreate,
+                    create: sdkMethod(mockAzureCompletionCreate),
                 },
             };
         },

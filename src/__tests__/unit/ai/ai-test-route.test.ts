@@ -21,6 +21,7 @@ vi.mock('@/lib/ai/anthropic-provider', () => ({
     DEFAULT_ANTHROPIC_MODEL: 'claude-sonnet-5-5',
     AnthropicProvider: class {
         analyzeImage = mocks.analyzeImage;
+        observeCompletions = vi.fn();
     },
 }));
 

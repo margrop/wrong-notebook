@@ -1,6 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 import type { AIConfig } from "./types";
 import type { CompletionRequest } from './base-provider';
+import type { CompletionResult } from './completion';
+import { compactUsage, readRequestId } from './completion';
 import { BaseAIProvider } from './base-provider';
 import { createLogger } from '../logger';
 import { AI_OUTPUT_TRUNCATED } from './truncation';
@@ -50,8 +52,12 @@ export class GeminiProvider extends BaseAIProvider {
         }, 'AI Provider initialized');
     }
 
-    /** 发送一次单轮请求并返回正文；对可重试错误做指数退避重试（1s/2s/4s，最多 3 次） */
-    protected async complete(request: CompletionRequest): Promise<string> {
+    protected get configuredModel(): string {
+        return this.modelName;
+    }
+
+    /** 发送一次单轮请求，返回正文、token 用量与请求 ID；对可重试错误做指数退避重试（1s/2s/4s，最多 3 次） */
+    protected async complete(request: CompletionRequest): Promise<CompletionResult> {
         const contents = this.buildContents(request);
         const response = await this.retryOperation(() => this.ai.models.generateContent({
             model: this.modelName,
@@ -63,7 +69,15 @@ export class GeminiProvider extends BaseAIProvider {
         if (!text) {
             throw new Error(response.candidates?.[0]?.finishReason === 'MAX_TOKENS' ? AI_OUTPUT_TRUNCATED : "Empty response from AI");
         }
-        return text;
+        // 输出 token 计入思考部分，与其他服务商的计费口径一致
+        const usage = response.usageMetadata;
+        const outputParts = [usage?.candidatesTokenCount, usage?.thoughtsTokenCount].filter((value): value is number => typeof value === 'number');
+        return {
+            text,
+            usage: compactUsage(usage?.promptTokenCount, outputParts.length > 0 ? outputParts.reduce((sum, value) => sum + value, 0) : undefined),
+            model: response.modelVersion || undefined,
+            requestId: readRequestId(response.sdkHttpResponse?.headers) || response.responseId || undefined,
+        };
     }
 
     /** 按请求构建 Gemini contents：文字在前，图片以 inlineData 附加在后 */

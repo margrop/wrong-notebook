@@ -13,14 +13,17 @@ const mocks = vi.hoisted(() => ({
     userFindUnique: vi.fn(),
 }));
 
-vi.mock('openai', () => ({
-    default: class MockOpenAI {
-        chat = { completions: { create: mocks.create } };
-        constructor(options: { apiKey?: string; baseURL?: string }) {
-            mocks.openaiOptions.push(options);
-        }
-    },
-}));
+vi.mock('openai', async () => {
+    const { sdkMethod } = await import('../../helpers/sdk-response');
+    return {
+        default: class MockOpenAI {
+            chat = { completions: { create: sdkMethod(mocks.create) } };
+            constructor(options: { apiKey?: string; baseURL?: string }) {
+                mocks.openaiOptions.push(options);
+            }
+        },
+    };
+});
 vi.mock('@/lib/logger', () => ({
     createLogger: vi.fn(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), box: vi.fn(), divider: vi.fn() })),
 }));

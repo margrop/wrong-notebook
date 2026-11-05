@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
     configs: [] as unknown[],
     gradeAnswer: vi.fn(),
     analyzeImage: vi.fn(),
+    observeCompletions: vi.fn(),
     withAccessToken: vi.fn(),
 }));
 
@@ -17,6 +18,7 @@ vi.mock('@/lib/ai/anthropic-provider', () => ({
         }
         gradeAnswer = mocks.gradeAnswer;
         analyzeImage = mocks.analyzeImage;
+        observeCompletions = mocks.observeCompletions;
     },
 }));
 vi.mock('@/lib/minimax-code/auth', () => ({ withAccessToken: mocks.withAccessToken }));
@@ -55,5 +57,16 @@ describe('MiniMaxCodeProvider', () => {
         mocks.gradeAnswer.mockRejectedValueOnce(new Error('AI_AUTH_ERROR')).mockResolvedValueOnce({ correct: false });
         await new MiniMaxCodeProvider().gradeAnswer({ questionText: 'q', answerText: 'a', userAnswer: 'b' });
         expect(mocks.configs.map((c) => (c as { authToken: string }).authToken)).toEqual(['old', 'new']);
+    });
+
+    it('补全观察者传给每次创建的 Anthropic 提供商', async () => {
+        mocks.gradeAnswer.mockResolvedValue({ correct: true, reason: '一致' });
+        const observer = vi.fn();
+        const provider = new MiniMaxCodeProvider();
+        provider.observeCompletions(observer);
+
+        await provider.gradeAnswer({ questionText: 'q', answerText: 'a', userAnswer: 'a' });
+
+        expect(mocks.observeCompletions).toHaveBeenCalledWith(observer);
     });
 });

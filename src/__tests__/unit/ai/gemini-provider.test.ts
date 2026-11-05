@@ -382,3 +382,45 @@ describe('请求材料边界与标签约束回归', () => {
         expect(empty.knowledgePoints).toEqual([]);
     });
 });
+
+describe('Gemini Provider 用量与请求 ID', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('输出 token 计入思考部分，记录模型版本和响应 ID', async () => {
+        mockGenerateContent.mockResolvedValueOnce({
+            text: '{"correct":true,"reason":"一致"}',
+            usageMetadata: { promptTokenCount: 200, candidatesTokenCount: 30, thoughtsTokenCount: 70 },
+            modelVersion: 'gemini-2.0-flash-001',
+            responseId: 'resp-1',
+        });
+        const provider = new GeminiProvider({ apiKey: 'test-key', model: 'gemini-2.0-flash' });
+        const observer = vi.fn();
+        provider.observeCompletions(observer);
+
+        await provider.gradeAnswer({ questionText: '1+1', answerText: '2', userAnswer: '2' });
+
+        expect(observer).toHaveBeenCalledWith(expect.objectContaining({
+            task: 'grading',
+            usage: { inputTokens: 200, outputTokens: 100 },
+            model: 'gemini-2.0-flash-001',
+            requestId: 'resp-1',
+        }));
+    });
+
+    it('经网关时优先记录网关的请求 ID', async () => {
+        mockGenerateContent.mockResolvedValueOnce({
+            text: '{"correct":true,"reason":"一致"}',
+            responseId: 'resp-2',
+            sdkHttpResponse: { headers: { 'X-Oneapi-Request-Id': 'gateway-2' } },
+        });
+        const provider = new GeminiProvider({ apiKey: 'test-key', model: 'gemini-2.0-flash' });
+        const observer = vi.fn();
+        provider.observeCompletions(observer);
+
+        await provider.gradeAnswer({ questionText: '1+1', answerText: '2', userAnswer: '2' });
+
+        expect(observer.mock.calls[0][0]).toMatchObject({ requestId: 'gateway-2', model: 'gemini-2.0-flash' });
+    });
+});

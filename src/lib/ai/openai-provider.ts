@@ -2,6 +2,8 @@ import OpenAI from "openai";
 import type { ChatCompletion } from "openai/resources/chat/completions";
 import type { AIService, AIConfig } from "./types";
 import type { CompletionRequest } from './base-provider';
+import type { CompletionResult } from './completion';
+import { compactUsage, readRequestId } from './completion';
 import { BaseAIProvider } from './base-provider';
 import { createLogger } from '../logger';
 import { AI_OUTPUT_TRUNCATED, withModelOutputLimit } from './truncation';
@@ -75,6 +77,10 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
         return this.model;
     }
 
+    protected get configuredModel(): string {
+        return this.model;
+    }
+
     /** withModelOutputLimit 使用的模型名（Azure 使用显示名而非 deployment） */
     protected get outputLimitModel(): string {
         return this.model;
@@ -102,11 +108,11 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
     }
 
     /**
-     * 发送一次单轮对话并返回正文。
+     * 发送一次单轮对话，返回正文、token 用量与请求 ID。
      * 有图片且为 LongCat 时绕过 SDK 直接 fetch（LongCat 用 input_image 格式）；
      * 配图重绘（figure）时图片放在文字前，其余任务图片放在文字后。
      */
-    protected async complete(request: CompletionRequest): Promise<string> {
+    protected async complete(request: CompletionRequest): Promise<CompletionResult> {
         const systemMessage = { role: "system", content: request.system };
         let userContent: OpenAIUserContent = request.user;
 
@@ -138,6 +144,7 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
         if (useLongCatFetch) {
             const messages: LongCatMessage[] = [systemMessage, { role: "user", content: userContent }];
             const adaptedMessages = this.adaptMessagesForLongCat(messages);
+            let longCatRequestId: string | undefined;
             const response = await withModelOutputLimit(async (maxTokens) => {
                 const res = await fetch(`${this.baseURL}/chat/completions`, {
                     method: 'POST',
@@ -158,22 +165,28 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
                     throw new Error(`${res.status} status code (${errBody})`);
                 }
 
+                longCatRequestId = readRequestId(res.headers);
                 return await res.json() as ChatCompletion;
             }, this.outputLimitModel);
 
             const text = response.choices?.[0]?.message?.content || '';
             if (!text) throw new Error("Empty response from AI");
-            return text;
+            return this.toCompletionResult(text, response, longCatRequestId);
         }
 
-        const response = await withModelOutputLimit((maxTokens) => this.openai.chat.completions.create({
-            model: this.requestModel,
-            messages: [
-                { role: "system", content: request.system },
-                { role: "user", content: userContent },
-            ],
-            max_tokens: maxTokens,
-        }), this.outputLimitModel);
+        let requestId: string | undefined;
+        const response = await withModelOutputLimit(async (maxTokens) => {
+            const { data, response: httpResponse } = await this.openai.chat.completions.create({
+                model: this.requestModel,
+                messages: [
+                    { role: "system", content: request.system },
+                    { role: "user", content: userContent },
+                ],
+                max_tokens: maxTokens,
+            }).withResponse();
+            requestId = readRequestId(httpResponse.headers);
+            return data;
+        }, this.outputLimitModel);
 
         // analyze/similar/reanswer 对空 choices 抛 AI_RESPONSE_ERROR，其余任务按空响应处理（AI_UNKNOWN_ERROR）
         if (request.task === 'analyze' || request.task === 'similar' || request.task === 'reanswer') {
@@ -185,7 +198,17 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
 
         const text = response.choices?.[0]?.message?.content || "";
         if (!text) throw new Error("Empty response from AI");
-        return text;
+        return this.toCompletionResult(text, response, requestId);
+    }
+
+    /** 从 Chat Completions 响应取 token 用量和实际模型 */
+    private toCompletionResult(text: string, response: ChatCompletion, requestId: string | undefined): CompletionResult {
+        return {
+            text,
+            usage: compactUsage(response.usage?.prompt_tokens, response.usage?.completion_tokens),
+            model: response.model || undefined,
+            requestId,
+        };
     }
 
     /**
@@ -197,7 +220,7 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
         logger.info({ provider: this.providerName, model: this.model, imageSize: imageBase64.length }, 'Figure SVG Request');
 
         try {
-            const text = await this.complete({
+            const text = await this.run({
                 task: 'figure',
                 system: prompt.system,
                 user: prompt.user,

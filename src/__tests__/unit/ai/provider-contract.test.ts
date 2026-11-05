@@ -17,13 +17,14 @@ const geminiGenerateContent = vi.hoisted(() => vi.fn());
 const anthropicCreate = vi.hoisted(() => vi.fn());
 
 // OpenAI 与 Azure 都依赖 openai 包，分别 mock 默认导出与 AzureOpenAI 导出
-vi.mock('openai', () => {
+vi.mock('openai', async () => {
+    const { sdkMethod } = await import('../../helpers/sdk-response');
     return {
         default: class MockOpenAI {
-            chat = { completions: { create: openaiCreate } };
+            chat = { completions: { create: sdkMethod(openaiCreate) } };
         },
         AzureOpenAI: class MockAzureOpenAI {
-            chat = { completions: { create: azureCreate } };
+            chat = { completions: { create: sdkMethod(azureCreate) } };
         },
     };
 });
@@ -36,7 +37,8 @@ vi.mock('@google/genai', () => {
     };
 });
 
-vi.mock('@anthropic-ai/sdk', () => {
+vi.mock('@anthropic-ai/sdk', async () => {
+    const { sdkMethod } = await import('../../helpers/sdk-response');
     class MockAPIError extends Error {
         status: number | undefined;
         constructor(status: number | undefined, message: string) {
@@ -59,7 +61,7 @@ vi.mock('@anthropic-ai/sdk', () => {
             static APIError = MockAPIError;
             static APIConnectionError = MockAPIConnectionError;
             static APIConnectionTimeoutError = MockAPIConnectionTimeoutError;
-            messages = { create: anthropicCreate };
+            messages = { create: sdkMethod(anthropicCreate) };
         },
     };
 });

@@ -8,12 +8,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockCompletionCreate = vi.hoisted(() => vi.fn());
 
 // Mock OpenAI SDK
-vi.mock('openai', () => {
+vi.mock('openai', async () => {
+    const { sdkMethod } = await import('../../helpers/sdk-response');
     return {
         default: class MockOpenAI {
             chat = {
                 completions: {
-                    create: mockCompletionCreate,
+                    create: sdkMethod(mockCompletionCreate),
                 },
             };
         },
@@ -537,5 +538,73 @@ describe('请求材料边界与标签约束回归', () => {
         expect(JSON.parse(request.messages[1].content).data.tagOptions.candidateTags).toEqual(candidates);
         const empty = await provider.reanswerQuestion(question, 'zh', '数学', undefined, null, { subjectName: '数学', tags: [] });
         expect(empty.knowledgePoints).toEqual([]);
+    });
+});
+
+describe('OpenAI Provider 用量与请求 ID', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    const gradingReply = { choices: [{ finish_reason: 'stop', message: { content: '{"correct":true,"reason":"一致"}' } }] };
+    const gradingInput = { questionText: '1+1', answerText: '2', userAnswer: '2' };
+
+    it('记录 token 用量、实际模型，网关请求 ID 优先于上游请求 ID', async () => {
+        const { withHeaders } = await import('../../helpers/sdk-response');
+        mockCompletionCreate.mockResolvedValue(withHeaders(
+            { ...gradingReply, model: 'gpt-4o-2026-08-01', usage: { prompt_tokens: 321, completion_tokens: 45, total_tokens: 366 } },
+            { 'X-Request-Id': 'upstream-1', 'X-Oneapi-Request-Id': 'gateway-1' },
+        ));
+        const provider = new OpenAIProvider({ apiKey: 'test-key', model: 'gpt-4o' });
+        const observer = vi.fn();
+        provider.observeCompletions(observer);
+
+        await provider.gradeAnswer(gradingInput);
+
+        expect(observer).toHaveBeenCalledWith(expect.objectContaining({
+            task: 'grading',
+            status: 'succeeded',
+            usage: { inputTokens: 321, outputTokens: 45 },
+            model: 'gpt-4o-2026-08-01',
+            requestId: 'gateway-1',
+        }));
+    });
+
+    it('服务商未返回用量和请求 ID 时记录配置的模型', async () => {
+        mockCompletionCreate.mockResolvedValue(gradingReply);
+        const provider = new OpenAIProvider({ apiKey: 'test-key', model: 'gpt-4o' });
+        const observer = vi.fn();
+        provider.observeCompletions(observer);
+
+        await provider.gradeAnswer(gradingInput);
+
+        const event = observer.mock.calls[0][0];
+        expect(event).toMatchObject({ status: 'succeeded', model: 'gpt-4o' });
+        expect(event.usage).toBeUndefined();
+        expect(event.requestId).toBeUndefined();
+    });
+
+    it('LongCat 直连请求也记录用量和请求 ID', async () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+            choices: [{ finish_reason: 'stop', message: { content: '<question_text>题</question_text><answer_text>答</answer_text><analysis>析</analysis><subject>数学</subject>' } }],
+            usage: { prompt_tokens: 900, completion_tokens: 80 },
+        }), { status: 200, headers: { 'x-request-id': 'longcat-1' } }));
+        vi.stubGlobal('fetch', fetchMock);
+        try {
+            const provider = new OpenAIProvider({ apiKey: 'test-key', model: 'LongCat-Flash', baseUrl: 'https://api.longcat.chat/openai/v1' });
+            const observer = vi.fn();
+            provider.observeCompletions(observer);
+
+            await provider.analyzeImage('QUJD', 'image/png');
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(observer).toHaveBeenCalledWith(expect.objectContaining({
+                task: 'analyze',
+                usage: { inputTokens: 900, outputTokens: 80 },
+                requestId: 'longcat-1',
+            }));
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 });

@@ -32,12 +32,13 @@ const mocks = vi.hoisted(() => {
     };
 });
 
-vi.mock('@anthropic-ai/sdk', () => {
+vi.mock('@anthropic-ai/sdk', async () => {
+    const { sdkMethod } = await import('../../helpers/sdk-response');
     class MockAnthropic {
         static APIError = mocks.APIError;
         static APIConnectionError = mocks.APIConnectionError;
         static APIConnectionTimeoutError = mocks.APIConnectionTimeoutError;
-        messages = { create: mocks.create };
+        messages = { create: sdkMethod(mocks.create) };
         constructor(options: unknown) {
             mocks.clientOptions.push(options);
         }
@@ -336,5 +337,44 @@ describe('请求材料边界与标签约束回归', () => {
         expect(JSON.parse(request.messages[0].content).data.tagOptions.candidateTags).toEqual(candidates);
         const empty = await provider.reanswerQuestion(question, 'zh', '数学', undefined, null, { subjectName: '数学', tags: [] });
         expect(empty.knowledgePoints).toEqual([]);
+    });
+});
+
+describe('AnthropicProvider 用量与请求 ID', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('输入 token 计入缓存写入和缓存命中，记录实际模型和请求 ID', async () => {
+        const { withHeaders } = await import('../../helpers/sdk-response');
+        mocks.create.mockResolvedValue(withHeaders({
+            ...message('{"correct":true,"reason":"一致"}'),
+            model: 'claude-sonnet-5-5-20261001',
+            usage: { input_tokens: 100, cache_creation_input_tokens: 20, cache_read_input_tokens: 300, output_tokens: 50 },
+        }, { 'request-id': 'req_abc' }));
+        const provider = new AnthropicProvider({ apiKey: 'k' });
+        const observer = vi.fn();
+        provider.observeCompletions(observer);
+
+        await provider.gradeAnswer({ questionText: '1+1', answerText: '2', userAnswer: '2' });
+
+        expect(observer).toHaveBeenCalledWith(expect.objectContaining({
+            task: 'grading',
+            status: 'succeeded',
+            usage: { inputTokens: 420, outputTokens: 50 },
+            model: 'claude-sonnet-5-5-20261001',
+            requestId: 'req_abc',
+        }));
+    });
+
+    it('兼容接口只返回基本用量时照常记录', async () => {
+        mocks.create.mockResolvedValue(message('{"correct":true,"reason":"一致"}'));
+        const provider = new AnthropicProvider({ apiKey: 'k', model: 'MiniMax-M3' });
+        const observer = vi.fn();
+        provider.observeCompletions(observer);
+
+        await provider.gradeAnswer({ questionText: '1+1', answerText: '2', userAnswer: '2' });
+
+        expect(observer.mock.calls[0][0]).toMatchObject({ usage: { inputTokens: 10, outputTokens: 10 }, model: 'MiniMax-M3' });
     });
 });

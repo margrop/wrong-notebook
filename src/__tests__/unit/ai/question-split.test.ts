@@ -10,26 +10,30 @@ const mocks = vi.hoisted(() => ({
     anthropicCreate: vi.fn(),
 }));
 
-vi.mock('openai', () => ({
-    default: class MockOpenAI {
-        chat = { completions: { create: mocks.openaiCreate } };
-    },
-    AzureOpenAI: class MockAzureOpenAI {
-        chat = { completions: { create: mocks.azureCreate } };
-    },
-}));
+vi.mock('openai', async () => {
+    const { sdkMethod } = await import('../../helpers/sdk-response');
+    return {
+        default: class MockOpenAI {
+            chat = { completions: { create: sdkMethod(mocks.openaiCreate) } };
+        },
+        AzureOpenAI: class MockAzureOpenAI {
+            chat = { completions: { create: sdkMethod(mocks.azureCreate) } };
+        },
+    };
+});
 vi.mock('@google/genai', () => ({
     GoogleGenAI: class MockGoogleGenAI {
         models = { generateContent: mocks.geminiGenerate };
     },
 }));
-vi.mock('@anthropic-ai/sdk', () => {
+vi.mock('@anthropic-ai/sdk', async () => {
+    const { sdkMethod } = await import('../../helpers/sdk-response');
     class APIError extends Error {}
     class MockAnthropic {
         static APIError = APIError;
         static APIConnectionError = APIError;
         static APIConnectionTimeoutError = APIError;
-        messages = { create: mocks.anthropicCreate };
+        messages = { create: sdkMethod(mocks.anthropicCreate) };
     }
     return { default: MockAnthropic };
 });

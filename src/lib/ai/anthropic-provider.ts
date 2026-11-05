@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AIConfig } from "./types";
 import type { CompletionRequest } from './base-provider';
+import type { CompletionResult, CompletionUsage } from './completion';
+import { compactUsage, readRequestId } from './completion';
 import { BaseAIProvider } from './base-provider';
 import { createLogger } from '../logger';
 import { trimTrailingSlashes } from '../utils';
@@ -72,6 +74,14 @@ export function createAnthropicClient(baseURL: string, apiKey?: string, authToke
     return new Anthropic({ ...options, apiKey: null, authToken, defaultHeaders });
 }
 
+/** 输入 token 含缓存写入和缓存命中部分；兼容接口可能缺少这些字段 */
+function anthropicUsage(usage: Partial<Anthropic.Usage> | null | undefined): CompletionUsage | undefined {
+    if (!usage) return undefined;
+    const parts = [usage.input_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens]
+        .filter((value): value is number => typeof value === 'number');
+    return compactUsage(parts.length > 0 ? parts.reduce((sum, value) => sum + value, 0) : undefined, usage.output_tokens);
+}
+
 /**
  * Anthropic Messages API 及其兼容接口（如各家模型的 /anthropic 端点）
  */
@@ -101,8 +111,13 @@ export class AnthropicProvider extends BaseAIProvider {
         }, 'AI Provider initialized');
     }
 
-    /** 发送一次单轮对话并返回正文；按模型允许的最大输出请求 */
-    protected async complete(request: CompletionRequest): Promise<string> {
+    protected get configuredModel(): string {
+        return this.model;
+    }
+
+    /** 发送一次单轮对话，返回正文、token 用量与请求 ID；按模型允许的最大输出请求 */
+    protected async complete(request: CompletionRequest): Promise<CompletionResult> {
+        let requestId: string | undefined;
         const response = await withModelOutputLimit(async (limit) => {
             let content: UserContent = request.user;
             if (request.image) {
@@ -117,12 +132,13 @@ export class AnthropicProvider extends BaseAIProvider {
             } else if (request.extraUserText) {
                 content = `${request.user}\n${request.extraUserText}`;
             }
-            const message = await this.client.messages.create({
+            const { data: message, response: httpResponse } = await this.client.messages.create({
                 model: this.model,
                 max_tokens: limit,
                 system: request.system,
                 messages: [{ role: 'user', content }],
-            });
+            }).withResponse();
+            requestId = readRequestId(httpResponse.headers);
             // 兼容接口的推理模型会返回 thinking 块，只取正文
             const text = message.content
                 .filter((block): block is Anthropic.TextBlock => block.type === 'text')
@@ -131,12 +147,14 @@ export class AnthropicProvider extends BaseAIProvider {
             logger.debug({ stopReason: message.stop_reason, usage: message.usage }, 'Anthropic response received');
             return {
                 text,
+                usage: anthropicUsage(message.usage),
+                model: message.model,
                 choices: [{ finish_reason: message.stop_reason === 'max_tokens' ? 'length' : message.stop_reason, message: { content: text } }],
             };
         }, this.model);
 
         if (!response.text) throw new Error("Empty response from AI");
-        return response.text;
+        return { text: response.text, usage: response.usage, model: response.model || undefined, requestId };
     }
 
     protected handleError(error: unknown): void {

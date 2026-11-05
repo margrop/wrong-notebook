@@ -20,6 +20,8 @@ import { normalizeGeneratedQuestion } from './generated-question';
 import { normalizeAiQuestionTags } from './knowledge-points';
 import { isImageUnsupportedError, parseQuestionSplit, AI_IMAGE_NOT_SUPPORTED } from './question-split';
 import { parseTextFix } from './text-fix';
+import type { CompletionObserver, CompletionResult } from './completion';
+import { completionErrorCode } from './completion';
 
 const logger = createLogger('ai:base');
 
@@ -56,11 +58,60 @@ export interface CompletionRequest {
 
 /**
  * AI 提供商公共基类：实现 AIService 的 14 个业务方法。
- * 子类只需实现 providerName（日志用）和 complete（调用各自 SDK 取文本）。
+ * 子类只需实现 providerName（日志用）、configuredModel 和 complete（调用各自 SDK，返回正文、用量与请求 ID）。
+ * 业务方法统一经 run 调用 complete，run 负责计时并通知补全观察者。
  */
 export abstract class BaseAIProvider implements AIService {
     protected abstract readonly providerName: string;
-    protected abstract complete(request: CompletionRequest): Promise<string>;
+    /** 发送一次补全，返回正文及 token 用量、实际模型和请求 ID */
+    protected abstract complete(request: CompletionRequest): Promise<CompletionResult>;
+    /** 配置的模型名，服务商未返回实际模型时用于记录 */
+    protected abstract readonly configuredModel: string;
+
+    private completionObserver?: CompletionObserver;
+
+    /** 设置补全观察者：每次补全结束（成功或失败）后收到一条记录 */
+    observeCompletions(observer: CompletionObserver | undefined): void {
+        this.completionObserver = observer;
+    }
+
+    /** 执行一次补全并通知观察者，返回正文；观察者出错只记日志，不影响调用结果 */
+    protected async run(request: CompletionRequest): Promise<string> {
+        const startedAt = Date.now();
+        try {
+            const result = await this.complete(request);
+            this.notifyCompletion({
+                task: request.task,
+                status: 'succeeded',
+                durationMs: Date.now() - startedAt,
+                usage: result.usage,
+                model: result.model || this.configuredModel,
+                requestId: result.requestId,
+            });
+            return result.text;
+        } catch (error) {
+            this.notifyCompletion({
+                task: request.task,
+                status: 'failed',
+                durationMs: Date.now() - startedAt,
+                model: this.configuredModel,
+                errorCode: completionErrorCode(error),
+            });
+            throw error;
+        }
+    }
+
+    private notifyCompletion(event: Parameters<CompletionObserver>[0]): void {
+        const observer = this.completionObserver;
+        if (!observer) return;
+        try {
+            Promise.resolve(observer(event)).catch((error: unknown) => {
+                logger.error({ error, task: event.task }, 'AI completion observer failed');
+            });
+        } catch (error) {
+            logger.error({ error, task: event.task }, 'AI completion observer failed');
+        }
+    }
 
     protected handleError(error: unknown): void {
         logger.error({ error }, 'AI provider error');
@@ -91,7 +142,7 @@ export abstract class BaseAIProvider implements AIService {
         logger.box('📝 Full System Prompt', systemPrompt.system);
 
         try {
-            const text = await this.complete({ task: 'analyze', system: systemPrompt.system, user: systemPrompt.user, image: { base64: imageBase64, mimeType } });
+            const text = await this.run({ task: 'analyze', system: systemPrompt.system, user: systemPrompt.user, image: { base64: imageBase64, mimeType } });
             logger.box('🤖 AI Raw Response', text);
             const parsedResult = normalizeAiQuestionTags(parseQuestionResponse(text), tagOptions);
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
@@ -114,7 +165,7 @@ export abstract class BaseAIProvider implements AIService {
         logger.info({ provider: this.providerName, difficulty, language }, 'Generate Similar Question Request');
 
         try {
-            const text = await this.complete({ task: 'similar', system: systemPrompt.system, user: userPrompt });
+            const text = await this.run({ task: 'similar', system: systemPrompt.system, user: userPrompt });
             logger.box('🤖 AI Raw Response', text);
             return normalizeGeneratedQuestion(parseQuestionResponse(text));
         } catch (error) {
@@ -135,7 +186,7 @@ export abstract class BaseAIProvider implements AIService {
         }, 'Reanswer Question Request');
 
         try {
-            const text = await this.complete({ task: 'reanswer', system: prompt.system, user: prompt.user, image: imageBase64 ? { base64: imageBase64 } : undefined });
+            const text = await this.run({ task: 'reanswer', system: prompt.system, user: prompt.user, image: imageBase64 ? { base64: imageBase64 } : undefined });
             logger.debug({ rawResponse: text }, 'AI raw response');
 
             const wrongAnswerText = extractTag(text, "wrong_answer_text") || "";
@@ -163,7 +214,7 @@ export abstract class BaseAIProvider implements AIService {
         logger.info({ provider: this.providerName, questionLength: questionText.length }, 'GeoGebra Analysis Request');
 
         try {
-            const text = await this.complete({ task: 'geogebra', system: prompt.system, user: prompt.user });
+            const text = await this.run({ task: 'geogebra', system: prompt.system, user: prompt.user });
             logger.debug({ rawResponse: text }, 'GeoGebra AI raw response');
             const parsed = extractJsonObject(text) as { suitable?: unknown; commands?: unknown; description?: unknown };
             return {
@@ -183,7 +234,7 @@ export abstract class BaseAIProvider implements AIService {
         logger.info({ provider: this.providerName, historyCount: input.history.length }, 'Mastery Evaluation Request');
 
         try {
-            const text = await this.complete({ task: 'mastery', system: prompt.system, user: prompt.user });
+            const text = await this.run({ task: 'mastery', system: prompt.system, user: prompt.user });
             logger.debug({ rawResponse: text }, 'Mastery AI raw response');
             return parseMasteryEvaluation(text);
         } catch (error) {
@@ -196,7 +247,7 @@ export abstract class BaseAIProvider implements AIService {
     async recognizeGrade(questionText: string): Promise<string | null> {
         const prompt = generateGradeRecognitionRequest(questionText);
         try {
-            const text = await this.complete({ task: 'recognize-grade', system: prompt.system, user: prompt.user });
+            const text = await this.run({ task: 'recognize-grade', system: prompt.system, user: prompt.user });
             return parseGradeRecognition(text);
         } catch (error) {
             logger.error({ error }, '识别题目年级失败');
@@ -210,7 +261,7 @@ export abstract class BaseAIProvider implements AIService {
         logger.info({ provider: this.providerName }, 'Answer Grading Request');
 
         try {
-            const text = await this.complete({ task: 'grading', system: prompt.system, user: prompt.user });
+            const text = await this.run({ task: 'grading', system: prompt.system, user: prompt.user });
             logger.debug({ rawResponse: text }, 'Grading AI raw response');
             return parseAnswerGrading(text);
         } catch (error) {
@@ -225,7 +276,7 @@ export abstract class BaseAIProvider implements AIService {
         logger.info({ provider: this.providerName, subject: input.subject, allowedTagCount: input.allowedTags.length }, 'Tag Suggestion Request');
 
         try {
-            const text = await this.complete({ task: 'tag-suggest', system: prompt.system, user: prompt.user });
+            const text = await this.run({ task: 'tag-suggest', system: prompt.system, user: prompt.user });
             logger.debug({ rawResponse: text }, 'Tag suggestion AI raw response');
             return parseTagSuggestion(text, input.allowedTags);
         } catch (error) {
@@ -240,7 +291,7 @@ export abstract class BaseAIProvider implements AIService {
         logger.info({ provider: this.providerName, imageSize: imageBase64.length }, 'Figure SVG Request');
 
         try {
-            const text = await this.complete({ task: 'figure', system: prompt.system, user: prompt.user, image: { base64: imageBase64, mimeType }, extraUserText: '请重新绘制图中题目的配图。' });
+            const text = await this.run({ task: 'figure', system: prompt.system, user: prompt.user, image: { base64: imageBase64, mimeType }, extraUserText: '请重新绘制图中题目的配图。' });
             logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
             return parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
         } catch (error) {
@@ -255,7 +306,7 @@ export abstract class BaseAIProvider implements AIService {
         logger.info({ provider: this.providerName, fields: Object.keys(input) }, 'LaTeX Fix Request');
 
         try {
-            const text = await this.complete({ task: 'latex-fix', system: prompt.system, user: prompt.user });
+            const text = await this.run({ task: 'latex-fix', system: prompt.system, user: prompt.user });
             logger.debug({ rawResponse: text }, 'LaTeX fix AI raw response');
             return parseLatexFix(text, input);
         } catch (error) {
@@ -270,7 +321,7 @@ export abstract class BaseAIProvider implements AIService {
         logger.info({ provider: this.providerName, questionLength: questionText.length }, 'SVG Animation Request');
 
         try {
-            const text = await this.complete({ task: 'svg-animation', system: prompt.system, user: prompt.user });
+            const text = await this.run({ task: 'svg-animation', system: prompt.system, user: prompt.user });
             logger.debug({ rawResponse: text }, 'SVG animation AI raw response');
             return sanitizeSvgAnimation(extractTag(text, "svg_animation") || text);
         } catch (error) {
@@ -285,7 +336,7 @@ export abstract class BaseAIProvider implements AIService {
         logger.info({ provider: this.providerName, svgLength: svgAnimation.length }, 'SVG Narration Request');
 
         try {
-            const text = await this.complete({ task: 'svg-narration', system: prompt.system, user: prompt.user });
+            const text = await this.run({ task: 'svg-narration', system: prompt.system, user: prompt.user });
             logger.debug({ rawResponse: text }, 'SVG narration AI raw response');
             return parseNarration(extractTag(text, "narration") || text);
         } catch (error) {
@@ -301,7 +352,7 @@ export abstract class BaseAIProvider implements AIService {
         const image = input.kind === 'image' ? { base64: input.imageBase64, mimeType: input.mimeType } : undefined;
 
         try {
-            const text = await this.complete({ task: 'question-split', system: prompt.system, user: prompt.user, image });
+            const text = await this.run({ task: 'question-split', system: prompt.system, user: prompt.user, image });
             logger.debug({ rawResponse: text }, 'Question split AI raw response');
             return parseQuestionSplit(text, input);
         } catch (error) {
@@ -317,7 +368,7 @@ export abstract class BaseAIProvider implements AIService {
         logger.info({ provider: this.providerName, questions: input.length }, 'Text Fix Request');
 
         try {
-            const text = await this.complete({ task: 'text-fix', system: prompt.system, user: prompt.user });
+            const text = await this.run({ task: 'text-fix', system: prompt.system, user: prompt.user });
             logger.debug({ rawResponse: text }, 'Text fix AI raw response');
             return parseTextFix(text, input);
         } catch (error) {
