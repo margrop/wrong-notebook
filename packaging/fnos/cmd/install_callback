@@ -1,7 +1,8 @@
 #!/bin/bash
 # 安装后置：数据库在首次启动时由 launcher.js 初始化。
 # 安装向导中填写的管理员邮箱和密码（字段 wizard_admin_email、wizard_admin_password，以同名环境变量传入）
-# 生成密码哈希写入 <数据目录>/config/initial-admin.json，服务首次启动时据此创建管理员。密码本身不写日志
+# 生成密码哈希写入 <数据目录>/config/initial-admin.json，服务首次启动时据此创建管理员。密码本身不写日志。
+# 使用协议勾选项（wizard_eula_accepted，值为协议版本如 v1）一并写入，服务启动时记为管理员已同意
 set -uo pipefail
 
 APP_NAME="${TRIM_APPNAME:-wrongnotebook}"
@@ -31,7 +32,7 @@ mkdir -p "${DATA_DIR}"
 LOG="${DATA_DIR}/install.log"
 
 if [ -n "${wizard_admin_password:-}" ]; then
-    if WN_ADMIN_EMAIL="${wizard_admin_email:-}" WN_ADMIN_PASSWORD="${wizard_admin_password}" \
+    if WN_ADMIN_EMAIL="${wizard_admin_email:-}" WN_ADMIN_PASSWORD="${wizard_admin_password}" WN_EULA_ACCEPTED="${wizard_eula_accepted:-}" \
         "${NODE_BIN}" "${TARGET_DIR}/initial-admin.mjs" "${TARGET_DIR}/server" "${DATA_DIR}/config/initial-admin.json" >> "${LOG}" 2>&1; then
         echo "[$(date '+%F %T')] install_callback: admin account prepared from wizard (${wizard_admin_email:-})" >> "${LOG}"
     else
