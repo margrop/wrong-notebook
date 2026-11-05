@@ -16,7 +16,7 @@ Rights to the source code, name and icons belong to their respective owners. Que
 
 ## 3. Data collection
 
-Anonymous telemetry has three instance-level switches, controlled by the administrator under "Settings → Admin → Privacy & telemetry":
+Anonymous telemetry has three instance-level switches, controlled by the administrator under "Settings → User Management → Privacy & telemetry":
 
 - **Local recording** (off by default): usage statistics and error details are stored only in this instance's database for troubleshooting and deleted automatically after the retention period.
 - **Error reporting** (on by default, effective only when local recording or forwarding is on): records page and API errors.

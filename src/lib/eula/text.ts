@@ -21,7 +21,7 @@ export const EULA_TEXT = {
 
 ## 3. 数据收集
 
-错题本的匿名遥测分三层，均为实例级开关，由管理员在“设置 → 管理 → 隐私与遥测”中决定：
+错题本的匿名遥测分三层，均为实例级开关，由管理员在“设置 → 用户管理 → 隐私与遥测”中决定：
 
 - **本地记录**（默认关闭）：功能使用统计与错误详情只保存在本实例的数据库中，供管理员排查问题，按保留天数自动删除。
 - **错误回报**（默认开启，只在本地记录或外发开启时生效）：记录页面与接口的异常。
@@ -77,7 +77,7 @@ Rights to the source code, name and icons belong to their respective owners. Que
 
 ## 3. Data collection
 
-Anonymous telemetry has three instance-level switches, controlled by the administrator under "Settings → Admin → Privacy & telemetry":
+Anonymous telemetry has three instance-level switches, controlled by the administrator under "Settings → User Management → Privacy & telemetry":
 
 - **Local recording** (off by default): usage statistics and error details are stored only in this instance's database for troubleshooting and deleted automatically after the retention period.
 - **Error reporting** (on by default, effective only when local recording or forwarding is on): records page and API errors.

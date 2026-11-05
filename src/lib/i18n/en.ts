@@ -1968,7 +1968,7 @@ export const en = {
             summary: [
                 "Wrong Notebook is open-source software under the MIT License, provided as is without warranty.",
                 "The instance periodically sends anonymous usage statistics and error fingerprints to the Wrong Notebook collection service, without personal identities, question content, AI conversations or error messages.",
-                "Forwarding, local recording and error reporting can be turned off at any time under \"Settings → Admin → Privacy & telemetry\".",
+                "Forwarding, local recording and error reporting can be turned off at any time under \"Settings → User Management → Privacy & telemetry\".",
                 "The administrator is responsible for the instance's security and compliance, including telling its users where data goes.",
             ],
             consentLabel: "As the administrator of this instance, I have read and agree to the Administrator Agreement and understand that the instance sends anonymous usage statistics and error fingerprints to the Wrong Notebook collection service (can be turned off in settings)",
