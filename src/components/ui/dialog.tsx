@@ -41,8 +41,10 @@ const DialogContent = React.forwardRef<
                 // 防止在关闭动画期间重新打开
                 e.preventDefault();
             }}
+            // 用 inset-0 + m-auto 居中，不依赖 CSS translate 属性：旧版安卓系统 WebView（Chrome 104 以下）
+            // 不支持 translate，按 left/top 50% 定位会让面板偏到屏幕右下方，按钮点不到
             className={cn(
-                "fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border bg-card p-6 shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+                "fixed inset-0 m-auto h-fit z-50 grid w-[calc(100%-2rem)] max-w-lg gap-4 rounded-2xl border bg-card p-6 shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
                 className
             )}
             {...props}

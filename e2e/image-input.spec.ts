@@ -201,6 +201,28 @@ test.describe('手机拍照、相册与文件入口', () => {
         await chooser.setFiles(fixture('orientation-6.jpg'));
         await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible();
     });
+
+    test('[E2E-I10] 手机上裁剪框居中且不依赖 CSS translate，确认与取消按钮都在屏幕内', async ({ page, scenario }) => {
+        await scenario.db.user.update({ where: { id: scenario.user.id }, data: { confirmBeforeImport: true } });
+        await scenario.login(page);
+        await page.goto('/');
+        await page.locator('[data-testid="file-input"]').setInputFiles(fixture('math_test.png'));
+        const cropper = page.getByRole('dialog');
+        await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
+        // 等进入动画结束再量位置
+        await expect.poll(() => cropper.evaluate((el) => el.getAnimations().length)).toBe(0);
+        // 旧版安卓 WebView 不支持 translate 属性，居中不能靠它
+        expect(await cropper.evaluate((el) => getComputedStyle(el).translate)).toBe('none');
+        const viewport = page.viewportSize()!;
+        const box = (await cropper.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+        expect(Math.abs(box.x + box.width / 2 - viewport.width / 2)).toBeLessThanOrEqual(1);
+        expect(Math.abs(box.y + box.height / 2 - viewport.height / 2)).toBeLessThanOrEqual(1);
+        for (const name of ['取消', '确认']) {
+            await expect(cropper.getByRole('button', { name, exact: true })).toBeInViewport({ ratio: 1 });
+        }
+    });
 });
 
 test('[E2E-I09] 一道题分在两张纸上：第一段暂存后选第二张，两段缩放到同宽后上下拼成一张图识别', async ({ page, scenario }, testInfo) => {
