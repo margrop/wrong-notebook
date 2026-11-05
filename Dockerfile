@@ -71,6 +71,8 @@ ENV HOSTNAME="0.0.0.0"
 # Point to the persistent data location
 ENV DATABASE_URL="file:/app/data/dev.db"
 ENV AUTH_TRUST_HOST=true
+# 匿名遥测的部署形态
+ENV WN_PLATFORM=docker
 
 # Install dependencies, create user and persistent data directory before revision args so this layer stays cached
 RUN apk add --no-cache su-exec openssl \

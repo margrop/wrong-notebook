@@ -48,7 +48,7 @@ start() {
         return 0
     fi
     cd "${SRC_DIR}"
-    nohup "${NODE_BIN}" launcher.js --port "${PORT}" --host 0.0.0.0 --data-dir "${DATA_DIR}" >> "${LOG}" 2>&1 &
+    WN_PLATFORM=fnos nohup "${NODE_BIN}" launcher.js --port "${PORT}" --host 0.0.0.0 --data-dir "${DATA_DIR}" >> "${LOG}" 2>&1 &
     echo $! > "${PID_FILE}"
     # 首次启动需要复制数据库并执行迁移，留足时间
     for _ in $(seq 1 90); do

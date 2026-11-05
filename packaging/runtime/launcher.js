@@ -165,6 +165,8 @@ function prepare(options = {}) {
         PRISMA_HIDE_UPDATE_MESSAGE: 'true',
         APP_VERSION: process.env.APP_VERSION || version,
         WRONG_NOTEBOOK_HOME: dataDir,
+        // 匿名遥测的部署形态：桌面版、飞牛OS、安卓由各自外层启动器设置，直接运行 npm 包时为 npm
+        WN_PLATFORM: process.env.WN_PLATFORM || 'npm',
     };
 
     ensurePrismaClient(env);

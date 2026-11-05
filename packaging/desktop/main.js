@@ -70,7 +70,7 @@ async function startServer() {
         '--data-dir', dataDir,
     ], {
         cwd: serverRoot,
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', NEXTAUTH_URL: baseUrl },
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', NEXTAUTH_URL: baseUrl, WN_PLATFORM: 'desktop' },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
     });

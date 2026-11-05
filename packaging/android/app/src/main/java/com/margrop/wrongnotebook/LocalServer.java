@@ -87,6 +87,8 @@ final class LocalServer {
         env.put("WN_NODE", nativeDir + "/libnode.so");
         env.put("WN_LAUNCHER", new File(serverDir, "launcher.js").getAbsolutePath());
         env.put("WN_DATA", dataDir.getAbsolutePath());
+        // 匿名遥测的部署形态
+        env.put("WN_PLATFORM", "android");
         env.put("LD_LIBRARY_PATH", nativeDir);
         env.put("HOME", filesDir.getAbsolutePath());
         env.put("TMPDIR", tmpDir.getAbsolutePath());
