@@ -45,6 +45,8 @@ FROM ci AS builder
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
+# 构建时替换 AI 账户实现（相对项目根目录的文件路径，见 doc/FORK_EXTENSION_POINTS.md），留空使用默认实现
+ARG AI_ACCOUNT_EXTENSION=
 
 # 挂载 .next/cache 避免将构建缓存写入镜像层；清理 standalone 中被文件追踪带入的源码与重复的 Prisma 副本
 RUN --mount=type=cache,target=/app/.next/cache \

@@ -224,4 +224,10 @@ export const aiAccountProvider: AiAccountProvider = {
 AI_ACCOUNT_EXTENSION=src/extensions/local/ai-account.ts npm run build
 ```
 
+Docker 镜像构建时传入同名构建参数，实现文件需在构建上下文中（`src/extensions/local/` 未被 `.dockerignore` 排除）。构建完成后 standalone 目录会清理掉源码，实现的源文件不会进入最终镜像：
+
+```bash
+docker build --build-arg AI_ACCOUNT_EXTENSION=src/extensions/local/ai-account.ts -t wrong-notebook-custom .
+```
+
 `next.config.ts` 把模块 `@wrong-notebook/ai-account` 指向该文件，未设置时指向默认实现；替换只在构建时生效，修改后需重新构建。Vitest 始终使用默认实现。
