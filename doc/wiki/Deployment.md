@@ -146,4 +146,4 @@ xattr -cr /Applications/WrongNotebook.app
 codesign --force --deep --sign - /Applications/WrongNotebook.app
 ```
 
-安卓单机版在手机上运行服务端，无需另行部署，需要 Android 8.0 及以上的 64 位 ARM 设备；安卓客户端版只是连接服务器的外壳，需要先用上面任一方式部署服务端。详细说明见 [INSTALL_PACKAGES.md](https://github.com/margrop/wrong-notebook/blob/main/doc/INSTALL_PACKAGES.md)。
+安卓单机版在手机上运行服务端，无需另行部署，需要 Android 8.0 及以上的 64 位 ARM 设备；两个安卓版本都需要 Android System WebView 111 及以上；安卓客户端版只是连接服务器的外壳，需要先用上面任一方式部署服务端。详细说明见 [INSTALL_PACKAGES.md](https://github.com/margrop/wrong-notebook/blob/main/doc/INSTALL_PACKAGES.md)。

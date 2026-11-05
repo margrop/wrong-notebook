@@ -64,6 +64,7 @@ wrong-notebook --port 3000 --host 0.0.0.0 --data-dir ~/.wrong-notebook
 | 数据 | 保存在本机，卸载 App 时删除 | 保存在服务器 |
 | 安装包大小 | 约 75MB | 约 2MB |
 | 系统要求 | Android 8.0 及以上，64 位 ARM（arm64-v8a） | Android 7.0 及以上 |
+| 系统 WebView | Android System WebView 111 及以上，过旧时页面顶部提示升级 | 同左 |
 | 包名 | `com.margrop.wrongnotebook.standalone` | `com.margrop.wrongnotebook` |
 
 两种 App 包名不同，可以同时安装；同一种的手机版和平板版包名相同，可以互相覆盖安装。

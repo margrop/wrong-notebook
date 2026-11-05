@@ -150,6 +150,10 @@ export const en = {
             light: "Light",
             dark: "Dark",
         },
+        browserSupport: {
+            outdatedWebView: "The Android System WebView on this phone is outdated ({version}), so some screens may be misplaced or display incorrectly. Update \"Android System WebView\" in your app store, then reopen Wrong Notebook.",
+            outdatedBrowser: "Your browser engine is outdated ({version}), so some screens may be misplaced or display incorrectly. Update your browser, then reopen this page.",
+        },
         app: {
             title: "Smart Error Notebook",
             subtitle: "AI-powered analysis and intelligent review",
