@@ -31,6 +31,8 @@ NEXTAUTH_URL=http://localhost:3000
 
 When the app is accessed from other devices, set `NEXTAUTH_URL` to the full URL actually used to open it.
 
+To send no anonymous statistics at all (restricted networks or demo sites), add `TELEMETRY_DISABLED=true` to `.env`; it forces local recording, error reporting and forwarding off. Otherwise adjust them under "Settings → User Management → Privacy & telemetry"; see [Settings and Users](Settings-and-Users-en#privacy-and-telemetry).
+
 Create `docker-compose.yml`:
 
 ```yaml

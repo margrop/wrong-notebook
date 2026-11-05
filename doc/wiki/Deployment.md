@@ -31,6 +31,8 @@ NEXTAUTH_URL=http://localhost:3000
 
 从其他设备访问时，把 `NEXTAUTH_URL` 改为实际访问应用的完整 URL。
 
+内网合规或演示环境不希望发送任何匿名统计时，在 `.env` 中加入 `TELEMETRY_DISABLED=true`，强制关闭本地记录、错误回报与外发；也可以保留开启，在“设置 → 用户管理 → 隐私与遥测”中按需调整，见[设置与用户管理](Settings-and-Users#隐私与遥测)。
+
 新建 `docker-compose.yml`：
 
 ```yaml

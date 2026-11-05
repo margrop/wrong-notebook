@@ -49,7 +49,7 @@ wrong-notebook --port 3000 --host 0.0.0.0 --data-dir ~/.wrong-notebook
 ### 飞牛OS
 
 1. 在应用中心安装 Node.js v24。
-2. 应用中心 →「手动安装」，选择与设备架构对应的 `.fpk`。安装向导中设置管理员邮箱和密码（至少 6 位，不能是 `123456`）；安装脚本只保存密码的 bcrypt 哈希（`config/initial-admin.json`），服务首次启动时据此创建管理员后删除该文件。
+2. 应用中心 →「手动安装」，选择与设备架构对应的 `.fpk`。安装向导中设置管理员邮箱和密码（至少 6 位，不能是 `123456`）；安装脚本只保存密码的 bcrypt 哈希（`config/initial-admin.json`），服务首次启动时据此创建管理员后删除该文件。向导最后一步须勾选同意[使用协议](EULA.md)，同意的版本一并写入该文件，首次启动时记为管理员已同意并默认开启匿名遥测外发（可在设置中关闭）。
 3. 安装后从桌面图标打开，用向导中设置的账号登录，服务端口 39300，局域网内其他设备也可通过 `http://<NAS 地址>:39300` 访问。
 
 数据保存在应用数据目录（`@appdata/wrongnotebook`），日志为其中的 `wrong-notebook.log`。保留旧数据重装时沿用原有账号，向导中填写的管理员会被忽略；向导设置失败时（见 `install.log`），改用 `wrong-notebook.log` 中的初始化链接。
@@ -162,3 +162,7 @@ npm 使用 [Trusted Publishing](https://docs.npmjs.com/trusted-publishers)（OID
 | `packaging/android/` | 安卓 App Gradle 工程（单机版 / 客户端版 × 手机版 / 平板版） |
 | `scripts/package/android-runtime.mjs` | 组装安卓单机版内置的 Node.js、Prisma 引擎和服务端 |
 | `scripts/package/build-android-prisma-engines.sh` | 交叉编译安卓 Prisma 引擎 |
+
+## 部署形态标识
+
+各安装包的启动器设置环境变量 `WN_PLATFORM`，用于匿名遥测的 `instance_alive` 事件区分部署形态：Docker 镜像为 `docker`，直接运行 npm 包为 `npm`，桌面版为 `desktop`，飞牛OS 为 `fnos`，安卓单机版为 `android`，其他方式缺省为 `other`。该值只取以上枚举，不包含任何实例标识；设置 `TELEMETRY_DISABLED=true` 可关闭全部遥测，见[隐私说明](PRIVACY.md)。

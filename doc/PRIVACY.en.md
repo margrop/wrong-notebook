@@ -6,9 +6,19 @@
 
 wrong-notebook is self-hostable study software. Desktop editions run the server locally. The operator of each Docker, npm, fnOS or source deployment manages that instance's data. Android clients connect to the instance chosen by the user. Who can access data depends on the deployment and its operator.
 
-An instance stores account information, password hashes, question text and images, answers, practice and exam records, and preferences needed for its features. Databases, uploaded files, server logs and configuration are stored in that instance's data or configuration directories; see the [installer guide](INSTALL_PACKAGES.md) for platform paths. Browser diagnostic logs may include page URLs, browser identifiers, errors and operation context and are sent to the same instance's server. They are not automatically sent to the project maintainer's servers.
+An instance stores account information, password hashes, question text and images, answers, practice and exam records, and preferences needed for its features. Databases, uploaded files, server logs and configuration are stored in that instance's data or configuration directories; see the [installer guide](INSTALL_PACKAGES.md) for platform paths. Browser diagnostic logs may include page URLs, browser identifiers, errors and operation context and are sent to the same instance's server. They are not automatically sent to the project maintainer's servers; only the anonymous statistics described under "Anonymous telemetry" are sent to the maintainer.
 
 AI API keys and endpoints, and credentials for a MiniMax Code account that the user chooses to connect, are stored in the instance configuration. MiniMax Code access and refresh tokens, account details and check-in results are stored in `minimax-code.json` in the configuration directory. Protect access to your instance, configuration and backups.
+
+## Anonymous telemetry
+
+Telemetry is an instance-level setting controlled by the administrator; ordinary users cannot opt out individually:
+
+- **Forwarding**: on by default after the administrator accepts the [agreement](EULA.en.md) during initialization or in the installer wizard; off by default on instances upgraded from older versions. About every 6 hours the instance sends a batch to the Wrong Notebook collection service (`https://wrong-notebook-telemetry.margrop.net`, hosted on Vercel, [source code public](https://github.com/margrop/wrong-notebook-telemetry)) containing only the app version, deployment platform (such as Docker or fnOS), event names with enumerated dimensions (such as page category, success, AI provider, duration range and count range), error categories and 16-character error fingerprints. It **does not** contain user or instance identifiers, IP addresses, email addresses, cookies, question content, OCR text, AI conversations, error messages, stack traces or page paths. The collection service stores only daily aggregated counts, deletes them after about 400 days, and its data is visible only to the maintainer; its application code does not store IP addresses, but the hosting platform's access logs keep request source addresses for a short period under the platform's policy.
+- **Local recording** (off by default): usage statistics and sanitized error details (error message, stack trace, page path without IDs, browser family) are stored only in this instance's database, deleted after the retention period (30 days by default) and never forwarded.
+- **Error reporting**: effective only when forwarding or local recording is on.
+
+Administrators can turn forwarding off at any time under "Settings → User Management → Privacy & telemetry", see what the instance collected, clear it immediately, or point it to a self-hosted collection service; the environment variable `TELEMETRY_DISABLED=true` forces all telemetry off. Telemetry data is not included in backups.
 
 ## Third-party services
 

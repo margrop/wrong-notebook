@@ -107,6 +107,20 @@ Admins can import the PEP curriculum tag system as a second tag library alongsid
 
 The data is mainly math and also covers Chinese, English, physics, history, geography and morality & law (filed under politics); unsupported subjects such as primary science are skipped. The import is incremental and safe to repeat, and does not change the built-in tag system or existing questions. Afterwards, "PEP Curriculum Standard" can be chosen under "Tag System" when creating a notebook; it cannot be changed later. The command-line equivalent is `npx tsx scripts/seed-cnm-tags.ts <file path>`.
 
+## Privacy and telemetry
+
+The agreement applies only to administrators: on a fresh install, the person who creates the administrator must accept the [administrator agreement](https://github.com/margrop/wrong-notebook/blob/main/doc/EULA.en.md) on the initialization page (on fnOS, in the installer wizard), after which anonymous telemetry forwarding is on by default. Ordinary users' registration, sign-in and usage do not involve the agreement.
+
+Under "Settings → User Management → Privacy & telemetry" you can:
+
+- **Forward to the collection service**: about every 6 hours, send a batch of anonymous usage statistics and error fingerprints, without user or instance identifiers, question content, AI conversations or error messages. Instances upgraded from older versions have it off; administrators see a banner after signing in and must accept the agreement in a dialog before turning it on.
+- **Local recording** (off by default): usage statistics and sanitized error details stay in this server's database for troubleshooting and are deleted after the retention period (1–365 days, 30 by default).
+- **Error reporting**: effective only when forwarding or local recording is on.
+- **Collection service URL**: the official service by default; you can point it to a [self-hosted collection service](https://github.com/margrop/wrong-notebook-telemetry) (HTTPS only; LAN addresses may use HTTP).
+- See the number of pending items, the last forwarding time and "What this instance collected" (the latest 20 events and errors), and clear them immediately.
+
+The environment variable `TELEMETRY_DISABLED=true` forces all telemetry off and makes the panel read-only. After the agreement changes, administrators see an agreement update dialog that cannot be dismissed; forwarding and admin write actions are paused until they accept, while ordinary users are not affected. Telemetry data is not included in backups. See [Privacy](https://github.com/margrop/wrong-notebook/blob/main/doc/PRIVACY.en.md).
+
 ## Debug logs
 
 When a problem is hard to describe, an admin can export a debug log and send it to the author:

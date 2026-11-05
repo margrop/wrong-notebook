@@ -2,6 +2,15 @@
 
 状态：定稿 v4（全部未决项已确认，可按 §12 实施） · 2026-11-01 · 交付形态：方案文档（本轮不写代码）
 
+> **实施状态（2026-11-05）**：实例端 §12 第 1–8 步已实现，收集服务已部署在 `https://wrong-notebook-telemetry.margrop.net`。与本文的差异：
+> - 遥测模块集中在 `src/lib/telemetry/`（`schema.ts`、`client.ts`、`server.ts`、`state.ts`、`sanitize.ts`、`outbox.ts`、`events.ts`、`admin.ts`、`ingest-contract.ts`），使用协议在 `src/lib/eula/`；契约测试向量在 `src/__tests__/fixtures/telemetry/`。
+> - AI 相关事件（识别、重新解答、练习批改）、组卷、导入导出改在服务端记录，服务商取实例配置，耗时由服务端测量；浏览器只记录打开应用、页面、朗读方式与设置保存。
+> - 错误指纹由服务端计算（浏览器在局域网 HTTP 下没有 `crypto.subtle`），浏览器只按会话去重。
+> - 外发要求曾同意协议：从未同意的实例即使配置开启也不发送；`eula_accepted` 的 trigger 增加 `settings`（存量实例在设置或横幅中首次同意）。
+> - 协议升级门禁拦截的是所有 `withAdmin` 包装的非 GET 接口（含 `/api/settings`），同意接口除外。
+> - 飞牛OS 向导用只有一个选项的必选 `radio`（值为协议版本），因为官方文档未说明 `checkbox` 的取值格式。
+> - 外发队列的退避状态只在进程内保存；网络失败或非 2xx 后等待 30 分钟（或 `Retry-After`）再试。
+
 已确认决策：
 - 数据去向 = **本地留存 + 外发并存**；外发目标是自建在 Vercel 上的收集服务（§7）。
 - 使用协议**只针对管理员**：新安装由创建管理员的人同意；**协议升级时管理员必须重新同意**。普通用户不看、不签协议，也不受影响。

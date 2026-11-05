@@ -388,6 +388,10 @@ frontendLogger.forceFlush();
 
 **文档更新时间**: 2026-10-31
 
+## 匿名错误回报与日志的区别
+
+日志（含调试日志）不写数据库、不外发。匿名错误回报是单独的遥测通道：只有 API 路由在 `internalError(message, { error, scope })` 中传入错误、`withUser`/`withAdmin` 兜底捕获，以及浏览器的未捕获异常和 `error.tsx` / `global-error.tsx` 渲染错误会进入；`logger.error` 本身不会。遥测开启时，错误按指纹去重后写入 `TelemetryError` 表，外发只发类别与 16 位指纹，错误原文与堆栈只在管理员开启“本地记录”时脱敏保存在本机。开关与数据范围见[隐私说明](PRIVACY.md)和[遥测设计](TELEMETRY_DESIGN.md)。
+
 ## 📚 相关文档
 
 - [日志迁移报告](./LOGGING_MIGRATION_FINAL_REPORT.md)
