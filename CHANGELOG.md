@@ -3,6 +3,33 @@
 本文件记录各正式版的改动，由 `scripts/changelog.sh` 根据提交信息生成，请勿手动编辑。
 预览版（`v年.月.日-n`）的改动见 [GitHub Releases](https://github.com/margrop/wrong-notebook/releases)，并归入其后的正式版。
 
+## [2026.11.6](https://github.com/margrop/wrong-notebook/releases/tag/v2026.11.6) - 2026-11-06
+
+### ✨ 新功能
+- 录入方式、裁剪模式与组卷偏好记住上次选择
+- 接入功能使用埋点
+- 管理员遥测设置与存量实例告知
+- 遥测外发队列与部署形态标识
+- 飞牛OS安装向导增加使用协议确认
+- 管理员须同意使用协议
+- 新增前后端错误回报
+- 新增匿名遥测基础设施
+- Docker 镜像构建支持替换 AI 账户实现
+- 新增扩展用的外部账号表
+- 新增 AI 额度不足错误码
+- 记录每次 AI 补全的 token 用量
+- 使用 AI 前须经用户同意数据授权
+- 普通用户可在设置中注销账号
+- 打印时选择题选项按长度自动横排
+
+### 🛠 修复
+- 使用协议中的设置入口名称与界面一致
+- 兼容旧版安卓系统 WebView，内核过旧时提示升级
+- 对话框居中不再依赖 CSS translate，修复旧版安卓 WebView 中面板偏出屏幕
+- 单独成行的作答横线上方留出书写空间
+
+**完整变更**：https://github.com/margrop/wrong-notebook/compare/v2026.11.4...v2026.11.6
+
 ## [2026.11.4](https://github.com/margrop/wrong-notebook/releases/tag/v2026.11.4) - 2026-11-04
 
 ### ✨ 新功能
