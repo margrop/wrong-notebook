@@ -14,8 +14,22 @@ export const securityHeaders = [
   { key: "Content-Security-Policy", value: "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'" },
 ];
 
+/**
+ * AI 账户扩展：构建时用环境变量 AI_ACCOUNT_EXTENSION（相对项目根目录的文件路径）替换默认实现，见 doc/FORK_EXTENSION_POINTS.md。
+ */
+export function aiAccountExtensionPath(value = process.env.AI_ACCOUNT_EXTENSION): string {
+  const path = value?.trim();
+  if (!path) return './src/lib/ai/account-default.ts';
+  return path.startsWith('.') || path.startsWith('/') ? path : `./${path}`;
+}
+
 const nextConfig: NextConfig = {
   output: 'standalone',
+  turbopack: {
+    resolveAlias: {
+      '@wrong-notebook/ai-account': aiAccountExtensionPath(),
+    },
+  },
   serverExternalPackages: ['@prisma/client', 'bcryptjs'],
   // 禁止 next dev 自动向 AGENTS.md / CLAUDE.md 写入 agent-rules 段落
   agentRules: false,

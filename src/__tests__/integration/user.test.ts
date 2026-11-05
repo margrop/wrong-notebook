@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Use vi.hoisted to ensure mocks are initialized before module imports
 const mocks = vi.hoisted(() => ({
+    notifyAiAccountUsersDeleted: vi.fn(),
     mockPrismaUser: {
         findUnique: vi.fn(),
         update: vi.fn(),
@@ -44,6 +45,8 @@ vi.mock('bcryptjs', () => ({
     hash: vi.fn((password: string) => Promise.resolve(`hashed_${password}`)),
     compare: vi.fn((password: string, hashed: string) => Promise.resolve(hashed === `hashed_${password}`)),
 }));
+
+vi.mock('@/lib/ai/account-provider', () => ({ notifyAiAccountUsersDeleted: mocks.notifyAiAccountUsersDeleted }));
 
 // Import after mocks
 import { DELETE, GET, PATCH } from '@/app/api/user/route';
@@ -686,6 +689,8 @@ describe('/api/user', () => {
             expect(response.status).toBe(200);
             expect(await response.json()).toEqual({ success: true });
             expect(mocks.mockPrismaUser.delete).toHaveBeenCalledWith({ where: { id: 'user-1' } });
+            // 删除成功后通知 AI 账户实现清理外部账户
+            expect(mocks.notifyAiAccountUsersDeleted).toHaveBeenCalledWith(['user-1']);
         });
 
         it('密码错误时返回 400，不删除账号', async () => {
@@ -696,6 +701,7 @@ describe('/api/user', () => {
             expect(response.status).toBe(400);
             expect((await response.json()).message).toBe('Incorrect password');
             expect(mocks.mockPrismaUser.delete).not.toHaveBeenCalled();
+            expect(mocks.notifyAiAccountUsersDeleted).not.toHaveBeenCalled();
         });
 
         it('未提供密码时返回校验错误', async () => {

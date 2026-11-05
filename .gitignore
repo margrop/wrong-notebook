@@ -33,6 +33,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# 构建时注入的私有扩展（见 doc/FORK_EXTENSION_POINTS.md），不入库
+/src/extensions/local/
+
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example

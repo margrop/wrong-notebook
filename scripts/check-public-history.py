@@ -10,7 +10,7 @@ PUBLIC_BASELINE = "9751f074f713f55add71174ebe4066641ad370f4"
 PRIVATE_PATHS = (
     ".gitea", "deploy", "tests/deployment", "doc/PORTAINER_DEPLOYMENT.md",
     "scripts/deploy.sh", "scripts/deploy_portainer.py", "scripts/prune-images.sh",
-    "config/app-config.json",
+    "config/app-config.json", "src/extensions/local",
 )
 PRIVATE_NETWORKS = tuple(ipaddress.IPv4Network(value) for value in (
     (0x0A000000, 8), (0xAC100000, 12), (0xC0A80000, 16),

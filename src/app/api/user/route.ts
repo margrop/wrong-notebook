@@ -8,6 +8,7 @@ import { z } from "zod";
 import { compare, hash } from "bcryptjs";
 import type { Prisma } from "@prisma/client";
 import { unauthorized, notFound, badRequest, forbidden, validationError, internalError } from "@/lib/api-errors";
+import { notifyAiAccountUsersDeleted } from "@/lib/ai/account-provider";
 import { createLogger } from "@/lib/logger";
 import { isDefaultAdminPassword } from "@/lib/default-admin";
 import { syncMasteryLevels } from "@/lib/mastery";
@@ -200,6 +201,7 @@ async function handleDelete(req: Request, { user }: AuthenticatedContext) {
 
     await prisma.user.delete({ where: { id: user.id } });
     logger.info({ userId: user.id }, 'User deleted own account');
+    await notifyAiAccountUsersDeleted([user.id]);
 
     return NextResponse.json({ success: true });
 }

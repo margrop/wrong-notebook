@@ -3,6 +3,7 @@ import { withAdmin } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { prisma } from "@/lib/prisma";
 import { internalError } from "@/lib/api-errors";
+import { notifyAiAccountUsersDeleted } from "@/lib/ai/account-provider";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger('api:admin:system-reset');
@@ -18,6 +19,7 @@ async function handlePost(_req: Request, { session }: AuthenticatedContext) {
     try {
         logger.info({ email: session.user.email }, 'System reset initiated');
 
+        const deletedUserIds: string[] = [];
         await prisma.$transaction(async (tx) => {
             await tx.practiceRecord.deleteMany({});
             await tx.errorItem.deleteMany({});
@@ -30,15 +32,13 @@ async function handlePost(_req: Request, { session }: AuthenticatedContext) {
 
             // 删除除当前用户外的其他用户
             if (session.user?.email) {
-                await tx.user.deleteMany({
-                    where: {
-                        email: {
-                            not: session.user.email
-                        }
-                    }
-                });
+                const others = { email: { not: session.user.email } };
+                const users = await tx.user.findMany({ where: others, select: { id: true } });
+                await tx.user.deleteMany({ where: others });
+                deletedUserIds.push(...users.map((user) => user.id));
             }
         });
+        await notifyAiAccountUsersDeleted(deletedUserIds);
 
         logger.info('System reset completed successfully');
         return NextResponse.json({ success: true, message: "System reset complete" });

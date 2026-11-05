@@ -59,6 +59,12 @@ class PublicHistoryTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("私有文件历史", result.stderr)
 
+    def test_local_extension_cannot_be_published(self):
+        self.commit("src/extensions/local/ai-account.ts", "export const aiAccountProvider = {};\n")
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("私有文件历史", result.stderr)
+
     def test_removed_internal_address_still_blocks_publication_without_disclosing_it(self):
         address = ".".join(("10", "42", "1", "7"))
         self.commit("README.md", "http://" + address + "/\n")

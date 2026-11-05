@@ -3,6 +3,7 @@ import { withAdmin } from "@/lib/api-handler"
 import type { AuthenticatedContext } from "@/lib/api-handler"
 import { prisma } from "@/lib/prisma"
 import { badRequest, internalError } from "@/lib/api-errors"
+import { notifyAiAccountUsersDeleted } from "@/lib/ai/account-provider"
 import { createLogger } from "@/lib/logger"
 import { adminUserUpdateSchema } from "@/lib/schemas/admin"
 
@@ -73,6 +74,7 @@ async function handleDelete(_req: Request, { session, params }: RouteContext & A
                 id
             }
         })
+        await notifyAiAccountUsersDeleted([user.id])
 
         return NextResponse.json(user)
     } catch (error) {

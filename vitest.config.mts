@@ -11,6 +11,8 @@ export default defineConfig({
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url)),
             'server-only': fileURLToPath(new URL('./src/__tests__/stubs/server-only.ts', import.meta.url)),
+            // 测试始终使用默认的 AI 账户实现，不受 AI_ACCOUNT_EXTENSION 影响
+            '@wrong-notebook/ai-account': fileURLToPath(new URL('./src/lib/ai/account-default.ts', import.meta.url)),
         },
         include: ['src/__tests__/**/*.test.ts', 'src/__tests__/**/*.test.tsx'],
         exclude: ['node_modules', '.next', 'dist'],

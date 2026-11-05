@@ -9,8 +9,9 @@ import { MiniMaxCodeProvider } from "./minimax-code-provider";
 import { isVendorProvider, resolveVendorConfig, VENDOR_PRESETS } from "./vendor-presets";
 import { limitModelConcurrency } from "./concurrency";
 import type { CompletionObserver } from "./completion";
-import { recordAiCompletion } from "./usage";
 import type { AiCallScope } from "./usage";
+import type { AiProviderOverride } from "./account";
+import { getAiAccountProvider } from "./account-provider";
 
 export * from "./types";
 export type { AiCallKind, AiCallScope } from "./usage";
@@ -29,13 +30,27 @@ function concurrencyKey(provider: string, baseUrl: string | undefined, model: st
 type ObservableAIService = AIService & { observeCompletions(observer: CompletionObserver | undefined): void };
 
 /**
- * 为某个用户的某项操作取得 AI 服务：每次补全的 token 用量记入该用户名下，
- * 所有调用受同一模型的并发上限约束。
+ * 为某个用户的某项操作取得 AI 服务：AI 账户实现可为该用户指定单独的 AI 配置（默认使用全站配置），
+ * 每次补全的 token 用量交给 AI 账户实现记录；所有调用受同一模型的并发上限约束。
  */
 export async function getAIService(scope: AiCallScope): Promise<AIService> {
-    const { service, key, provider } = createAIService();
-    service.observeCompletions((event) => recordAiCompletion(scope, provider, event));
+    const account = getAiAccountProvider();
+    const override = await account.resolveConfig(scope);
+    const { service, key, provider } = override ? createOverrideService(override) : createAIService();
+    service.observeCompletions((event) => account.record(scope, provider, event).catch((error: unknown) => {
+        logger.error({ error, userId: scope.userId, kind: scope.kind }, 'AI account failed to record completion');
+    }));
     return limitModelConcurrency(service, key);
+}
+
+/** 用户单独指定的 OpenAI 兼容配置；并发分组不含 API Key，不同用户共用同一模型的名额 */
+function createOverrideService(override: AiProviderOverride): { service: ObservableAIService; key: string; provider: string } {
+    const { provider, baseUrl, apiKey, model } = override;
+    return {
+        service: new OpenAIProvider({ apiKey, baseUrl, model }),
+        key: concurrencyKey(provider, baseUrl, model),
+        provider,
+    };
 }
 
 function createAIService(): { service: ObservableAIService; key: string; provider: string } {
