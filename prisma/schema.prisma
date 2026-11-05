@@ -41,6 +41,7 @@ model User {
   customTags KnowledgeTag[] // User's custom tags
   examPapers ExamPaper[]
   aiUsages   AiUsage[]
+  aiCompletions AiCompletion[]
   paperGroups PaperGroup[]
   importTasks ImportTask[]
   importBatches ImportBatch[]
@@ -288,6 +289,27 @@ model AiUsage {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// 每次 AI 补全的 token 用量（含后台自动的掌握概率评估）；一次用户操作可能对应多次补全
+model AiCompletion {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind         String   // 触发补全的操作，同 AiUsage.kind，另有 mastery
+  task         String   // 补全任务，如 analyze、grading、tag-suggest
+  provider     String   // 配置的 AI 渠道，如 openai、anthropic、deepseek
+  model        String?
+  inputTokens  Int?
+  outputTokens Int?
+  requestId    String?  // 服务商或网关返回的请求 ID
+  durationMs   Int
+  status       String   // succeeded | failed
+  errorCode    String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }
 
 // 拍照识别导入任务：上传后由服务端识别并保存结果，离开页面、锁屏或服务重启后仍可取回，不重复调用 AI

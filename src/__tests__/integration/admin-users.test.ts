@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
         delete: vi.fn(),
     },
     mockAiUsage: { groupBy: vi.fn() },
+    mockAiCompletion: { groupBy: vi.fn() },
     mockSession: {
         user: {
             id: 'admin-id',
@@ -34,6 +35,7 @@ vi.mock('@/lib/prisma', () => ({
     prisma: {
         user: mocks.mockPrismaUser,
         aiUsage: mocks.mockAiUsage,
+        aiCompletion: mocks.mockAiCompletion,
     },
 }));
 
@@ -84,6 +86,7 @@ describe('/api/admin/users', () => {
             ];
             mocks.mockPrismaUser.findMany.mockResolvedValue(mockUsers);
             mocks.mockAiUsage.groupBy.mockResolvedValue([{ userId: 'user-1', _count: { _all: 7 } }]);
+            mocks.mockAiCompletion.groupBy.mockResolvedValue([{ userId: 'user-1', _sum: { inputTokens: 1200, outputTokens: null } }]);
 
             const response = await GET();
             const data = await response.json();
@@ -94,6 +97,9 @@ describe('/api/admin/users', () => {
             // 附带今日 AI 调用次数，没有记录的用户为 0
             expect(data.map((user: { aiUsageToday: number }) => user.aiUsageToday)).toEqual([7, 0]);
             expect(mocks.mockAiUsage.groupBy).toHaveBeenCalledWith(expect.objectContaining({ by: ['userId'] }));
+            // 附带今日 token 用量，缺失的合计按 0 处理
+            expect(data.map((user: { aiTokensToday: unknown }) => user.aiTokensToday)).toEqual([{ input: 1200, output: 0 }, { input: 0, output: 0 }]);
+            expect(mocks.mockAiCompletion.groupBy).toHaveBeenCalledWith(expect.objectContaining({ by: ['userId'], _sum: { inputTokens: true, outputTokens: true } }));
         });
 
         it('应该拒绝非管理员访问', async () => {

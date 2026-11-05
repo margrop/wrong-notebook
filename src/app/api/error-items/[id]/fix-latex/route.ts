@@ -69,8 +69,8 @@ async function handlePost(
             return limited;
         }
 
-        const fixed = await runReservedTask(handle, () =>
-            getAIService().fixLatex(input)
+        const fixed = await runReservedTask(handle, async () =>
+            (await getAIService({ userId: user.id, kind: 'latex' })).fixLatex(input)
         );
         const updated: Partial<Record<LatexField, string>> = {};
         for (const field of Object.keys(input) as LatexField[]) {

@@ -94,7 +94,7 @@ export async function analyzeQuestionForUser(input: QuestionAnalysisInput): Prom
     }
 
     logger.info({ userGrade, userGradeSemester, subject: subjectChinese, hasReferenceText: !!input.referenceText?.trim() }, 'Calling AI service for image analysis');
-    const aiService = getAIService();
+    const aiService = await getAIService({ userId: input.userId, kind: 'analyze' });
     const analysisResult = await trackBackgroundTask(
         { userId: input.userId, kind: 'analyze', subject: notebookName, link: input.link ?? null },
         () => aiService.analyzeImage(base64, mimeType, input.language, userGrade, subjectChinese, userGradeSemester, candidateTags, input.referenceText ?? null)
@@ -165,7 +165,7 @@ export async function analyzeQuestionTextForUser(input: QuestionTextAnalysisInpu
     const fixedGrade = user ? getFixedQuestionGrade(user, getAppTimeZone()) : null;
     const result = await trackBackgroundTask(
         { userId: input.userId, kind: 'reanswer', subject: notebookName ?? describeQuestion({ questionText: input.questionText }), link: input.link ?? null },
-        () => getAIService().reanswerQuestion(input.questionText, input.language, notebookName, undefined, fixedGrade ?? undefined, candidateTags),
+        async () => (await getAIService({ userId: input.userId, kind: 'reanswer' })).reanswerQuestion(input.questionText, input.language, notebookName, undefined, fixedGrade ?? undefined, candidateTags),
     );
     const parsed: ParsedQuestion = {
         questionText: input.questionText,
@@ -190,6 +190,6 @@ export async function analyzeQuestionTextForUser(input: QuestionTextAnalysisInpu
 export async function splitQuestionsForUser(userId: string, input: QuestionSplitInput, link?: string | null): Promise<QuestionSplitResult> {
     return trackBackgroundTask(
         { userId, kind: 'split', subject: null, link: link ?? null },
-        () => getAIService().splitQuestions(input),
+        async () => (await getAIService({ userId, kind: 'split' })).splitQuestions(input),
     );
 }

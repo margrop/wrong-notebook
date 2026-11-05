@@ -73,8 +73,8 @@ async function handlePost(
             return limited;
         }
 
-        const result = await runReservedTask(handle, () =>
-            getAIService().reanswerQuestion(questionText, language, subject, image, item.gradeSemester)
+        const result = await runReservedTask(handle, async () =>
+            (await getAIService({ userId: user.id, kind: 'reanswer' })).reanswerQuestion(questionText, language, subject, image, item.gradeSemester)
         );
         if (!result.answerText.trim() && !result.analysis.trim()) {
             return badRequest("EMPTY_ANSWER");

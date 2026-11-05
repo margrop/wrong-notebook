@@ -75,7 +75,7 @@ async function handlePost(req: Request, { user, params }: RouteContext & Authent
 
         // 页面关闭后服务端仍会继续生成并保存，后台任务弹框中可查看进度
         const svgAnimation = await runReservedTask(handle, async () => {
-            const svg = await getAIService().generateSvgAnimation(questionText, item.answerText || "", item.analysis || "", item.figureSvg, language);
+            const svg = await (await getAIService({ userId: user.id, kind: 'animation' })).generateSvgAnimation(questionText, item.answerText || "", item.analysis || "", item.figureSvg, language);
             if (!svg) throw new Error("NO_VALID_ANIMATION");
             await prisma.errorItem.update({ where: { id }, data: { [animationField(language)]: svg } });
             return svg;

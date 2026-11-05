@@ -78,7 +78,7 @@ async function handlePost(
             return limited;
         }
 
-        const aiService = getAIService();
+        const aiService = await getAIService({ userId: user.id, kind: 'geogebra' });
 
         // Use frontend-provided data if available (more up-to-date), fall back to DB
         const parsed = geogebraAnalyzeSchema.safeParse(await req.json().catch(() => ({})));

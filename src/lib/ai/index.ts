@@ -8,8 +8,12 @@ import { AnthropicProvider } from "./anthropic-provider";
 import { MiniMaxCodeProvider } from "./minimax-code-provider";
 import { isVendorProvider, resolveVendorConfig, VENDOR_PRESETS } from "./vendor-presets";
 import { limitModelConcurrency } from "./concurrency";
+import type { CompletionObserver } from "./completion";
+import { recordAiCompletion } from "./usage";
+import type { AiCallScope } from "./usage";
 
 export * from "./types";
+export type { AiCallKind, AiCallScope } from "./usage";
 
 import { getAppConfig, getActiveOpenAIConfig } from "../config";
 import { createLogger } from "../logger";
@@ -21,13 +25,25 @@ function concurrencyKey(provider: string, baseUrl: string | undefined, model: st
     return [provider, baseUrl || '', model || ''].join('|');
 }
 
-/** 当前配置的 AI 服务，所有调用受同一模型的并发上限约束 */
-export function getAIService(): AIService {
-    const { service, key } = createAIService();
+/** 能报告每次补全用量的 AI 服务 */
+type ObservableAIService = AIService & { observeCompletions(observer: CompletionObserver | undefined): void };
+
+/**
+ * 为某个用户的某项操作取得 AI 服务：每次补全的 token 用量记入该用户名下，
+ * 所有调用受同一模型的并发上限约束。
+ */
+export async function getAIService(scope: AiCallScope): Promise<AIService> {
+    const { service, key, provider } = createAIService();
+    service.observeCompletions((event) => recordAiCompletion(scope, provider, event));
     return limitModelConcurrency(service, key);
 }
 
-function createAIService(): { service: AIService; key: string } {
+function createAIService(): { service: ObservableAIService; key: string; provider: string } {
+    const provider = getAppConfig().aiProvider || 'unknown';
+    return { ...createProviderService(), provider };
+}
+
+function createProviderService(): { service: ObservableAIService; key: string } {
     // Always get fresh config
     const config = getAppConfig();
     const provider = config.aiProvider;

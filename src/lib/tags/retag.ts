@@ -1,6 +1,7 @@
 import type { QuestionType } from "@/lib/question/question-type";
 import { prisma } from "@/lib/prisma";
 import { getAIService } from "@/lib/ai";
+import type { AiCallScope } from "@/lib/ai";
 import { getMathTagsFromDB, getScopeTagsFromDB } from "@/lib/ai/tag-service";
 import { calculateGradeNumber } from "@/lib/tags/knowledge-tags";
 import { calculateGrade } from "@/lib/grade-calculator";
@@ -47,6 +48,8 @@ export interface SuggestTagsForTextInput {
     /** 用户年级信息（未提供错题本学科时按数学标签需要） */
     user?: { educationStage: string | null; enrollmentYear: number | null } | null;
     gradeSemester?: string | null;
+    /** AI 用量记入的用户和操作 */
+    aiScope: AiCallScope;
 }
 
 /**
@@ -79,7 +82,8 @@ export async function suggestTagsForText(input: SuggestTagsForTextInput): Promis
             ? calculateGrade(input.user.educationStage, input.user.enrollmentYear, new Date(), 'zh', getAppTimeZone())
             : null);
 
-    const { tags: chosen, difficultyStars, questionType } = await getAIService().suggestKnowledgeTags({
+    const ai = await getAIService(input.aiScope);
+    const { tags: chosen, difficultyStars, questionType } = await ai.suggestKnowledgeTags({
         questionText: input.questionText,
         answerText: input.answerText,
         analysis: input.analysis,
@@ -132,6 +136,7 @@ async function suggestTagsForItem(errorItemId: string, userId: string): Promise<
         notebook: item.subject,
         user: item.user,
         gradeSemester: item.gradeSemester,
+        aiScope: { userId, kind: 'retag' },
     });
 
     // 候选知识点 = 错题本学段 + 学科 + 标签体系下的全部标签；

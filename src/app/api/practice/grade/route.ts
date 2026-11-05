@@ -43,7 +43,7 @@ async function handlePost(req: Request, { user }: AuthenticatedContext) {
         const limited = await consumeAiQuota(user, 'grade');
         if (limited) return limited;
 
-        const result = await getAIService().gradeAnswer({
+        const result = await (await getAIService({ userId: user.id, kind: 'grade' })).gradeAnswer({
             questionText: practice.questionText,
             answerText: practice.answerText,
             analysis: practice.analysis,

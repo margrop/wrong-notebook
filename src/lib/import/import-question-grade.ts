@@ -48,7 +48,7 @@ export async function prepareImportGrade(user: ImportGradeUser, input: ImportGra
         if (limited) return await quotaFailure(limited);
         const recognizedGradeSemester = await trackBackgroundTask(
             { userId: user.id, kind: 'analyze', subject: describeQuestion({ questionText: input.questionText }) },
-            () => getAIService().recognizeGrade(input.questionText ?? ''),
+            async () => (await getAIService({ userId: user.id, kind: 'analyze' })).recognizeGrade(input.questionText ?? ''),
         );
         return { ok: true, gradeSemester: resolveQuestionGrade(user, { ...input, recognizedGradeSemester }, timeZone) };
     } catch (error) {

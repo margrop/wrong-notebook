@@ -1100,6 +1100,8 @@ export const zh = {
             aiConcurrencyLimitDesc: "同一模型同时进行的 AI 调用数量（1～100，默认 5），超出的调用排队等待，避免服务商返回 429 限流错误。",
             aiConcurrencyLimitSaved: "AI 并发上限已保存",
             aiUsageToday: "今日 AI",
+            aiTokensToday: "今日 token",
+            aiTokensDetail: "输入 {input} / 输出 {output}",
             debugLog: {
                 title: "调试日志",
                 desc: "遇到问题时：打开调试开关，复现问题，再导出调试日志发送给作者，方便排查。",

@@ -19,6 +19,7 @@ vi.mock('next-auth', () => ({ getServerSession: vi.fn(() => Promise.resolve(mock
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 
 import { POST } from '@/app/api/error-items/[id]/figure/route';
+import { getAIService } from '@/lib/ai';
 import { resetBackgroundTasksForTest } from '@/lib/background-tasks';
 
 const call = () => POST(new Request('http://localhost', { method: 'POST' }), { params: Promise.resolve({ id: 'e1' }) });
@@ -42,6 +43,8 @@ describe('POST /api/error-items/:id/figure', () => {
 
         expect(response.status).toBe(200);
         expect(mocks.generateFigureSvg).toHaveBeenCalledWith('QUJD', 'image/png', '如图，求三角形面积');
+        // 用量记在发起操作的用户名下
+        expect(getAIService).toHaveBeenCalledWith({ userId: 'user-1', kind: 'figure' });
         expect(mocks.errorItem.update).toHaveBeenCalledWith(expect.objectContaining({ data: { hasFigure: true, figureSvg: svg } }));
         expect(await response.json()).toEqual({ hasFigure: true, figureSvg: svg });
     });

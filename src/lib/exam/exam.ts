@@ -157,7 +157,7 @@ function parseTagNames(item: { tags: { name: string }[]; knowledgePoints: string
     }
 }
 
-async function generateQuestion(questionId: string, difficulty: DifficultyLevel, language: 'zh' | 'en'): Promise<void> {
+async function generateQuestion(userId: string, questionId: string, difficulty: DifficultyLevel, language: 'zh' | 'en'): Promise<void> {
     const question = await prisma.examQuestion.findUnique({
         where: { id: questionId },
         select: {
@@ -172,7 +172,8 @@ async function generateQuestion(questionId: string, difficulty: DifficultyLevel,
     }
 
     try {
-        const generated = await getAIService().generateSimilarQuestion(
+        const ai = await getAIService({ userId, kind: 'exam' });
+        const generated = await ai.generateSimilarQuestion(
             question.errorItem.questionText || '',
             parseTagNames(question.errorItem),
             language,
@@ -244,7 +245,7 @@ export async function generateExamPaper(paperId: string, language: 'zh' | 'en' =
         }
         const worker = async () => {
             while (queue.length > 0) {
-                await generateQuestion(queue.shift()!, paper.difficulty as DifficultyLevel, language);
+                await generateQuestion(paper.userId, queue.shift()!, paper.difficulty as DifficultyLevel, language);
                 task?.setProgress(++done, total);
             }
         };
@@ -350,7 +351,7 @@ export async function regenerateExamQuestion(
             throw new Error('SOURCE_DELETED');
         }
 
-        const generated = await wrap('exam', () => getAIService().generateSimilarQuestion(
+        const generated = await wrap('exam', async () => (await getAIService({ userId, kind: 'exam' })).generateSimilarQuestion(
             source.questionText || '',
             parseTagNames(source),
             language,
@@ -381,7 +382,8 @@ export async function regenerateExamQuestion(
         const scope = question.errorItem?.subject ? resolveNotebookScope(question.errorItem.subject) : null;
         const subject = scope?.subject ? SUBJECT_DISPLAY_NAMES[scope.subject] : null;
 
-        const result = await wrap('reanswer', () => getAIService().reanswerQuestion(
+        // 「重新解答」与「换一道题」同属试卷操作，用量记在 exam 名下（与额度扣减一致）
+        const result = await wrap('reanswer', async () => (await getAIService({ userId, kind: 'exam' })).reanswerQuestion(
             questionText, language, subject, undefined, question.errorItem?.gradeSemester
         ));
         if (!result.answerText.trim() && !result.analysis.trim()) throw new Error('EMPTY_ANSWER');

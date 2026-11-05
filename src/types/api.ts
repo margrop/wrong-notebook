@@ -307,6 +307,8 @@ export interface AdminUser extends UserProfile {
     };
     /** 今日发起的 AI 调用次数 */
     aiUsageToday: number;
+    /** 今日 AI 补全消耗的输入、输出 token（含后台掌握概率评估） */
+    aiTokensToday: { input: number; output: number };
 }
 
 export interface AdminDashboardData {

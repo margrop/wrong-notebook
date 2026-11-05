@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { Trash2, Ban, CheckCircle, Loader2 } from "lucide-react";
 import { AiConcurrencyLimitSetting } from "@/components/admin/ai-concurrency-limit-setting";
+import { AiUsageToday } from "@/components/admin/ai-usage-today";
 import { apiClient } from "@/lib/api-client";
 import { AdminUser, AppConfig } from "@/types/api";
 import { toast, confirmDialog } from "@/lib/feedback";
@@ -193,7 +194,7 @@ export function UserManagement() {
                         </div>
                         <div className="flex justify-between text-sm">
                             <div className="text-muted-foreground">
-                                {t.admin.errors}: {user._count.errorItems} | {t.admin.practiceCount}: {user._count.practiceRecords} | {t.admin.aiUsageToday}: {user.aiUsageToday}
+                                {t.admin.errors}: {user._count.errorItems} | {t.admin.practiceCount}: {user._count.practiceRecords} | <AiUsageToday user={user} />
                             </div>
                             <Badge variant={user.isActive ? "default" : "destructive"} className="text-xs">
                                 {user.isActive ? t.admin.active : t.admin.disabled}
@@ -263,7 +264,7 @@ export function UserManagement() {
                                         {t.admin.practiceCount}: {user._count.practiceRecords}
                                     </div>
                                     <div className="text-sm">
-                                        {t.admin.aiUsageToday}: {user.aiUsageToday}
+                                        <AiUsageToday user={user} />
                                     </div>
                                 </TableCell>
                                 <TableCell>

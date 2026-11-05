@@ -114,7 +114,7 @@ describe('AI Provider 初始化', () => {
     });
 
     describe('AI Service Factory', () => {
-        it('应该根据配置返回 OpenAI Provider', () => {
+        it('应该根据配置返回 OpenAI Provider', async () => {
             vi.mocked(getAppConfig).mockReturnValue({
                 aiProvider: 'openai',
                 openai: {
@@ -131,33 +131,33 @@ describe('AI Provider 初始化', () => {
                 model: 'gpt-4o',
             });
 
-            const service = getAIService();
+            const service = await getAIService({ userId: 'u1', kind: 'analyze' });
 
             expect(service).toBeDefined();
             expect(service.constructor.name).toBe('OpenAIProvider');
         });
 
-        it('应该根据配置返回 Gemini Provider', () => {
+        it('应该根据配置返回 Gemini Provider', async () => {
             vi.mocked(getAppConfig).mockReturnValue({
                 aiProvider: 'gemini',
                 gemini: { apiKey: 'test-gemini-key', model: 'gemini-2.0-flash' },
                 openai: { apiKey: '', model: '' }
             } as unknown as ReturnType<typeof getAppConfig>);
 
-            const service = getAIService();
+            const service = await getAIService({ userId: 'u1', kind: 'analyze' });
 
             expect(service).toBeDefined();
             expect(service.constructor.name).toBe('GeminiProvider');
         });
 
-        it('配置未知 provider 时应该回退到默认的 MiniMax 渠道', () => {
+        it('配置未知 provider 时应该回退到默认的 MiniMax 渠道', async () => {
             vi.mocked(getAppConfig).mockReturnValue({
                 aiProvider: 'unknown',
                 gemini: { apiKey: 'test-gemini-key' },
                 minimax: { apiKey: 'test-minimax-key' },
             } as unknown as ReturnType<typeof getAppConfig>);
 
-            const service = getAIService();
+            const service = await getAIService({ userId: 'u1', kind: 'analyze' });
 
             expect(service).toBeDefined();
             expect(service.constructor.name).toBe('OpenAIProvider');

@@ -30,16 +30,24 @@ export const GET = withAdmin(async () => {
             }
         })
 
-        // 今日 AI 调用次数，便于管理员了解用量并设置额度
+        // 今日 AI 调用次数与 token 用量（含后台掌握概率评估），便于管理员了解用量并设置额度
         const { start, end } = getDayRange(new Date(), getAppTimeZone())
-        const usage = await prisma.aiUsage.groupBy({
-            by: ['userId'],
-            where: { createdAt: { gte: start, lt: end } },
-            _count: { _all: true },
-        })
+        const today = { createdAt: { gte: start, lt: end } }
+        const [usage, tokens] = await Promise.all([
+            prisma.aiUsage.groupBy({ by: ['userId'], where: today, _count: { _all: true } }),
+            prisma.aiCompletion.groupBy({ by: ['userId'], where: today, _sum: { inputTokens: true, outputTokens: true } }),
+        ])
         const usageByUser = new Map(usage.map((entry) => [entry.userId, entry._count._all]))
+        const tokensByUser = new Map(tokens.map((entry) => [entry.userId, {
+            input: entry._sum.inputTokens ?? 0,
+            output: entry._sum.outputTokens ?? 0,
+        }]))
 
-        return NextResponse.json(users.map((user) => ({ ...user, aiUsageToday: usageByUser.get(user.id) ?? 0 })))
+        return NextResponse.json(users.map((user) => ({
+            ...user,
+            aiUsageToday: usageByUser.get(user.id) ?? 0,
+            aiTokensToday: tokensByUser.get(user.id) ?? { input: 0, output: 0 },
+        })))
     } catch (error) {
         logger.error({ error }, 'Error fetching users');
         return internalError("Failed to fetch users")

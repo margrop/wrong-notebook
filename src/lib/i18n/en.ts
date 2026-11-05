@@ -1101,6 +1101,8 @@ export const en = {
             aiConcurrencyLimitDesc: "How many AI calls the same model may run at once (1–100, default 5). Further calls wait in a queue, which avoids rate-limit (429) errors from the provider.",
             aiConcurrencyLimitSaved: "AI concurrency limit saved",
             aiUsageToday: "AI today",
+            aiTokensToday: "Tokens today",
+            aiTokensDetail: "in {input} / out {output}",
             debugLog: {
                 title: "Debug Logs",
                 desc: "When a problem occurs: turn on debug mode, reproduce the problem, then export the debug log and send it to the author for troubleshooting.",

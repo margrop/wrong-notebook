@@ -58,15 +58,15 @@ async function handlePost(
             return limited;
         }
 
-        const updated = await runReservedTask(handle, () =>
-            getAIService().generateFigureSvg(match[2], match[1], item.questionText).then((figure) =>
-                prisma.errorItem.update({
-                    where: { id },
-                    data: { hasFigure: figure.hasFigure, figureSvg: figure.figureSvg },
-                    select: { hasFigure: true, figureSvg: true },
-                })
-            )
-        );
+        const updated = await runReservedTask(handle, async () => {
+            const ai = await getAIService({ userId: user.id, kind: 'figure' });
+            const figure = await ai.generateFigureSvg(match[2], match[1], item.questionText);
+            return prisma.errorItem.update({
+                where: { id },
+                data: { hasFigure: figure.hasFigure, figureSvg: figure.figureSvg },
+                select: { hasFigure: true, figureSvg: true },
+            });
+        });
 
         logger.info({ errorItemId: id, hasFigure: updated.hasFigure, svgLength: updated.figureSvg?.length ?? 0 }, 'Figure regenerated');
         return NextResponse.json(updated);

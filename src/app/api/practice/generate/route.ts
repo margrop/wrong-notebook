@@ -89,7 +89,7 @@ async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
             return limited;
         }
 
-        const aiService = getAIService();
+        const aiService = await getAIService({ userId: user.id, kind: 'practice' });
         const similarQuestion = await runReservedTask(handle, () =>
             aiService.generateSimilarQuestion(
                 errorItemWithSubject.questionText || "",

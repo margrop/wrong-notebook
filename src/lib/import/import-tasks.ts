@@ -405,6 +405,7 @@ async function fillMissingTags(task: ImportTask & { user: User }, result: Parsed
             notebook,
             user: task.user,
             gradeSemester: result.gradeSemester ?? null,
+            aiScope: { userId: task.user.id, kind: quotaKindOf(task) },
         });
         return {
             ...result,

@@ -78,7 +78,7 @@ export async function fixImportBatchText(user: Pick<User, 'id' | 'role'>, id: st
         return limited;
     }
 
-    const ai = getAIService();
+    const ai = await getAIService({ userId: user.id, kind: 'split' });
     const groups = chunks(items, TEXT_FIX_CHUNK_SIZE);
     const settled = await runReservedTask(handle, () =>
         Promise.allSettled(groups.map((group) => {
