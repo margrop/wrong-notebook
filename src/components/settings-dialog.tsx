@@ -28,6 +28,7 @@ import { DebugLogSettings } from "@/components/settings/debug-log-settings";
 import { GeneralSettings } from "@/components/settings/general-settings";
 import { PaperGroupSettings } from "@/components/settings/paper-group-settings";
 import { PromptSettings } from "@/components/settings/prompt-settings";
+import { TelemetrySettings } from "@/components/settings/telemetry/telemetry-settings";
 import { TtsSettings } from "@/components/settings/tts-settings";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
@@ -193,6 +194,7 @@ export function SettingsDialog() {
                                 <Wand2 className="h-4 w-4" />
                                 {t.setup.rerun}
                             </Button>
+                            <TelemetrySettings />
                             <DebugLogSettings />
                             <CnmTagImportSettings />
                             <div className="border-t pt-4">

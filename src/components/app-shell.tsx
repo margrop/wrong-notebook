@@ -8,6 +8,7 @@ import { LogOut, Shield } from "lucide-react";
 import { EulaUpgradeDialog } from "@/components/eula/eula-upgrade-dialog";
 import { ImportTasksIndicator } from "@/components/import-tasks/import-tasks-indicator";
 import { SettingsDialog } from "@/components/settings-dialog";
+import { TelemetryNoticeBanner } from "@/components/telemetry-notice-banner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -101,6 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </div>
                 </div>
             </header>
+            <TelemetryNoticeBanner enabled={isAdmin && status === "authenticated" && !eulaGate.pending} />
 
             <div className="pb-20 md:pb-0">{children}</div>
             {gate}
