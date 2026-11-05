@@ -20,6 +20,9 @@ import { apiClient } from "@/lib/api-client";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { usePageTitle } from "@/lib/page-title";
 import { MAX_QUESTION_PARTS, useQuestionImport } from "@/lib/hooks/use-question-import";
+import { useStoredChoice } from "@/lib/hooks/use-stored-choice";
+import { INPUT_MODE_STORAGE_KEY, NOTEBOOK_INPUT_MODES } from "@/lib/ui-preferences";
+import type { NotebookInputMode } from "@/lib/ui-preferences";
 import type { Notebook } from "@/types/api";
 
 export default function AddErrorPage() {
@@ -29,8 +32,8 @@ export default function AddErrorPage() {
     const { t } = useLanguage();
     const [notebook, setNotebook] = useState<Notebook | null>(null);
     usePageTitle(t.notebooks.title, notebook?.name, t.pageTitle.addError);
-    // Input mode: "image" for photo upload, "text" for manual text input
-    const [inputMode, setInputMode] = useState<"image" | "text">("image");
+    // 录入方式：image 拍照，text 文字录入；记住上次的选择
+    const [inputMode, setInputMode] = useStoredChoice<NotebookInputMode>(INPUT_MODE_STORAGE_KEY, NOTEBOOK_INPUT_MODES, "image");
 
     // 本页的题目都放入当前错题本
     const flow = useQuestionImport({

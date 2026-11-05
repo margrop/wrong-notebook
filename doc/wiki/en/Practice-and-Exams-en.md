@@ -45,6 +45,8 @@ The **Review** page in the navigation lists questions due today, and the home pa
 4. **Original**: uses the original question text, answer, analysis and figure directly. No AI is called and no AI quota is consumed; the paper is ready to print immediately. No difficulty selection needed.
 5. Print or export it, and afterwards record the result for each question.
 
+The exam form remembers the mode, mastery scope, question count, difficulty and pick rule you used last time in this browser; notebooks, knowledge points, question types and the title are chosen again each time.
+
 When creating an exam, turn on **Generate A/B papers simultaneously**. The system picks up to 2× the question count of non-overlapping questions under the same conditions and splits them into two parallel papers, balanced by question type and difficulty: Paper A and Paper B have no overlapping questions, with similar type distributions and difficulty levels—suitable for class quizzes or comparison practice. Titles automatically get the suffixes "(Paper A)" and "(Paper B)". In Similar Questions mode, each paper generates separately and consumes its own AI quota. When there are not enough source questions, Paper B is still created as long as it gets at least one question (it may have fewer questions than Paper A) and a warning is shown; if Paper B would get zero questions, only Paper A is created.
 
 Original-mode papers do not show the "Regenerate question" button (the original question cannot be replaced), but "Regenerate solution" is still available; recorded results store no difficulty.

@@ -13,14 +13,23 @@ import { TagInput } from "@/components/tag-input";
 import { ExamModeToggle } from "@/components/exam/exam-mode-toggle";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
+import {
+    clampExamCount,
+    EXAM_FORM_DIFFICULTIES as DIFFICULTIES,
+    EXAM_FORM_MAX_COUNT,
+    EXAM_FORM_PICK_RULES as PICK_RULES,
+    EXAM_FORM_PREFERENCES_STORAGE_KEY,
+    EXAM_FORM_SCOPES as SCOPES,
+    parseExamFormPreferences,
+    serializeExamFormPreferences,
+} from "@/lib/exam/exam-form-preferences";
 import { usePaperGroups } from "@/lib/hooks/use-paper-groups";
+import { useStoredValue } from "@/lib/hooks/use-stored-choice";
 import { QUESTION_TYPES, NO_QUESTION_TYPE } from "@/lib/question/question-type";
 import type { QuestionType } from "@/lib/question/question-type";
-import type { ExamMode, ExamPickRule, ExamScope, Notebook } from "@/types/api";
+import type { ExamFormDifficulty, ExamFormPreferences } from "@/lib/exam/exam-form-preferences";
+import type { Notebook } from "@/types/api";
 
-const SCOPES: ExamScope[] = ["unmastered", "mastered", "all"];
-const PICK_RULES: ExamPickRule[] = ["least_practiced", "random"];
-const DIFFICULTIES = ["easy", "medium", "hard", "harder"] as const;
 
 interface CreateExamResponse {
     id: string;
@@ -41,11 +50,10 @@ export function ExamCreateForm() {
     const [tagNames, setTagNames] = useState<string[]>([]);
     const [paperLevelIds, setPaperLevelIds] = useState<string[]>([]);
     const [questionTypes, setQuestionTypes] = useState<string[]>([]);
-    const [scope, setScope] = useState<ExamScope>("unmastered");
-    const [pickRule, setPickRule] = useState<ExamPickRule>("least_practiced");
-    const [count, setCount] = useState(10);
-    const [difficulty, setDifficulty] = useState<typeof DIFFICULTIES[number]>("medium");
-    const [mode, setMode] = useState<ExamMode>("generate");
+    // 出题方式、范围、题数、难度、抽题规则记住上次的选择
+    const [preferences, savePreferences] = useStoredValue(EXAM_FORM_PREFERENCES_STORAGE_KEY, parseExamFormPreferences, serializeExamFormPreferences);
+    const { scope, pickRule, count, difficulty, mode } = preferences;
+    const updatePreferences = (patch: Partial<ExamFormPreferences>) => savePreferences({ ...preferences, ...patch });
     const [title, setTitle] = useState("");
     const [parallel, setParallel] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -210,7 +218,7 @@ export function ExamCreateForm() {
                         <p className="text-xs text-muted-foreground">{t.exam.questionTypesHint}</p>
                     </div>
 
-                    <ExamModeToggle value={mode} onChange={setMode} />
+                    <ExamModeToggle value={mode} onChange={(value) => updatePreferences({ mode: value })} />
 
                     <div className={`grid gap-4 ${mode === "generate" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
                         <div className="space-y-2">
@@ -220,7 +228,7 @@ export function ExamCreateForm() {
                                     <button
                                         key={value}
                                         type="button"
-                                        onClick={() => setScope(value)}
+                                        onClick={() => updatePreferences({ scope: value })}
                                         className={`rounded px-2 py-1.5 text-sm transition-colors ${scope === value ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}
                                     >
                                         {t.exam.scopes[value]}
@@ -234,9 +242,9 @@ export function ExamCreateForm() {
                                 id="exam-count"
                                 type="number"
                                 min={1}
-                                max={50}
+                                max={EXAM_FORM_MAX_COUNT}
                                 value={count}
-                                onChange={(e) => setCount(Math.min(50, Math.max(1, parseInt(e.target.value, 10) || 1)))}
+                                onChange={(e) => updatePreferences({ count: clampExamCount(parseInt(e.target.value, 10) || 1) })}
                             />
                         </div>
                         {mode === "generate" && (
@@ -245,7 +253,7 @@ export function ExamCreateForm() {
                                 <select
                                     id="exam-difficulty"
                                     value={difficulty}
-                                    onChange={(e) => setDifficulty(e.target.value as typeof DIFFICULTIES[number])}
+                                    onChange={(e) => updatePreferences({ difficulty: e.target.value as ExamFormDifficulty })}
                                     className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                                 >
                                     {DIFFICULTIES.map((value) => (
@@ -263,7 +271,7 @@ export function ExamCreateForm() {
                                 <button
                                     key={value}
                                     type="button"
-                                    onClick={() => setPickRule(value)}
+                                    onClick={() => updatePreferences({ pickRule: value })}
                                     className={`rounded px-2 py-1.5 text-sm transition-colors ${pickRule === value ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}
                                 >
                                     {t.exam.pickRules[value]}

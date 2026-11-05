@@ -14,8 +14,10 @@ import { cropImageRegions, toSafeImageSrc } from "@/lib/image-crop";
 import type { ImageRegion } from "@/lib/image-crop";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { useImageZoom } from "@/lib/hooks/use-image-zoom";
+import { useStoredChoice } from "@/lib/hooks/use-stored-choice";
+import { CROP_MODE_STORAGE_KEY, CROP_MODES } from "@/lib/ui-preferences";
+import type { CropMode } from "@/lib/ui-preferences";
 
-type CropMode = "single" | "auto" | "multi";
 
 // 未缩放时图片适应弹窗的尺寸
 const FIT_STYLE: Record<CropMode, CSSProperties> = {
@@ -53,7 +55,11 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
     // 始终保存百分比坐标，缩放改变图片显示尺寸后仍然准确
     const [crop, setCrop] = useState<Crop>();
     const imgRef = useRef<HTMLImageElement>(null);
-    const [mode, setModeState] = useState<CropMode>("single");
+    // 记住上次选的模式；本裁剪框不提供该模式（如已有暂存分段时没有自动分题）时用单题裁剪
+    const [savedMode, saveMode] = useStoredChoice<CropMode>(CROP_MODE_STORAGE_KEY, CROP_MODES, "single");
+    const multiEnabled = !!onMultiCropComplete || (!!onRegionsSelected && allowMulti);
+    const modes: CropMode[] = ["single", ...(onAutoSplit ? ["auto" as const] : []), ...(multiEnabled ? ["multi" as const] : [])];
+    const mode: CropMode = modes.includes(savedMode) ? savedMode : "single";
     const { containerRef, zoom, imageStyle, measureImage, zoomIn, zoomOut, reset: resetZoom } = useImageZoom(FIT_STYLE[mode]);
     // 换图后回到 100%
     useEffect(() => {
@@ -61,7 +67,7 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
     }, [imageSrc, resetZoom]);
     const setMode = (next: CropMode) => {
         resetZoom();
-        setModeState(next);
+        saveMode(next);
     };
     // 框选结果与图片绑定，换图后自动清空
     const [regionState, setRegionState] = useState<{ src: string; regions: ImageRegion[] }>({ src: imageSrc, regions: [] });
@@ -69,8 +75,6 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
     const setRegions = (next: ImageRegion[]) => setRegionState({ src: imageSrc, regions: next });
     const multiImgRef = useRef<HTMLImageElement>(null);
 
-    const multiEnabled = !!onMultiCropComplete || (!!onRegionsSelected && allowMulti);
-    const modes: CropMode[] = ["single", ...(onAutoSplit ? ["auto" as const] : []), ...(multiEnabled ? ["multi" as const] : [])];
     const modeLabel: Record<CropMode, string> = { single: t.batchImport.singleMode, auto: t.batchImport.autoMode, multi: t.batchImport.multiMode };
     const handleMultiConfirm = async () => {
         if (regions.length === 0) return;

@@ -23,6 +23,9 @@ import { apiClient } from "@/lib/api-client";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { usePageTitle } from "@/lib/page-title";
 import { MAX_QUESTION_PARTS, useQuestionImport } from "@/lib/hooks/use-question-import";
+import { useStoredChoice } from "@/lib/hooks/use-stored-choice";
+import { HOME_INPUT_MODES, INPUT_MODE_STORAGE_KEY } from "@/lib/ui-preferences";
+import type { HomeInputMode } from "@/lib/ui-preferences";
 import type { Notebook, PaginatedResponse } from "@/types/api";
 
 /** 直接录入（不经 AI）提交的内容 */
@@ -47,7 +50,8 @@ function HomeContent() {
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
     const [dueCount, setDueCount] = useState<number | null>(null);
     // Input mode: "image" for photo upload, "text" for AI solve, "direct" for manual entry, "file" for question bank files
-    const [inputMode, setInputMode] = useState<"image" | "text" | "direct" | "file">("image");
+    // 记住上次的录入方式
+    const [inputMode, setInputMode] = useStoredChoice<HomeInputMode>(INPUT_MODE_STORAGE_KEY, HOME_INPUT_MODES, "image");
 
     const targetNotebookId = initialNotebookId;
     const targetNotebook = targetNotebookId ? notebooks.find(n => n.id === targetNotebookId) : undefined;
