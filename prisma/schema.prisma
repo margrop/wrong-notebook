@@ -312,6 +312,22 @@ model AiCompletion {
   @@index([createdAt])
 }
 
+// 用户在外部服务的账号，供扩展（如 AI 账户实现）保存对应关系与凭据；secret 由扩展自行加密。
+// 不与 User 建外键：用户删除后扩展仍需读取该记录清理外部账号，清理完成后由扩展删除。不进入备份。
+model ExternalAccount {
+  id         String   @id @default(cuid())
+  userId     String
+  provider   String   // 外部服务标识，由扩展定义
+  externalId String?  // 外部服务中的账号 ID
+  status     String   @default("pending") // 由扩展定义，如 pending、active、closed
+  secret     String?  // 扩展加密后的凭据
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, provider])
+  @@index([provider, status])
+}
+
 // 拍照识别导入任务：上传后由服务端识别并保存结果，离开页面、锁屏或服务重启后仍可取回，不重复调用 AI
 model ImportTask {
   id              String    @id @default(cuid())

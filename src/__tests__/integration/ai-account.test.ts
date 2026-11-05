@@ -57,6 +57,7 @@ beforeEach(async () => {
     mocks.config = { aiDailyLimit: 2 };
     mocks.onUserDeleted.mockResolvedValue(undefined);
     await database.aiCompletion.deleteMany();
+    await database.externalAccount.deleteMany();
     await database.aiUsage.deleteMany();
     await database.user.deleteMany();
     admin = await database.user.create({ data: { email: 'admin@example.com', password: 'x', role: 'admin', aiDataConsentAt: new Date() } });
@@ -116,6 +117,22 @@ describe('删除用户后通知 AI 账户实现', () => {
         mocks.onUserDeleted.mockClear();
         expect((await remove('missing-user')).status).toBe(500);
         expect(mocks.onUserDeleted).not.toHaveBeenCalled();
+    });
+
+    it('外部账号记录在用户删除后保留，通知时扩展仍可读取并自行清理', async () => {
+        mocks.session = { user: { id: admin.id, email: admin.email, role: 'admin' }, expires: '2099-01-01' };
+        await database.externalAccount.create({ data: { userId: alice.id, provider: 'gateway', externalId: '42', status: 'active', secret: 'encrypted' } });
+        mocks.onUserDeleted.mockImplementation(async (userId: string) => {
+            const account = await database.externalAccount.findUnique({ where: { userId_provider: { userId, provider: 'gateway' } } });
+            expect(account?.externalId).toBe('42');
+            await database.externalAccount.delete({ where: { id: account!.id } });
+        });
+
+        const response = await ADMIN_DELETE_USER(new Request('http://localhost', { method: 'DELETE' }), { params: Promise.resolve({ id: alice.id }) });
+
+        expect(response.status).toBe(200);
+        expect(mocks.onUserDeleted).toHaveBeenCalledWith(alice.id);
+        expect(await database.externalAccount.count()).toBe(0);
     });
 
     it('通知出错不影响删除结果', async () => {

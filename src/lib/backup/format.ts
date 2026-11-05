@@ -6,7 +6,8 @@ import { z } from "zod";
  * 日期字段在导出侧为 Prisma 返回的 Date，JSON 序列化后即为 ISO 字符串，
  * 因此类型上同时接受 string 与 Date。
  *
- * AI 调用次数（AiUsage）与 token 用量（AiCompletion）属于运行统计，不进入备份。
+ * AI 调用次数（AiUsage）与 token 用量（AiCompletion）属于运行统计，不进入备份；
+ * 外部账号（ExternalAccount）含扩展保存的凭据，也不进入备份。
  */
 
 /** 当前备份文件版本号 */
