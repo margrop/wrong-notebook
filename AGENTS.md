@@ -118,6 +118,7 @@ bash scripts/ci.sh          # 完整 CI（要求 Node.js 22 及以上，含生�
 ## 文档同步
 
 - 功能、配置项或默认值变化时，同步更新 `README.md` 与 `README.en.md`，以及受影响的 `doc/`、`doc/wiki/` 页面；Wiki 中文页面改动时同步更新 `doc/wiki/en/` 中对应的英文页面，发布流程见 `doc/WIKI_PUBLISHING.md`。
+- `doc/PRIVACY.md` / `doc/PRIVACY.en.md` 改动时，同步官网的隐私政策页（`privacy/index.html`、`en/privacy/index.html`），应用内链接指向官网版本。
 - 面向用户的功能变化（如新增 AI 提供商、安装方式）同时更新官网项目 `../wrong-notebook-github-pages`（中文 `index.html` 与英文 `en/index.html`），该项目单独提交并推送。
 
 ## 临时文件
