@@ -1955,4 +1955,10 @@ export const en = {
             suggestButton: "AI Suggest Tags",
             suggestRunning: "Suggesting…",
         },
+        errorBoundary: {
+            title: "Something went wrong",
+            desc: "This page hit an unexpected error. You can retry; if it keeps happening, reload the page.",
+            retry: "Retry",
+            home: "Back to home",
+        },
 };

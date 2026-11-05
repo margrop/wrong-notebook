@@ -94,7 +94,7 @@ export const GET = withUser(async (
         });
     } catch (error) {
         logger.error({ error }, 'Error fetching exam paper');
-        return internalError("Failed to fetch exam paper");
+        return internalError("Failed to fetch exam paper", { error, scope: "api:exams" });
     }
 });
 
@@ -191,7 +191,7 @@ export const PATCH = withUser(async (
         return NextResponse.json(data);
     } catch (error) {
         logger.error({ error }, 'Error updating exam paper');
-        return internalError("Failed to update exam paper");
+        return internalError("Failed to update exam paper", { error, scope: "api:exams" });
     }
 });
 
@@ -217,6 +217,6 @@ export const DELETE = withUser(async (
         return NextResponse.json({ success: true });
     } catch (error) {
         logger.error({ error }, 'Error deleting exam paper');
-        return internalError("Failed to delete exam paper");
+        return internalError("Failed to delete exam paper", { error, scope: "api:exams" });
     }
 });

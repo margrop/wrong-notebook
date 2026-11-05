@@ -97,6 +97,6 @@ export async function POST(req: Request) {
         }
     } catch (error) {
         logger.error({ error, userId: user.id }, 'Import failed');
-        return internalError("Failed to import data");
+        return internalError("Failed to import data", { error, scope: "api:import" });
     }
 }

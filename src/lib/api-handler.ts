@@ -64,7 +64,7 @@ function wrapWithAuth<Context extends AnyContext>(
             return await handler(req ?? new Request("http://localhost"), context);
         } catch (error) {
             logger.error({ error }, "Unhandled error in API route");
-            return internalError();
+            return internalError(undefined, { error, scope: "api:unhandled" });
         }
     };
 }

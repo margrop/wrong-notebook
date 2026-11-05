@@ -197,6 +197,6 @@ export async function GET(req: Request) {
         });
     } catch (error) {
         logger.error({ error, userId: user.id }, 'Export failed');
-        return internalError("Failed to export data");
+        return internalError("Failed to export data", { error, scope: "api:export" });
     }
 }

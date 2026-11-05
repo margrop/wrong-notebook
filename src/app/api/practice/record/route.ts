@@ -81,7 +81,7 @@ async function handlePost(req: Request, { user }: AuthenticatedContext) {
         return NextResponse.json(record);
     } catch (error) {
         logger.error({ error }, 'Error saving practice record');
-        return internalError("Failed to save record");
+        return internalError("Failed to save record", { error, scope: "api:practice" });
     }
 }
 

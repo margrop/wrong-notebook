@@ -64,7 +64,7 @@ export const GET = withUser(async (_req: Request, { user }: AuthenticatedContext
         })));
     } catch (error) {
         logger.error({ error }, 'Error listing exam papers');
-        return internalError("Failed to list exam papers");
+        return internalError("Failed to list exam papers", { error, scope: "api:exams" });
     }
 });
 
@@ -226,6 +226,6 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
         }, { status: 201 });
     } catch (error) {
         logger.error({ error }, 'Error creating exam paper');
-        return internalError("Failed to create exam paper");
+        return internalError("Failed to create exam paper", { error, scope: "api:exams" });
     }
 });

@@ -9,6 +9,8 @@
  * Default flush interval: 1 second or when buffer reaches 20 entries.
  */
 
+import { trackError } from '@/lib/telemetry/client';
+
 type LogLevel = 'info' | 'warn' | 'error';
 
 interface LogEntry {
@@ -151,7 +153,7 @@ let globalHandlersInstalled = false;
 
 /**
  * 上报浏览器中未捕获的异常与未处理的 Promise 拒绝，
- * 管理员开启调试模式后这些错误会进入调试日志。返回卸载函数。
+ * 管理员开启调试模式后这些错误会进入调试日志，遥测开启时另做匿名错误回报。返回卸载函数。
  */
 export function installGlobalErrorLogging(): () => void {
   if (typeof window === 'undefined' || globalHandlersInstalled) return () => undefined;
@@ -164,6 +166,10 @@ export function installGlobalErrorLogging(): () => void {
       column: event.colno,
       stack: event.error instanceof Error ? event.error.stack : undefined,
     });
+    // 匿名错误回报（遥测关闭时服务端直接丢弃）；脚本跨域错误没有详情，不上报
+    if (event.error !== undefined && event.error !== null) {
+      trackError({ kind: 'client', scope: '[GlobalError]', error: event.error });
+    }
   };
   const onRejection = (event: PromiseRejectionEvent) => {
     const reason: unknown = event.reason;
@@ -171,6 +177,7 @@ export function installGlobalErrorLogging(): () => void {
       reason: reason instanceof Error ? reason.message : String(reason),
       stack: reason instanceof Error ? reason.stack : undefined,
     });
+    trackError({ kind: 'client', scope: '[GlobalError]', error: reason });
   };
   window.addEventListener('error', onError);
   window.addEventListener('unhandledrejection', onRejection);

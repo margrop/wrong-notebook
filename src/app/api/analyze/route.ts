@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { badRequest, createErrorResponse, ErrorCode } from "@/lib/api-errors";
+import { badRequest, createErrorResponse, ErrorCode, reportApiError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { getErrorMessage } from "@/lib/error-message";
 import { consumeAiQuota } from "@/lib/ai-quota";
@@ -54,6 +54,7 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
             stack: error instanceof Error ? error.stack : undefined
         }, 'Analysis error occurred');
 
+        reportApiError("api:analyze", error);
         // 返回具体的错误类型，便于前端显示详细提示
         return createErrorResponse(mapAnalysisError(message), 500, ErrorCode.AI_ERROR, message);
     }

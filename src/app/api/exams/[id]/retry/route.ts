@@ -60,6 +60,6 @@ export const POST = withUser(async (
         return NextResponse.json({ success: true });
     } catch (error) {
         logger.error({ error }, 'Error retrying exam paper');
-        return internalError("Failed to retry exam paper");
+        return internalError("Failed to retry exam paper", { error, scope: "api:exams" });
     }
 });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAIService } from "@/lib/ai";
-import { badRequest, createErrorResponse, ErrorCode } from "@/lib/api-errors";
+import { badRequest, createErrorResponse, ErrorCode, reportApiError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { describeQuestion, trackBackgroundTask } from "@/lib/background-tasks";
 import { prisma } from "@/lib/prisma";
@@ -84,6 +84,7 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
             errorMessage = 'AI_RESPONSE_ERROR';
         }
 
+        reportApiError("api:reanswer", error);
         return createErrorResponse(errorMessage, 500, ErrorCode.AI_ERROR);
     }
 }

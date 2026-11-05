@@ -60,7 +60,7 @@ async function handlePost(
         if (message === 'ORIGINAL_MODE') return badRequest("ORIGINAL_MODE");
         if (message === 'SOURCE_DELETED' || message === 'NO_QUESTION_TEXT' || message === 'EMPTY_ANSWER') return badRequest(message);
         logger.error({ error: message }, 'Error regenerating exam question');
-        return internalError(message.startsWith('AI_') ? message.split(':')[0] : "Failed to regenerate exam question");
+        return internalError(message.startsWith('AI_') ? message.split(':')[0] : "Failed to regenerate exam question", { error, scope: "api:exams" });
     }
 }
 

@@ -67,6 +67,6 @@ export async function POST(req: Request) {
         }
     } catch (error) {
         logger.error({ error }, "Failed to initialize");
-        return internalError("Failed to initialize");
+        return internalError("Failed to initialize", { error, scope: "api:initialize" });
     }
 }

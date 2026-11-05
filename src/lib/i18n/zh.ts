@@ -1954,4 +1954,10 @@ export const zh = {
             suggestButton: "AI 识别标签",
             suggestRunning: "识别中…",
         },
+        errorBoundary: {
+            title: "页面出错了",
+            desc: "这个页面遇到了意外错误。可以重试；如果一直出现，请刷新页面。",
+            retry: "重试",
+            home: "返回首页",
+        },
 };

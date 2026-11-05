@@ -53,7 +53,7 @@ async function handlePost(req: Request, { user }: AuthenticatedContext) {
         return NextResponse.json(result);
     } catch (error) {
         logger.error({ error }, 'Error grading answer');
-        return internalError(error instanceof Error ? error.message : "Failed to grade answer");
+        return internalError(error instanceof Error ? error.message : "Failed to grade answer", { error, scope: "api:practice" });
     }
 }
 

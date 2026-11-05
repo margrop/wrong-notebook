@@ -108,8 +108,23 @@ export function tooManyRequests(retryAfterMs: number, message: string = "Too man
 }
 
 /**
- * 500 Internal Server Error - 服务器错误
+ * 把服务端错误记入匿名错误回报（遥测开启时）。动态导入遥测模块，失败静默，不影响响应；
+ * scope 是不含 ID 的短标识，如 api:exams
  */
-export function internalError(message: string = "Internal server error"): NextResponse<ApiErrorResponse> {
+export function reportApiError(scope: string, error: unknown): void {
+    import("@/lib/telemetry/server")
+        .then(({ reportServerError }) => reportServerError(scope, error))
+        .catch(() => undefined);
+}
+
+/**
+ * 500 Internal Server Error - 服务器错误。
+ * 传入 options.error 时同时记入错误回报（scope 缺省为 api）
+ */
+export function internalError(
+    message: string = "Internal server error",
+    options?: { error?: unknown; scope?: string }
+): NextResponse<ApiErrorResponse> {
+    if (options?.error !== undefined) reportApiError(options.scope ?? "api", options.error);
     return createErrorResponse(message, 500, ErrorCode.INTERNAL_ERROR);
 }

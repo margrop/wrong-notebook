@@ -39,7 +39,7 @@ async function handleGet(req: Request, { user }: AuthenticatedContext) {
         return NextResponse.json({ practice: parseLastPractice(item.lastPractice) });
     } catch (error) {
         logger.error({ error }, 'Error loading last practice');
-        return internalError("Failed to load last practice question");
+        return internalError("Failed to load last practice question", { error, scope: "api:practice" });
     }
 }
 
@@ -129,7 +129,7 @@ async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
     } catch (error) {
         logger.error({ error }, 'Error generating practice');
         const errorMessage = error instanceof Error ? error.message : "Failed to generate practice question";
-        return internalError(errorMessage);
+        return internalError(errorMessage, { error, scope: "api:practice" });
     }
 }
 

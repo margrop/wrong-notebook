@@ -43,6 +43,6 @@ export const POST = withUser(async (
             return notFound("Exam paper not found");
         }
         logger.error({ error }, 'Error recording exam results');
-        return internalError("Failed to record exam results");
+        return internalError("Failed to record exam results", { error, scope: "api:exams" });
     }
 });

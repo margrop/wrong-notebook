@@ -39,6 +39,6 @@ export const DELETE = withUser<RouteContext>(async (req, ctx) => {
         return await handleDelete(req, ctx);
     } catch (error) {
         logger.error({ error }, 'Error deleting practice record');
-        return internalError("Failed to delete practice record");
+        return internalError("Failed to delete practice record", { error, scope: "api:practice" });
     }
 });

@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { frontendLogger, installGlobalErrorLogging } from '@/lib/frontend-logger';
 
+const mocks = vi.hoisted(() => ({ trackError: vi.fn() }));
+vi.mock('@/lib/telemetry/client', () => ({ trackError: mocks.trackError }));
+
 afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -53,6 +56,8 @@ describe('全局错误上报', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
         const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
         expect(JSON.parse(String(init.body)).logs[0]).toMatchObject({ prefix: '[GlobalError]', context: { reason: 'lost' } });
+        // 同时做匿名错误回报
+        expect(mocks.trackError).toHaveBeenCalledWith({ kind: 'client', scope: '[GlobalError]', error: event.reason });
 
         uninstall();
         window.dispatchEvent(event);
