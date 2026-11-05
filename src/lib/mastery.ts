@@ -75,7 +75,7 @@ export async function evaluateErrorItemMastery(errorItemId: string): Promise<voi
             id: true,
             questionText: true,
             mistakeStatus: true,
-            user: { select: { masteryThreshold: true } },
+            user: { select: { masteryThreshold: true, aiDataConsentAt: true } },
             tags: { select: { name: true } },
             practiceRecords: {
                 where: { result: { not: null } },
@@ -111,6 +111,8 @@ export async function evaluateErrorItemMastery(errorItemId: string): Promise<voi
     let reason = '';
     let source: 'ai' | 'rule' = 'rule';
     try {
+        // 用户未同意 AI 数据授权时不把题目发给 AI，直接按规则估算
+        if (!item.user?.aiDataConsentAt) throw new Error('AI_CONSENT_REQUIRED');
         const result = await getAIService().evaluateMastery({
             questionText: item.questionText || '',
             knowledgePoints: item.tags.map((tag) => tag.name),

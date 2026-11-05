@@ -1,6 +1,6 @@
 # 隐私说明
 
-[English](PRIVACY.en.md) · 更新日期：2026 年 10 月 30 日
+[English](PRIVACY.en.md) · 更新日期：2026 年 11 月 5 日 · [官网版本](https://wrong-notebook.margrop.net/privacy/)
 
 ## 适用范围与存储
 
@@ -12,10 +12,10 @@ AI API Key、服务地址，以及用户主动连接 MiniMax Code 后的登录�
 
 ## 第三方服务
 
-- 使用 AI 识别、解答、生成练习、动画等功能时，会将任务所需的题目、图片、答案或提示词发送给管理员配置的 AI 服务商及接口。是否使用这些功能和服务由用户及管理员选择。
+- 使用 AI 识别、解答、生成练习、动画等功能时，会将任务所需的题目、图片、答案或提示词发送给管理员配置的 AI 服务商及接口。每个账号首次使用前会看到「AI 数据授权」说明，列出发送的数据和当前服务商，**同意后才会发送**；不同意时 AI 功能不可用（掌握程度改按规则估算），其他功能照常使用。授权可随时在「设置 → 账户」中撤回，撤回不影响已发送给服务商的数据。
 - 使用云端语音时，讲解文字会发送给所配置的语音服务商；浏览器语音使用浏览器提供的能力，其处理方式取决于浏览器和所选声音。
 - 主动登录 MiniMax Code 后，登录、令牌刷新与 AI 请求会连接 MiniMax 服务；自动签到功能也会定期向 MiniMax 发送该账号的签到请求。不使用该集成时无需连接账号，可在设置中退出登录。
-- 打开下载、文档、社区或作者链接时，浏览器会访问对应网站。官网和安装包由 GitHub Pages、GitHub Releases 等服务托管，这些网站按各自政策处理访问请求。
+- 打开下载、文档、社区或作者链接时，浏览器会访问对应网站。官网和安装包由 GitHub Pages、GitHub Releases 等服务托管，这些网站按各自政策处理访问请求。官网使用 51.la 和 Google Analytics 统计访问量；应用本身不包含这些统计代码。
 - 如果启用 Windows 的 SignPath 签名，CI 仅提交安装包及构建来源信息，不提交运行实例的用户数据库、题目或凭据。
 
 第三方对请求的保存、使用和处理以所选服务的条款为准。常见服务的隐私说明：[Google](https://policies.google.com/privacy)、[OpenAI](https://openai.com/policies/privacy-policy/)、[Anthropic](https://www.anthropic.com/legal/privacy)、[Microsoft](https://privacy.microsoft.com/privacystatement)、[GitHub](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)；其他 AI 渠道及自定义接口请参阅对应服务商的隐私政策。[SignPath 隐私政策](https://about.signpath.io/privacy-policy)适用于代码签名申请与服务。

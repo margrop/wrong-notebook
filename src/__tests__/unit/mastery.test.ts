@@ -108,7 +108,7 @@ describe('evaluateErrorItemMastery', () => {
             id: 'item-1',
             questionText: '题目',
             mistakeStatus: 'wrong_attempt',
-            user: { masteryThreshold: 50 },
+            user: { masteryThreshold: 50, aiDataConsentAt: new Date() },
             tags: [{ name: '方程' }],
             practiceRecords: [record('correct', 'hard', 1), record('correct', 'hard', 2)],
         });
@@ -130,7 +130,7 @@ describe('evaluateErrorItemMastery', () => {
             id: 'item-1',
             questionText: '题目',
             mistakeStatus: null,
-            user: { masteryThreshold: 90 },
+            user: { masteryThreshold: 90, aiDataConsentAt: new Date() },
             tags: [],
             practiceRecords: [record('correct', 'hard', 1)],
         });
@@ -139,6 +139,22 @@ describe('evaluateErrorItemMastery', () => {
         await evaluateErrorItemMastery('item-1');
 
         expect(mocks.update.mock.calls[0][0].data.masteryLevel).toBe(1);
+    });
+
+    it('用户未同意 AI 数据授权时不调用 AI，按规则估算', async () => {
+        mocks.findUnique.mockResolvedValue({
+            id: 'item-1',
+            questionText: '题目',
+            mistakeStatus: null,
+            user: { masteryThreshold: 50, aiDataConsentAt: null },
+            tags: [],
+            practiceRecords: [record('correct', 'hard', 1)],
+        });
+
+        await evaluateErrorItemMastery('item-1');
+
+        expect(mocks.evaluateMastery).not.toHaveBeenCalled();
+        expect(mocks.update.mock.calls[0][0].data.masterySource).toBe('rule');
     });
 
     it('AI 失败时使用规则公式兜底', async () => {

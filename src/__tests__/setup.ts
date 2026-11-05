@@ -30,6 +30,12 @@ Object.defineProperty(global, 'localStorage', {
     writable: true,
 });
 
+// AI 数据授权：默认视为已授权，其余测试专注各自的 AI 流程。
+// 验证授权行为的测试在文件顶部调用 vi.unmock('@/lib/ai-consent-store') 使用真实实现。
+vi.mock('@/lib/ai-consent-store', () => ({
+    hasAiDataConsent: async () => true,
+}));
+
 // Reset mocks between tests
 beforeEach(() => {
     localStorageMock.clear();

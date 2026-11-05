@@ -21,7 +21,8 @@ export type QuestionSaveFailureCode =
     | 'QUESTION_SAVE_REFERENCE_INVALID'
     | 'QUESTION_SAVE_CONFLICT'
     | 'QUESTION_SAVE_FAILED'
-    | 'AI_DAILY_LIMIT_EXCEEDED';
+    | 'AI_DAILY_LIMIT_EXCEEDED'
+    | 'AI_CONSENT_REQUIRED';
 
 /** 保存题目的领域失败结果：不依赖 HTTP 层，由适配层转换为响应 */
 export interface QuestionSaveFailure {

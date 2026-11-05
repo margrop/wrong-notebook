@@ -10,7 +10,7 @@ Web export is for moving personal learning data; restoring a whole site requires
 | Question Exchange JSON (Export JSON) | Selected error item question content (question text, answer, analysis, knowledge points, difficulty, figures, optional original images) | Exchanging question content, cross-system import |
 | Full-site file backup | The complete SQLite database, `config/`, deployment configuration and any certificates | Disaster recovery, moving the site, preparing a rollback before upgrades |
 
-The JSON export does not include full user accounts with passwords or the server AI configuration. Even when an admin exports all data, it does not replace a full-site backup.
+The JSON export does not include full user accounts with passwords, AI data sharing consent or the server AI configuration. Even when an admin exports all data, it does not replace a full-site backup.
 
 ## Web export and import
 

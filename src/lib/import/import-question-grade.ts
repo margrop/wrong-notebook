@@ -28,7 +28,7 @@ async function quotaFailure(limited: NonNullable<Awaited<ReturnType<typeof consu
     return {
         ok: false,
         failure: {
-            code: body?.message === 'AI_DAILY_LIMIT_EXCEEDED' ? 'AI_DAILY_LIMIT_EXCEEDED' : 'QUESTION_SAVE_GRADE_FAILED',
+            code: body?.message === 'AI_DAILY_LIMIT_EXCEEDED' || body?.message === 'AI_CONSENT_REQUIRED' ? body.message : 'QUESTION_SAVE_GRADE_FAILED',
             stage: 'grade',
             status: limited.status,
             errorCode: typeof body?.code === 'string' ? body.code as QuestionSaveFailure['errorCode'] : 'AI_ERROR',

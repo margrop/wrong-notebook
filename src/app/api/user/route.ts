@@ -61,6 +61,7 @@ export async function GET() {
                 themePreference: true,
                 questionDuplicateThreshold: true,
                 masteryThreshold: true,
+                aiDataConsentAt: true,
                 // Do not return password
             }
         });

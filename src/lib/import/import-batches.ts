@@ -15,7 +15,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import type { Prisma, User } from "@prisma/client";
 import { z } from "zod";
-import { consumeAiQuota } from "@/lib/ai-quota";
+import { consumeAiQuota, quotaRejectionCode } from "@/lib/ai-quota";
 import type { ParsedQuestion } from "@/lib/ai";
 import { MAX_SPLIT_LINES } from "@/lib/ai/question-split";
 import type { QuestionSplitInput } from "@/lib/ai/question-split";
@@ -422,7 +422,8 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
         const limited = await serializeWrite(() => consumeAiQuota(user, 'split'));
         if (limited) {
             release();
-            await serializeWrite(() => prisma.importBatch.updateMany({ where: { id, status: 'splitting' }, data: { status: 'failed', error: 'AI_DAILY_LIMIT_EXCEEDED', finishedAt: new Date() } }));
+            const rejection = await quotaRejectionCode(limited);
+            await serializeWrite(() => prisma.importBatch.updateMany({ where: { id, status: 'splitting' }, data: { status: 'failed', error: rejection, finishedAt: new Date() } }));
             return { response: limited };
         }
         scheduleWork(id, release, () => runSplit(id));
@@ -559,7 +560,7 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
         const limited = await serializeWrite(() => consumeAiQuota(user, quotaKindOf({ inputText: source === 'text' ? composeQuestionInput(item) : null, imageData })));
         if (limited) {
             release();
-            await markFailed(taskId, 'analyzing', 'AI_DAILY_LIMIT_EXCEEDED');
+            await markFailed(taskId, 'analyzing', await quotaRejectionCode(limited));
             continue;
         }
         scheduleImportTask(taskId, release);
@@ -706,7 +707,8 @@ export async function retryImportBatch(user: User, id: string): Promise<NextResp
             const limited = await serializeWrite(() => consumeAiQuota(user, 'split'));
             if (limited) {
                 release();
-                await serializeWrite(() => prisma.importBatch.updateMany({ where: { id, status: 'splitting' }, data: { status: 'failed', error: 'AI_DAILY_LIMIT_EXCEEDED', finishedAt: new Date() } }));
+                const rejection = await quotaRejectionCode(limited);
+                await serializeWrite(() => prisma.importBatch.updateMany({ where: { id, status: 'splitting' }, data: { status: 'failed', error: rejection, finishedAt: new Date() } }));
                 return limited;
             }
             scheduleWork(id, release, () => runSplit(id));

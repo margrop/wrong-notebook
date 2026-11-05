@@ -22,6 +22,7 @@ import { AiProviderSettings } from "@/components/settings/ai-provider-settings";
 import { CnmTagImportSettings } from "@/components/settings/cnm-tag-import-settings";
 import { DangerZoneSettings } from "@/components/settings/danger-zone-settings";
 import { DeleteAccountSettings } from "@/components/settings/delete-account-settings";
+import { AiConsentSetting } from "@/components/settings/ai-consent-setting";
 import { DataBackupSettings } from "@/components/settings/data-backup-settings";
 import { DebugLogSettings } from "@/components/settings/debug-log-settings";
 import { GeneralSettings } from "@/components/settings/general-settings";
@@ -152,6 +153,7 @@ export function SettingsDialog() {
 
                     <TabsContent value="account" className="space-y-4 py-4">
                         <AccountSettings />
+                        <AiConsentSetting />
                     </TabsContent>
 
                     <TabsContent value="ai" className="space-y-4 py-4">

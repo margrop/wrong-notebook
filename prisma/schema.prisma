@@ -33,6 +33,7 @@ model User {
   enableGeogebra Boolean @default(false) // 是否显示 GeoGebra 动态演示
   enableSvgAnimation Boolean @default(true) // 是否显示 SVG 动画讲解
   themePreference String @default("system") // 界面主题：system 跟随系统、light 浅色、dark 深色
+  aiDataConsentAt DateTime? // 同意将题目等数据发送给第三方 AI 服务商的时间；为空表示尚未同意，AI 功能不可用
 
   errorItems ErrorItem[]
   subjects   Subject[]

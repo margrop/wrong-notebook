@@ -1,5 +1,6 @@
 import { toast } from "@/lib/feedback";
 import { AI_DAILY_LIMIT_MESSAGES } from "@/lib/ai-limit-message";
+import { isAiConsentRequired, requestAiConsent } from "@/lib/ai-consent";
 
 type RequestOptions = RequestInit & {
     params?: Record<string, string>;
@@ -75,6 +76,7 @@ export async function recoverResponse<T>(requestId: string, deadline: number, or
         if (stored?.state === 'done') {
             if (stored.status >= 200 && stored.status < 300) return (stored.body ?? {}) as T;
             if (stored.status === 429) notifyAiDailyLimit(stored.body);
+            if (stored.status === 403 && isAiConsentRequired(stored.body)) requestAiConsent('blocked');
             throw new ApiError(stored.status, '', stored.body);
         }
         await sleep(RECOVERY_POLL_MS);
@@ -123,6 +125,8 @@ async function request<T>(url: string, options: RequestOptions = {}): Promise<T>
                 errorData = errorText;
             }
             if (res.status === 429) notifyAiDailyLimit(errorData);
+            // 尚未同意 AI 数据授权：统一弹出授权窗口，各个 AI 按钮无需单独处理
+            if (res.status === 403 && isAiConsentRequired(errorData)) requestAiConsent('blocked');
             throw new ApiError(res.status, res.statusText, errorData);
         }
 

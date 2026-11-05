@@ -40,7 +40,9 @@ export function useQuestionSaver(logPrefix: string) {
             frontendLogger.error(logPrefix, 'Save failed', { errorMessage: getApiErrorMessage(error) ?? getErrorMessage(error) });
             const message = getQuestionSaveErrorMessage(error, t);
             setSaveError(message);
-            if (getApiErrorMessage(error) !== 'AI_DAILY_LIMIT_EXCEEDED') toast.error(message);
+            // 每日上限与未授权由 apiClient 统一提示或弹出授权窗口，这里不再重复报错
+            const code = getApiErrorMessage(error);
+            if (code !== 'AI_DAILY_LIMIT_EXCEEDED' && code !== 'AI_CONSENT_REQUIRED') toast.error(message);
             return false;
         }
     };

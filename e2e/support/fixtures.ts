@@ -74,12 +74,12 @@ export class Scenario {
         await this.control();
         const provider = { instances: [{ id: 'e2e', name: 'E2E 本地模型', apiKey: 'e2e-dummy-key', baseUrl: this.mockBaseURL, model: 'e2e-mock-model' }], activeInstanceId: 'e2e' };
         writeFileSync(join(runState.configDir, 'app-config.json'), JSON.stringify({ ...runState.baseline, openai: provider }));
-        await this.db.user.updateMany({ where: { email: 'admin@localhost' }, data: { password: adminHash, confirmBeforeImport: false, gradeRecognitionMode: 'fixed', fixedGradeSemester: null, enableSvgAnimation: false } });
-        await this.db.user.updateMany({ where: { email: 'setup-admin@localhost' }, data: { password: defaultHash } });
+        await this.db.user.updateMany({ where: { email: 'admin@localhost' }, data: { password: adminHash, aiDataConsentAt: new Date(), confirmBeforeImport: false, gradeRecognitionMode: 'fixed', fixedGradeSemester: null, enableSvgAnimation: false } });
+        await this.db.user.updateMany({ where: { email: 'setup-admin@localhost' }, data: { password: defaultHash, aiDataConsentAt: new Date() } });
         this.user = await this.db.user.create({ data: { email: `a-${this.id}@example.test`, password: passwordHash, name: 'E2E 学生 A',
-            educationStage: 'junior_high', enrollmentYear: 2025, fixedGradeSemester: '初二上', enableSvgAnimation: false } });
+            educationStage: 'junior_high', enrollmentYear: 2025, fixedGradeSemester: '初二上', enableSvgAnimation: false, aiDataConsentAt: new Date() } });
         this.otherUser = await this.db.user.create({ data: { email: `b-${this.id}@example.test`, password: passwordHash, name: 'E2E 学生 B',
-            educationStage: 'junior_high', enrollmentYear: 2025, fixedGradeSemester: '初二上', enableSvgAnimation: false } });
+            educationStage: 'junior_high', enrollmentYear: 2025, fixedGradeSemester: '初二上', enableSvgAnimation: false, aiDataConsentAt: new Date() } });
         this.book = await this.db.subject.create({ data: { name: '数学', stage: 'junior_high', subjectKey: 'math', userId: this.user.id } });
         const entries = await Promise.all(['a', 'b', 'other'].map((key, order) => this.db.paperGroup.create({ data: {
             userId: this.user.id, key, name: ['A卷', 'B卷', '其他'][order], order,
@@ -112,7 +112,7 @@ export class Scenario {
         const email = this.user.email;
         await this.db.user.delete({ where: { id: this.user.id } });
         this.user = await this.db.user.create({ data: { email, password: passwordHash, name: 'E2E 恢复账号',
-            educationStage: 'junior_high', enrollmentYear: 2025, fixedGradeSemester: '初二上', enableSvgAnimation: false } });
+            educationStage: 'junior_high', enrollmentYear: 2025, fixedGradeSemester: '初二上', enableSvgAnimation: false, aiDataConsentAt: new Date() } });
     }
 
     async records() { return this.db.practiceRecord.findMany({ where: { userId: this.user.id }, orderBy: { createdAt: 'asc' } }); }

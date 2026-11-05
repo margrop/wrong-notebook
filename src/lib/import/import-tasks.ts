@@ -21,7 +21,7 @@ import type { ImportTask, Prisma, User } from "@prisma/client";
 import { z } from "zod";
 import { ParsedQuestionSchema } from "@/lib/ai/schema";
 import type { ParsedQuestion } from "@/lib/ai";
-import { consumeAiQuota } from "@/lib/ai-quota";
+import { consumeAiQuota, quotaRejectionCode } from "@/lib/ai-quota";
 import { createErrorResponse, ErrorCode, notFound, validationError } from "@/lib/api-errors";
 import { describeQuestion } from "@/lib/background-tasks";
 import { getErrorMessage } from "@/lib/error-message";
@@ -558,7 +558,7 @@ export async function createImportTask(user: User, raw: unknown, measured: { rec
     const limited = await serializeWrite(() => consumeAiQuota(user, 'analyze'));
     if (limited) {
         release();
-        await markFailed(id, 'analyzing', 'AI_DAILY_LIMIT_EXCEEDED');
+        await markFailed(id, 'analyzing', await quotaRejectionCode(limited));
         return { response: limited };
     }
 
@@ -709,7 +709,7 @@ export async function retryImportTask(user: User, id: string): Promise<NextRespo
             const limited = await serializeWrite(() => consumeAiQuota(user, quotaKindOf(task)));
             if (limited) {
                 release();
-                await markFailed(id, 'analyzing', 'AI_DAILY_LIMIT_EXCEEDED');
+                await markFailed(id, 'analyzing', await quotaRejectionCode(limited));
                 return limited;
             }
         }

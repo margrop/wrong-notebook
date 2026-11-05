@@ -74,6 +74,14 @@ test.describe('Authentication Flow', () => {
         // Wait for redirect to home
         await page.waitForURL('/', { timeout: 10000 });
 
+        // 新注册用户首次进入时弹出 AI 数据授权，同意后关闭
+        const consent = page.getByRole('dialog', { name: /AI 数据授权|AI data sharing/ });
+        await expect(consent).toBeVisible({ timeout: 10000 });
+        await expect(consent).toContainText(/题目的文字和图片|Question text and images/);
+        await consent.getByRole('button', { name: /同意并继续|Agree and continue/ }).click();
+        await expect(consent).toBeHidden();
+        await expect.poll(async () => (await scenario.db.user.findUnique({ where: { email: user.email }, select: { aiDataConsentAt: true } }))?.aiDataConsentAt).not.toBeNull();
+
         // Verify Content
         await expect(page.locator('body')).toContainText(user.name);
 
