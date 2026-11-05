@@ -37,7 +37,8 @@ export const dynamic = 'force-dynamic';
  * 管理员拿到完整配置（含 API Key）；普通用户只返回非敏感字段
  */
 export const GET = withUser(async (_req: Request, { session }: AuthenticatedContext) => {
-    const config = getAppConfig();
+    // 协议与遥测设置由专用接口读写，不随通用设置返回，避免保存时用旧值覆盖
+    const { eula, telemetry, ...config } = getAppConfig();
     if (session.user.role !== 'admin') {
         return NextResponse.json({ aiProvider: config.aiProvider, timeouts: config.timeouts, timeZone: config.timeZone });
     }
@@ -47,6 +48,9 @@ export const GET = withUser(async (_req: Request, { session }: AuthenticatedCont
 async function handlePost(req: Request) {
     try {
         const body = await req.json();
+        // 协议同意状态与遥测开关只能经专用接口修改（需同意协议才能开启外发）
+        delete body.eula;
+        delete body.telemetry;
         if (body.timeZone !== undefined) {
             if (!isValidTimeZone(body.timeZone)) return badRequest('INVALID_TIME_ZONE');
             body.timeZone = body.timeZone.trim();
@@ -112,7 +116,7 @@ async function handlePost(req: Request) {
             }
         }
 
-        const updatedConfig = updateAppConfig(body);
+        const { eula, telemetry, ...updatedConfig } = updateAppConfig(body);
         return NextResponse.json(updatedConfig);
     } catch (error) {
         logger.error({ error }, 'Failed to update settings');

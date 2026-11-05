@@ -5,6 +5,7 @@ import { CLOUD_TTS_PROVIDERS, isTtsMode } from '../tts/constants';
 import type { AppConfig } from './types';
 import type { VendorConfigs } from './types';
 import type { TtsConfig } from '../tts/constants';
+import type { TelemetryConfig } from './types';
 
 /** 每日额度只接受非负整数，其余取值视为不限制 */
 export function parseDailyLimit(value: unknown): number {
@@ -76,6 +77,29 @@ export const DEFAULT_CONFIG: AppConfig = {
 // 合并各国产大模型渠道的配置，保证每个渠道都有对象
 export function mergeVendorConfigs(base: Partial<AppConfig>, override: Partial<AppConfig>): VendorConfigs {
     return Object.fromEntries(VENDOR_PROVIDER_IDS.map((id) => [id, { ...base[id], ...override[id] }]));
+}
+
+export const DEFAULT_TELEMETRY_CONFIG: Required<TelemetryConfig> = {
+    recording: false,
+    errors: true,
+    forwarding: false,
+    endpoint: '',
+    retentionDays: 30,
+    noticeDismissedAt: null,
+    lastFlushAt: null,
+};
+
+/** 本地记录保留天数限制在 1–365，非法值回落到默认 30 天 */
+export function clampRetentionDays(value: unknown): number {
+    const days = typeof value === 'number' ? Math.round(value) : NaN;
+    if (!Number.isFinite(days)) return DEFAULT_TELEMETRY_CONFIG.retentionDays;
+    return Math.min(365, Math.max(1, days));
+}
+
+/** 遥测设置逐项合并，缺省字段取默认值 */
+export function mergeTelemetryConfig(base: TelemetryConfig | undefined, override: TelemetryConfig | undefined): Required<TelemetryConfig> {
+    const merged = { ...DEFAULT_TELEMETRY_CONFIG, ...base, ...override };
+    return { ...merged, retentionDays: clampRetentionDays(merged.retentionDays) };
 }
 
 /** 朗读方式与各云端语音的设置分别合并 */

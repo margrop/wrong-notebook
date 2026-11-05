@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "app": "wrong-notebook",
+  "version": "2026.11.1",
+  "items": [
+    { "t": "event", "day": "2026-11-01", "name": "app_installed", "payload": { "method": "setup-token" } },
+    { "t": "event", "day": "2026-11-01", "name": "eula_accepted", "payload": { "version": "v1", "trigger": "install" } },
+    { "t": "event", "day": "2026-11-01", "name": "instance_alive", "payload": { "platform": "docker", "aiConfigured": true } },
+    { "t": "event", "day": "2026-11-01", "name": "app_opened", "payload": { "client": "browser" } },
+    { "t": "event", "day": "2026-11-01", "name": "page_viewed", "payload": { "page": "error_detail" } },
+    { "t": "event", "day": "2026-11-01", "name": "ai_analyze_started", "payload": { "provider": "openai" } },
+    { "t": "event", "day": "2026-11-01", "name": "ai_analyze_result", "payload": { "ok": true, "provider": "openai", "duration": "3-10s" } },
+    { "t": "event", "day": "2026-11-01", "name": "ai_reanswer", "payload": { "ok": false, "provider": "volcengine-agent" } },
+    { "t": "event", "day": "2026-11-01", "name": "ai_practice_grading", "payload": { "ok": true, "count": "2-5" } },
+    { "t": "event", "day": "2026-11-01", "name": "exam_paper_generation", "payload": { "ok": true, "count": ">20" } },
+    { "t": "event", "day": "2026-11-01", "name": "data_exported", "payload": { "scope": "user", "rows": "51-500" } },
+    { "t": "event", "day": "2026-11-01", "name": "data_imported", "payload": { "rows": "0" } },
+    { "t": "event", "day": "2026-11-01", "name": "tts_used", "payload": { "mode": "volcengine-agent" } },
+    { "t": "event", "day": "2026-11-01", "name": "settings_changed", "payload": { "section": "general" } },
+    { "t": "error", "day": "2026-11-01", "kind": "server", "scope": "api:ai", "name": "TypeError", "fingerprint": "a1b2c3d4e5f60718" },
+    { "t": "error", "day": "2026-11-01", "kind": "client", "scope": "[GlobalError]", "name": "Error", "fingerprint": "b1b2c3d4e5f60718" },
+    { "t": "error", "day": "2026-11-01", "kind": "boundary", "scope": "app.boundary", "name": "Error", "fingerprint": "c1b2c3d4e5f60718" }
+  ]
+}

@@ -5,7 +5,7 @@ import path from 'path';
 import { createLogger } from '../logger';
 import { DEFAULT_TIME_ZONE, isValidTimeZone } from '../date-time';
 import type { AppConfig } from './types';
-import { DEFAULT_CONFIG, mergeTtsConfig, mergeVendorConfigs } from './defaults';
+import { DEFAULT_CONFIG, mergeTelemetryConfig, mergeTtsConfig, mergeVendorConfigs } from './defaults';
 import { isLegacyOpenAIConfig, migrateOpenAIConfig } from './legacy';
 
 const logger = createLogger('config');
@@ -73,6 +73,8 @@ export function getAppConfig(): AppConfig {
                 prompts: { ...DEFAULT_CONFIG.prompts, ...userConfig.prompts },
                 timeouts: { ...DEFAULT_CONFIG.timeouts, ...userConfig.timeouts },
                 tts: mergeTtsConfig(DEFAULT_CONFIG.tts, userConfig.tts),
+                eula: { ...userConfig.eula },
+                telemetry: mergeTelemetryConfig(undefined, userConfig.telemetry),
             };
         } catch (error) {
             logger.error({ error }, 'Failed to read config file');
@@ -103,6 +105,8 @@ export function updateAppConfig(newConfig: Partial<AppConfig>) {
         prompts: { ...currentConfig.prompts, ...newConfig.prompts },
         timeouts: { ...currentConfig.timeouts, ...newConfig.timeouts },
         tts: mergeTtsConfig(currentConfig.tts, newConfig.tts),
+        eula: { ...currentConfig.eula, ...newConfig.eula },
+        telemetry: mergeTelemetryConfig(currentConfig.telemetry, newConfig.telemetry),
     };
 
     try {

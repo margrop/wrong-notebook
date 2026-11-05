@@ -399,3 +399,40 @@ model ImportBatch {
   @@unique([userId, clientRequestId])
   @@index([userId, status])
 }
+
+/// 匿名遥测事件：同时作为本地记录与外发待发队列（见 doc/TELEMETRY_DESIGN.md §2.2）。
+/// 不含用户或实例标识；local=false 的记录只为外发而存，发出后删除
+model TelemetryEvent {
+  id          String    @id @default(cuid())
+  name        String    // 事件名（telemetry/schema.ts 白名单）
+  payload     String?   // JSON，只有布尔与枚举值
+  version     String
+  createdAt   DateTime  @default(now())
+  forwardedAt DateTime? // 外发成功的时间；null 表示待发
+  local       Boolean   // 写入时本地记录是否开启
+
+  @@index([createdAt])
+  @@index([forwardedAt, createdAt])
+  @@index([name, createdAt])
+}
+
+/// 匿名错误回报：message、stack、path、userAgent 只在本地记录开启时保存，永不外发
+model TelemetryError {
+  id          String    @id @default(cuid())
+  kind        String    // client | boundary | server
+  scope       String
+  name        String
+  fingerprint String    // 16 位十六进制
+  message     String?
+  stack       String?
+  path        String?
+  userAgent   String?
+  version     String
+  createdAt   DateTime  @default(now())
+  forwardedAt DateTime?
+  local       Boolean
+
+  @@index([createdAt])
+  @@index([forwardedAt, createdAt])
+  @@index([fingerprint, createdAt])
+}

@@ -211,6 +211,18 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         );
     });
 
+    it('遥测记录与协议、遥测设置属于实例数据，不进入备份', async () => {
+        await database.telemetryEvent.create({ data: { name: 'app_opened', payload: '{"client":"browser"}', version: 'test', local: true } });
+        await database.telemetryError.create({ data: { kind: 'client', scope: 'x', name: 'Error', fingerprint: '0123456789abcdef', version: 'test', local: true } });
+        try {
+            const text = JSON.stringify(await exportBackup());
+            expect(text).not.toMatch(/telemetry|0123456789abcdef|app_opened|eula/i);
+        } finally {
+            await database.telemetryEvent.deleteMany();
+            await database.telemetryError.deleteMany();
+        }
+    });
+
     it('错题与举一反三记录的全部字段完整保留，tagSet 正确还原', async () => {
         const backup = await exportBackup();
         await clearUserData();
