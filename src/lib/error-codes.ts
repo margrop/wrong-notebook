@@ -32,6 +32,8 @@ export const ErrorCode = {
 
     // 请求过多 (429)
     AI_DAILY_LIMIT_EXCEEDED: 'AI_DAILY_LIMIT_EXCEEDED',
+    /** AI 账户实现判定额度不足（如按量计费的余额用完） */
+    AI_QUOTA_INSUFFICIENT: 'AI_QUOTA_INSUFFICIENT',
     TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
 
     // 冲突 (409)

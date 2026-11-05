@@ -5,6 +5,7 @@
  * 部署方可在构建时用环境变量 AI_ACCOUNT_EXTENSION 换成自己的实现，详见 doc/FORK_EXTENSION_POINTS.md。
  */
 
+import type { AiLimitCode } from "@/lib/ai-limit-message";
 import type { CompletionEvent } from "./completion";
 import type { AiCallScope } from "./usage";
 
@@ -14,10 +15,12 @@ export interface AiAuthorizeScope extends AiCallScope {
 }
 
 /**
- * 拒绝调用的原因。目前只支持额度用尽（返回 429，前端提示额度已用完）；details 随错误响应返回。
+ * 拒绝调用的原因，接口返回 429，前端统一提示额度用完：
+ * AI_DAILY_LIMIT_EXCEEDED 为每日次数上限，AI_QUOTA_INSUFFICIENT 为额度不足（如按量计费的余额用完）。
+ * details 随错误响应返回。
  */
 export interface AiAccessDenial {
-    code: 'AI_DAILY_LIMIT_EXCEEDED';
+    code: AiLimitCode;
     details?: Record<string, unknown>;
 }
 

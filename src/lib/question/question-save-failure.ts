@@ -2,6 +2,7 @@
  * 保存题目失败的领域分类：把异常归为可公开的失败结果，不依赖 HTTP 层。
  * HTTP 转换见 question-save-response.ts。
  */
+import type { AiRejectionCode } from "@/lib/ai-limit-message";
 import { ErrorCode } from '@/lib/error-codes';
 import type { ErrorCodeType } from '@/lib/error-codes';
 import { getErrorMessage } from '@/lib/error-message';
@@ -21,8 +22,7 @@ export type QuestionSaveFailureCode =
     | 'QUESTION_SAVE_REFERENCE_INVALID'
     | 'QUESTION_SAVE_CONFLICT'
     | 'QUESTION_SAVE_FAILED'
-    | 'AI_DAILY_LIMIT_EXCEEDED'
-    | 'AI_CONSENT_REQUIRED';
+    | AiRejectionCode;
 
 /** 保存题目的领域失败结果：不依赖 HTTP 层，由适配层转换为响应 */
 export interface QuestionSaveFailure {

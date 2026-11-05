@@ -1,4 +1,4 @@
-import { AI_DAILY_LIMIT_MESSAGES } from '@/lib/ai-limit-message';
+import { AI_DAILY_LIMIT_MESSAGES, AI_QUOTA_INSUFFICIENT_MESSAGES } from '@/lib/ai-limit-message';
 
 /** 中文界面文案（从 src/lib/translations.ts 拆分而来，纯移动，勿改文案） */
 export const zh = {
@@ -1044,6 +1044,7 @@ export const zh = {
             AI_SERVICE_UNAVAILABLE: "AI 服务不可用 (503)，无可用渠道。",
             AI_UNKNOWN_ERROR: "发生未知 AI 错误。",
             AI_DAILY_LIMIT_EXCEEDED: AI_DAILY_LIMIT_MESSAGES.zh,
+            AI_QUOTA_INSUFFICIENT: AI_QUOTA_INSUFFICIENT_MESSAGES.zh,
             AI_CONSENT_REQUIRED: "尚未同意 AI 数据授权，AI 功能暂不可用。请在弹窗或「设置 → 账户」中同意后重试。",
             AI_OUTPUT_TRUNCATED: "AI 思考过程过长，输出额度用尽仍未给出结果。请重试，或把图片裁剪到只包含一道题。",
             AI_IMAGE_NOT_SUPPORTED: "当前 AI 模型不支持图片输入。请换用支持图片的模型，或改用文字录入。",

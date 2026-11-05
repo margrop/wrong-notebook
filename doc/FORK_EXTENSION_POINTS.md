@@ -192,7 +192,7 @@ AI 调用前的额度判断、每个用户使用的 AI 配置、每次补全的�
 约定：
 
 - AI 数据授权检查在 `authorize` 之前完成，扩展不能跳过。
-- `authorize` 返回 `null` 放行；返回 `{ code: 'AI_DAILY_LIMIT_EXCEEDED', details }` 时接口返回 429，前端按额度用尽提示。`authorize` 抛错时按放行处理并记日志。
+- `authorize` 返回 `null` 放行；拒绝时返回 `{ code, details }`，接口返回 429，前端统一提示额度用完。`code` 为 `AI_DAILY_LIMIT_EXCEEDED`（每日次数上限，提示明天再试）或 `AI_QUOTA_INSUFFICIENT`（额度不足，提示补充额度）。`authorize` 抛错时按放行处理并记日志。
 - `resolveConfig` 返回的配置只支持 OpenAI 兼容接口：`{ provider, baseUrl, apiKey, model }`，其中 `provider` 是记入用量的渠道名。同一地址和模型的调用共用并发名额，与 API Key 无关。
 - `record`、`onUserDeleted` 出错只记日志，不影响业务。
 - `scope.kind` 为触发调用的操作（与 `AiUsage.kind` 相同），后台的掌握概率评估为 `mastery`，不经过 `authorize`。

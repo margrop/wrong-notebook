@@ -1,4 +1,4 @@
-import { AI_DAILY_LIMIT_MESSAGES } from '@/lib/ai-limit-message';
+import { AI_DAILY_LIMIT_MESSAGES, AI_QUOTA_INSUFFICIENT_MESSAGES } from '@/lib/ai-limit-message';
 
 /** 英文界面文案（从 src/lib/translations.ts 拆分而来，纯移动，勿改文案） */
 export const en = {
@@ -1045,6 +1045,7 @@ export const en = {
             AI_SERVICE_UNAVAILABLE: "AI service unavailable (503). No available channel.",
             AI_UNKNOWN_ERROR: "Unknown AI error occurred.",
             AI_DAILY_LIMIT_EXCEEDED: AI_DAILY_LIMIT_MESSAGES.en,
+            AI_QUOTA_INSUFFICIENT: AI_QUOTA_INSUFFICIENT_MESSAGES.en,
             AI_CONSENT_REQUIRED: "You have not allowed AI data sharing, so AI features are unavailable. Allow it in the prompt or under Settings → Account, then try again.",
             AI_OUTPUT_TRUNCATED: "The AI spent its whole output budget thinking and returned no answer. Please try again, or crop the image to a single question.",
             AI_IMAGE_NOT_SUPPORTED: "The current AI model does not accept images. Switch to a model with image input, or enter the questions as text.",

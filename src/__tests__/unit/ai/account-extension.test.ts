@@ -38,7 +38,7 @@ vi.mock('openai', async () => {
     };
 });
 
-import { consumeAiQuota } from '@/lib/ai-quota';
+import { consumeAiQuota, quotaRejectionCode } from '@/lib/ai-quota';
 import { getAIService } from '@/lib/ai';
 import { notifyAiAccountUsersDeleted } from '@/lib/ai/account-provider';
 import { aiAccountExtensionPath } from '../../../../next.config';
@@ -73,6 +73,16 @@ describe('consumeAiQuota 与 AI 账户实现', () => {
         expect(response?.status).toBe(429);
         expect(await response?.json()).toEqual({ message: 'AI_DAILY_LIMIT_EXCEEDED', code: 'AI_DAILY_LIMIT_EXCEEDED', details: { balance: 0 } });
         expect(mocks.aiUsageCreate).not.toHaveBeenCalled();
+    });
+
+    it('实现判定额度不足时返回 AI_QUOTA_INSUFFICIENT，后台任务按该错误码记录', async () => {
+        account.authorize.mockResolvedValue({ code: 'AI_QUOTA_INSUFFICIENT', details: { balance: 0 } });
+
+        const response = await consumeAiQuota({ id: 'u1', role: 'user' }, 'analyze');
+
+        expect(response?.status).toBe(429);
+        expect(await response?.clone().json()).toMatchObject({ code: 'AI_QUOTA_INSUFFICIENT' });
+        expect(await quotaRejectionCode(response!)).toBe('AI_QUOTA_INSUFFICIENT');
     });
 
     it('实现出错时放行并记日志', async () => {

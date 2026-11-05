@@ -7,6 +7,7 @@ import type { BackgroundTaskHandle } from "@/lib/background-tasks";
 import { createErrorResponse, ErrorCode } from "@/lib/api-errors";
 import { importSchema, saveQuestion } from "@/lib/question/question-save";
 import { parseDifficultyStars } from "@/lib/ai/schema";
+import { isAiRejectionCode } from "@/lib/ai-limit-message";
 import { getErrorMessage } from "@/lib/error-message";
 import { validateImage } from "@/lib/openclaw/image-validation";
 import { callOpenclawAgent } from "@/lib/openclaw/agent-client";
@@ -236,7 +237,7 @@ export async function POST(req: Request) {
                     results.push({
                         success: false,
                         index: i,
-                        error: saveResult.error.code === 'AI_DAILY_LIMIT_EXCEEDED' || saveResult.error.code === 'AI_CONSENT_REQUIRED' ? saveResult.error.code : `导入失败: ${saveResult.error.code}`,
+                        error: isAiRejectionCode(saveResult.error.code) ? saveResult.error.code : `导入失败: ${saveResult.error.code}`,
                     });
                     continue;
                 }

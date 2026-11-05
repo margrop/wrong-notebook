@@ -1,4 +1,5 @@
 import { getAIService } from '@/lib/ai';
+import { isAiRejectionCode } from '@/lib/ai-limit-message';
 import { consumeAiQuota } from '@/lib/ai-quota';
 import { describeQuestion, trackBackgroundTask } from '@/lib/background-tasks';
 import { getAppTimeZone } from '@/lib/config';
@@ -28,7 +29,7 @@ async function quotaFailure(limited: NonNullable<Awaited<ReturnType<typeof consu
     return {
         ok: false,
         failure: {
-            code: body?.message === 'AI_DAILY_LIMIT_EXCEEDED' || body?.message === 'AI_CONSENT_REQUIRED' ? body.message : 'QUESTION_SAVE_GRADE_FAILED',
+            code: isAiRejectionCode(body?.message) ? body.message : 'QUESTION_SAVE_GRADE_FAILED',
             stage: 'grade',
             status: limited.status,
             errorCode: typeof body?.code === 'string' ? body.code as QuestionSaveFailure['errorCode'] : 'AI_ERROR',

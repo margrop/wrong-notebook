@@ -2,6 +2,7 @@
  * 识别一张题目图片：按用户年级规则与错题本的候选知识点调用 AI，并按年级规则确定最终年级。
  * /api/analyze 与识别导入任务共用。
  */
+import { AI_REJECTION_CODES } from "@/lib/ai-limit-message";
 import { getAIService } from "@/lib/ai";
 import type { ParsedQuestion } from "@/lib/ai";
 import { normalizeSubject, ParsedQuestionSchema } from "@/lib/ai/schema";
@@ -120,7 +121,7 @@ export async function analyzeQuestionForUser(input: QuestionAnalysisInput): Prom
 const PASSTHROUGH_AI_ERRORS = new Set([
     'AI_CONNECTION_FAILED', 'AI_RESPONSE_ERROR', 'AI_TIMEOUT_ERROR', 'AI_QUOTA_EXCEEDED', 'AI_PERMISSION_DENIED',
     'AI_NOT_FOUND', 'AI_SERVICE_UNAVAILABLE', 'AI_UNKNOWN_ERROR', 'AI_OUTPUT_TRUNCATED', 'AI_IMAGE_NOT_SUPPORTED',
-    'AI_DAILY_LIMIT_EXCEEDED', 'AI_CONSENT_REQUIRED',
+    ...AI_REJECTION_CODES,
 ]);
 
 /** 把识别异常映射为前端可翻译的错误码 */

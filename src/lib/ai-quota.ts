@@ -5,6 +5,8 @@ import { hasAiDataConsent } from "@/lib/ai-consent-store";
 import type { ConsentUser } from "@/lib/ai-consent-store";
 import { getAiAccountProvider } from "@/lib/ai/account-provider";
 import type { AiAccessDenial } from "@/lib/ai/account";
+import { isAiRejectionCode } from "@/lib/ai-limit-message";
+import type { AiRejectionCode } from "@/lib/ai-limit-message";
 import { createLogger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
@@ -18,10 +20,10 @@ interface QuotaUser extends ConsentUser {
     role?: string | null;
 }
 
-/** consumeAiQuota 返回的拒绝响应对应的错误码（每日上限或未授权），供后台任务记录失败原因 */
-export async function quotaRejectionCode(rejection: Response): Promise<'AI_DAILY_LIMIT_EXCEEDED' | 'AI_CONSENT_REQUIRED'> {
+/** consumeAiQuota 返回的拒绝响应对应的错误码（额度用完或未授权），供后台任务记录失败原因 */
+export async function quotaRejectionCode(rejection: Response): Promise<AiRejectionCode> {
     const body = await rejection.clone().json().catch(() => null) as { code?: unknown } | null;
-    return body?.code === ErrorCode.AI_CONSENT_REQUIRED ? 'AI_CONSENT_REQUIRED' : 'AI_DAILY_LIMIT_EXCEEDED';
+    return isAiRejectionCode(body?.code) ? body.code : 'AI_DAILY_LIMIT_EXCEEDED';
 }
 
 export { countTodayAiUsage } from "@/lib/ai/daily-limit";

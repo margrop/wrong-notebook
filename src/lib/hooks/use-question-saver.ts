@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { isAiRejectionCode } from "@/lib/ai-limit-message";
 import { getApiErrorMessage, getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
@@ -40,9 +41,8 @@ export function useQuestionSaver(logPrefix: string) {
             frontendLogger.error(logPrefix, 'Save failed', { errorMessage: getApiErrorMessage(error) ?? getErrorMessage(error) });
             const message = getQuestionSaveErrorMessage(error, t);
             setSaveError(message);
-            // 每日上限与未授权由 apiClient 统一提示或弹出授权窗口，这里不再重复报错
-            const code = getApiErrorMessage(error);
-            if (code !== 'AI_DAILY_LIMIT_EXCEEDED' && code !== 'AI_CONSENT_REQUIRED') toast.error(message);
+            // 额度用完与未授权由 apiClient 统一提示或弹出授权窗口，这里不再重复报错
+            if (!isAiRejectionCode(getApiErrorMessage(error))) toast.error(message);
             return false;
         }
     };
