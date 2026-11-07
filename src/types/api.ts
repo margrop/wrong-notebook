@@ -208,6 +208,12 @@ export interface AppConfig extends VendorConfigs {
         model?: string;
     };
     minimaxCode?: MiniMaxCodeConfig;
+    /** 渠道分工：识别与文本分析可分开使用不同渠道，额度用完时改用备用渠道 */
+    routing?: {
+        vision?: AiProviderId | '';
+        text?: AiProviderId | '';
+        fallback?: AiProviderId | '';
+    };
     prompts?: {
         analyze?: string;
         similar?: string;

@@ -6,15 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AiConnectionTest } from "@/components/settings/ai-connection-test";
-import { AnthropicSettings } from "@/components/settings/anthropic-settings";
-import { AzureSettings } from "@/components/settings/azure-settings";
-import { GeminiSettings } from "@/components/settings/gemini-settings";
-import { MiniMaxCodeSettings } from "@/components/settings/minimax-code-settings";
-import { OpenAIInstanceSettings } from "@/components/settings/openai-instance-settings";
+import { ChannelRoutingSettings } from "@/components/settings/channel-routing-settings";
+import { ProviderConfigForm } from "@/components/settings/provider-config-form";
 import { ProviderDocLinks } from "@/components/settings/provider-doc-links";
-import { VendorSettings } from "@/components/settings/vendor-settings";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getVendorName, isVendorProvider, VENDOR_PROVIDER_IDS } from "@/lib/ai/vendor-presets";
+import { AI_PROVIDER_IDS, aiProviderName, isProviderConfigured } from "@/lib/ai/routing";
+import type { AiProviderId } from "@/lib/config/types";
 import type { AppConfig } from "@/types/api";
 
 interface AiProviderSettingsProps {
@@ -25,7 +22,7 @@ interface AiProviderSettingsProps {
     onSave: () => void;
 }
 
-/** AI 渠道设置：选择渠道、填写对应配置、测试连接并保存 */
+/** AI 渠道设置：选择渠道、填写对应配置、按识别/文本分工渠道、测试连接并保存 */
 export function AiProviderSettings({ config, setConfig, loading, saving, onSave }: AiProviderSettingsProps) {
     const { t, language } = useLanguage();
 
@@ -37,61 +34,39 @@ export function AiProviderSettings({ config, setConfig, loading, saving, onSave 
         );
     }
 
+    const configured = AI_PROVIDER_IDS.filter((id) => isProviderConfigured(config, id));
+
     return (
         <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
             <div className="space-y-2">
                 <Label>{t.settings?.tabs?.ai || "AI Provider"}</Label>
                 <Select
                     value={config.aiProvider}
-                    onValueChange={(val: AppConfig['aiProvider']) => setConfig(prev => ({ ...prev, aiProvider: val }))}
+                    onValueChange={(val: AiProviderId) => setConfig(prev => ({ ...prev, aiProvider: val }))}
                 >
                     <SelectTrigger>
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        {/* MiniMax Code OAuth 排在第 2 位，紧跟 MiniMax 官方渠道 */}
-                        <SelectItem value="minimax">{getVendorName("minimax", language)}</SelectItem>
-                        <SelectItem value="minimax-code">MiniMax Code OAuth</SelectItem>
-                        {VENDOR_PROVIDER_IDS.filter((id) => id !== 'minimax').map((id) => (
-                            <SelectItem key={id} value={id}>{getVendorName(id, language)}</SelectItem>
+                        {AI_PROVIDER_IDS.map((id) => (
+                            <SelectItem key={id} value={id}>{aiProviderName(id, language)}</SelectItem>
                         ))}
-                        <SelectItem value="anthropic">Anthropic / Compatible</SelectItem>
-                        <SelectItem value="azure">Azure OpenAI</SelectItem>
-                        <SelectItem value="openai">OpenAI / Compatible</SelectItem>
-                        <SelectItem value="gemini">Google Gemini</SelectItem>
                     </SelectContent>
                 </Select>
                 <ProviderDocLinks provider={config.aiProvider} />
+                {configured.length > 1 && (
+                    <p className="text-xs text-muted-foreground">
+                        {(t.settings?.ai?.configuredChannels || "Already configured: {names}. Keep several channels so one can back up another.").replace(
+                            "{names}",
+                            configured.map((id) => aiProviderName(id, language)).join(t.settings?.ai?.routing?.listSeparator || ", "),
+                        )}
+                    </p>
+                )}
             </div>
 
-            {config.aiProvider === 'openai' && (
-                <OpenAIInstanceSettings value={config.openai} onChange={(openai) => setConfig(prev => ({ ...prev, openai }))} />
-            )}
+            <ProviderConfigForm provider={config.aiProvider} config={config} setConfig={setConfig} />
 
-            {config.aiProvider === 'gemini' && (
-                <GeminiSettings value={config.gemini} onChange={(gemini) => setConfig(prev => ({ ...prev, gemini }))} />
-            )}
-
-            {config.aiProvider === 'minimax-code' && (
-                <MiniMaxCodeSettings value={config.minimaxCode} onChange={(minimaxCode) => setConfig(prev => ({ ...prev, minimaxCode }))} />
-            )}
-
-            {config.aiProvider === 'anthropic' && (
-                <AnthropicSettings value={config.anthropic} onChange={(anthropic) => setConfig(prev => ({ ...prev, anthropic }))} />
-            )}
-
-            {isVendorProvider(config.aiProvider) && (
-                <VendorSettings
-                    key={config.aiProvider}
-                    provider={config.aiProvider}
-                    value={config[config.aiProvider]}
-                    onChange={(vendorConfig) => setConfig(prev => ({ ...prev, [prev.aiProvider]: vendorConfig }))}
-                />
-            )}
-
-            {config.aiProvider === 'azure' && (
-                <AzureSettings value={config.azure} onChange={(azure) => setConfig(prev => ({ ...prev, azure }))} />
-            )}
+            <ChannelRoutingSettings config={config} setConfig={setConfig} />
 
             <AiConnectionTest
                 config={config}

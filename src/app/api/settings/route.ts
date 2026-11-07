@@ -9,6 +9,7 @@ import { createLogger } from "@/lib/logger";
 import type { OpenAIInstance } from "@/types/api";
 import { isValidTimeZone } from "@/lib/date-time";
 import { VENDOR_PROVIDER_IDS } from "@/lib/ai/vendor-presets";
+import { AI_PROVIDER_IDS } from "@/lib/ai/routing";
 import { CLOUD_TTS_PROVIDERS, TTS_MODES } from "@/lib/tts/constants";
 
 const logger = createLogger('api:settings');
@@ -16,6 +17,13 @@ const logger = createLogger('api:settings');
 const minimaxCodeSchema = z.object({
     model: z.string().trim().max(100).optional(),
     autoCheckin: z.boolean().optional(),
+});
+
+/** 渠道分工：空字符串表示跟随默认渠道，其余必须为内置渠道 */
+const routingSchema = z.object({
+    vision: z.union([z.literal(''), z.enum(AI_PROVIDER_IDS)]).optional(),
+    text: z.union([z.literal(''), z.enum(AI_PROVIDER_IDS)]).optional(),
+    fallback: z.union([z.literal(''), z.enum(AI_PROVIDER_IDS)]).optional(),
 });
 
 const cloudTtsSchema = z.object({
@@ -60,6 +68,11 @@ async function handlePost(req: Request) {
         }
         if (body.aiConcurrencyLimit !== undefined && !isValidConcurrencyLimit(body.aiConcurrencyLimit)) {
             return badRequest('INVALID_AI_CONCURRENCY_LIMIT');
+        }
+        if (body.routing !== undefined) {
+            const parsed = routingSchema.safeParse(body.routing);
+            if (!parsed.success) return badRequest('INVALID_AI_ROUTING');
+            body.routing = parsed.data;
         }
         if (body.minimaxCode !== undefined) {
             const parsed = minimaxCodeSchema.safeParse(body.minimaxCode);

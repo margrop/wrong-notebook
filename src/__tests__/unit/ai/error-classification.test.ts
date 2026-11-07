@@ -70,6 +70,16 @@ describe('parseErrorCode', () => {
         it('匹配额度', () => {
             expect(parseErrorCode(new Error('额度已用完'))).toBe('AI_QUOTA_EXCEEDED');
         });
+        it.each([
+            '402 Payment Required',
+            'Insufficient Balance',
+            'insufficient_quota',
+            '余额不足，请充值',
+            '账户积分已用完',
+            'You exceeded your current credit limit',
+        ])('余额或积分用完（%s）按额度不足处理，便于切换备用渠道', (message) => {
+            expect(parseErrorCode(new Error(message))).toBe('AI_QUOTA_EXCEEDED');
+        });
     });
 
     describe('AI_CONNECTION_FAILED', () => {

@@ -65,6 +65,8 @@ export const DEFAULT_CONFIG: AppConfig = {
             model: process.env[`${prefix}_MODEL`],
         }];
     })),
+    // 识别与分析默认都跟随 aiProvider，不启用备用渠道
+    routing: { vision: '', text: '', fallback: '' },
     prompts: {
         analyze: '',
         similar: '',
@@ -108,5 +110,14 @@ export function mergeTtsConfig(base: TtsConfig | undefined, override: TtsConfig 
     return {
         mode: override?.mode ?? base?.mode ?? 'browser',
         ...Object.fromEntries(CLOUD_TTS_PROVIDERS.map((id) => [id, { ...base?.[id], ...override?.[id] }])),
+    };
+}
+
+/** 渠道分工逐项合并，空字符串表示跟随默认渠道 */
+export function mergeRoutingConfig(base: AppConfig['routing'], override: AppConfig['routing']): NonNullable<AppConfig['routing']> {
+    return {
+        vision: override?.vision ?? base?.vision ?? '',
+        text: override?.text ?? base?.text ?? '',
+        fallback: override?.fallback ?? base?.fallback ?? '',
     };
 }

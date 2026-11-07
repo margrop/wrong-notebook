@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildConnectionTestRequest } from '@/lib/ai/connection-test';
+import { buildConnectionTestRequest, buildProviderTestRequest, routedProviders } from '@/lib/ai/connection-test';
 import type { AppConfig } from '@/types/api';
 
 describe('设置页连接测试请求', () => {
@@ -48,5 +48,39 @@ describe('设置页连接测试请求', () => {
         expect(buildConnectionTestRequest({ aiProvider: 'gemini' }, 'zh')).toEqual({ ok: false, error: 'API_KEY_REQUIRED' });
         expect(buildConnectionTestRequest({ aiProvider: 'openai', openai: { instances: [] } }, 'zh')).toEqual({ ok: false, error: 'API_KEY_REQUIRED' });
         expect(buildConnectionTestRequest({ aiProvider: 'azure', azure: { apiKey: 'k' } }, 'zh')).toEqual({ ok: false, error: 'AZURE_CONFIG_INCOMPLETE' });
+    });
+});
+
+describe('连接测试覆盖用到的渠道', () => {
+    it('未设置分工时只测试默认渠道', () => {
+        const config: AppConfig = { aiProvider: 'deepseek', deepseek: { apiKey: 'k' } };
+        expect(routedProviders(config)).toEqual(['deepseek']);
+    });
+
+    it('识别、文本与备用渠道都会测试，且不重复', () => {
+        const config: AppConfig = {
+            aiProvider: 'deepseek',
+            deepseek: { apiKey: 'k1' },
+            glm: { apiKey: 'k2' },
+            kimi: { apiKey: 'k3' },
+            routing: { vision: 'glm', text: 'deepseek', fallback: 'kimi' },
+        };
+        expect(routedProviders(config).sort()).toEqual(['deepseek', 'glm', 'kimi']);
+    });
+
+    it('备用渠道未配置时不纳入测试', () => {
+        const config: AppConfig = {
+            aiProvider: 'deepseek',
+            deepseek: { apiKey: 'k1' },
+            glm: {},
+            routing: { text: 'deepseek', fallback: 'glm' },
+        };
+        expect(routedProviders(config)).toEqual(['deepseek']);
+    });
+
+    it('按渠道生成测试请求，未配置的渠道返回错误码', () => {
+        const config: AppConfig = { aiProvider: 'deepseek', deepseek: { apiKey: 'k1' }, glm: { apiKey: 'k2' } };
+        expect(buildProviderTestRequest(config, 'glm', 'zh')).toMatchObject({ ok: true, body: { provider: 'glm', apiKey: 'k2' } });
+        expect(buildProviderTestRequest(config, 'kimi', 'zh')).toEqual({ ok: false, error: 'API_KEY_REQUIRED' });
     });
 });

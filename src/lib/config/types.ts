@@ -78,6 +78,18 @@ export interface AppConfig extends VendorConfigs {
     };
     // MiniMax Code OAuth 渠道：模型与自动签到开关；登录凭据另存于 minimax-code.json
     minimaxCode?: MiniMaxCodeConfig;
+    /**
+     * 渠道分工：图片识别与文本分析可分别使用不同渠道，主渠道额度用完或登录失效时改用备用渠道。
+     * 留空表示跟随 aiProvider；备用渠道与主渠道相同时不启用。
+     */
+    routing?: {
+        /** 图片识别（OCR、配图重绘、图片分题、带图重新解题）使用的渠道 */
+        vision?: AiProviderId | '';
+        /** 纯文本分析（解题、举一反三、判分、知识点等）使用的渠道 */
+        text?: AiProviderId | '';
+        /** 主渠道返回额度不足、鉴权失败或不支持图片时自动切换的渠道 */
+        fallback?: AiProviderId | '';
+    };
     prompts?: {
         analyze?: string;
         similar?: string;

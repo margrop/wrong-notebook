@@ -422,6 +422,23 @@ describe('/api/settings', () => {
             expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
         });
 
+        it('渠道分工只接受内置渠道，空字符串表示跟随默认渠道', async () => {
+            const post = (routing: unknown) => POST(new Request('http://localhost/api/settings', {
+                method: 'POST',
+                body: JSON.stringify({ routing }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect((await post({ vision: 'glm', text: 'deepseek', fallback: '' })).status).toBe(200);
+            expect(mocks.mockUpdateAppConfig).toHaveBeenCalledWith({ routing: { vision: 'glm', text: 'deepseek', fallback: '' } });
+
+            mocks.mockUpdateAppConfig.mockClear();
+            for (const invalid of [{ vision: 'not-a-provider' }, { text: 42 }, { fallback: ['glm'] }, 'glm']) {
+                expect((await post(invalid)).status).toBe(400);
+            }
+            expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
+        });
+
         it('应该成功更新注册开关', async () => {
             const request = new Request('http://localhost/api/settings', {
                 method: 'POST',

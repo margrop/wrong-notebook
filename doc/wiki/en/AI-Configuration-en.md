@@ -111,6 +111,10 @@ SVG figures and animations are generated as code by the language model; no image
 
 Admins can customize the recognition, solving and similar-question templates on the "Prompts" tab — useful for adjusting the explanation style and tone to a child's grade, weak points and habits. **Copy** takes the default template, **Replace with clipboard** overwrites it with your edited version, and **Reset Default** restores it. The `{{variables}}` in a template are replaced with each question's data; the editor lists any that are missing. The app still adds its output contract, language, grade, tag and question-type rules. The app also applies common rules to generated questions: similar questions and exam questions are fill-in-the-blank or free-response, and the question text contains no question number, score or multiple-choice options.
 
+## Channel routing and fallback
+
+**Channel routing** lets image recognition and text analysis use different channels: photo recognition, figure redrawing, image splitting and answering from an image need a vision model, while solving, grading and tagging work with a cheaper text model, each with its own API key. A **fallback channel** can be selected too: when the main channel reports exhausted quota (including used-up free credits or a zero balance), an expired login, missing permission or a missing model, the same call switches to the fallback automatically, so paid credits can back up free MiniMax Code credits without manual switching. Usage is recorded per channel actually used. Leaving a field empty follows the default channel or disables the fallback.
+
 Grading checks equivalent results for calculation questions and the required reasoning for proofs and justification questions. Local matching only marks answers correct when no reasoning is required; other cases go to AI grading.
 
 GeoGebra text, inequalities and caption parameters are checked against a shared command list; regeneration includes actual execution errors as feedback.

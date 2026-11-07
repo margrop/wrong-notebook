@@ -1,10 +1,11 @@
 import { isVendorProvider } from "@/lib/ai/vendor-presets";
+import { resolveProviderAssignment } from "@/lib/ai/routing";
+import type { AiProviderId } from "@/lib/config/types";
 import type { AppConfig } from "@/types/api";
-import type { VendorProviderId } from "@/lib/ai/vendor-presets";
 
 /** /api/ai/test 的请求体 */
 export interface AITestRequest {
-    provider: 'openai' | 'gemini' | 'azure' | 'anthropic' | 'minimax-code' | VendorProviderId;
+    provider: AiProviderId;
     /** MiniMax Code 使用已登录的凭据，不需要 apiKey */
     apiKey?: string;
     baseUrl?: string;
@@ -35,8 +36,8 @@ export type ConnectionTestRequest =
     | { ok: true; body: Record<string, unknown> }
     | { ok: false; error: 'API_KEY_REQUIRED' | 'AZURE_CONFIG_INCOMPLETE' | 'UNSUPPORTED_PROVIDER' };
 
-export function buildConnectionTestRequest(config: AppConfig, language: string): ConnectionTestRequest {
-    const provider = config.aiProvider;
+/** 为指定渠道生成测试请求；provider 未配置完整时返回错误码 */
+export function buildProviderTestRequest(config: AppConfig, provider: AiProviderId, language: string): ConnectionTestRequest {
 
     if (provider === 'openai') {
         const instance = config.openai?.instances?.find((item) => item.id === config.openai?.activeInstanceId);
@@ -66,4 +67,20 @@ export function buildConnectionTestRequest(config: AppConfig, language: string):
     }
 
     return { ok: false, error: 'UNSUPPORTED_PROVIDER' };
+}
+
+/** 设置中的主渠道测试请求 */
+export function buildConnectionTestRequest(config: AppConfig, language: string): ConnectionTestRequest {
+    return buildProviderTestRequest(config, config.aiProvider, language);
+}
+
+/** 需要测试的渠道：按分工用到的识别、文本与备用渠道，去重后逐个测试 */
+export function routedProviders(config: AppConfig): AiProviderId[] {
+    const providers = new Set<AiProviderId>();
+    for (const role of ['vision', 'text'] as const) {
+        const assignment = resolveProviderAssignment(config, role);
+        providers.add(assignment.primary);
+        if (assignment.fallback) providers.add(assignment.fallback);
+    }
+    return [...providers];
 }

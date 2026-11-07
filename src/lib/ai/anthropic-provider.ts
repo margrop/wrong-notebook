@@ -7,7 +7,7 @@ import { BaseAIProvider } from './base-provider';
 import { createLogger } from '../logger';
 import { trimTrailingSlashes } from '../utils';
 import { withModelOutputLimit } from './truncation';
-import { parseErrorCode } from './error-classification';
+import { isAIErrorCode, parseErrorCode } from './error-classification';
 
 const logger = createLogger('ai:anthropic');
 
@@ -159,7 +159,8 @@ export class AnthropicProvider extends BaseAIProvider {
 
     protected handleError(error: unknown): void {
         logger.error({ error }, 'Anthropic error');
-        if (error instanceof Error && (error.message === 'AI_OUTPUT_TRUNCATED' || error.message.startsWith('AI_RESPONSE_ERROR:'))) {
+        // 已经归类的错误码原样透传，避免再次归类时丢失（如 MiniMax Code 登录失效被当成未知错误）
+        if (error instanceof Error && (error.message === 'AI_OUTPUT_TRUNCATED' || isAIErrorCode(error.message))) {
             throw error;
         }
 
@@ -172,7 +173,8 @@ export class AnthropicProvider extends BaseAIProvider {
             if (status === 403) throw new Error("AI_PERMISSION_DENIED", { cause: error });
             if (status === 404) throw new Error("AI_NOT_FOUND", { cause: error });
             if (status === 408) throw new Error("AI_TIMEOUT_ERROR", { cause: error });
-            if (status === 429) throw new Error("AI_QUOTA_EXCEEDED", { cause: error });
+            // 402 为余额或积分不足（MiniMax Code 免费积分用完），与 429 一样按额度不足处理
+            if (status === 402 || status === 429) throw new Error("AI_QUOTA_EXCEEDED", { cause: error });
             if (status >= 500) throw new Error("AI_SERVICE_UNAVAILABLE", { cause: error }); // 含 529 overloaded
         }
 

@@ -10,6 +10,7 @@ import { AI_OUTPUT_TRUNCATED, withModelOutputLimit } from './truncation';
 import type { FigureResult } from './schema';
 import { parseFigure } from './schema';
 import { extractTag } from './response-parser';
+import { isAIErrorCode } from './error-classification';
 
 const logger = createLogger('ai:openai');
 
@@ -238,7 +239,8 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
     protected handleError(error: unknown): void {
         logger.error({ error }, 'OpenAI error');
         if (error instanceof Error) {
-            if (error.message === AI_OUTPUT_TRUNCATED || error.message.startsWith('AI_RESPONSE_ERROR:')) {
+            // 已经归类的错误码原样透传，避免再次归类时丢失（如 AI_AUTH_ERROR 被当成未知错误）
+            if (error.message === AI_OUTPUT_TRUNCATED || isAIErrorCode(error.message)) {
                 throw error;
             }
             const msg = error.message.toLowerCase();
@@ -249,8 +251,10 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
             if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('aborted') || msg.includes('408')) {
                 throw new Error("AI_TIMEOUT_ERROR", { cause: error });
             }
-            // 配额/频率限制错误
-            if (msg.includes('quota') || msg.includes('额度') || msg.includes('rate limit') || msg.includes('429') || msg.includes('too many')) {
+            // 配额/频率限制/余额不足错误：402 与余额、积分相关文案同样按额度不足处理
+            if (msg.includes('quota') || msg.includes('额度') || msg.includes('402') || msg.includes('insufficient') ||
+                msg.includes('balance') || msg.includes('余额') || msg.includes('积分') || msg.includes('credit') ||
+                msg.includes('rate limit') || msg.includes('429') || msg.includes('too many')) {
                 throw new Error("AI_QUOTA_EXCEEDED", { cause: error });
             }
             // 权限/403 错误

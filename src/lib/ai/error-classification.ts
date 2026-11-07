@@ -50,8 +50,10 @@ export function parseErrorCode(error: unknown): string {
     if (msgLower.includes('404') || msgLower.includes('not found') || msgLower.includes('does not exist')) {
         return 'AI_NOT_FOUND';
     }
-    // 频率限制 / 配额
-    if (msgLower.includes('429') || msgLower.includes('rate limit') || msgLower.includes('too many') || msgLower.includes('quota') || msgLower.includes('额度')) {
+    // 频率限制 / 配额 / 余额不足：免费积分或充值余额用完时服务商多返回 402 或余额相关文案
+    if (msgLower.includes('429') || msgLower.includes('402') || msgLower.includes('rate limit') || msgLower.includes('too many') ||
+        msgLower.includes('quota') || msgLower.includes('额度') || msgLower.includes('insufficient') ||
+        msgLower.includes('balance') || msgLower.includes('余额') || msgLower.includes('积分') || msgLower.includes('credit')) {
         return 'AI_QUOTA_EXCEEDED';
     }
     // 网络/连接错误

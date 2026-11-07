@@ -5,7 +5,7 @@ import path from 'path';
 import { createLogger } from '../logger';
 import { DEFAULT_TIME_ZONE, isValidTimeZone } from '../date-time';
 import type { AppConfig } from './types';
-import { DEFAULT_CONFIG, mergeTelemetryConfig, mergeTtsConfig, mergeVendorConfigs } from './defaults';
+import { DEFAULT_CONFIG, mergeRoutingConfig, mergeTelemetryConfig, mergeTtsConfig, mergeVendorConfigs } from './defaults';
 import { isLegacyOpenAIConfig, migrateOpenAIConfig } from './legacy';
 
 const logger = createLogger('config');
@@ -74,6 +74,7 @@ export function getAppConfig(): AppConfig {
                 anthropic: { ...DEFAULT_CONFIG.anthropic, ...userConfig.anthropic },
                 minimaxCode: { ...DEFAULT_CONFIG.minimaxCode, ...userConfig.minimaxCode },
                 ...mergeVendorConfigs(DEFAULT_CONFIG, userConfig),
+                routing: mergeRoutingConfig(DEFAULT_CONFIG.routing, userConfig.routing),
                 prompts: { ...DEFAULT_CONFIG.prompts, ...userConfig.prompts },
                 timeouts: { ...DEFAULT_CONFIG.timeouts, ...userConfig.timeouts },
                 tts: mergeTtsConfig(DEFAULT_CONFIG.tts, userConfig.tts),
@@ -106,6 +107,7 @@ export function updateAppConfig(newConfig: Partial<AppConfig>) {
         anthropic: { ...currentConfig.anthropic, ...newConfig.anthropic },
         minimaxCode: { ...currentConfig.minimaxCode, ...newConfig.minimaxCode },
         ...mergeVendorConfigs(currentConfig, newConfig),
+        routing: mergeRoutingConfig(currentConfig.routing, newConfig.routing),
         prompts: { ...currentConfig.prompts, ...newConfig.prompts },
         timeouts: { ...currentConfig.timeouts, ...newConfig.timeouts },
         tts: mergeTtsConfig(currentConfig.tts, newConfig.tts),

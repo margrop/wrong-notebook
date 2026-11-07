@@ -198,6 +198,7 @@ describe('AnthropicProvider', () => {
         [new mocks.APIError(401, 'invalid x-api-key'), 'AI_AUTH_ERROR'],
         [new mocks.APIError(403, 'forbidden'), 'AI_PERMISSION_DENIED'],
         [new mocks.APIError(404, 'model not found'), 'AI_NOT_FOUND'],
+        [new mocks.APIError(402, 'insufficient balance'), 'AI_QUOTA_EXCEEDED'],
         [new mocks.APIError(429, 'rate limited'), 'AI_QUOTA_EXCEEDED'],
         [new mocks.APIError(529, 'overloaded'), 'AI_SERVICE_UNAVAILABLE'],
         [new mocks.APIConnectionTimeoutError(), 'AI_TIMEOUT_ERROR'],

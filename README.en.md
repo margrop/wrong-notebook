@@ -319,8 +319,11 @@ AI settings are changed in the web UI and take effect when saved, without restar
 2. Choose a provider and fill in the API key, base URL (or endpoint) and model (or deployment name). The provider links to its official API docs, and the API key and model fields link to how to get a key and the model list.
 3. Click **Test connection** to check text and image recognition; on failure the provider's original error is shown. Settings are stored in `config/app-config.json` and take precedence over `.env`.
 4. **Voice narration** further down the same page switches between the browser voice and a cloud voice. The **Prompts** tab lets you customize the prompt templates for recognition, solving and similar-question generation.
+5. **Channel routing** lets image recognition and text analysis use different channels, plus one fallback channel that takes over automatically when the main channel runs out of credits or its login expires.
 
 **Prompts are worth customizing.** The defaults target general cases. Rewriting the role, tone and analysis steps for your child's grade, weak points and habits usually improves results noticeably. On the **Prompts** tab, click **Copy** to take the default template, edit it, then click **Replace with clipboard** and save; **Reset Default** restores it at any time. Keep the `{{variables}}` — they are replaced with each question's data, and the editor lists any that are missing. The app still adds its output contract, language, grade, tag and question-type rules, even for older templates that omit variables.
+
+**Channel routing saves money.** Photo recognition needs a vision model while solving, grading and similar questions work with a cheaper text model. Under **Channel routing**, pick an image recognition channel and a text analysis channel — each with its own API key — then a fallback channel. For example, a paid channel can back up free MiniMax Code credits: once the credits run out it takes over without any manual switching. Usage is recorded per channel actually used.
 
 AI settings, prompts, connection tests and model lists are admin-only. Regular users can only change their own preferences in **Settings → General**.
 
