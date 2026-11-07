@@ -834,6 +834,7 @@ export const zh = {
                     currentVision: "识别使用",
                     currentText: "文本分析使用",
                     configureMissing: "以下渠道尚未配置：{names}",
+                    fillCurrentAbove: "请在上方填写该渠道的设置。",
                     useAsDefault: "设为主渠道",
                     listSeparator: "、",
                 },

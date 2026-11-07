@@ -834,6 +834,7 @@ export const en = {
                     currentVision: "Recognition uses",
                     currentText: "Text analysis uses",
                     configureMissing: "Used but not configured yet: {names}",
+                    fillCurrentAbove: "Fill in this channel's settings above.",
                     useAsDefault: "Use as main channel",
                     listSeparator: ", ",
                 },

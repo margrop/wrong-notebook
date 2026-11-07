@@ -108,6 +108,8 @@ function RoutingPreview({ config, setConfig, configure }: RoutingPreviewProps) {
     const text = resolveProviderAssignment(config, 'text');
     const providers = Array.from(new Set([vision.primary, vision.fallback, text.primary, text.fallback].filter((id): id is AiProviderId => Boolean(id))));
     const unconfigured = providers.filter((id) => !isProviderConfigured(config, id));
+    // 主渠道的配置表单已经显示在「渠道分工」上方，这里不再重复渲染，避免同一渠道出现两份输入框
+    const inlineForms = unconfigured.filter((id) => id !== config.aiProvider);
 
     const summary = (assignment: { primary: AiProviderId; fallback: AiProviderId | null }) =>
         assignment.fallback
@@ -129,10 +131,15 @@ function RoutingPreview({ config, setConfig, configure }: RoutingPreviewProps) {
                     <p className="text-xs text-amber-700 dark:text-amber-300">
                         {(texts?.configureMissing || "These channels are used but not configured yet: {names}").replace(
                             '{names}',
-                            unconfigured.map((id) => aiProviderName(id, language)).join(t.settings?.ai?.routing?.listSeparator || ", "),
+                            unconfigured.map((id) => aiProviderName(id, language)).join(texts?.listSeparator || ", "),
                         )}
                     </p>
-                    {unconfigured.map((id) => (
+                    {unconfigured.includes(config.aiProvider) && (
+                        <p className="text-xs text-muted-foreground">
+                            {texts?.fillCurrentAbove || "Fill in the channel settings above."}
+                        </p>
+                    )}
+                    {inlineForms.map((id) => (
                         <div key={id} className="space-y-2">
                             <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-medium">{aiProviderName(id, language)}</span>

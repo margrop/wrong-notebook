@@ -89,10 +89,19 @@ describe('渠道分工设置', () => {
         expect(document.body.textContent).not.toContain('→ 智谱 GLM');
     });
 
-    it('选中的渠道尚未配置时就地展开该渠道的配置表单', async () => {
+    it('分工选中的其他渠道尚未配置时就地展开该渠道的配置表单', async () => {
         await render({ ...config, routing: { text: 'kimi', fallback: '' } }, vi.fn());
 
         expect(document.body.textContent).toContain('尚未配置');
         expect(container.querySelector('[data-testid="provider-form"]')?.textContent).toBe('kimi');
+    });
+
+    it('主渠道尚未配置时不在分工区重复渲染表单，提示到上方填写', async () => {
+        // 主渠道的配置表单已显示在「渠道分工」上方，重复渲染会出现两份同样的输入框
+        await render({ aiProvider: 'deepseek', deepseek: {}, routing: {} }, vi.fn());
+
+        expect(document.body.textContent).toContain('尚未配置');
+        expect(document.body.textContent).toContain('请在上方填写该渠道的设置');
+        expect(container.querySelector('[data-testid="provider-form"]')).toBeNull();
     });
 });
