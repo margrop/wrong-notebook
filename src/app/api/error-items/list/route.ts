@@ -53,19 +53,29 @@ export const GET = withUser(async (req: Request, { user }: AuthenticatedContext)
  */
 async function findPrintItems(args: Pick<Prisma.ErrorItemFindManyArgs, "where" | "orderBy" | "skip" | "take">) {
     const rows = await prisma.errorItem.findMany({ ...args, select: ERROR_ITEM_PRINT_SELECT });
-    const ids = rows.map((row) => row.id);
-    const isInline = { originalImageUrl: { startsWith: "data:" } };
-    const [inline, external] = ids.length === 0 ? [[], []] : await Promise.all([
-        prisma.errorItem.findMany({ where: { id: { in: ids }, ...isInline }, select: { id: true } }),
-        prisma.errorItem.findMany({
-            where: { id: { in: ids }, originalImageUrl: { not: "" }, NOT: isInline },
-            select: { id: true, originalImageUrl: true },
-        }),
-    ]);
-    const inlineIds = new Set(inline.map((row) => row.id));
-    const externalUrls = new Map(external.map((row) => [row.id, row.originalImageUrl]));
+    const inlineIds = new Set<string>();
+    const externalUrls = new Map<string, string>();
+    // 原图分两类：内嵌 base64 换成本地图片接口，外部链接原样返回。
+    // 按批查询：单个查询绑定过多 id 时 Prisma 需要拆分，而拆分会因「非内嵌」这类否定条件失败并触发
+    // SQLite 参数上限；每批 500 条远低于该上限，既保留在 SQL 里按前缀判断、不把 base64 读进内存。
+    for (let start = 0; start < rows.length; start += PRINT_IMAGE_BATCH_SIZE) {
+        const ids = rows.slice(start, start + PRINT_IMAGE_BATCH_SIZE).map((row) => row.id);
+        const isInline = { originalImageUrl: { startsWith: "data:" } };
+        const [inline, external] = await Promise.all([
+            prisma.errorItem.findMany({ where: { id: { in: ids }, ...isInline }, select: { id: true } }),
+            prisma.errorItem.findMany({
+                where: { id: { in: ids }, originalImageUrl: { not: "" }, NOT: isInline },
+                select: { id: true, originalImageUrl: true },
+            }),
+        ]);
+        for (const row of inline) inlineIds.add(row.id);
+        for (const row of external) externalUrls.set(row.id, row.originalImageUrl);
+    }
     return rows.map(({ updatedAt, ...row }) => ({
         ...row,
         originalImageUrl: inlineIds.has(row.id) ? printImageUrl(row.id, updatedAt) : externalUrls.get(row.id) ?? "",
     }));
 }
+
+/** 每批 id 数：低于 SQLite 单条查询的参数上限，避免 Prisma 拆分带否定条件的查询 */
+const PRINT_IMAGE_BATCH_SIZE = 500;
