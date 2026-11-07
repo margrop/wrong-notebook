@@ -15,6 +15,7 @@ import {
     POLITICS_CURRICULUM, POLITICS_GRADE_ORDER
 } from "@/lib/tags/data";
 import { seedMath, seedStandardSubject } from "@/lib/tags/seed";
+import { seedUniversityGrades } from "@/lib/tags/seed/university-grades";
 import { createLogger } from "@/lib/logger";
 import { findParentTagIdForGrade } from "@/lib/tags/tag-recognition";
 
@@ -110,6 +111,9 @@ export async function POST() {
             // Politics
             await tx.knowledgeTag.deleteMany({ where: { isSystem: true, subject: 'politics' } });
             totalCreated += await seedStandardSubject(tx, 'politics', POLITICS_CURRICULUM, POLITICS_GRADE_ORDER);
+
+            // 大学：只有年级根节点，知识点由 AI 在错题本内生成
+            totalCreated += await seedUniversityGrades(tx);
 
             logger.info({ totalCreated }, 'Tags created');
 

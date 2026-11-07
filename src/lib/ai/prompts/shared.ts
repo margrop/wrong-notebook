@@ -83,6 +83,10 @@ export function gradeSemesterToDisplayName(gradeSemester: string): string | null
   if (gs.includes('高二')) return '高中二年级';
   if (gs.includes('高三')) return '高中三年级';
 
+  // 大学
+  const universityMatch = gs.match(/大([一二三四])/);
+  if (universityMatch) return `大学${universityMatch[1]}年级`;
+
   return null;
 }
 

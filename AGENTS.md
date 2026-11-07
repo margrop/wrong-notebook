@@ -66,6 +66,9 @@ bash scripts/ci.sh          # 完整 CI（要求 Node.js 22 及以上，含生�
 - 取 AI 服务一律用 `getAIService({ userId, kind })`（`kind` 与 `consumeAiQuota` 的操作一致，后台掌握概率评估为 `mastery`），用量据此记入该用户名下。额度判断、按用户的 AI 配置与用量记录经 `src/lib/ai/account.ts` 的 AI 账户接口完成，不要在路由中直接写额度逻辑；替换方式见 `doc/FORK_EXTENSION_POINTS.md`。
 - AI 调用不要写死 `max_tokens`：OpenAI、Azure、Anthropic 一律经 `withModelOutputLimit`（`src/lib/ai/truncation.ts`）按模型最大输出请求（已知模型查 `model-output-limits.ts`，未知模型默认 256K，超限时自动降级）；新增模型的官方输出上限补到 `model-output-limits.ts`。推理模型的思考也计入输出，小上限会导致正文为空。
 - MiniMax、智谱 GLM、DeepSeek、Kimi、千问 Qwen、阶跃星辰 StepFun、火山引擎豆包等国产大模型官方渠道复用 `OpenAIProvider`，默认地址和模型集中在 `src/lib/ai/vendor-presets.ts`；新增渠道只需加预设并同步文档与测试。
+- 错题本的学段与学科定义在 `src/lib/notebook-scope.ts`（`NOTEBOOK_STAGES`、`STAGE_SUBJECTS`、`STAGE_GRADE_PATTERNS`）：新增学段需同步 `gradesForStage` 的年级区间、`src/components/notebook-scope-label.tsx` 的文案、`src/lib/tags/tag-recognition.ts` 的年级父节点映射、`src/lib/ai/prompts/shared.ts` 的年级显示名与 `src/components/knowledge-filter.tsx` 的年级表。年级节点按名称归入学段，因此新学段的年级名必须能被对应正则识别。
+- 大学学段（`university`）没有内置课程知识点：`src/lib/tags/seed/university-grades.ts` 只为各学科建「大一 ~ 大四」年级根节点，知识点由 AI 在错题本内生成后挂在年级下。为保证标签逐步收敛，识别时的候选池须并入该错题本已有的用户标签；不要把空壳年级节点当成知识点（`getScopeTagsFromDB` 已跳过无子节点的年级）。
+- 新增或修改种子脚本时，需要同步 `Dockerfile`（编译 `dist-scripts`）、`docker-entrypoint.sh`、`packaging/runtime/launcher.js` 和 `scripts/package/build.mjs`（编译清单与打包校验）：安装包和镜像都只运行 `dist-scripts/` 下的编译产物，漏一处会导致已有安装升级后缺数据。
 
 ## 安全
 
@@ -112,6 +115,7 @@ bash scripts/ci.sh          # 完整 CI（要求 Node.js 22 及以上，含生�
 - 发布版本默认打预览版标签 `v年.月.日-n`（如 `v2026.10.22-1`，`n` 为当天序号，月日不补零），推送前确认对应提交的 GitHub CI（含 E2E）已通过；正式版标签 `v年.月.日` 必须由用户确认后才能创建和推送。详见 `doc/release-guide.md`。
 - Windows 安装包签名使用 SignPath（配置见 `doc/WINDOWS_SIGNING.md`）。调试只用测试证书：手动运行 Packages 并选 `windows_signing=test`，签名包不进入 Release。生产签名由 `SIGNPATH_ENABLED` 开启，每次需维护者在 SignPath 人工批准，不得改为自动批准或在签名失败时回退为未签名附件。GitHub Secret 只存 CI 用户（Submitter）的 Token，不存管理员 Token。
 - 提交信息格式：`<type>: <中文描述>`，type 取 feat / fix / docs / style / refactor / test / chore / ci。
+- 提交用于解决 GitHub issue 时，提交信息末尾另起一行写 `Refs: <issue 链接>`（如 `Refs: https://github.com/margrop/wrong-notebook/issues/9`）；一个提交解决多个 issue 时按行列出，便于追踪需求来源。
 - 提交信息中不添加 AI 署名。
 - 按功能拆分提交：一次任务包含多个相互独立的需求时，每个需求单独提交；同一需求涉及多个可独立交付的部分（如接入多个提供商）时也逐个提交。每个提交都应能独立通过测试，并包含该功能对应的测试与文档改动；无关的格式化、重构不要混入功能提交。
 - `main` 为公开主线；公开远程名称为 `github`。私有部署分支仅推送到受限远程，禁止将其提交或合并记录带入公开历史。

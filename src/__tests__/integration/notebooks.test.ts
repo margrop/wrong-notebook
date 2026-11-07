@@ -157,12 +157,29 @@ describe('/api/notebooks', () => {
             }));
         });
 
+        it('允许创建大学错题本并保存学段与学科', async () => {
+            const notebook = { id: 'nb-university', name: '考研数学', stage: 'university', subjectKey: 'math', _count: { errorItems: 0 } };
+            mocks.mockPrismaSubject.findUnique.mockResolvedValue(null);
+            mocks.mockPrismaSubject.create.mockResolvedValue(notebook);
+
+            const response = await POST(new Request('http://localhost/api/notebooks', {
+                method: 'POST',
+                body: JSON.stringify({ name: '考研数学', stage: 'university', subjectKey: 'math' }),
+            }));
+
+            expect(response.status).toBe(201);
+            expect(mocks.mockPrismaSubject.create).toHaveBeenCalledWith(expect.objectContaining({
+                data: expect.objectContaining({ name: '考研数学', stage: 'university', subjectKey: 'math', userId: mockUser.id }),
+            }));
+        });
+
         it('缺少学段或学科、取值非法或组合不可选时返回 400', async () => {
             for (const body of [
                 { name: '数学' },
                 { name: '数学', stage: 'primary' },
                 { name: '数学', subjectKey: 'math' },
-                { name: '数学', stage: 'university', subjectKey: 'math' },
+                { name: '数学', stage: 'college', subjectKey: 'math' },
+                { name: '数学', stage: 'university', subjectKey: 'music' },
                 { name: '数学', stage: 'primary', subjectKey: 'music' },
                 { name: '物理', stage: 'primary', subjectKey: 'physics' }, // 小学没有物理知识点
             ]) {

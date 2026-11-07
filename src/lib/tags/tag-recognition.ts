@@ -43,6 +43,7 @@ export async function findParentTagIdForGrade(gradeSemester: string | null | und
         "高一": "高一", "Grade 10": "高一", "Senior 1": "高一",
         "高二": "高二", "Grade 11": "高二", "Senior 2": "高二",
         "高三": "高三", "Grade 12": "高三", "Senior 3": "高三",
+        "大一": "大一", "大二": "大二", "大三": "大三", "大四": "大四",
     };
 
     // 先匹配较长的写法，否则 "Grade 12" 会先命中 "Grade 1" 被当成一年级

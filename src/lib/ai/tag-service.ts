@@ -177,7 +177,8 @@ export async function getScopeTagsFromDB(subject: NotebookSubject, stage: Notebo
             }
             kids.forEach(collect);
         };
-        tags.filter((tag) => !tag.parentId && isGradeInStage(tag.name, stage)).forEach(collect);
+        // 年级节点只是分类，没有子节点时（如尚无知识点的「大一」）不能当成知识点
+        tags.filter((tag) => !tag.parentId && isGradeInStage(tag.name, stage) && children.has(tag.id)).forEach(collect);
         return Array.from(names);
     } catch (error) {
         logger.error({ error, subject, stage, tagSet }, 'getScopeTagsFromDB error');

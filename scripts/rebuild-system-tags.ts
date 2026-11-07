@@ -15,6 +15,7 @@ import {
     POLITICS_CURRICULUM, POLITICS_GRADE_ORDER
 } from '../src/lib/tags/data';
 import { seedMath, seedStandardSubject } from '../src/lib/tags/seed/rebuild';
+import { seedUniversityGrades } from '../src/lib/tags/seed/university-grades';
 
 const prisma = new PrismaClient();
 
@@ -95,6 +96,9 @@ async function main() {
         // Politics
         await tx.knowledgeTag.deleteMany({ where: { isSystem: true, subject: 'politics' } });
         totalCreated += await seedStandardSubject(tx, 'politics', POLITICS_CURRICULUM, POLITICS_GRADE_ORDER);
+
+        // 大学：只有年级根节点，知识点由 AI 在错题本内生成
+        totalCreated += await seedUniversityGrades(tx);
 
         console.log(`[RebuildTags] Created ${totalCreated} tags`);
 

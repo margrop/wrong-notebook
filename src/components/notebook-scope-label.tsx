@@ -10,6 +10,7 @@ export function useNotebookScopeLabels() {
         primary: t.auth.primary,
         junior_high: t.auth.juniorHigh,
         senior_high: t.auth.seniorHigh,
+        university: t.auth.university,
     })[stage];
     const subjectLabel = (subject: NotebookSubject) => t.tags.subjects[subject];
     return { stageLabel, subjectLabel };

@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { isGradeInStage, isValidNotebookScope, resolveNotebookScope, stageFromEducationStage, STAGE_SUBJECTS } from '@/lib/notebook-scope';
+import { isGradeInStage, isValidNotebookScope, resolveNotebookScope, stageFromEducationStage, NOTEBOOK_SUBJECTS, STAGE_SUBJECTS } from '@/lib/notebook-scope';
 
 describe('错题本学段与学科', () => {
     it('年级节点按名称归入学段', () => {
         for (const name of ['一年级', '三年级', '六年级']) expect(isGradeInStage(name, 'primary')).toBe(true);
         for (const name of ['七年级', '七年级上', '九年级下']) expect(isGradeInStage(name, 'junior_high')).toBe(true);
         for (const name of ['高一上', '高二', '高三']) expect(isGradeInStage(name, 'senior_high')).toBe(true);
+        for (const name of ['大一', '大二上', '大四']) expect(isGradeInStage(name, 'university')).toBe(true);
         expect(isGradeInStage('七年级上', 'primary')).toBe(false);
         expect(isGradeInStage('三年级', 'junior_high')).toBe(false);
         expect(isGradeInStage('高一上', 'junior_high')).toBe(false);
+        expect(isGradeInStage('大一', 'senior_high')).toBe(false);
+        expect(isGradeInStage('高三', 'university')).toBe(false);
     });
 
     it('只允许标签库中存在的学段与学科组合', () => {
@@ -16,10 +19,12 @@ describe('错题本学段与学科', () => {
         expect(isValidNotebookScope('primary', 'chinese')).toBe(true);
         expect(isValidNotebookScope('primary', 'physics')).toBe(false);
         expect(isValidNotebookScope('junior_high', 'physics')).toBe(true);
-        expect(isValidNotebookScope('university', 'math')).toBe(false);
+        expect(isValidNotebookScope('university', 'math')).toBe(true);
+        expect(isValidNotebookScope('university', 'politics')).toBe(true);
         expect(isValidNotebookScope('primary', 'music')).toBe(false);
         expect(isValidNotebookScope(undefined, undefined)).toBe(false);
         expect(STAGE_SUBJECTS.primary).toEqual(['math', 'english', 'chinese']);
+        expect(STAGE_SUBJECTS.university).toEqual(NOTEBOOK_SUBJECTS);
     });
 
     it('旧错题本未记录学科时按名称推断，学段缺省为小学', () => {
@@ -29,9 +34,9 @@ describe('错题本学段与学科', () => {
         expect(resolveNotebookScope({ name: '数学', stage: 'bogus', subjectKey: 'bogus' })).toEqual({ stage: 'primary', subject: 'math' });
     });
 
-    it('用户的教育阶段映射为学段，大学或未设置时按小学', () => {
+    it('用户的教育阶段映射为学段，未设置时按小学', () => {
         expect(stageFromEducationStage('junior_high')).toBe('junior_high');
-        expect(stageFromEducationStage('university')).toBe('primary');
+        expect(stageFromEducationStage('university')).toBe('university');
         expect(stageFromEducationStage(null)).toBe('primary');
     });
 });

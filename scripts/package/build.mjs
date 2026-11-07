@@ -93,7 +93,7 @@ function buildSeedDatabase() {
     const scriptsOut = path.join(WORK, 'dist-scripts');
     const env = { DATABASE_URL: `file:${seedDb.split(path.sep).join('/')}` };
     runNodeBin('typescript/bin/tsc', [
-        'scripts/rebuild-system-tags.ts', 'scripts/seed-chinese-primary.ts', '--outDir', scriptsOut,
+        'scripts/rebuild-system-tags.ts', 'scripts/seed-chinese-primary.ts', 'scripts/seed-university-grades.ts', '--outDir', scriptsOut,
         '--esModuleInterop', '--resolveJsonModule', '--skipLibCheck', '--module', 'commonjs', '--target', 'ES2022',
     ]);
     runNodeBin('prisma/build/index.js', ['migrate', 'deploy'], { env });
@@ -289,7 +289,7 @@ function buildDesktop() {
 
 /** electron-builder 的文件过滤规则较多，打包后确认服务端关键文件确实进入安装包 */
 function verifyDesktopOutput(releaseDir) {
-    const required = ['launcher.js', 'server.js', '.next/BUILD_ID', 'node_modules/.prisma/client/index.js', 'prisma/seed.db', 'dist-scripts/scripts/seed-chinese-primary.js'];
+    const required = ['launcher.js', 'server.js', '.next/BUILD_ID', 'node_modules/.prisma/client/index.js', 'prisma/seed.db', 'dist-scripts/scripts/seed-chinese-primary.js', 'dist-scripts/scripts/seed-university-grades.js'];
     const roots = [];
     const walk = (dir, depth) => {
         if (depth > 6 || !fs.existsSync(dir)) return;

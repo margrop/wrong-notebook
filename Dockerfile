@@ -19,11 +19,11 @@ RUN --mount=type=cache,target=/root/.npm \
 FROM deps AS db-builder
 ENV DATABASE_URL="file:/app/prisma/dev.db"
 COPY prisma ./prisma
-COPY scripts/rebuild-system-tags.ts scripts/seed-chinese-primary.ts scripts/seed-admin.js ./scripts/
+COPY scripts/rebuild-system-tags.ts scripts/seed-chinese-primary.ts scripts/seed-university-grades.ts scripts/seed-admin.js ./scripts/
 COPY src/lib/tags/data ./src/lib/tags/data
-COPY src/lib/tags/seed/seed-chinese-tags.ts src/lib/tags/seed/rebuild.ts ./src/lib/tags/seed/
+COPY src/lib/tags/seed/seed-chinese-tags.ts src/lib/tags/seed/rebuild.ts src/lib/tags/seed/university-grades.ts ./src/lib/tags/seed/
 COPY src/lib/error-message.ts src/lib/logger.ts src/lib/debug-log.ts ./src/lib/
-RUN npx tsc scripts/rebuild-system-tags.ts scripts/seed-chinese-primary.ts --outDir dist-scripts --esModuleInterop --resolveJsonModule --skipLibCheck --module commonjs --target ES2022 \
+RUN npx tsc scripts/rebuild-system-tags.ts scripts/seed-chinese-primary.ts scripts/seed-university-grades.ts --outDir dist-scripts --esModuleInterop --resolveJsonModule --skipLibCheck --module commonjs --target ES2022 \
     && npx prisma migrate deploy \
     && npx prisma db seed \
     && node ./dist-scripts/scripts/rebuild-system-tags.js

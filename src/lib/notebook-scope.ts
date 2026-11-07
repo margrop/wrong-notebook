@@ -6,7 +6,7 @@
 
 import { inferSubjectFromName } from "@/lib/tags/knowledge-tags";
 
-export const NOTEBOOK_STAGES = ["primary", "junior_high", "senior_high"] as const;
+export const NOTEBOOK_STAGES = ["primary", "junior_high", "senior_high", "university"] as const;
 export type NotebookStage = (typeof NOTEBOOK_STAGES)[number];
 export const DEFAULT_NOTEBOOK_STAGE: NotebookStage = "primary";
 
@@ -22,6 +22,8 @@ export const STAGE_SUBJECTS: Record<NotebookStage, readonly NotebookSubject[]> =
     primary: ["math", "english", "chinese"],
     junior_high: NOTEBOOK_SUBJECTS,
     senior_high: NOTEBOOK_SUBJECTS,
+    // 大学没有内置课程知识点，知识点由 AI 在错题本内自由生成后逐步收敛
+    university: NOTEBOOK_SUBJECTS,
 };
 
 /** 学科的中文名（提示词中使用） */
@@ -35,6 +37,7 @@ const STAGE_GRADE_PATTERNS: Record<NotebookStage, RegExp> = {
     primary: /^[一二三四五六]年级/,
     junior_high: /^[七八九]年级/,
     senior_high: /^高[一二三中]/,
+    university: /^大[一二三四]/,
 };
 
 export function isNotebookStage(value: unknown): value is NotebookStage {
@@ -55,7 +58,7 @@ export function isGradeInStage(gradeName: string, stage: NotebookStage): boolean
     return STAGE_GRADE_PATTERNS[stage].test(gradeName);
 }
 
-/** 由用户的教育阶段得到错题本学段，未设置或为大学时按小学处理 */
+/** 由用户的教育阶段得到错题本学段，未设置时按小学处理 */
 export function stageFromEducationStage(educationStage: string | null | undefined): NotebookStage {
     return isNotebookStage(educationStage) ? educationStage : DEFAULT_NOTEBOOK_STAGE;
 }

@@ -51,6 +51,10 @@ const GRADE_TO_SEMESTERS: Record<number, string[]> = {
     10: ['高一上', '高一下', '高一'],
     11: ['高二上', '高二下', '高二'],
     12: ['高三上', '高三下', '高三'],
+    13: ['大一', '大一上', '大一下'],
+    14: ['大二', '大二上', '大二下'],
+    15: ['大三', '大三上', '大三下'],
+    16: ['大四', '大四上', '大四下'],
 };
 
 export function KnowledgeFilter({
@@ -107,6 +111,9 @@ export function KnowledgeFilter({
         } else if (educationStage === 'senior_high') {
             // 高中: 1年级=10, ...
             return yearsInSchool + 9;
+        } else if (educationStage === 'university') {
+            // 大学: 1年级=13, ...
+            return yearsInSchool + 12;
         }
         return 0;
     }, [timeZone]);
@@ -135,9 +142,12 @@ export function KnowledgeFilter({
         } else if (educationStage === 'senior_high') {
             // 高中生: 仅显示高中全部
             grades = [10, 11, 12];
+        } else if (educationStage === 'university') {
+            // 大学生: 显示大学全部
+            grades = [13, 14, 15, 16];
         } else {
             // 其他情况
-            grades = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+            grades = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
         }
 
         // 可以在这里根据 enrollmentYear 做进一步优化，比如高亮当前年级

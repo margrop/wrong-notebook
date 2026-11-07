@@ -1,6 +1,7 @@
 export { seedMath, seedStandardSubject } from './rebuild';
 export type { SectionedCurriculum, ChapterCurriculum } from './rebuild';
 export { seedChineseTags } from './seed-chinese-tags';
+export { seedUniversityGrades } from './university-grades';
 export {
     CNM_TAG_SET,
     CNM_REPO_URL,

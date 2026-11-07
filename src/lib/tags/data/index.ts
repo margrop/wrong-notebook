@@ -7,3 +7,4 @@ export * from './chinese';
 export * from './history';
 export * from './geography';
 export * from './politics';
+export * from './university';

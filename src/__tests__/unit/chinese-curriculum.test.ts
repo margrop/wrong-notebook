@@ -9,8 +9,9 @@ describe('语文课程与错题本学段', () => {
         }
     });
 
-    it('每个学段都有非空的年级、章节和知识点', () => {
-        for (const stage of NOTEBOOK_STAGES) {
+    it('小学、初中和高中都有非空的年级、章节和知识点', () => {
+        // 大学只建年级根节点、不含课程知识点，故不参与校验
+        for (const stage of ['primary', 'junior_high', 'senior_high'] as const) {
             const grades = Object.entries(CHINESE_CURRICULUM).filter(([grade]) => isGradeInStage(grade, stage));
             expect(grades.length).toBeGreaterThan(0);
             for (const [, chapters] of grades) {

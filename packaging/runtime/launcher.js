@@ -184,14 +184,17 @@ function prepare(options = {}) {
     if (!runPrisma(['migrate', 'deploy', '--schema', path.join(APP_DIR, 'prisma', 'schema.prisma')], env)) {
         throw new Error('数据库迁移失败，已停止启动');
     }
-    const chineseTags = spawnSync(process.execPath, [path.join(APP_DIR, 'dist-scripts', 'scripts', 'seed-chinese-primary.js')], {
-        cwd: APP_DIR,
-        env,
-        stdio: 'inherit',
-        windowsHide: true,
-    });
-    if (chineseTags.error) throw chineseTags.error;
-    if (chineseTags.status !== 0) throw new Error('语文系统标签同步失败，已停止启动');
+    // 增量补齐语文课程与大学年级根节点，保留已有标签和题目关联
+    for (const script of ['seed-chinese-primary.js', 'seed-university-grades.js']) {
+        const seeded = spawnSync(process.execPath, [path.join(APP_DIR, 'dist-scripts', 'scripts', script)], {
+            cwd: APP_DIR,
+            env,
+            stdio: 'inherit',
+            windowsHide: true,
+        });
+        if (seeded.error) throw seeded.error;
+        if (seeded.status !== 0) throw new Error(`${script} 执行失败，已停止启动`);
+    }
     return { dataDir, dbFile, env, version };
 }
 
