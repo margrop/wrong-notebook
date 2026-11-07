@@ -186,12 +186,54 @@ export async function getScopeTagsFromDB(subject: NotebookSubject, stage: Notebo
     }
 }
 
-/** 错题本学段 + 学科 + 标签体系对应的候选知识点（直接交给 AI，不再按年级计算范围） */
-export async function getNotebookCandidateTags(scope: NotebookScope, tagSet: string = 'default'): Promise<CandidateTags | undefined> {
+/**
+ * 该用户在本学科、本标签体系下自己建的叶子标签（含没有年级父节点的根标签），
+ * 只保留隶属于该学段年级节点的，保证不同学段互不串标签。
+ */
+export async function getUserScopeTagsFromDB(subject: NotebookSubject, stage: NotebookStage, tagSet: string, userId: string): Promise<string[]> {
+    try {
+        const tags = await prisma.knowledgeTag.findMany({
+            where: { subject, tagSet, OR: [{ isSystem: true }, { userId }] },
+            select: { id: true, name: true, parentId: true, isSystem: true },
+            orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+        });
+        const byId = new Map(tags.map((tag) => [tag.id, tag]));
+        const withChildren = new Set(tags.flatMap((tag) => (tag.parentId ? [tag.parentId] : [])));
+
+        const names = new Set<string>();
+        for (const tag of tags) {
+            if (tag.isSystem || withChildren.has(tag.id)) continue;
+            let root = tag;
+            const visited = new Set([tag.id]);
+            while (root.parentId && byId.has(root.parentId) && !visited.has(root.parentId)) {
+                root = byId.get(root.parentId)!;
+                visited.add(root.id);
+            }
+            // 根节点就是标签自己时视为无年级归属的自定义标签，一并作为候选
+            if (root.id === tag.id || isGradeInStage(root.name, stage)) names.add(tag.name);
+        }
+        return Array.from(names);
+    } catch (error) {
+        logger.error({ error, subject, stage, tagSet }, 'getUserScopeTagsFromDB error');
+        return [];
+    }
+}
+
+/**
+ * 错题本学段 + 学科 + 标签体系对应的候选知识点（直接交给 AI，不再按年级计算范围）。
+ * 该学段没有内置课程知识点时（如大学）标记 allowCustom，并把该错题本已有的用户标签作为优先复用清单。
+ */
+export async function getNotebookCandidateTags(scope: NotebookScope, tagSet: string = 'default', userId?: string): Promise<CandidateTags | undefined> {
     if (!scope.subject) return undefined;
+    const systemTags = await getScopeTagsFromDB(scope.subject, scope.stage, tagSet);
+    const allowCustom = systemTags.length === 0;
+    const tags = allowCustom && userId
+        ? await getUserScopeTagsFromDB(scope.subject, scope.stage, tagSet, userId)
+        : systemTags;
     return {
         subjectName: SUBJECT_DISPLAY_NAMES[scope.subject],
-        tags: await getScopeTagsFromDB(scope.subject, scope.stage, tagSet),
+        tags,
+        ...(allowCustom ? { allowCustom: true } : {}),
     };
 }
 

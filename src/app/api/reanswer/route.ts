@@ -45,7 +45,7 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
                 select: { name: true, stage: true, subjectKey: true, tagSet: true },
             });
             if (notebook) {
-                candidateTags = await getNotebookCandidateTags(resolveNotebookScope(notebook), notebook.tagSet || 'default');
+                candidateTags = await getNotebookCandidateTags(resolveNotebookScope(notebook), notebook.tagSet || 'default', user.id);
             }
         }
 

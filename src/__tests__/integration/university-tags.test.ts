@@ -54,22 +54,47 @@ describe('大学年级根节点', () => {
         expect(roots.every((tag) => tag.order >= 13 && tag.order <= 16)).toBe(true);
     });
 
-    it('没有知识点的年级节点不会被当成候选知识点', async () => {
+    it('没有知识点的年级节点不会被当成候选，并标记允许自行命名', async () => {
         await database.$transaction((tx) => seedUniversityGrades(tx));
         const candidates = await getNotebookCandidateTags({ subject: 'math', stage: 'university' });
-        expect(candidates).toEqual({ subjectName: '数学', tags: [] });
+        expect(candidates).toEqual({ subjectName: '数学', tags: [], allowCustom: true });
     });
 
-    it('用户标签不计入系统候选池，其他学段也取不到大学的知识点', async () => {
+    it('候选池并入当前用户在本学段的已有标签，其他学段的不混入', async () => {
         await database.$transaction((tx) => seedUniversityGrades(tx, ['math']));
-        const freshman = await database.knowledgeTag.findFirstOrThrow({ where: { subject: 'math', name: '大一' } });
+        await database.knowledgeTag.create({ data: { id: 'senior-grade', name: '高三', subject: 'math', isSystem: true } });
+        const [freshman, senior] = await Promise.all(
+            ['大一', '高三'].map((name) => database.knowledgeTag.findFirstOrThrow({ where: { subject: 'math', name } })),
+        );
         await database.user.create({ data: { id: 'user-1', email: 'university-test@example.com', password: 'test-only' } });
+        await database.user.create({ data: { id: 'user-2', email: 'university-other@example.com', password: 'test-only' } });
         await database.knowledgeTag.create({
             data: { name: '极限的定义', subject: 'math', isSystem: false, userId: 'user-1', parentId: freshman.id },
         });
+        await database.knowledgeTag.create({
+            data: { name: '数列的极限', subject: 'math', isSystem: false, userId: 'user-1' },
+        });
+        await database.knowledgeTag.create({
+            data: { name: '椭圆的性质', subject: 'math', isSystem: false, userId: 'user-1', parentId: senior.id },
+        });
+        await database.knowledgeTag.create({
+            data: { name: '别的用户标签', subject: 'math', isSystem: false, userId: 'user-2', parentId: freshman.id },
+        });
 
-        expect(await getNotebookCandidateTags({ subject: 'math', stage: 'university' })).toEqual({ subjectName: '数学', tags: [] });
-        expect(await getNotebookCandidateTags({ subject: 'math', stage: 'senior_high' })).toEqual({ subjectName: '数学', tags: [] });
+        expect(await getNotebookCandidateTags({ subject: 'math', stage: 'university' }, 'default', 'user-1'))
+            .toEqual({ subjectName: '数学', tags: ['极限的定义', '数列的极限'], allowCustom: true });
+        expect(await getNotebookCandidateTags({ subject: 'math', stage: 'university' }, 'default', 'user-2'))
+            .toEqual({ subjectName: '数学', tags: ['别的用户标签'], allowCustom: true });
+    });
+
+    it('有课程库的学段不标记自行命名，也不并入用户标签', async () => {
+        await database.knowledgeTag.create({ data: { id: 'grade', name: '高三', subject: 'math', isSystem: true } });
+        await database.knowledgeTag.create({ data: { name: '导数', subject: 'math', isSystem: true, parentId: 'grade' } });
+        await database.user.create({ data: { id: 'user-1', email: 'university-test@example.com', password: 'test-only' } });
+        await database.knowledgeTag.create({ data: { name: '我的标签', subject: 'math', isSystem: false, userId: 'user-1', parentId: 'grade' } });
+
+        expect(await getNotebookCandidateTags({ subject: 'math', stage: 'senior_high' }, 'default', 'user-1'))
+            .toEqual({ subjectName: '数学', tags: ['导数'] });
     });
 
     it('重复执行不新增节点，并把已有节点的顺序对齐', async () => {

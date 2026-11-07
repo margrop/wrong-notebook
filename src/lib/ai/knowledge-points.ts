@@ -6,16 +6,23 @@ const SUBJECT_TAG_FIELDS = {
     生物: 'prefetchedBiologyTags', 英语: 'prefetchedEnglishTags',
 } as const;
 
-/** 有候选集合时只采用集合内的标签；未提供集合时仍去重并限制数量。 */
+/**
+ * 有候选集合时只采用集合内的标签；allowCustom 时（该学段没有内置课程知识点）保留 AI 自行命名的标签，
+ * 候选集合里的已有标签由提示词要求优先复用；未提供集合时仍去重并限制数量。
+ */
 export function normalizeAiQuestionTags<T extends { knowledgePoints: string[]; subject?: string }>(question: T, options: PromptOptions): T {
-    let allowedTags = options.candidateTags?.tags;
-    if (!options.candidateTags) {
-        const field = SUBJECT_TAG_FIELDS[question.subject as keyof typeof SUBJECT_TAG_FIELDS];
-        if (field) {
-            allowedTags = options[field];
-        } else {
-            const available = Object.values(SUBJECT_TAG_FIELDS).flatMap(key => options[key] ? [options[key]] : []);
-            allowedTags = available.length ? available.flat() : undefined;
+    const allowCustom = options.candidateTags?.allowCustom === true;
+    let allowedTags: string[] | undefined;
+    if (!allowCustom) {
+        allowedTags = options.candidateTags?.tags;
+        if (!options.candidateTags) {
+            const field = SUBJECT_TAG_FIELDS[question.subject as keyof typeof SUBJECT_TAG_FIELDS];
+            if (field) {
+                allowedTags = options[field];
+            } else {
+                const available = Object.values(SUBJECT_TAG_FIELDS).flatMap(key => options[key] ? [options[key]] : []);
+                allowedTags = available.length ? available.flat() : undefined;
+            }
         }
     }
     const allowed = allowedTags ? new Set(allowedTags) : null;

@@ -116,6 +116,7 @@ export function generateTagSuggestRequest(input: TagSuggestionInput): PromptRequ
         questionText: ref('questionText'), answerText: ref('answerText'), analysis: ref('analysis'),
         wrongAnswerText: ref('wrongAnswerText'), mistakeAnalysis: ref('mistakeAnalysis'),
         subject: safeSubject(input.subject) || '本题学科', allowedTags: [ref('allowedTags')], gradeSemester: safeGrade(input.gradeSemester),
+        allowCustom: input.allowCustom === true,
     }), { ...input });
 }
 

@@ -472,6 +472,7 @@ describe('/api/reanswer', () => {
     describe('按错题本限定候选知识点', () => {
         it('传入错题本 ID 时，只查当前用户的错题本，并把其学段 + 学科的全部知识点交给 AI', async () => {
             const candidateTags = { subjectName: '数学', tags: ['鸡兔同笼', '植树问题'] };
+            scopeMocks.findUser.mockResolvedValue({ id: 'user-1' });
             scopeMocks.findFirst.mockResolvedValue({ name: '数学', stage: 'primary', subjectKey: 'math' });
             scopeMocks.getNotebookCandidateTags.mockResolvedValue(candidateTags);
             mocks.mockAIService.reanswerQuestion.mockResolvedValue({ answerText: 'a', analysis: 'x', knowledgePoints: [] });
@@ -485,7 +486,7 @@ describe('/api/reanswer', () => {
             expect(scopeMocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({
                 where: { id: 'nb-1', user: { email: 'user@example.com' } },
             }));
-            expect(scopeMocks.getNotebookCandidateTags).toHaveBeenCalledWith({ stage: 'primary', subject: 'math' }, 'default');
+            expect(scopeMocks.getNotebookCandidateTags).toHaveBeenCalledWith({ stage: 'primary', subject: 'math' }, 'default', 'user-1');
             expect(mocks.mockAIService.reanswerQuestion.mock.calls[0][5]).toEqual(candidateTags);
         });
 

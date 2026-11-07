@@ -89,6 +89,8 @@ export interface TagSuggestionInput {
     subject: string;          // 中文学科名，如「数学」
     allowedTags: string[];    // 可选知识点（标签库中的精确名称）
     gradeSemester?: string | null;
+    /** 该学段没有内置课程知识点：允许 AI 自行命名，allowedTags 仅供优先复用 */
+    allowCustom?: boolean;
 }
 
 export type { TagSuggestionResult } from './schema';
@@ -98,6 +100,8 @@ import type { TagSuggestionResult } from './schema';
 export interface CandidateTags {
     subjectName: string;   // 中文学科名，如「数学」
     tags: string[];
+    /** 该学段没有内置课程知识点（如大学）：允许 AI 自行命名，tags 中的已有标签仅供优先复用 */
+    allowCustom?: boolean;
 }
 
 export interface AIService {

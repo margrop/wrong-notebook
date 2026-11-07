@@ -203,4 +203,18 @@ describe('parseTagSuggestion', () => {
         const result = parseTagSuggestion('{"tags": ["加法"], "questionType": "bogus"}', allowed);
         expect(result.questionType).toBeNull();
     });
+
+    it('不允许自行命名时丢弃清单外的名称', () => {
+        expect(parseTagSuggestion('{"tags": ["加法", "自创名称"]}', allowed).tags).toEqual(['加法']);
+    });
+
+    it('允许自行命名时保留清单外名称，清单内名称排在前面', () => {
+        const result = parseTagSuggestion('{"tags": ["洛必达法则", "加法", "自创名称", "加法"]}', allowed, true);
+        expect(result.tags).toEqual(['加法', '洛必达法则', '自创名称']);
+    });
+
+    it('允许自行命名时也最多五个且忽略空白名称', () => {
+        const result = parseTagSuggestion('{"tags": [" ", "a", "b", "c", "d", "e", "f"]}', [], true);
+        expect(result.tags).toEqual(['a', 'b', 'c', 'd', 'e']);
+    });
 });

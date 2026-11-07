@@ -6,7 +6,7 @@ When creating a notebook, choose its school stage (primary, junior high, senior 
 
 Primary school offers math, English and Chinese. The built-in Chinese library includes chapters and knowledge points for grades 1–6, junior high and senior high. After upgrading Docker or an installation package, startup fills in missing built-in Chinese tags while preserving existing tag IDs, question links, custom tags and other tag systems.
 
-University (including postgraduate exam prep) offers every built-in subject. It only has the 大一–大四 (freshman–senior) grade nodes and no built-in curriculum, so knowledge points are added manually. To separate directions such as "考研数学" or "linear algebra", use them as notebook names.
+University (including postgraduate exam prep) offers every built-in subject. It only has the 大一–大四 (freshman–senior) grade nodes and no built-in curriculum: AI names the knowledge points itself and saves them as tags on the question, and later recognition reuses the existing tags so the names converge. Tags hang under the matching grade node, can be filtered by grade, and can also be added manually. To separate directions such as "考研数学" or "linear algebra", use them as notebook names.
 
 After an administrator imports the PEP curriculum knowledge points (see [Settings and Users](Settings-and-Users-en)), a **Tag system** option appears when creating a notebook. It coexists with the built-in system and cannot be changed after creation; AI recognition and knowledge-point filters only use tags from the notebook's tag system.
 

@@ -64,6 +64,16 @@ describe('AI Prompts', () => {
             expect(prompt).not.toContain('不应出现的年级标签');
         });
 
+        it('该学段没有课程库时要求复用已有标签，没有吻合的再自行命名', () => {
+            const prompt = generateAnalyzePrompt('zh', null, '数学', {
+                candidateTags: { subjectName: '数学', tags: ['极限的定义'], allowCustom: true },
+            });
+            expect(prompt).toContain('**数学知识点:**');
+            expect(prompt).toContain('"极限的定义"');
+            expect(prompt).toContain('原样复用');
+            expect(prompt).not.toContain('必须从上述列表中选择精确匹配的标签');
+        });
+
         it('应该生成中文提示词', () => {
             const prompt = generateAnalyzePrompt('zh');
             expect(prompt).toContain('中文');
@@ -201,6 +211,15 @@ describe('AI Prompts', () => {
             expect(withTags).toContain('"鸡兔同笼"');
             expect(generateReanswerPrompt('zh', '鸡兔同笼', '数学')).not.toContain('只能从以下');
             expect(generateReanswerPrompt('zh', '鸡兔同笼', '数学')).not.toContain('{{knowledge_points_rule}}');
+        });
+
+        it('该学段没有课程库时允许自行命名，但仍要求复用已有标签', () => {
+            const prompt = generateReanswerPrompt('zh', '求极限', '数学', {
+                candidateTags: { subjectName: '数学', tags: ['极限的定义'], allowCustom: true },
+            });
+            expect(prompt).toContain('本学段没有固定知识点清单');
+            expect(prompt).toContain('"极限的定义"');
+            expect(prompt).not.toContain('只能从以下数学知识点中选择');
         });
 
         const questionText = '求解方程 2x + 3 = 7';
@@ -527,6 +546,32 @@ describe('知识点重新标注提示词', () => {
         expect(prompt).toContain('single_choice');
         expect(prompt).toContain('questionType');
         expect(prompt).toContain('"questionType": "single_choice"');
+    });
+
+    it('允许自行命名时改为复用已有标签、没有吻合的再命名', () => {
+        const prompt = generateTagSuggestPrompt({
+            questionText: '求二元函数 f(x,y)=x²+y² 在约束 x+y=1 下的极值',
+            subject: '数学',
+            allowedTags: ['极限的定义'],
+            allowCustom: true,
+        });
+
+        expect(prompt).toContain('选出现有知识点或自行命名');
+        expect(prompt).toContain('"极限的定义"');
+        expect(prompt).toContain('必须原样复用');
+        expect(prompt).not.toContain('只能从【可选知识点】中选择');
+    });
+
+    it('允许自行命名且没有已有标签时提示可以自行命名', () => {
+        const prompt = generateTagSuggestPrompt({ questionText: '求极限', subject: '数学', allowedTags: [], allowCustom: true });
+        expect(prompt).toContain('（暂无，可自行命名）');
+        expect(prompt).not.toContain('{{');
+    });
+
+    it('不允许自行命名时仍然只从清单中选择', () => {
+        const prompt = generateTagSuggestPrompt({ questionText: '1+1=?', subject: '数学', allowedTags: ['加法'] });
+        expect(prompt).toContain('只能从【可选知识点】中选择');
+        expect(prompt).not.toContain('必须原样复用');
     });
 });
 

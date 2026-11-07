@@ -113,9 +113,11 @@ export function generateReanswerPrompt(
     language_instruction: langInstruction,
     question_text: questionText,
     subject_hint: subjectHint,
-    knowledge_points_rule: options?.candidateTags
-      ? `只能从以下${options.candidateTags.subjectName}知识点中选择最多 5 个，清单为空或没有匹配项时留空，必须与名称完全一致，不要改写、不要自创：\n${options.candidateTags.tags.map(tag => `"${tag}"`).join(", ") || '（无可用标签）'}`
-      : '',
+    knowledge_points_rule: options?.candidateTags?.allowCustom
+      ? `本学段没有固定知识点清单，最多 5 个：与以下已有知识点吻合的必须原样复用，没有吻合的再自行命名（使用教材或考纲标准术语）：\n${options.candidateTags.tags.map(tag => `"${tag}"`).join(", ") || '（暂无）'}`
+      : options?.candidateTags
+        ? `只能从以下${options.candidateTags.subjectName}知识点中选择最多 5 个，清单为空或没有匹配项时留空，必须与名称完全一致，不要改写、不要自创：\n${options.candidateTags.tags.map(tag => `"${tag}"`).join(", ") || '（无可用标签）'}`
+        : '',
     grade_instruction: generateGradeInstruction(gradeSemester),
     provider_hints: options?.providerHints || ''
   }).trim() + '\n\n' + [
@@ -123,6 +125,10 @@ export function generateReanswerPrompt(
     generateOutputContract('reanswer'), DRAFT_FILTER_RULES, langInstruction, LATEX_RULES,
     generateGradeInstruction(gradeSemester), generateGradeRecognitionInstruction(gradeSemester),
     DIFFICULTY_STARS_RULES, QUESTION_TYPE_RULES,
-    options?.candidateTags ? `只能从候选知识点中选择，名称必须完全一致，最多 5 个；无可用标签时留空：${options.candidateTags.tags.join('、')}` : '',
+    options?.candidateTags?.allowCustom
+      ? `知识点最多 5 个：优先复用已有标签，名称保持一致，其余自行命名：${options.candidateTags.tags.join('、') || '（暂无）'}`
+      : options?.candidateTags
+        ? `只能从候选知识点中选择，名称必须完全一致，最多 5 个；无可用标签时留空：${options.candidateTags.tags.join('、')}`
+        : '',
   ].filter(Boolean).join('\n\n');
 }

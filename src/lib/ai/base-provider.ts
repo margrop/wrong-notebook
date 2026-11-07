@@ -276,12 +276,12 @@ export abstract class BaseAIProvider implements AIService {
 
     async suggestKnowledgeTags(input: TagSuggestionInput): Promise<TagSuggestionResult> {
         const prompt = generateTagSuggestRequest(input);
-        logger.info({ provider: this.providerName, subject: input.subject, allowedTagCount: input.allowedTags.length }, 'Tag Suggestion Request');
+        logger.info({ provider: this.providerName, subject: input.subject, allowedTagCount: input.allowedTags.length, allowCustom: input.allowCustom === true }, 'Tag Suggestion Request');
 
         try {
             const text = await this.run({ task: 'tag-suggest', system: prompt.system, user: prompt.user });
             logger.debug({ rawResponse: text }, 'Tag suggestion AI raw response');
-            return parseTagSuggestion(text, input.allowedTags);
+            return parseTagSuggestion(text, input.allowedTags, input.allowCustom === true);
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during tag suggestion');
             this.handleError(error);

@@ -4,24 +4,42 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextResponse } from 'next/server';
 
-const mocks = vi.hoisted(() => ({
-    user: { findUnique: vi.fn() },
-    errorItem: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
-    knowledgeTag: { findMany: vi.fn() },
-    subject: { findUnique: vi.fn() },
-    paperGroup: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn() },
-    suggestKnowledgeTags: vi.fn(),
-    getMathTagsFromDB: vi.fn(),
-    getScopeTagsFromDB: vi.fn(),
-    consumeAiQuota: vi.fn(),
-    session: { user: { email: 'user@example.com' }, expires: '2099-01-01' },
-}));
+const mocks = vi.hoisted(() => {
+    const errorItem = { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() };
+    const knowledgeTag = { findMany: vi.fn() };
+    const prisma = {
+        user: { findUnique: vi.fn() },
+        errorItem,
+        knowledgeTag,
+        subject: { findUnique: vi.fn() },
+        paperGroup: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn() },
+        $transaction: vi.fn(),
+    };
+    return {
+        prisma,
+        user: prisma.user,
+        errorItem,
+        knowledgeTag,
+        subject: prisma.subject,
+        paperGroup: prisma.paperGroup,
+        suggestKnowledgeTags: vi.fn(),
+        getMathTagsFromDB: vi.fn(),
+        getScopeTagsFromDB: vi.fn(),
+        getUserScopeTagsFromDB: vi.fn(),
+        resolveOrCreateTags: vi.fn(),
+        consumeAiQuota: vi.fn(),
+        session: { user: { email: 'user@example.com' }, expires: '2099-01-01' },
+    };
+});
 
-vi.mock('@/lib/prisma', () => ({
-    prisma: { user: mocks.user, errorItem: mocks.errorItem, knowledgeTag: mocks.knowledgeTag, subject: mocks.subject, paperGroup: mocks.paperGroup },
-}));
+vi.mock('@/lib/prisma', () => ({ prisma: mocks.prisma }));
 vi.mock('@/lib/ai', () => ({ getAIService: vi.fn(() => ({ suggestKnowledgeTags: mocks.suggestKnowledgeTags })) }));
-vi.mock('@/lib/ai/tag-service', () => ({ getMathTagsFromDB: mocks.getMathTagsFromDB, getScopeTagsFromDB: mocks.getScopeTagsFromDB }));
+vi.mock('@/lib/ai/tag-service', () => ({
+    getMathTagsFromDB: mocks.getMathTagsFromDB,
+    getScopeTagsFromDB: mocks.getScopeTagsFromDB,
+    getUserScopeTagsFromDB: mocks.getUserScopeTagsFromDB,
+}));
+vi.mock('@/lib/tags/tag-resolver', () => ({ resolveOrCreateTags: mocks.resolveOrCreateTags }));
 vi.mock('next-auth', () => ({ getServerSession: vi.fn(() => Promise.resolve(mocks.session)) }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.mock('@/lib/ai-quota', () => ({ consumeAiQuota: mocks.consumeAiQuota }));
@@ -57,6 +75,10 @@ describe('知识点重新生成', () => {
         mocks.consumeAiQuota.mockResolvedValue(null);
         mocks.getScopeTagsFromDB.mockResolvedValue(['鸡兔同笼', '假设法解鸡兔同笼', '植树问题']);
         mocks.getMathTagsFromDB.mockResolvedValue(['鸡兔同笼', '假设法解鸡兔同笼', '植树问题']);
+        mocks.getUserScopeTagsFromDB.mockResolvedValue([]);
+        mocks.resolveOrCreateTags.mockImplementation(async (_tx: unknown, input: { tagNames: string[] }) =>
+            input.tagNames.map((name, index) => ({ id: `created-${index}:${name}` })));
+        mocks.prisma.$transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => callback(mocks.prisma));
         // 模拟默认分组：key='a' → group-a，key='b' → group-b
         mocks.paperGroup.findFirst.mockImplementation(async (args: { where?: { key?: string } }) => {
             const key = args?.where?.key;
@@ -191,6 +213,46 @@ describe('知识点重新生成', () => {
 
         expect(mocks.getMathTagsFromDB).toHaveBeenCalledWith(expect.any(Number));
         expect(mocks.getScopeTagsFromDB).not.toHaveBeenCalled();
+    });
+
+    it('该学段没有课程库时允许 AI 自行命名，并把新名称落库为该用户的标签', async () => {
+        mocks.errorItem.findUnique.mockResolvedValue({
+            ...item,
+            subject: { name: '考研数学', stage: 'university', subjectKey: 'math', tagSet: 'default' },
+        });
+        mocks.getScopeTagsFromDB.mockResolvedValue([]);
+        mocks.getUserScopeTagsFromDB.mockResolvedValue(['极限的定义']);
+        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: ['极限的定义', '洛必达法则'], difficultyStars: 2, questionType: null });
+        mocks.knowledgeTag.findMany.mockResolvedValue([]);
+
+        const response = await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'));
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        // 原有自定义标签「易错」保留在末尾
+        expect(data.tags).toEqual(['极限的定义', '洛必达法则', '易错']);
+        expect(mocks.getUserScopeTagsFromDB).toHaveBeenCalledWith('math', 'university', 'default', 'user-1');
+        expect(mocks.resolveOrCreateTags).toHaveBeenCalledWith(expect.anything(), {
+            userId: 'user-1',
+            tagNames: ['极限的定义', '洛必达法则'],
+            subjectKey: 'math',
+            tagSet: 'default',
+            gradeSemester: '四年级上',
+        });
+        expect(mocks.errorItem.update.mock.calls[0][0].data.tags.connect).toEqual([
+            { id: 'created-0:极限的定义' },
+            { id: 'created-1:洛必达法则' },
+        ]);
+    });
+
+    it('该学段没有课程库且 AI 未选出名称时返回 400', async () => {
+        mocks.errorItem.findUnique.mockResolvedValue({ ...item, subject: { name: '考研数学', stage: 'university', subjectKey: 'math', tagSet: 'default' } });
+        mocks.getScopeTagsFromDB.mockResolvedValue([]);
+        mocks.suggestKnowledgeTags.mockResolvedValue({ tags: [], difficultyStars: null, questionType: null });
+
+        const response = await RETAG_ITEM(new Request('http://localhost', { method: 'POST' }), params('e1'));
+        expect(response.status).toBe(400);
+        expect((await response.json()).message).toBe('NO_TAGS_SELECTED');
     });
 
     it('AI 未给出难度星级时保留原星级', async () => {

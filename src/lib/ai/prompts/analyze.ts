@@ -180,7 +180,17 @@ export function generateAnalyzePrompt(
   // 根据科目决定显示哪些标签（节省 token，提高准确性）
   let tagsSection = "";
 
-  if (options?.candidateTags) {
+  if (options?.candidateTags?.allowCustom) {
+    const { subjectName, tags } = options.candidateTags;
+    tagsSection = `**${subjectName}知识点:**
+本题所在学段没有固定课程知识点清单。以下是本错题本已有的知识点，与题意吻合的必须**原样复用**：
+${tags.length > 0 ? tags.map(tag => `"${tag}"`).join(", ") : '（暂无）'}
+
+**重要提示**：
+- 已有知识点能概括本题时不得换用近义名称，同一名称必须保持一致
+- 没有吻合的再自行命名，使用教材或考纲中的标准术语，不要用题号、分值或题目原文片段
+- 每题最多 5 个标签`;
+  } else if (options?.candidateTags) {
     const { subjectName, tags } = options.candidateTags;
     tagsSection = `**${subjectName}标签:**
 本题所在错题本的学段与学科下的全部知识点如下，请使用其中的**精确标签名称**：

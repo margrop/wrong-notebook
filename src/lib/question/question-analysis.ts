@@ -85,7 +85,7 @@ export async function analyzeQuestionForUser(input: QuestionAnalysisInput): Prom
                     notebookName = notebook.name;
                     const scope = resolveNotebookScope(notebook);
                     subjectChinese = scope.subject ? SUBJECT_DISPLAY_NAMES[scope.subject] : null;
-                    candidateTags = await getNotebookCandidateTags(scope, notebook.tagSet || 'default');
+                    candidateTags = await getNotebookCandidateTags(scope, notebook.tagSet || 'default', user.id);
                     logger.debug({ scope, tagSet: notebook.tagSet, candidateTagCount: candidateTags?.tags.length }, 'Notebook scope resolved');
                 }
             }
@@ -161,7 +161,7 @@ export async function analyzeQuestionTextForUser(input: QuestionTextAnalysisInpu
         });
         if (notebook) {
             notebookName = notebook.name;
-            candidateTags = await getNotebookCandidateTags(resolveNotebookScope(notebook), notebook.tagSet || 'default');
+            candidateTags = await getNotebookCandidateTags(resolveNotebookScope(notebook), notebook.tagSet || 'default', input.userId);
         }
     }
     const fixedGrade = user ? getFixedQuestionGrade(user, getAppTimeZone()) : null;

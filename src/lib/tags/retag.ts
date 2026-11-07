@@ -2,13 +2,14 @@ import type { QuestionType } from "@/lib/question/question-type";
 import { prisma } from "@/lib/prisma";
 import { getAIService } from "@/lib/ai";
 import type { AiCallScope } from "@/lib/ai";
-import { getMathTagsFromDB, getScopeTagsFromDB } from "@/lib/ai/tag-service";
+import { getMathTagsFromDB, getScopeTagsFromDB, getUserScopeTagsFromDB } from "@/lib/ai/tag-service";
 import { calculateGradeNumber } from "@/lib/tags/knowledge-tags";
 import { calculateGrade } from "@/lib/grade-calculator";
 import { resolveNotebookScope, SUBJECT_DISPLAY_NAMES } from "@/lib/notebook-scope";
 import { createLogger } from "@/lib/logger";
 import { getDefaultPaperLevelGroupId } from "@/lib/paper-level";
 import { getAppTimeZone } from "@/lib/config";
+import { resolveOrCreateTags } from "@/lib/tags/tag-resolver";
 import { startBackgroundTask } from "@/lib/background-tasks";
 import type { BackgroundTaskHandle } from "@/lib/background-tasks";
 
@@ -26,12 +27,15 @@ export interface RetagResult {
 }
 
 interface TagSuggestion {
-    tagNames: string[];                  // 新系统标签 + 保留的自定义标签
+    tagNames: string[];                  // 新系统标签 + 新建的用户标签 + 保留的自定义标签
     difficultyStars: number | null;
     questionType: QuestionType | null;
     paperLevel: string | null;
     newTagIds: string[];
     oldSystemTags: { id: string; name: string }[];
+    /** 该学段没有课程库时 AI 自行命名的标签，保存时按当前用户新建 */
+    createdTagNames: string[];
+    tagScope: { subjectKey: string; tagSet: string; gradeSemester: string | null };
 }
 
 /**
@@ -59,6 +63,8 @@ export interface SuggestTagsForTextResult {
     tags: string[];
     difficultyStars: number | null;
     questionType: QuestionType | null;
+    /** 该学段没有内置课程知识点：tags 中不在系统库里的名称需要落库为当前用户的标签 */
+    allowCustom?: boolean;
 }
 
 /**
@@ -70,10 +76,20 @@ export async function suggestTagsForText(input: SuggestTagsForTextInput): Promis
     const scope = input.notebook ? resolveNotebookScope({ stage: input.notebook.stage, subjectKey: input.notebook.subjectKey, name: input.notebook.name ?? '' }) : null;
     const subjectKey = scope?.subject || 'math';
     const itemTagSet = input.notebook?.tagSet || 'default';
-    const allowedTags = scope?.subject
-        ? await getScopeTagsFromDB(scope.subject, scope.stage, itemTagSet)
-        : await getMathTagsFromDB(calculateGradeNumber(input.user?.educationStage ?? null, input.user?.enrollmentYear ?? null, getAppTimeZone()));
-    if (allowedTags.length === 0) {
+    const userId = input.aiScope.userId;
+    let allowedTags: string[];
+    let allowCustom = false;
+    if (scope?.subject) {
+        const systemTags = await getScopeTagsFromDB(scope.subject, scope.stage, itemTagSet);
+        // 该学段没有内置课程知识点（如大学）：把本错题本已有的用户标签作为优先复用清单，允许 AI 自行命名
+        allowCustom = systemTags.length === 0;
+        allowedTags = allowCustom
+            ? await getUserScopeTagsFromDB(scope.subject, scope.stage, itemTagSet, userId)
+            : systemTags;
+    } else {
+        allowedTags = await getMathTagsFromDB(calculateGradeNumber(input.user?.educationStage ?? null, input.user?.enrollmentYear ?? null, getAppTimeZone()));
+    }
+    if (allowedTags.length === 0 && !allowCustom) {
         throw new Error('NO_AVAILABLE_TAGS');
     }
 
@@ -92,11 +108,12 @@ export async function suggestTagsForText(input: SuggestTagsForTextInput): Promis
         subject: SUBJECT_DISPLAY_NAMES[subjectKey],
         allowedTags,
         gradeSemester,
+        ...(allowCustom ? { allowCustom: true } : {}),
     });
     if (chosen.length === 0) {
         throw new Error('NO_TAGS_SELECTED');
     }
-    return { tags: chosen, difficultyStars, questionType };
+    return { tags: chosen, difficultyStars, questionType, ...(allowCustom ? { allowCustom: true } : {}) };
 }
 
 /**
@@ -127,7 +144,7 @@ async function suggestTagsForItem(errorItemId: string, userId: string): Promise<
         throw new Error('NO_QUESTION_TEXT');
     }
 
-    const { tags: chosen, difficultyStars, questionType } = await suggestTagsForText({
+    const { tags: chosen, difficultyStars, questionType, allowCustom: allowCustomForItem } = await suggestTagsForText({
         questionText: item.questionText,
         answerText: item.answerText,
         analysis: item.analysis,
@@ -155,16 +172,20 @@ async function suggestTagsForItem(errorItemId: string, userId: string): Promise<
         if (!tagIdByName.has(tag.name)) tagIdByName.set(tag.name, tag.id);
     }
     const newTags = chosen.filter((name) => tagIdByName.has(name));
+    // 该学段没有课程库时（如大学），AI 自行命名的标签需要落库为当前用户的标签
+    const createdTagNames = allowCustomForItem ? chosen.filter((name) => !tagIdByName.has(name)) : [];
     const customTags = item.tags.filter((tag) => !tag.isSystem);
 
     return {
-        tagNames: [...newTags, ...customTags.map((tag) => tag.name).filter((name) => !newTags.includes(name))],
+        tagNames: [...newTags, ...createdTagNames, ...customTags.map((tag) => tag.name).filter((name) => !newTags.includes(name) && !createdTagNames.includes(name))],
         difficultyStars,
         // 只在题目当前题型为空时写入 AI 判断的题型，已有题型不覆盖
         questionType: !item.questionType ? questionType : null,
         paperLevel: item.paperLevel,
         newTagIds: newTags.map((name) => tagIdByName.get(name)!),
         oldSystemTags: item.tags.filter((tag) => tag.isSystem).map(({ id, name }) => ({ id, name })),
+        createdTagNames,
+        tagScope: { subjectKey, tagSet: itemTagSet, gradeSemester: item.gradeSemester },
     };
 }
 
@@ -181,24 +202,30 @@ export async function previewRetagErrorItem(errorItemId: string, userId: string)
  * AI 未给出星级时保留原星级；只在题目当前题型为空时写入 AI 判断的题型
  */
 export async function retagErrorItem(errorItemId: string, userId: string): Promise<RetagResult> {
-    const { tagNames, newTagIds, oldSystemTags, difficultyStars, questionType, paperLevel } = await suggestTagsForItem(errorItemId, userId);
+    const { tagNames, newTagIds, oldSystemTags, difficultyStars, questionType, paperLevel, createdTagNames, tagScope } = await suggestTagsForItem(errorItemId, userId);
     const defaultPaperLevel = !paperLevel ? await getDefaultPaperLevelGroupId(userId, difficultyStars) : null;
 
-    await prisma.errorItem.update({
-        where: { id: errorItemId },
-        data: {
-            knowledgePoints: JSON.stringify(tagNames),
-            ...(difficultyStars !== null ? { difficultyStars } : {}),
-            ...(questionType ? { questionType } : {}),
-            ...(defaultPaperLevel ? { paperLevel: defaultPaperLevel } : {}),
-            tags: {
-                disconnect: oldSystemTags.map((tag) => ({ id: tag.id })),
-                connect: newTagIds.map((id) => ({ id })),
+    await prisma.$transaction(async (tx) => {
+        // 该学段没有课程库时，AI 自行命名的知识点落库为当前用户的标签（挂在对应年级节点下）
+        const created = createdTagNames.length > 0
+            ? await resolveOrCreateTags(tx, { userId, tagNames: createdTagNames, ...tagScope })
+            : [];
+        await tx.errorItem.update({
+            where: { id: errorItemId },
+            data: {
+                knowledgePoints: JSON.stringify(tagNames),
+                ...(difficultyStars !== null ? { difficultyStars } : {}),
+                ...(questionType ? { questionType } : {}),
+                ...(defaultPaperLevel ? { paperLevel: defaultPaperLevel } : {}),
+                tags: {
+                    disconnect: oldSystemTags.map((tag) => ({ id: tag.id })),
+                    connect: [...newTagIds.map((id) => ({ id })), ...created],
+                },
             },
-        },
+        });
     });
 
-    logger.info({ errorItemId, before: oldSystemTags.map((tag) => tag.name), after: tagNames, difficultyStars, questionType }, 'Error item retagged');
+    logger.info({ errorItemId, before: oldSystemTags.map((tag) => tag.name), after: tagNames, createdTagNames, difficultyStars, questionType }, 'Error item retagged');
     return { errorItemId, tags: tagNames, difficultyStars, questionType };
 }
 
