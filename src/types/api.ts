@@ -1,4 +1,5 @@
 import { ParsedQuestion } from "@/lib/ai/types";
+import type { AiProviderId } from "@/lib/config/types";
 import type { VendorConfig, VendorProviderId } from "@/lib/ai/vendor-presets";
 import type { MiniMaxCodeConfig } from "@/lib/minimax-code/constants";
 import type { MasteryStatus } from "@/lib/mastery-status";
@@ -176,7 +177,7 @@ export interface OpenAIInstance {
 type VendorConfigs = { [K in VendorProviderId]?: VendorConfig };
 
 export interface AppConfig extends VendorConfigs {
-    aiProvider: 'gemini' | 'openai' | 'azure' | 'anthropic' | 'minimax-code' | VendorProviderId;
+    aiProvider: AiProviderId;
     allowRegistration?: boolean;
     /** 普通用户每天可发起的 AI 调用次数，0 表示不限制；管理员不受限制 */
     aiDailyLimit?: number;
@@ -210,6 +211,7 @@ export interface AppConfig extends VendorConfigs {
     prompts?: {
         analyze?: string;
         similar?: string;
+        reanswer?: string;
     };
     timeouts?: {
         analyze?: number; // 毫秒

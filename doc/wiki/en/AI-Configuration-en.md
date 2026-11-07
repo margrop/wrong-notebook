@@ -109,7 +109,7 @@ SVG figures and animations are generated as code by the language model; no image
 
 ## Prompts and generation rules
 
-Admins can customize the recognition and similar-question templates on the "Prompts" tab. The app also applies common rules to generated questions: similar questions and exam questions are fill-in-the-blank or free-response, and the question text contains no question number, score or multiple-choice options.
+Admins can customize the recognition, solving and similar-question templates on the "Prompts" tab — useful for adjusting the explanation style and tone to a child's grade, weak points and habits. **Copy** takes the default template, **Replace with clipboard** overwrites it with your edited version, and **Reset Default** restores it. The `{{variables}}` in a template are replaced with each question's data; the editor lists any that are missing. The app still adds its output contract, language, grade, tag and question-type rules. The app also applies common rules to generated questions: similar questions and exam questions are fill-in-the-blank or free-response, and the question text contains no question number, score or multiple-choice options.
 
 Grading checks equivalent results for calculation questions and the required reasoning for proofs and justification questions. Local matching only marks answers correct when no reasoning is required; other cases go to AI grading.
 

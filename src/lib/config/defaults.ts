@@ -68,6 +68,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     prompts: {
         analyze: '',
         similar: '',
+        reanswer: '',
     },
     timeouts: {
         analyze: 180000,

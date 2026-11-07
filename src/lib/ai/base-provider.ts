@@ -176,7 +176,10 @@ export abstract class BaseAIProvider implements AIService {
     }
 
     async reanswerQuestion(questionText: string, language: 'zh' | 'en' = 'zh', subject?: string | null, imageBase64?: string, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ReanswerQuestionResult> {
-        const prompt = generateReanswerRequest(language, questionText, subject, { candidateTags }, gradeSemester);
+        const prompt = generateReanswerRequest(language, questionText, subject, {
+            candidateTags,
+            customTemplate: getAppConfig().prompts?.reanswer,
+        }, gradeSemester);
 
         logger.info({
             provider: this.providerName,

@@ -154,3 +154,23 @@ describe('应用必守规则', () => {
         expect(request.system).not.toContain('【参考文字');
     });
 });
+
+describe('自定义解题提示词模板', () => {
+    it('重新解题使用配置的模板并替换其中的变量', () => {
+        const request = generateReanswerRequest('zh', '1+1=?', '数学', {
+            customTemplate: '你是耐心的小学老师。\n题目：{{question_text}}\n学科：{{subject_hint}}',
+        });
+
+        expect(request.system).toContain('你是耐心的小学老师。');
+        expect(request.system).toContain('题目：');
+        expect(request.system).not.toContain('{{question_text}}');
+        expect(request.system).not.toContain('{{subject_hint}}');
+        // 自定义模板之外仍补充统一输出协议
+        for (const tag of QUESTION_OUTPUT_TAGS.reanswer) expect(request.system).toContain('<' + tag + '>');
+    });
+
+    it('没有自定义模板时使用默认解题模板', () => {
+        const request = generateReanswerRequest('zh', '1+1=?', '数学');
+        expect(request.system).toContain('【角色与核心任务');
+    });
+});

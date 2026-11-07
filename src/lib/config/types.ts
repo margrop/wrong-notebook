@@ -2,6 +2,9 @@ import type { VendorConfig, VendorProviderId } from '../ai/vendor-presets';
 import type { MiniMaxCodeConfig } from '../minimax-code/constants';
 import type { TtsConfig } from '../tts/constants';
 
+/** 全部内置 AI 渠道：国产大模型官方渠道 + 各通用接口 */
+export type AiProviderId = 'gemini' | 'openai' | 'azure' | 'anthropic' | 'minimax-code' | VendorProviderId;
+
 // OpenAI 实例配置
 export interface OpenAIInstance {
     id: string;           // 唯一标识 (UUID)
@@ -78,6 +81,7 @@ export interface AppConfig extends VendorConfigs {
     prompts?: {
         analyze?: string;
         similar?: string;
+        reanswer?: string;
     };
     timeouts?: {
         analyze?: number; // 毫秒
