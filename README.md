@@ -537,7 +537,6 @@ E2E 启动器会在系统临时目录复制应用和依赖、执行正式迁移�
 - **重置密码**：`node scripts/reset-password.js <邮箱> <新密码>`
 - **恢复默认管理员角色**：`node scripts/seed-admin.js`（只为已有的 `admin@localhost` 恢复管理员角色并启用；没有任何管理员时，重启服务会在日志中打印新的初始化链接）
 - **重建系统知识点**：`npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/rebuild-system-tags.ts`（保留自定义标签和题目关联；生产环境操作前请先备份）
-- **补齐语文知识点**：`npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/seed-chinese-primary.ts`（与主课程数据共用来源，只增量补齐内置语文体系及更新课程排序，保留标签 ID、题目关联、自定义标签和其他体系；可重复执行）。Docker 和安装包启动时自动执行编译后的 `dist-scripts/scripts/seed-chinese-primary.js`，旧安装无需重建全部标签。
 - **导入人教版课标知识点**：与「设置 → 用户管理 → 人教版课标知识点」相同的命令行方式。先下载 [topics.json](https://raw.githubusercontent.com/xiaoyang111222/cn-math-taxonomy/HEAD/data/topics.json) 到 `scripts/data/cn-math-taxonomy-topics.json`，再执行 `npx tsx scripts/seed-cnm-tags.ts`（也可把文件路径作为参数传入；作为独立的 `cnm` 标签体系增量导入，不影响内置体系和已有题目，可重复执行）。
 - **检查数据库**：`node scripts/check-db-users.js`、`node scripts/check-db-data.js`
 
