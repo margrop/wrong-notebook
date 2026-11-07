@@ -5,10 +5,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
     errorItem: { findMany: vi.fn() },
+    practiceRecord: { findMany: vi.fn() },
     session: { user: { id: 'user-1', email: 'user@example.com' }, expires: '2099-01-01' } as { user: { id: string; email: string }; expires: string } | null,
 }));
 
-vi.mock('@/lib/prisma', () => ({ prisma: { errorItem: mocks.errorItem, user: { findUnique: vi.fn(async () => ({ id: 'user-1', masteryThreshold: 50 })) } } }));
+vi.mock('@/lib/prisma', () => ({
+    prisma: {
+        errorItem: mocks.errorItem,
+        practiceRecord: mocks.practiceRecord,
+        user: { findUnique: vi.fn(async () => ({ id: 'user-1', masteryThreshold: 50 })) },
+    },
+}));
 vi.mock('next-auth', () => ({ getServerSession: vi.fn(() => Promise.resolve(mocks.session)) }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.mock('@/lib/config', () => ({ getAppTimeZone: () => 'Asia/Shanghai' }));
@@ -19,11 +26,17 @@ const get = (query = '') => GET(new Request(`http://localhost/api/review/due${qu
 
 const candidates = [
     // 录入两天前、没有作答：昨天到期
-    { id: 'new', createdAt: new Date('2026-10-18T02:00:00Z'), practiceRecords: [] },
+    { id: 'new', createdAt: new Date('2026-10-18T02:00:00Z') },
     // 今天刚做对一次：两天后到期
-    { id: 'fresh', createdAt: new Date('2026-10-01T02:00:00Z'), practiceRecords: [{ result: 'correct', createdAt: new Date('2026-10-20T01:00:00Z') }] },
+    { id: 'fresh', createdAt: new Date('2026-10-01T02:00:00Z') },
     // 很早以前做错：早已到期，应排在最前
-    { id: 'old', createdAt: new Date('2026-09-01T02:00:00Z'), practiceRecords: [{ result: 'wrong', createdAt: new Date('2026-09-10T02:00:00Z') }] },
+    { id: 'old', createdAt: new Date('2026-09-01T02:00:00Z') },
+];
+
+// 作答记录单独平铺查询，按错题归组后推算计划
+const answeredRecords = [
+    { errorItemId: 'fresh', result: 'correct', createdAt: new Date('2026-10-20T01:00:00Z') },
+    { errorItemId: 'old', result: 'wrong', createdAt: new Date('2026-09-10T02:00:00Z') },
 ];
 
 describe('GET /api/review/due', () => {
@@ -37,6 +50,7 @@ describe('GET /api/review/due', () => {
             if (!args.where.id) return candidates;
             return args.where.id.in.map((id) => ({ id, masteryProbability: null, subject: null, tags: [], _count: { practiceRecords: id === 'new' ? 0 : 1 } }));
         });
+        mocks.practiceRecord.findMany.mockResolvedValue(answeredRecords);
     });
 
     afterEach(() => {
@@ -53,6 +67,10 @@ describe('GET /api/review/due', () => {
         expect(data.items[0]).toMatchObject({ reviewStage: 0, masteryStatus: 'reviewing', nextReviewAt: '2026-09-10T16:00:00.000Z' });
         expect(data.items[1]).toMatchObject({ reviewStage: 0, masteryStatus: 'new' });
         expect(mocks.errorItem.findMany).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: { userId: 'user-1' } }));
+        // 作答记录用平铺查询 + 正向白名单：嵌套关系的否定过滤会让 Prisma 无法拆分查询，错题多时报参数上限
+        expect(mocks.practiceRecord.findMany).toHaveBeenCalledWith(expect.objectContaining({
+            where: { userId: 'user-1', errorItemId: { not: null }, result: { in: ['correct', 'wrong'] } },
+        }));
     });
 
     it('按错题本筛选并分页', async () => {

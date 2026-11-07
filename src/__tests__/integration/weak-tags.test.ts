@@ -89,15 +89,15 @@ describe('/api/stats/weak-tags', () => {
         expect(query.select._count).toEqual({
             select: { practiceRecords: { where: { result: { not: null } } } },
         });
-        // 近 30 天窗口 + 排除 duplicate_import
-        expect(query.select.practiceRecords.where.source).toEqual({ not: 'duplicate_import' });
-        expect(query.select.practiceRecords.where.result).toEqual({ not: null });
+        // 近 30 天窗口用正向白名单：嵌套关系的否定过滤会让 Prisma 无法拆分查询（错题多时触发参数上限）
+        expect(query.select.practiceRecords.where.result).toEqual({ in: ['correct', 'wrong', 'not_attempted'] });
         expect(query.select.practiceRecords.where.createdAt).toEqual({
             gte: expect.any(Date),
             lt: expect.any(Date),
         });
-        // 不读题干、图片
-        expect(query.select.practiceRecords.select).toEqual({ result: true });
+        // duplicate_import 在内存里排除；不读题干、图片
+        expect(query.select.practiceRecords.where.source).toBeUndefined();
+        expect(query.select.practiceRecords.select).toEqual({ result: true, source: true });
     });
 
     it('默认 30d 范围按 createdAt 过滤，7d 用更早的起点', async () => {
@@ -225,11 +225,12 @@ describe('/api/stats/weak-tags', () => {
                 masteryProbability: 0.2,
                 tags: [{ name: '方程', tagSet: 'default' }],
                 _count: { practiceRecords: 4 },
+                // 数据库已按 result 白名单与近 30 天过滤，duplicate_import 在这里排除
                 practiceRecords: [
-                    { result: 'correct' },
-                    { result: 'wrong' },
-                    { result: 'not_attempted' },
-                    { result: null },
+                    { result: 'correct', source: 'practice' },
+                    { result: 'wrong', source: 'manual' },
+                    { result: 'not_attempted', source: 'practice' },
+                    { result: 'wrong', source: 'duplicate_import' },
                 ],
             },
         ] as unknown[]);
@@ -240,6 +241,31 @@ describe('/api/stats/weak-tags', () => {
         expect(data.weakTags[0].recentAttempted).toBe(2);
         expect(data.weakTags[0].recentCorrect).toBe(1);
         expect(data.weakTags[0].recentErrorRate).toBeCloseTo(0.5, 5);
+    });
+
+    it('近 30 天记录排除重复导入', async () => {
+        mocks.mockPrismaErrorItem.findMany.mockResolvedValue([
+            {
+                id: 'e1',
+                subjectId: 'sub-1',
+                subject: { name: '数学' },
+                masteryProbability: 0.2,
+                tags: [{ name: '方程', tagSet: 'default' }],
+                _count: { practiceRecords: 3 },
+                practiceRecords: [
+                    { result: 'wrong', source: 'duplicate_import' },
+                    { result: 'wrong', source: 'duplicate_import' },
+                    { result: 'correct', source: 'practice' },
+                ],
+            },
+        ] as unknown[]);
+
+        const response = await GET(makeRequest('http://localhost/api/stats/weak-tags'));
+        const data = await response.json();
+
+        expect(data.weakTags[0].recentAttempted).toBe(1);
+        expect(data.weakTags[0].recentCorrect).toBe(1);
+        expect(data.weakTags[0].recentErrorRate).toBe(0);
     });
 
     it('数据库错误时返回 500', async () => {
