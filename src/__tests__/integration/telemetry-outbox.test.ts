@@ -33,7 +33,12 @@ import { getTelemetryState } from '@/lib/telemetry/state';
 
 let database: PrismaClient;
 let directory: string;
-const NOW = new Date('2026-11-05T12:00:00Z');
+/**
+ * 测试基准时间取真实当前时间：instance_alive 与错误记录的 createdAt 由服务端写入真实时间，
+ * 收集服务契约只接受基准时间前 7 天至后 1 天内的日期，写死某一天会让用例随日期推移失效。
+ */
+const NOW = new Date();
+const TODAY = NOW.toISOString().slice(0, 10);
 const HOUR = 3_600_000;
 
 function configure(telemetry: TelemetryConfig, eula = 'v1') {
@@ -99,7 +104,7 @@ describe('批次内容', () => {
         const body = sentBody(fetchMock);
         const envelope = envelopeSchema.parse(body);
         expect(validateItems(envelope.items, NOW)).toMatchObject({ rejected: 0 });
-        expect(body.items).toContainEqual({ t: 'event', day: '2026-11-05', name: 'instance_alive', payload: { platform: 'fnos', aiConfigured: true } });
+        expect(body.items).toContainEqual({ t: 'event', day: TODAY, name: 'instance_alive', payload: { platform: 'fnos', aiConfigured: true } });
         const raw = JSON.stringify(body);
         expect(raw).not.toMatch(/secret|a@b\.com|error-items|at f/);
         // 本地记录开启：标记为已发并保留
