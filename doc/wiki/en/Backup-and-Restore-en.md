@@ -107,6 +107,71 @@ Restore steps:
 
 Do not switch an old database back and forth between incompatible versions. If the restored container does not match the backup version, verify the data first, then switch images following the upgrade steps.
 
+## Synology Container Manager full-site backup and restore
+
+The data directory is `/volume1/docker/wrong-notebook` (`data/` and `config/`); container environment variables are stored in Container Manager's container configuration, so record them separately when moving or recreating the container. If the container name is not `wrong-notebook`, replace that name in the commands.
+
+Stop the container before archiving:
+
+```bash
+appdata=/volume1/docker/wrong-notebook
+backups=/volume1/backups/wrong-notebook
+mkdir -p "$backups"
+docker stop wrong-notebook
+backup_file="$backups/wrong-notebook-$(date +%Y%m%d-%H%M%S).tar.gz"
+tar -czf "$backup_file" -C /volume1/docker wrong-notebook
+docker start wrong-notebook
+tar -tzf "$backup_file"
+```
+
+You can also use DSM's **Hyper Backup**: add `/volume1/docker/wrong-notebook` to a backup task and stop the container before the task runs; restore with Hyper Backup, or follow the manual steps below. Archives may contain question images, user profiles, password hashes and AI credentials, so restrict access and keep them in a separate location.
+
+Restore:
+
+1. Record the current container's image tag, port, volume mappings and all environment variables.
+2. Stop the container in Container Manager.
+3. Move the current `/volume1/docker/wrong-notebook` to a backup location, then unpack the archive into `/volume1/docker`:
+
+   ```bash
+   tar -xzf "$backups/wrong-notebook-YYYYMMDD-HHMMSS.tar.gz" -C /volume1/docker
+   ```
+
+4. Keep the original container's volume mappings and `NEXTAUTH_SECRET`, and prefer the image version that matches the backup. After starting, sign in and check users, questions, tags, answer history and exam papers.
+5. When an upgrade is needed, run the [upgrade steps](Deployment-en#synology-dsm-container-manager) separately after the restore has been verified.
+
+## QNAP Container Station full-site backup and restore
+
+The data directory is `/share/Container/wrong-notebook` (`data/` and `config/`); container environment variables are stored in Container Station's container configuration, so record them separately when moving or recreating the container. If the container name is not `wrong-notebook`, replace that name in the commands.
+
+Stop the container before archiving:
+
+```bash
+appdata=/share/Container/wrong-notebook
+backups=/share/Backups/wrong-notebook
+mkdir -p "$backups"
+docker stop wrong-notebook
+backup_file="$backups/wrong-notebook-$(date +%Y%m%d-%H%M%S).tar.gz"
+tar -czf "$backup_file" -C /share/Container wrong-notebook
+docker start wrong-notebook
+tar -tzf "$backup_file"
+```
+
+You can also use QNAP's **Hybrid Backup Sync**: add `/share/Container/wrong-notebook` to a backup task and stop the container before the task runs; restore with Hybrid Backup Sync, or follow the manual steps below. Archives may contain question images, user profiles, password hashes and AI credentials, so restrict access and keep them in a separate location.
+
+Restore:
+
+1. Record the current container's image tag, port, volume mappings and all environment variables.
+2. Stop the container in Container Station.
+3. Move the current `/share/Container/wrong-notebook` to a backup location, then unpack the archive into `/share/Container`:
+
+   ```bash
+   tar -xzf "$backups/wrong-notebook-YYYYMMDD-HHMMSS.tar.gz" -C /share/Container
+   ```
+
+4. Keep the original container's volume mappings and `NEXTAUTH_SECRET`, and prefer the image version that matches the backup. After starting, sign in and check users, questions, tags, answer history and exam papers.
+5. When an upgrade is needed, run the [upgrade steps](Deployment-en#qnap-qts-container-station) separately after the restore has been verified.
+
+
 
 ## Restore the whole site
 

@@ -107,6 +107,71 @@ tar -tzf "$backup_file"
 
 不要把旧数据库直接交给不兼容的新旧版本反复切换。恢复后的容器与备份版本不匹配时，先确认数据可用，再按升级步骤切换镜像。
 
+## 群晖 Container Manager 整站备份与恢复
+
+数据目录为 `/volume1/docker/wrong-notebook`（`data/` 与 `config/`）；容器环境变量保存在 Container Manager 的容器配置中，迁移或重建容器时需另行记录。容器名不是 `wrong-notebook` 时，命令中的名称相应替换。
+
+停止容器后归档：
+
+```bash
+appdata=/volume1/docker/wrong-notebook
+backups=/volume1/backups/wrong-notebook
+mkdir -p "$backups"
+docker stop wrong-notebook
+backup_file="$backups/wrong-notebook-$(date +%Y%m%d-%H%M%S).tar.gz"
+tar -czf "$backup_file" -C /volume1/docker wrong-notebook
+docker start wrong-notebook
+tar -tzf "$backup_file"
+```
+
+也可以使用 DSM 的 **Hyper Backup**：把 `/volume1/docker/wrong-notebook` 加入备份任务，任务执行前先停止容器；恢复时用 Hyper Backup 还原，或按下面的手动步骤操作。归档可能含题目原图、用户资料、密码哈希和 AI 凭据，应限制访问并保存在独立位置。
+
+恢复：
+
+1. 记录当前容器的映像标签、端口、卷映射和全部环境变量。
+2. 在 Container Manager 中停止容器。
+3. 把当前 `/volume1/docker/wrong-notebook` 移到备份位置，把归档解压到 `/volume1/docker`：
+
+   ```bash
+   tar -xzf "$backups/wrong-notebook-YYYYMMDD-HHMMSS.tar.gz" -C /volume1/docker
+   ```
+
+4. 保持原容器的卷映射与 `NEXTAUTH_SECRET`，优先使用与备份匹配的映像版本；启动后登录核对用户、错题、标签、作答历史和试卷。
+5. 需要升级时，在恢复验证完成后单独执行[升级流程](Deployment#群晖-dsmcontainer-manager)。
+
+## 威联通 Container Station 整站备份与恢复
+
+数据目录为 `/share/Container/wrong-notebook`（`data/` 与 `config/`）；容器环境变量保存在 Container Station 的容器配置中，迁移或重建容器时需另行记录。容器名不是 `wrong-notebook` 时，命令中的名称相应替换。
+
+停止容器后归档：
+
+```bash
+appdata=/share/Container/wrong-notebook
+backups=/share/Backups/wrong-notebook
+mkdir -p "$backups"
+docker stop wrong-notebook
+backup_file="$backups/wrong-notebook-$(date +%Y%m%d-%H%M%S).tar.gz"
+tar -czf "$backup_file" -C /share/Container wrong-notebook
+docker start wrong-notebook
+tar -tzf "$backup_file"
+```
+
+也可以使用 QNAP 的 **Hybrid Backup Sync**：把 `/share/Container/wrong-notebook` 加入备份任务，任务执行前先停止容器；恢复时用 Hybrid Backup Sync 还原，或按下面的手动步骤操作。归档可能含题目原图、用户资料、密码哈希和 AI 凭据，应限制访问并保存在独立位置。
+
+恢复：
+
+1. 记录当前容器的映像标签、端口、卷映射和全部环境变量。
+2. 在 Container Station 中停止容器。
+3. 把当前 `/share/Container/wrong-notebook` 移到备份位置，把归档解压到 `/share/Container`：
+
+   ```bash
+   tar -xzf "$backups/wrong-notebook-YYYYMMDD-HHMMSS.tar.gz" -C /share/Container
+   ```
+
+4. 保持原容器的卷映射与 `NEXTAUTH_SECRET`，优先使用与备份匹配的映像版本；启动后登录核对用户、错题、标签、作答历史和试卷。
+5. 需要升级时，在恢复验证完成后单独执行[升级流程](Deployment#威联通-qtscontainer-station)。
+
+
 
 ## 恢复整站
 
