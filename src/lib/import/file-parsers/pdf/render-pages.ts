@@ -63,14 +63,21 @@ export function parsePageRanges(input: string, pageCount: number): PageRangeResu
     return { ok: true, pages: sorted };
 }
 
-/** 按输出限制计算渲染缩放比例（只缩小不放大，与 image-pipeline 逻辑一致） */
+/** PDF 页面按 72 DPI 的 pt 尺寸渲染；小页面最多放大 4 倍，再受最长边与总像素限制 */
+export const MAX_PDF_RENDER_SCALE = 4;
+
+/**
+ * 按输出限制计算渲染缩放比例：只缩小不放大到超过限制，但允许放大 PDF 页面。
+ * pdfjs 的 scale 1 对应 72 DPI（1 pt = 1 px），A4 页面只有 595×842，扫描版文字与公式会明显偏小；
+ * 按 maxLongEdge/maxPixels 放大到输出上限（A4 约 3.1 倍、225 DPI），识别裁片时才保留足够细节。
+ */
 export function computePdfRenderScale(
     viewportWidth: number,
     viewportHeight: number,
     limits: Pick<ImageOutputLimits, "maxLongEdge" | "maxPixels"> = DEFAULT_IMAGE_LIMITS,
 ): number {
     return Math.min(
-        1,
+        MAX_PDF_RENDER_SCALE,
         limits.maxLongEdge / Math.max(viewportWidth, viewportHeight),
         Math.sqrt(limits.maxPixels / Math.max(1, viewportWidth * viewportHeight)),
     );
@@ -122,23 +129,23 @@ export interface RenderPdfPagesOptions {
 }
 
 /** 把 canvas 内容编码为 JPEG data URL 并估算字节数 */
-async function canvasToJpegDataUrl(canvas: HTMLCanvasElement, quality: number): Promise<string> {
-    return new Promise((resolve, reject) => {
-        canvas.toBlob(
-            (blob) => {
-                if (!blob) {
-                    reject(new Error("CANVAS_EMPTY"));
-                    return;
-                }
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result as string);
-                reader.onerror = () => reject(reader.error ?? new Error("READ_FAILED"));
-                reader.readAsDataURL(blob);
-            },
-            "image/jpeg",
-            quality,
-        );
-    });
+function canvasToJpegDataUrl(canvas: HTMLCanvasElement, quality: number): Promise<string> {
+    const { promise, resolve, reject } = Promise.withResolvers<string>();
+    canvas.toBlob(
+        (blob) => {
+            if (!blob) {
+                reject(new Error("CANVAS_EMPTY"));
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(reader.error ?? new Error("READ_FAILED"));
+            reader.readAsDataURL(blob);
+        },
+        "image/jpeg",
+        quality,
+    );
+    return promise;
 }
 
 function dataUrlBytes(dataUrl: string): number {
@@ -146,9 +153,51 @@ function dataUrlBytes(dataUrl: string): number {
     return Math.floor((base64.length * 3) / 4);
 }
 
+/** 编码质量每次降低的比例（与 image-pipeline 一致） */
+const QUALITY_STEP = 0.05;
+/** 体积超限时每次缩小的比例（与 image-pipeline 一致） */
+const SHRINK_STEP = 0.85;
+
+/**
+ * 把一页按限制渲染并编码：先按输出尺寸渲染，体积超出 maxBytes 时降低质量，
+ * 降到最低质量仍超出则缩小尺寸重新渲染，直到符合体积或缩回 scale 1。
+ */
+async function renderPageJpeg(
+    page: PdfPageProxyLike,
+    baseViewport: { width: number; height: number },
+    canvas: HTMLCanvasElement,
+    context: CanvasRenderingContext2D,
+    limits: ImageOutputLimits,
+): Promise<{ dataUrl: string; width: number; height: number; bytes: number }> {
+    let scale = computePdfRenderScale(baseViewport.width, baseViewport.height, limits);
+    for (;;) {
+        const width = Math.max(1, Math.floor(baseViewport.width * scale));
+        const height = Math.max(1, Math.floor(baseViewport.height * scale));
+        canvas.width = width;
+        canvas.height = height;
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, width, height);
+        await page.render({ canvasContext: context, viewport: page.getViewport({ scale }) }).promise;
+
+        let quality = limits.startQuality;
+        for (;;) {
+            const dataUrl = await canvasToJpegDataUrl(canvas, quality);
+            const bytes = dataUrlBytes(dataUrl);
+            if (bytes <= limits.maxBytes || quality <= limits.minQuality) {
+                // 已达最低质量仍超限时缩小尺寸重渲染；scale 1 时尽力而为
+                if (bytes > limits.maxBytes && scale > 1) break;
+                return { dataUrl, width, height, bytes };
+            }
+            quality = Math.max(limits.minQuality, quality - QUALITY_STEP);
+        }
+        scale *= SHRINK_STEP;
+    }
+}
+
 /**
  * 用 pdfjs 把指定页渲染为 JPEG data URL（逐页渲染，渲染完一页即释放 canvas）。
- * 渲染部分只在浏览器执行（需要 DOM canvas）；测试请注入 fake renderer 或使用纯函数部分。
+ * 小页面会按输出限制放大（A4 约 225 DPI），避免扫描版 PDF 只按 72 DPI 渲染导致文字过小；
+ * 编码体积超出 maxBytes 时降低质量或缩小尺寸。渲染部分只在浏览器执行（需要 DOM canvas）。
  */
 export async function renderPdfPages(
     doc: PdfDocumentProxyLike,
@@ -165,7 +214,6 @@ export async function renderPdfPages(
             const pageNumber = options.pages[i];
             const page = await doc.getPage(pageNumber);
             const baseViewport = page.getViewport({ scale: 1 });
-            const output = computePdfOutputSize(baseViewport.width, baseViewport.height, limits);
 
             if (!canvas || !context) {
                 canvas = document.createElement("canvas");
@@ -173,22 +221,8 @@ export async function renderPdfPages(
                 if (!created) throw new Error("CANVAS_UNSUPPORTED");
                 context = created;
             }
-            canvas.width = output.width;
-            canvas.height = output.height;
-            context.fillStyle = "#ffffff";
-            context.fillRect(0, 0, output.width, output.height);
-
-            const renderViewport = page.getViewport({ scale: output.scale });
-            await page.render({ canvasContext: context, viewport: renderViewport }).promise;
-
-            const dataUrl = await canvasToJpegDataUrl(canvas, limits.startQuality);
-            results.push({
-                pageNumber,
-                dataUrl,
-                width: output.width,
-                height: output.height,
-                bytes: dataUrlBytes(dataUrl),
-            });
+            const rendered = await renderPageJpeg(page, baseViewport, canvas, context, limits);
+            results.push({ pageNumber, ...rendered });
 
             // 释放 canvas 内存：把尺寸清零（保留 canvas 复用，但释放像素缓冲）
             canvas.width = 0;

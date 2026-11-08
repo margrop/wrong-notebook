@@ -507,6 +507,31 @@ describe('照片自动分题批次', () => {
         expect(await database.aiUsage.count({ where: { kind: 'analyze' } })).toBe(2);
     });
 
+    it('空文字的图片题默认不选；扫描版 PDF 没有可用题的页直接删除批次', async () => {
+        mocks.splitQuestions.mockResolvedValueOnce({
+            questions: [
+                { label: '1', text: '', material: null, section: null, regions: [{ x: 0.1, y: 0.1, width: 0.2, height: 0.2 }], hasFigure: false, flags: [] },
+                { label: '2', text: '求阴影面积。', material: null, section: null, regions: [{ x: 0.1, y: 0.4, width: 0.8, height: 0.3 }], hasFigure: true, flags: [] },
+            ],
+            ignored: [], warnings: [],
+        });
+        const { batch } = await create({ source: 'image', imageBase64: PAGE, imageInfo: { sourceType: 'pdf-page' } });
+        await waitSplit(batch.id);
+        const ready = (await getBatch(batch.id, true)).batch;
+        expect(ready).toMatchObject({ itemCount: 2, selectedCount: 1 });
+        expect(ready.draft.items[0]).toMatchObject({ text: '', selected: false });
+        expect(ready.draft.items[1].selected).toBe(true);
+
+        // 答案页常被模型标成只有区域、没有文字和题号的“题”
+        mocks.splitQuestions.mockResolvedValueOnce({
+            questions: [{ label: null, text: '', material: null, section: null, regions: [{ x: 0.3, y: 0.02, width: 0.4, height: 0.15 }], hasFigure: false, flags: [] }],
+            ignored: [], warnings: ['partial'],
+        });
+        const emptyPage = await create({ source: 'image', imageBase64: PAGE, imageInfo: { sourceType: 'pdf-page' } });
+        await waitSplit(emptyPage.batch.id);
+        expect(await database.importBatch.findUnique({ where: { id: emptyPage.batch.id } })).toBeNull();
+    });
+
     it('超出每日额度时分题失败、不调用模型', async () => {
         mocks.dailyLimit = 1;
         await database.aiUsage.create({ data: { userId: 'user-1', kind: 'analyze' } });
