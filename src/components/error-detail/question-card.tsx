@@ -8,6 +8,7 @@ import { ReplaceQuestionImageButton } from "@/components/replace-question-image-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { EditButton, SaveCancelButtons, SectionHeader } from "./edit-controls";
+import { CropFromOriginalImageButton } from "./crop-from-original-image-button";
 import { FigureScaleEditor } from "./figure-scale-editor";
 import { QuestionMetadata } from "./question-metadata";
 import { QuestionTags } from "./question-tags";
@@ -70,6 +71,13 @@ export function QuestionCard({ item, educationStage, saveFields, onUpdate, reloa
                         onVisibleChange={setShowImage}
                         onEnlarge={onEnlarge}
                         actions={<>
+                            {item.originalImageUrl && (
+                                <CropFromOriginalImageButton
+                                    errorItemId={item.id}
+                                    imageUrl={item.originalImageUrl}
+                                    onDone={(originalImageUrl) => { onUpdate({ originalImageUrl }); setShowImage(true); }}
+                                />
+                            )}
                             <ReplaceQuestionImageButton
                                 errorItemId={item.id}
                                 hasImage={!!item.originalImageUrl}
