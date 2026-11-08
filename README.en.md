@@ -291,6 +291,27 @@ Unraid creates the host directories if they do not exist. After the first start,
 
 **Rollback**: after a database migration the old image may not be compatible. Stop the container, restore the pre-upgrade `data/` and `config/`, change the Repository tag back to the old version, and start it.
 
+#### Synology DSM (Container Manager)
+
+DSM 7.2 or later uses **Container Manager** (older versions use the Docker package). The suggested data directory is `/volume1/docker/wrong-notebook/{data,config}`; create it first in File Station or over SSH, and replace the path if your storage volume differs.
+
+1. **Pull the image**: Container Manager → **Image** → Add, search the registry for `margrop/wrong-notebook`, or add `ghcr.io/margrop/wrong-notebook:<exact-version>` by URL.
+2. **Create the container**: **Container** → Add → Create from image. Name it `wrong-notebook`; map host port `3000` → container `3000`; mount `/volume1/docker/wrong-notebook/data` → `/app/data` and `.../config` → `/app/config` (read/write); set `NEXTAUTH_SECRET`, `NEXTAUTH_URL` and `PRESERVE_EXISTING_DATA=true`; enable auto restart.
+3. **Initialize**: after starting, find the `initialize` link in the container details log (the token is also in `/volume1/docker/wrong-notebook/config/setup-token`), then set the admin email and password.
+4. **Upgrade**: stop the container and archive the whole directory following [Backup and Restore](doc/wiki/en/Backup-and-Restore-en.md), or add it to a Hyper Backup task. Pull the new image tag, stop the old container, and recreate it from the new image with the same volumes, port and environment variables. Startup migrates the database automatically and keeps the data. With `latest`, pull the latest image and recreate.
+5. **Rollback**: after a database migration the old image may not be compatible. Stop the container, restore the pre-upgrade `data/` and `config/`, and recreate from the old image.
+
+#### QNAP QTS (Container Station)
+
+Use **Container Station**. The suggested data directory is `/share/Container/wrong-notebook/{data,config}`; Container Station's default shared folder is `Container`, so replace the path if you store data elsewhere.
+
+1. **Pull the image**: pull `ghcr.io/margrop/wrong-notebook:<exact-version>` on the image page; you can also run `docker pull` over SSH or use an **Application** (Compose).
+2. **Create the container**: Container → Create, select the pulled image. Name it `wrong-notebook`; map host port `3000` → container `3000`; mount `/share/Container/wrong-notebook/data` → `/app/data` and `.../config` → `/app/config`; set `NEXTAUTH_SECRET`, `NEXTAUTH_URL` and `PRESERVE_EXISTING_DATA=true`; restart policy `unless-stopped`.
+3. **Initialize**: after starting, find the `initialize` link in the container log (the token is in `/share/Container/wrong-notebook/config/setup-token`).
+4. **Upgrade**: stop the container and archive the data directory, or add it to a Hybrid Backup Sync task. Pull the new image, then recreate the container with the same volumes, port and environment variables; with an **Application**, change the image tag in the YAML and re-apply. Startup migrates the database automatically.
+5. **Rollback**: after a database migration the old image may not be compatible. Stop the container, restore the pre-upgrade `data/` and `config/`, and recreate from the old image.
+
+
 
 > The upstream image `ghcr.io/wttwins/wrong-notebook` **does not include** the features added in this repository. Use `ghcr.io/margrop/wrong-notebook`.
 

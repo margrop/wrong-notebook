@@ -289,6 +289,27 @@ wrong-notebook --port 3000
 
 **回退**：数据库迁移后不一定兼容旧镜像。回退时先停止容器，恢复升级前的 `data/`、`config/`，再把 Repository 标签改回旧版本并启动。
 
+#### 群晖 DSM（Container Manager）
+
+DSM 7.2 及以上使用 **Container Manager**（旧版为 Docker 套件）。建议数据目录为 `/volume1/docker/wrong-notebook/{data,config}`；先在 File Station 或 SSH 中创建，其他存储卷路径相应替换。
+
+1. **拉取映像**：Container Manager → **映像** → 新增，从注册表搜索 `margrop/wrong-notebook`，或从 URL 添加 `ghcr.io/margrop/wrong-notebook:<精确版本>`。
+2. **新建容器**：**容器** → 新增 → 从映像创建。容器名 `wrong-notebook`；端口本地 `3000` → 容器 `3000`；卷映射 `/volume1/docker/wrong-notebook/data` → `/app/data`、`.../config` → `/app/config`（读写）；环境变量 `NEXTAUTH_SECRET`、`NEXTAUTH_URL`、`PRESERVE_EXISTING_DATA=true`；开启自动重启。
+3. **初始化**：启动后在容器详情日志中查找 `initialize` 链接（令牌也在 `/volume1/docker/wrong-notebook/config/setup-token`），设置管理员邮箱和密码。
+4. **升级**：先按[数据备份与恢复](doc/wiki/Backup-and-Restore.md)停止容器并归档整个目录，或在 Hyper Backup 中把该目录加入备份。然后在映像页拉取新版本标签，停止旧容器，用新映像和相同的卷、端口、环境变量重建；启动时自动迁移数据库，数据保留。使用 `latest` 时拉取最新映像后重建即可。
+5. **回退**：数据库迁移后不一定兼容旧镜像。停止容器，恢复升级前的 `data/`、`config/`，再按旧版本映像重建。
+
+#### 威联通 QTS（Container Station）
+
+使用 **Container Station**。建议数据目录为 `/share/Container/wrong-notebook/{data,config}`；Container Station 的默认共享文件夹是 `Container`，自定义存储位置时相应替换。
+
+1. **拉取映像**：在映像页拉取 `ghcr.io/margrop/wrong-notebook:<精确版本>`；也可通过 SSH 执行 `docker pull`，或使用 **应用程序**（Compose）方式。
+2. **新建容器**：容器 → 创建，选择已拉取的映像。容器名 `wrong-notebook`；端口主机 `3000` → 容器 `3000`；卷映射 `/share/Container/wrong-notebook/data` → `/app/data`、`.../config` → `/app/config`；环境变量 `NEXTAUTH_SECRET`、`NEXTAUTH_URL`、`PRESERVE_EXISTING_DATA=true`；重启策略 `unless-stopped`。
+3. **初始化**：启动后在容器日志中查找 `initialize` 链接（令牌在 `/share/Container/wrong-notebook/config/setup-token`）。
+4. **升级**：先停止容器并归档数据目录，或在 Hybrid Backup Sync 中把该目录加入备份。拉取新版本映像后，用相同卷、端口和环境变量重建容器；使用 **应用程序** 时，修改 YAML 中的映像标签后重新应用。启动时自动迁移数据库。
+5. **回退**：数据库迁移后不一定兼容旧镜像。停止容器，恢复升级前的 `data/`、`config/`，再按旧版本映像重建。
+
+
 
 > 上游项目的镜像 `ghcr.io/wttwins/wrong-notebook` **不包含**本仓库新增的功能，请使用 `ghcr.io/margrop/wrong-notebook`。
 

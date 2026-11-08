@@ -110,6 +110,61 @@ curl --fail http://localhost:3000/api/health
 
 **回退**：先停止容器，恢复升级前的 `data/`、`config/`，再把 Repository 标签改回旧版本并启动。数据库已经迁移时，只切回旧镜像未必兼容。
 
+## 群晖 DSM（Container Manager）
+
+DSM 7.2 及以上使用 Container Manager；旧版 DSM 的 Docker 套件操作类似。建议数据目录为 `/volume1/docker/wrong-notebook`，其他存储卷路径相应替换。
+
+1. **准备目录**：在 File Station 中创建 `docker/wrong-notebook/data` 与 `config`，或通过 SSH 执行：
+
+   ```bash
+   mkdir -p /volume1/docker/wrong-notebook/data /volume1/docker/wrong-notebook/config
+   ```
+
+2. **拉取映像**：Container Manager → **映像** → 新增，从注册表搜索 `margrop/wrong-notebook`，或从 URL 添加 `ghcr.io/margrop/wrong-notebook:<精确版本>`（如 `2026.11.6`）。
+3. **创建容器**：**容器** → 新增 → 从映像创建，选择刚拉取的映像：
+
+   | 字段 | 值 |
+   | --- | --- |
+   | 容器名称 | `wrong-notebook` |
+   | 端口 | 本地 `3000` → 容器 `3000` |
+   | 卷 1 | `/volume1/docker/wrong-notebook/data` → `/app/data`（读写） |
+   | 卷 2 | `/volume1/docker/wrong-notebook/config` → `/app/config`（读写） |
+   | 环境变量 | `NEXTAUTH_SECRET`、`NEXTAUTH_URL=http://你的IP或域名:3000`、`PRESERVE_EXISTING_DATA=true` |
+   | 自动重启 | 开启 |
+
+4. **启动与初始化**：启动后在容器详情 → 日志中查找 `initialize` 链接（令牌也在 `/volume1/docker/wrong-notebook/config/setup-token`），设置管理员邮箱和密码。检查 `curl --fail http://localhost:3000/api/health`，正常时返回 `status: "ok"`、`version` 和 `revision`。
+5. **升级**：按[数据备份与恢复](Backup-and-Restore)停止容器并归档整个目录，或在 Hyper Backup 中把 `/volume1/docker/wrong-notebook` 加入备份任务。然后在映像页拉取新版本标签，停止旧容器，用新映像和相同的卷、端口、环境变量重建；启动时自动执行数据库迁移，保留已有账户、标签、题目和试卷。使用 `latest` 时拉取最新映像后重建。
+6. **回退**：数据库已经迁移时，只切回旧镜像未必兼容。先停止容器，恢复升级前的 `data/`、`config/`，再用旧版本映像重建。
+
+域名访问可在 DSM 的 **控制面板 → 登录门户 → 高级 → 反向代理** 中把 HTTPS 请求转到容器端口，并把 `NEXTAUTH_URL` 设为外部地址。
+
+## 威联通 QTS（Container Station）
+
+使用 Container Station。建议数据目录为 `/share/Container/wrong-notebook`；Container Station 的默认共享文件夹是 `Container`，自定义存储位置时相应替换。
+
+1. **准备目录**：通过 File Station 或 SSH 创建：
+
+   ```bash
+   mkdir -p /share/Container/wrong-notebook/data /share/Container/wrong-notebook/config
+   ```
+
+2. **拉取映像**：在 Container Station 的映像页拉取 `ghcr.io/margrop/wrong-notebook:<精确版本>`；也可以在 SSH 中执行 `docker pull ghcr.io/margrop/wrong-notebook:<精确版本>`。使用 **应用程序**（Compose）方式时，可在 YAML 的 `image` 中直接指定。
+3. **创建容器**：**容器** → 创建，选择已拉取的映像：
+
+   | 字段 | 值 |
+   | --- | --- |
+   | 容器名称 | `wrong-notebook` |
+   | 端口 | 主机 `3000` → 容器 `3000` |
+   | 卷 1 | `/share/Container/wrong-notebook/data` → `/app/data` |
+   | 卷 2 | `/share/Container/wrong-notebook/config` → `/app/config` |
+   | 环境变量 | `NEXTAUTH_SECRET`、`NEXTAUTH_URL=http://你的IP或域名:3000`、`PRESERVE_EXISTING_DATA=true` |
+   | 重启策略 | `unless-stopped` |
+
+4. **启动与初始化**：启动后在容器日志中查找 `initialize` 链接（令牌也在 `/share/Container/wrong-notebook/config/setup-token`），设置管理员邮箱和密码。检查 `curl --fail http://localhost:3000/api/health`。
+5. **升级**：按[数据备份与恢复](Backup-and-Restore)停止容器并归档数据目录，或在 Hybrid Backup Sync 中把 `/share/Container/wrong-notebook` 加入备份任务。拉取新版本映像后，用相同的卷、端口、环境变量重建容器；使用 **应用程序** 时，修改 YAML 中的映像标签后重新应用。启动时自动执行数据库迁移。
+6. **回退**：数据库已经迁移时，只切回旧镜像未必兼容。先停止容器，恢复升级前的 `data/`、`config/`，再用旧版本映像重建。
+
+
 
 ## 持久化目录
 
