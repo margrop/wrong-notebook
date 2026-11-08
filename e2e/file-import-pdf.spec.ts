@@ -138,7 +138,8 @@ test('[E2E-F4-5] 页码范围：输入「1」只处理第 1 页，只创建 1 �
     await expect(scanned).toBeVisible({ timeout: 30000 });
     await scanned.locator('#scanned-pdf-range').fill('1');
     await page.getByRole('button', { name: '转为图片并识别导入' }).click();
-    await expect(page).toHaveURL(/\/import-batches\/[a-f0-9]+$/, { timeout: 30000 });
+    // 扫描版批次统一进入导入中心（无题页会在后台自动跳过）
+    await expect(page).toHaveURL(/\/import-tasks$/, { timeout: 30000 });
     expect(await calls(scenario, 'split')).toHaveLength(1);
     await expect.poll(() => scenario.db.importBatch.count({ where: { userId: scenario.user.id, source: 'image' } })).toBe(1);
 });
