@@ -70,6 +70,44 @@ tar -tzf "$backup_file"
 
 备份中可能含题目原图、用户资料、密码哈希和 AI 凭据，应限制访问并保存在独立位置。检查归档能够读取，并在隔离环境中验证恢复流程。
 
+## Unraid 整站备份与恢复
+
+Unraid 的容器数据在 `/mnt/user/appdata/wrong-notebook`（`data/` 与 `config/`）。容器环境变量（`NEXTAUTH_SECRET`、`NEXTAUTH_URL`）保存在 Unraid 的容器配置中，不在 appdata 目录内，迁移或重建容器时需要另行记录。
+容器名不是 `wrong-notebook` 时，把下面命令中的名称替换为实际容器名。
+
+停止容器后归档，可保证 SQLite 数据文件、WAL/SHM 辅助文件与配置一致：
+
+```bash
+appdata=/mnt/user/appdata/wrong-notebook
+backups=/mnt/user/backups/wrong-notebook
+mkdir -p "$backups"
+docker stop wrong-notebook
+backup_file="$backups/wrong-notebook-$(date +%Y%m%d-%H%M%S).tar.gz"
+tar -czf "$backup_file" -C /mnt/user/appdata wrong-notebook
+docker start wrong-notebook
+tar -tzf "$backup_file"
+```
+
+使用内置 HTTPS 或额外挂载了证书目录时，把对应目录也加入归档。也可以使用 Unraid 的 **Appdata Backup** 插件：把 `/mnt/user/appdata/wrong-notebook` 加入备份范围，插件会先停止容器再归档；恢复时用插件还原，或按下面的手动步骤操作。
+
+备份失败时不要继续升级，先处理失败原因并确认容器恢复运行。归档中可能含题目原图、用户资料、密码哈希和 AI 凭据，应限制访问并保存在独立位置。
+
+恢复步骤：
+
+1. 确认备份时间、来源版本与归档内容，并记录当前容器的 Repository 标签、端口、路径映射和全部环境变量。
+2. 在 Docker 页停止容器。
+3. 把当前 `/mnt/user/appdata/wrong-notebook` 移到备份位置，再把归档解压到 `/mnt/user/appdata`：
+
+   ```bash
+   tar -xzf "$backups/wrong-notebook-YYYYMMDD-HHMMSS.tar.gz" -C /mnt/user/appdata
+   ```
+
+4. 保持原容器的路径映射与 `NEXTAUTH_SECRET`，优先使用与备份匹配的镜像版本；启动后在浏览器登录，核对用户、错题、标签、作答历史和试卷。
+5. 需要升级时，在恢复验证完成后单独执行[升级流程](Deployment#unraid-docker-界面)。
+
+不要把旧数据库直接交给不兼容的新旧版本反复切换。恢复后的容器与备份版本不匹配时，先确认数据可用，再按升级步骤切换镜像。
+
+
 ## 恢复整站
 
 1. 确认备份时间、来源版本和归档内容；保存当前数据与配置的另一份副本。
