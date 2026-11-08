@@ -26,6 +26,26 @@ function grayPng(width: number, height: number): Buffer {
     for (let y = 0; y < height; y++) rows.fill(y % 40 < 2 ? 0 : 255, y * (width + 1) + 1, (y + 1) * (width + 1));
     return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', header), chunk('IDAT', deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]);
 }
+/** 确认竖向长图的下框线与右下角手柄都在裁剪滚动区可视范围内，并能向上拖动缩小选框 */
+async function assertBottomCropHandle(page: Page) {
+    const cropper = page.getByRole('dialog');
+    const viewport = cropper.locator('.overflow-auto').first();
+    const selection = cropper.locator('.ReactCrop__crop-selection');
+    const handle = cropper.locator('.ReactCrop__drag-handle.ord-se');
+    await expect(selection).toBeVisible();
+    const viewportBox = await viewport.boundingBox();
+    const selectionBox = await selection.boundingBox();
+    const handleBox = await handle.boundingBox();
+    if (!viewportBox || !selectionBox || !handleBox) throw new Error('裁剪框或手柄没有可测量的边界');
+    expect(selectionBox.y + selectionBox.height).toBeLessThanOrEqual(viewportBox.y + viewportBox.height);
+    expect(handleBox.y + handleBox.height / 2).toBeLessThanOrEqual(viewportBox.y + viewportBox.height);
+    const before = selectionBox.height;
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2 - 40);
+    await page.mouse.up();
+    await expect.poll(async () => (await selection.boundingBox())?.height ?? 0).toBeLessThan(before - 10);
+}
 
 /** 选择图片后确认整图裁剪，返回落库的识别任务 */
 async function uploadWhole(page: Page, scenario: Scenario, files: Parameters<Page['setInputFiles']>[1]) {
@@ -128,6 +148,13 @@ test.describe('照片格式与尺寸', () => {
         expect(info.outputWidth * info.outputHeight).toBeLessThanOrEqual(2560 * 1920);
         expect(task.imageData).toMatch(/^data:image\/jpeg;/);
     });
+
+    test('[E2E-I12] 桌面竖向长图的单题裁剪下边线在可视区内，可直接拖动下边', async ({ page }, testInfo) => {
+        await page.locator('[data-testid="file-input"]').setInputFiles({ name: 'tall.png', mimeType: 'image/png', buffer: grayPng(600, 2000) });
+        await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
+        await assertBottomCropHandle(page);
+        await snap(page, testInfo, 'tall-crop-bottom');
+    });
 });
 
 test.describe('手机拍照、相册与文件入口', () => {
@@ -222,6 +249,16 @@ test.describe('手机拍照、相册与文件入口', () => {
         for (const name of ['取消', '确认']) {
             await expect(cropper.getByRole('button', { name, exact: true })).toBeInViewport({ ratio: 1 });
         }
+    });
+
+    test('[E2E-I13] 手机竖向长图的单题裁剪下边线在可视区内，可直接拖动下边', async ({ page, scenario }, testInfo) => {
+        await scenario.db.user.update({ where: { id: scenario.user.id }, data: { confirmBeforeImport: true } });
+        await scenario.login(page);
+        await page.goto('/');
+        await page.locator('[data-testid="file-input"]').setInputFiles({ name: 'tall.png', mimeType: 'image/png', buffer: grayPng(600, 2000) });
+        await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
+        await assertBottomCropHandle(page);
+        await testInfo.attach('tall-crop-bottom-mobile', { body: await page.screenshot(), contentType: 'image/png' });
     });
 });
 

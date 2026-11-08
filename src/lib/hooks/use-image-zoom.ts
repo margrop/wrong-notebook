@@ -152,6 +152,7 @@ export function useImageZoom(fitStyle: CSSProperties) {
 
     return {
         containerRef,
+        container,
         zoom,
         imageStyle,
         measureImage,

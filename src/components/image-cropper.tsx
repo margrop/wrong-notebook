@@ -25,6 +25,8 @@ const FIT_STYLE: Record<CropMode, CSSProperties> = {
     auto: { maxHeight: "65vh", maxWidth: "100%", objectFit: "contain" },
     multi: { maxHeight: "65vh", maxWidth: "100%", objectFit: "contain" },
 };
+// 裁剪手柄最多向图片下边外伸出 12px，为它预留 16px
+const BOTTOM_HANDLE_SPACE = 16;
 
 interface ImageCropperProps {
     imageSrc: string;
@@ -60,11 +62,26 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
     const multiEnabled = !!onMultiCropComplete || (!!onRegionsSelected && allowMulti);
     const modes: CropMode[] = ["single", ...(onAutoSplit ? ["auto" as const] : []), ...(multiEnabled ? ["multi" as const] : [])];
     const mode: CropMode = modes.includes(savedMode) ? savedMode : "single";
-    const { containerRef, zoom, imageStyle, measureImage, zoomIn, zoomOut, reset: resetZoom } = useImageZoom(FIT_STYLE[mode]);
+    // 高度按实际图片区测量，不按视口高度估算
+    const [fitHeight, setFitHeight] = useState<number | null>(null);
+    const fitStyle = fitHeight === null ? FIT_STYLE[mode] : { ...FIT_STYLE[mode], maxHeight: `${Math.max(0, fitHeight - BOTTOM_HANDLE_SPACE)}px` };
+    const { containerRef, container, zoom, imageStyle, measureImage, zoomIn, zoomOut, reset: resetZoom } = useImageZoom(fitStyle);
     // 换图后回到 100%
     useEffect(() => {
         resetZoom();
     }, [imageSrc, resetZoom]);
+    // 图片区随弹窗、底部工具栏与窗口尺寸变化，按实际内容高度收紧图片，保证选框下边线可见
+    useEffect(() => {
+        if (!container) return;
+        const observer = new ResizeObserver(([entry]) => setFitHeight(entry.contentRect.height));
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, [container]);
+    // 适应高度改变后图片宽度也改变，重新记录 100% 时的缩放基准
+    useEffect(() => {
+        const image = container?.querySelector("img");
+        measureImage(image instanceof HTMLImageElement ? image : null);
+    }, [container, fitStyle.maxHeight, zoom, measureImage]);
     const setMode = (next: CropMode) => {
         resetZoom();
         saveMode(next);
