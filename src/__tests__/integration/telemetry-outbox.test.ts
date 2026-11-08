@@ -34,10 +34,11 @@ import { getTelemetryState } from '@/lib/telemetry/state';
 let database: PrismaClient;
 let directory: string;
 /**
- * 测试基准时间取真实当前时间：instance_alive 与错误记录的 createdAt 由服务端写入真实时间，
- * 收集服务契约只接受基准时间前 7 天至后 1 天内的日期，写死某一天会让用例随日期推移失效。
+ * 测试基准时间取当前 UTC 日的 12:00：instance_alive 与错误记录的 createdAt 由服务端写入真实时间，
+ * 收集服务契约只接受基准时间前 7 天至后 1 天内的日期；固定在当日中午可让偏移量不跨 UTC 日界，也不会随日期推移失效。
  */
 const NOW = new Date();
+NOW.setUTCHours(12, 0, 0, 0);
 const TODAY = NOW.toISOString().slice(0, 10);
 const HOUR = 3_600_000;
 
@@ -182,8 +183,8 @@ describe('发送条件', () => {
     it('instance_alive 每天只写一条', async () => {
         const fetchMock = okFetch();
         await flushOutbox({ now: NOW, fetchImpl: fetchMock });
-        // 基准时间取真实当前时间；+7h 在凌晨会跨 UTC 日界，改成同一 UTC 日内的 +1h
-        await flushOutbox({ now: new Date(NOW.getTime() + HOUR), force: true, fetchImpl: fetchMock });
+        // 基准固定在 UTC 当日中午，+7h 仍属同一 UTC 日
+        await flushOutbox({ now: new Date(NOW.getTime() + 7 * HOUR), force: true, fetchImpl: fetchMock });
         const alive = fetchMock.mock.calls.flatMap((_, i) => sentBody(fetchMock, i).items).filter((item: { name?: string }) => item.name === 'instance_alive');
         expect(alive).toHaveLength(1);
         await flushOutbox({ now: new Date(NOW.getTime() + 24 * HOUR), force: true, fetchImpl: fetchMock });
