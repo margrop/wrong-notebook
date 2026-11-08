@@ -182,7 +182,8 @@ describe('发送条件', () => {
     it('instance_alive 每天只写一条', async () => {
         const fetchMock = okFetch();
         await flushOutbox({ now: NOW, fetchImpl: fetchMock });
-        await flushOutbox({ now: new Date(NOW.getTime() + 7 * HOUR), force: true, fetchImpl: fetchMock });
+        // 基准时间取真实当前时间；+7h 在凌晨会跨 UTC 日界，改成同一 UTC 日内的 +1h
+        await flushOutbox({ now: new Date(NOW.getTime() + HOUR), force: true, fetchImpl: fetchMock });
         const alive = fetchMock.mock.calls.flatMap((_, i) => sentBody(fetchMock, i).items).filter((item: { name?: string }) => item.name === 'instance_alive');
         expect(alive).toHaveLength(1);
         await flushOutbox({ now: new Date(NOW.getTime() + 24 * HOUR), force: true, fetchImpl: fetchMock });
