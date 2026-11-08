@@ -1,7 +1,8 @@
 /**
  * 安卓单机版运行时：在 APK 中内置 Node.js、Prisma 引擎和服务端，手机上无需另行部署服务器。
  *
- * - Node.js 使用 Termux 为安卓编译的 nodejs-lts 及其依赖库（按软件源索引中的 SHA256 校验）
+ * - Node.js 使用 Termux 为安卓编译的 nodejs（当前 26.x，依赖 libicu 79）及其依赖库（按软件源索引中的 SHA256 校验）；
+ *   nodejs-lts 24.22.2 仍依赖 libicui18n.so.78，而软件源的 libicu 已更新到 79.1，两者不兼容，暂不采用。
  * - Prisma 引擎由 build-android-prisma-engines.sh 交叉编译
  * - 可执行文件和动态库都放进 jniLibs/arm64-v8a，安装时解压到应用的 nativeLibraryDir，
  *   这是 Android 10 及以上唯一允许应用执行自带程序的位置；jniLibs 只打包 lib*.so，
@@ -15,11 +16,51 @@ import { spawnSync } from 'node:child_process';
 
 export const TERMUX_ARCH = 'aarch64';
 export const ANDROID_ABI = 'arm64-v8a';
-export const NODE_PACKAGE = 'nodejs-lts';
+export const NODE_PACKAGE = 'nodejs';
 const DEFAULT_TERMUX_MIRROR = 'https://packages.termux.dev/apt/termux-main';
 /** 安卓系统自带、无需打包的库 */
 const SYSTEM_LIBRARIES = new Set(['libc.so', 'libm.so', 'libdl.so', 'liblog.so', 'libandroid.so']);
 
+
+/** 拆分 Debian 版本号（epoch:upstream-revision） */
+function splitDebianVersion(value) {
+    const colon = value.indexOf(':');
+    const epoch = colon >= 0 ? Number(value.slice(0, colon)) : 0;
+    const rest = colon >= 0 ? value.slice(colon + 1) : value;
+    const dash = rest.lastIndexOf('-');
+    return [epoch, dash >= 0 ? rest.slice(0, dash) : rest, dash >= 0 ? rest.slice(dash + 1) : ''];
+}
+
+/** 按数字段/非数字段交替比较版本片段（Termux 的包版本以数字和 . - 为主） */
+function compareVersionPart(left, right) {
+    const leftTokens = left.match(/\d+|[^\d]+/g) ?? [];
+    const rightTokens = right.match(/\d+|[^\d]+/g) ?? [];
+    for (let i = 0; i < Math.max(leftTokens.length, rightTokens.length); i++) {
+        const a = leftTokens[i];
+        const b = rightTokens[i];
+        if (a === undefined) return b === undefined ? 0 : -1;
+        if (b === undefined) return 1;
+        const bothNumeric = /^\d+$/.test(a) && /^\d+$/.test(b);
+        if (bothNumeric) {
+            // 避免超大版本号转 Number 丢精度：先比长度，再按字符串比较
+            if (a.length !== b.length) return a.length < b.length ? -1 : 1;
+            if (a !== b) return a < b ? -1 : 1;
+        } else if (a !== b) {
+            return a < b ? -1 : 1;
+        }
+    }
+    return 0;
+}
+
+/** 比较 Debian 版本号；相同时返回 0，left 较新时返回正数 */
+export function compareDebianVersions(left, right) {
+    const [leftEpoch, leftUpstream, leftRevision] = splitDebianVersion(left);
+    const [rightEpoch, rightUpstream, rightRevision] = splitDebianVersion(right);
+    if (leftEpoch !== rightEpoch) return leftEpoch > rightEpoch ? 1 : -1;
+    const upstream = compareVersionPart(leftUpstream, rightUpstream);
+    if (upstream !== 0) return upstream;
+    return compareVersionPart(leftRevision, rightRevision);
+}
 /** 解析 apt 软件源的 Packages 索引 */
 export function parseTermuxPackages(text) {
     const index = new Map();
@@ -37,7 +78,11 @@ export function parseTermuxPackages(text) {
                 }
             }
         }
-        if (fields.Package) index.set(fields.Package, fields);
+        if (fields.Package) {
+            // 同一包可能同时列出基础版本与修订版本（如 nodejs 26.13.0 / 26.13.0-1），取最新
+            const existing = index.get(fields.Package);
+            if (!existing || compareDebianVersions(fields.Version, existing.Version) > 0) index.set(fields.Package, fields);
+        }
     }
     return index;
 }
@@ -97,7 +142,7 @@ async function download(url) {
     return Buffer.from(await response.arrayBuffer());
 }
 
-/** 下载 nodejs-lts 及依赖并解包到 workDir/termux，返回 Termux 前缀目录和软件包版本 */
+/** 下载 nodejs 及依赖并解包到 workDir/termux，返回 Termux 前缀目录和软件包版本 */
 async function fetchTermuxNode(workDir, log) {
     const mirror = (process.env.TERMUX_MIRROR || DEFAULT_TERMUX_MIRROR).replace(/\/$/, '');
     const index = parseTermuxPackages((await download(`${mirror}/dists/stable/main/binary-${TERMUX_ARCH}/Packages`)).toString('utf8'));

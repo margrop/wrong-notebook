@@ -123,7 +123,7 @@ PDF 导入的浏览器端解析需要 pdfjs-dist 的 CMap 与标准字体数据�
 - 安卓 Prisma 引擎：Prisma 不提供安卓版本，`build-android-prisma-engines.sh` 按项目安装的 Prisma 版本下载对应提交的 prisma-engines 源码，用 Android NDK（`ANDROID_NDK_HOME`）和 rustup 交叉编译查询引擎与迁移引擎，约需 15–30 分钟。输出目录默认 `dist/android-prisma-engines`，可用 `ANDROID_PRISMA_ENGINES_DIR` 指定。
 - `patchelf`（可用 `PATCHELF` 指定路径）和 `zip`。
 
-单机版内置的 Node.js 取自 [Termux](https://termux.dev) 软件源的 `nodejs-lts` 及其依赖库（构建时按软件源索引校验 SHA256，可用 `TERMUX_MIRROR` 指定镜像）。安卓只允许执行 `nativeLibraryDir` 中的程序，因此 Node.js、依赖库和引擎都以 `lib*.so` 的形式放进 `jniLibs/arm64-v8a`，由 `scripts/package/android-runtime.mjs` 改名并用 patchelf 改写依赖；服务端打包为 `assets/server.zip`，首次启动时解压。各组件的许可证随 APK 放在 `assets/licenses/`。网页端按需加载的 HEIC/HEIF 转换组件（heic-to 及其包含的 libheif、libde265）的第三方说明与许可证位于 `public/third-party-licenses/heic-to/`，随服务端 `public/` 目录进入 Docker 镜像、npm 包、桌面版、飞牛OS 安装包和单机版的 `server.zip`。
+单机版内置的 Node.js 取自 [Termux](https://termux.dev) 软件源的 `nodejs`（当前 26.x，依赖 libicu 79；`nodejs-lts` 24.22 仍依赖 libicu 78，与软件源已更新的 libicu 79.1 不兼容）及其依赖库（构建时按软件源索引校验 SHA256，可用 `TERMUX_MIRROR` 指定镜像）。安卓只允许执行 `nativeLibraryDir` 中的程序，因此 Node.js、依赖库和引擎都以 `lib*.so` 的形式放进 `jniLibs/arm64-v8a`，由 `scripts/package/android-runtime.mjs` 改名并用 patchelf 改写依赖；服务端打包为 `assets/server.zip`，首次启动时解压。各组件的许可证随 APK 放在 `assets/licenses/`。网页端按需加载的 HEIC/HEIF 转换组件（heic-to 及其包含的 libheif、libde265）的第三方说明与许可证位于 `public/third-party-licenses/heic-to/`，随服务端 `public/` 目录进入 Docker 镜像、npm 包、桌面版、飞牛OS 安装包和单机版的 `server.zip`。
 
 versionCode 由版本号换算（`scripts/package/android-version.mjs`）：预览版 `2026.10.22-3` 为 `2026102203`，正式版 `2026.10.22` 为 `2026102299`，保证升级时递增。
 

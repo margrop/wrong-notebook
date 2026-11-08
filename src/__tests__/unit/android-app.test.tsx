@@ -6,6 +6,7 @@ import { AndroidAppSetting } from '@/components/settings/android-app-setting';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import {
     androidLibraryName,
+    compareDebianVersions,
     extractDebData,
     parseTermuxPackages,
     resolveTermuxDependencies,
@@ -92,6 +93,22 @@ describe('安卓单机版运行时', () => {
         expect(resolveTermuxDependencies(index, 'nodejs-lts').map((p) => p.Package))
             .toEqual(['ca-certificates', 'libc++', 'nodejs-lts', 'openssl', 'zlib']);
         expect(() => resolveTermuxDependencies(index, 'missing')).toThrow();
+    });
+
+    it('同一包列出基础版本与修订版本时取最新（nodejs 26.13.0-1 而非 26.13.0）', () => {
+        expect(compareDebianVersions('26.13.0-1', '26.13.0')).toBeGreaterThan(0);
+        expect(compareDebianVersions('1:2026.11.05', '2026.10.20')).toBeGreaterThan(0);
+        const duplicate = parseTermuxPackages([
+            'Package: nodejs',
+            'Version: 26.13.0',
+            'Filename: pool/main/n/nodejs/nodejs_26.13.0_aarch64.deb',
+            '',
+            'Package: nodejs',
+            'Version: 26.13.0-1',
+            'Filename: pool/main/n/nodejs/nodejs_26.13.0-1_aarch64.deb',
+        ].join('\n'));
+        expect(duplicate.get('nodejs')?.Version).toBe('26.13.0-1');
+        expect(duplicate.get('nodejs')?.Filename).toContain('nodejs_26.13.0-1');
     });
 
     it('带版本后缀的库改名为 jniLibs 可打包的 lib*.so', () => {
