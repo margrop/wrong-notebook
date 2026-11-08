@@ -268,6 +268,28 @@ wrong-notebook --port 3000
 
 数据保存在挂载的 `data/`（SQLite 数据库）和 `config/`（网页中保存的 AI 配置、云端语音缓存等）目录。设置页「关于」和 `/api/health` 显示当前运行的版本。HTTPS 部署见 [HTTPS 配置指南](doc/HTTPS_SETUP.md) 和 `docker-compose.https.yml`。
 
+#### Unraid（Docker 界面，不使用 docker-compose.yml）
+
+在 Unraid 的 **Docker** 页新建容器即可，不需要 Compose 文件：
+
+| 字段 | 值 |
+| --- | --- |
+| Repository | `ghcr.io/margrop/wrong-notebook:<精确版本>`（如 `2026.11.6`，也可用 `latest`） |
+| Network / Port | bridge；容器端口 `3000`，主机端口自定（如 `3000`） |
+| Path 1 (host → container) | `/mnt/user/appdata/wrong-notebook/data` → `/app/data`（数据库） |
+| Path 2 (host → container) | `/mnt/user/appdata/wrong-notebook/config` → `/app/config`（AI 配置、提示词等） |
+| Variable 1 | `NEXTAUTH_SECRET`：`openssl rand -base64 32` 的输出 |
+| Variable 2 | `NEXTAUTH_URL=http://你的IP或域名:3000` |
+| Variable 3 | `PRESERVE_EXISTING_DATA=true` |
+| Restart policy | `unless-stopped` |
+
+主机目录不存在时 Unraid 会自动创建。首次启动后，在容器日志中查找 `initialize` 链接（也可读取 `/mnt/user/appdata/wrong-notebook/config/setup-token`），打开设置管理员邮箱和密码。
+
+**升级**：Docker 页 → 点击容器 → **Force update**，会按当前 Repository 标签重新拉取并重建容器。使用精确版本时，先把 Repository 标签改成新版本再 Force update；`latest` 直接 Force update 即可。启动时会自动执行数据库迁移，`data`、`config` 目录中的数据保留。升级前先按 [数据备份与恢复](doc/wiki/Backup-and-Restore.md) 停止容器并归档整个 appdata 目录，或使用 Unraid 的 Appdata Backup 插件。
+
+**回退**：数据库迁移后不一定兼容旧镜像。回退时先停止容器，恢复升级前的 `data/`、`config/`，再把 Repository 标签改回旧版本并启动。
+
+
 > 上游项目的镜像 `ghcr.io/wttwins/wrong-notebook` **不包含**本仓库新增的功能，请使用 `ghcr.io/margrop/wrong-notebook`。
 
 ### 方式三：本地源码运行

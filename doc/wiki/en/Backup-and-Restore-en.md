@@ -70,6 +70,44 @@ If the backup fails, do not continue with the upgrade; fix the cause and confirm
 
 Backups may contain question images, user profiles, password hashes and AI credentials. Restrict access, keep them in a separate location, check that the archive can be read, and verify the restore process in an isolated environment.
 
+## Unraid full-site backup and restore
+
+On Unraid the container data lives in `/mnt/user/appdata/wrong-notebook` (`data/` and `config/`). The container environment variables (`NEXTAUTH_SECRET`, `NEXTAUTH_URL`) are stored in Unraid's container configuration, not inside appdata, so record them separately when moving or recreating the container.
+If the container name is not `wrong-notebook`, replace that name in the commands below with the actual one.
+
+Stop the container before archiving so the SQLite data file, its WAL/SHM files and the configuration stay consistent:
+
+```bash
+appdata=/mnt/user/appdata/wrong-notebook
+backups=/mnt/user/backups/wrong-notebook
+mkdir -p "$backups"
+docker stop wrong-notebook
+backup_file="$backups/wrong-notebook-$(date +%Y%m%d-%H%M%S).tar.gz"
+tar -czf "$backup_file" -C /mnt/user/appdata wrong-notebook
+docker start wrong-notebook
+tar -tzf "$backup_file"
+```
+
+When using the built-in HTTPS or additional certificate mounts, add those directories to the archive too. You can also use Unraid's **Appdata Backup** plugin: add `/mnt/user/appdata/wrong-notebook` to its backup set; the plugin stops the container before archiving. Restore with the plugin, or follow the manual steps below.
+
+If the backup fails, do not continue with the upgrade; fix the cause and confirm the container is running again first. Archives may contain question images, user profiles, password hashes and AI credentials, so restrict access and keep them in a separate location.
+
+Restore steps:
+
+1. Confirm the backup time, source version and archive contents, and record the current container's Repository tag, port, path mappings and all environment variables.
+2. Stop the container on the Docker page.
+3. Move the current `/mnt/user/appdata/wrong-notebook` to a backup location, then unpack the archive into `/mnt/user/appdata`:
+
+   ```bash
+   tar -xzf "$backups/wrong-notebook-YYYYMMDD-HHMMSS.tar.gz" -C /mnt/user/appdata
+   ```
+
+4. Keep the original container's path mappings and `NEXTAUTH_SECRET`, and prefer the image version that matches the backup. After starting, sign in and check users, questions, tags, answer history and exam papers.
+5. When an upgrade is needed, run the [upgrade steps](Deployment-en#unraid-docker-ui) separately after the restore has been verified.
+
+Do not switch an old database back and forth between incompatible versions. If the restored container does not match the backup version, verify the data first, then switch images following the upgrade steps.
+
+
 ## Restore the whole site
 
 1. Confirm the backup time, source version and archive contents; keep another copy of the current data and configuration.

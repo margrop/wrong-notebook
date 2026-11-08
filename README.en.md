@@ -270,6 +270,28 @@ Every release publishes an image to GitHub Container Registry, `ghcr.io/margrop/
 
 Data lives in the mounted `data/` (SQLite database) and `config/` (AI settings saved from the web UI, cloud voice cache, etc.) directories. **Settings → About** and `/api/health` show the running version. For HTTPS, see the [HTTPS setup guide](doc/HTTPS_SETUP.md) (Chinese) and `docker-compose.https.yml`.
 
+#### Unraid (Docker UI, without docker-compose.yml)
+
+Create the container from Unraid's **Docker** page; no Compose file is needed:
+
+| Field | Value |
+| --- | --- |
+| Repository | `ghcr.io/margrop/wrong-notebook:<exact-version>` (e.g. `2026.11.6`, or `latest`) |
+| Network / Port | bridge; container port `3000`, host port as you prefer (e.g. `3000`) |
+| Path 1 (host → container) | `/mnt/user/appdata/wrong-notebook/data` → `/app/data` (database) |
+| Path 2 (host → container) | `/mnt/user/appdata/wrong-notebook/config` → `/app/config` (AI settings, prompts, etc.) |
+| Variable 1 | `NEXTAUTH_SECRET`: the output of `openssl rand -base64 32` |
+| Variable 2 | `NEXTAUTH_URL=http://your-ip-or-domain:3000` |
+| Variable 3 | `PRESERVE_EXISTING_DATA=true` |
+| Restart policy | `unless-stopped` |
+
+Unraid creates the host directories if they do not exist. After the first start, find the `initialize` link in the container log (or read `/mnt/user/appdata/wrong-notebook/config/setup-token`) and open it to set the admin email and password.
+
+**Upgrade**: Docker page → click the container → **Force update**, which pulls the current Repository tag again and recreates the container. With an exact version, change the Repository tag to the new version before Force update; with `latest`, Force update directly. Startup applies database migrations automatically and keeps the data in `data/` and `config/`. Before upgrading, stop the container and archive the whole appdata directory following [Backup and Restore](doc/wiki/en/Backup-and-Restore-en.md), or use Unraid's Appdata Backup plugin.
+
+**Rollback**: after a database migration the old image may not be compatible. Stop the container, restore the pre-upgrade `data/` and `config/`, change the Repository tag back to the old version, and start it.
+
+
 > The upstream image `ghcr.io/wttwins/wrong-notebook` **does not include** the features added in this repository. Use `ghcr.io/margrop/wrong-notebook`.
 
 ### Option 3: Run from source

@@ -68,13 +68,15 @@ describe('computeOutputSize', () => {
 });
 
 // ---------- 解码与编码（jsdom 中模拟画布与系统解码） ----------
+import type { Mock } from 'vitest';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { ImageDecodeError, prepareImage, renderRegion } from '@/lib/image-pipeline';
 
 const heic = vi.hoisted(() => ({ heicTo: vi.fn() }));
 vi.mock('heic-to/csp', () => heic);
 
-interface FakeCanvas { width: number; height: number; quality: number[]; drawImage: ReturnType<typeof vi.fn> }
+interface FakeCanvasContext { save: Mock; restore: Mock; beginPath: Mock; moveTo: Mock; lineTo: Mock; stroke: Mock; arc: Mock; fill: Mock; lineWidth: number; strokeStyle: string }
+interface FakeCanvas { width: number; height: number; quality: number[]; drawImage: Mock; context: FakeCanvasContext }
 let canvases: FakeCanvas[];
 /** 编码后的字节数：按像素与质量估算 */
 let bytesFor: (width: number, height: number, quality: number) => number;
@@ -85,9 +87,15 @@ beforeEach(() => {
     const createElement = document.createElement.bind(document);
     vi.spyOn(document, 'createElement').mockImplementation(((tag: string) => {
         if (tag !== 'canvas') return createElement(tag);
+        const drawImage = vi.fn();
+        const context: FakeCanvasContext & Record<string, unknown> = {
+            save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(),
+            stroke: vi.fn(), arc: vi.fn(), fill: vi.fn(), lineWidth: 0, strokeStyle: '',
+            fillRect: vi.fn(), drawImage, fillStyle: '', imageSmoothingEnabled: false, imageSmoothingQuality: 'low',
+        };
         const canvas: FakeCanvas & Record<string, unknown> = {
-            width: 0, height: 0, quality: [], drawImage: vi.fn(),
-            getContext: () => ({ fillRect: vi.fn(), drawImage: canvas.drawImage, fillStyle: '', imageSmoothingEnabled: false, imageSmoothingQuality: 'low' }),
+            width: 0, height: 0, quality: [], drawImage, context,
+            getContext: () => context,
             toBlob: (callback: (blob: Blob) => void, _type: string, quality: number) => {
                 canvas.quality.push(quality);
                 callback(new Blob([new Uint8Array(Math.round(bytesFor(canvas.width, canvas.height, quality)))], { type: 'image/jpeg' }));
@@ -138,6 +146,18 @@ describe('renderRegion', () => {
         expect(canvases.length).toBeGreaterThan(1);
         expect(result.bytes).toBeLessThanOrEqual(1.5 * 1024 * 1024);
         expect(result.width / result.height).toBeCloseTo(4032 / 3024, 1);
+    });
+});
+
+describe('renderRegion 擦除做题痕迹', () => {
+    it('裁剪后按整张图片坐标画出白色笔画', async () => {
+        const original = source(4000, 3000);
+        const erase = [{ points: [{ x: 0.25, y: 0.5 }, { x: 0.3, y: 0.5 }], radius: 0.005 }];
+        await renderRegion(original, { x: 0.25, y: 0.5, width: 0.5, height: 0.25, erase });
+        // 区域起点 (1000,1500)，输出 2000×750：x 从 0 到 200，y=0
+        expect(canvases[0].context.moveTo).toHaveBeenCalledWith(0, 0);
+        expect(canvases[0].context.lineTo).toHaveBeenCalledWith(200, 0);
+        expect(canvases[0].context.lineWidth).toBe(40);
     });
 });
 

@@ -72,6 +72,45 @@ docker compose logs wrong-notebook | grep initialize
 
 新安装的默认账户见[快速开始](Quick-Start)。
 
+## Unraid（Docker 界面）
+
+Unraid 通过 Docker 页管理容器，不需要 `docker-compose.yml`。应用数据默认放在 `/mnt/user/appdata/wrong-notebook`。
+
+在 Docker 页点击 **Add Container**，切换到高级视图后填写：
+
+| 字段 | 值 |
+| --- | --- |
+| Repository | `ghcr.io/margrop/wrong-notebook:<精确版本>`（推荐，如 `2026.11.6`）或 `latest` |
+| Network | bridge |
+| Port | 主机端口（如 `3000`） → 容器 `3000` |
+| Path 1（主机 → 容器） | `/mnt/user/appdata/wrong-notebook/data` → `/app/data` |
+| Path 2（主机 → 容器） | `/mnt/user/appdata/wrong-notebook/config` → `/app/config` |
+| Variable 1 | `NEXTAUTH_SECRET` = `openssl rand -base64 32` 的输出 |
+| Variable 2 | `NEXTAUTH_URL` = `http://你的IP或域名:3000` |
+| Variable 3 | `PRESERVE_EXISTING_DATA` = `true` |
+| Restart policy | `unless-stopped` |
+
+主机目录不存在时 Unraid 会自动创建。点击 **Apply** 启动，然后检查：
+
+```bash
+docker logs wrong-notebook 2>&1 | grep initialize
+curl --fail http://localhost:3000/api/health
+```
+
+首次启动没有默认账号：打开日志中的一次性初始化链接（令牌也在 `/mnt/user/appdata/wrong-notebook/config/setup-token`），设置管理员邮箱和密码，再进入安装向导。`NEXTAUTH_URL` 的主机要与实际访问地址一致。
+
+### 升级
+
+1. 记录当前 Repository 标签，按[数据备份与恢复](Backup-and-Restore)停止容器并归档整个 appdata 目录；也可以在 Unraid 的 Appdata Backup 插件中把该目录加入备份。
+2. 在 Docker 页编辑容器：
+   - 使用 `latest`：点击 **Force update** 重新拉取并重建。
+   - 使用精确版本：把 Repository 标签改为新版本后点击 **Apply**（或 **Force update**）。
+3. 保持 `data`、`config` 的映射和 `NEXTAUTH_SECRET` 不变；启动时会自动执行数据库迁移并保留已有账户、标签、题目和试卷。
+4. 查看容器日志与 `/api/health`，登录核对运行版本和数据。
+
+**回退**：先停止容器，恢复升级前的 `data/`、`config/`，再把 Repository 标签改回旧版本并启动。数据库已经迁移时，只切回旧镜像未必兼容。
+
+
 ## 持久化目录
 
 | 容器目录 | 内容 | 处理方式 |

@@ -72,6 +72,45 @@ A healthy endpoint returns `status: "ok"` together with `version` and `revision`
 
 For the default account of a fresh install, see [Quick Start](Quick-Start-en).
 
+## Unraid (Docker UI)
+
+Unraid manages containers from its Docker page, so no `docker-compose.yml` is needed. The app data directory defaults to `/mnt/user/appdata/wrong-notebook`.
+
+On the Docker page click **Add Container**, switch to the advanced view, and fill in:
+
+| Field | Value |
+| --- | --- |
+| Repository | `ghcr.io/margrop/wrong-notebook:<exact-version>` (recommended, e.g. `2026.11.6`) or `latest` |
+| Network | bridge |
+| Port | host port (e.g. `3000`) → container `3000` |
+| Path 1 (host → container) | `/mnt/user/appdata/wrong-notebook/data` → `/app/data` |
+| Path 2 (host → container) | `/mnt/user/appdata/wrong-notebook/config` → `/app/config` |
+| Variable 1 | `NEXTAUTH_SECRET` = the output of `openssl rand -base64 32` |
+| Variable 2 | `NEXTAUTH_URL` = `http://your-ip-or-domain:3000` |
+| Variable 3 | `PRESERVE_EXISTING_DATA` = `true` |
+| Restart policy | `unless-stopped` |
+
+Unraid creates the host directories if they do not exist. Click **Apply** to start, then check:
+
+```bash
+docker logs wrong-notebook 2>&1 | grep initialize
+curl --fail http://localhost:3000/api/health
+```
+
+A fresh start has no default account: open the one-time setup link from the log (the token is also in `/mnt/user/appdata/wrong-notebook/config/setup-token`), set the admin email and password, and continue in the setup wizard. The host in `NEXTAUTH_URL` must match the actual address used to open the app.
+
+### Upgrade
+
+1. Note the current Repository tag, then stop the container and archive the whole appdata directory following [Backup and Restore](Backup-and-Restore-en); you can also add this directory to Unraid's Appdata Backup plugin.
+2. Edit the container on the Docker page:
+   - With `latest`: click **Force update** to pull and recreate.
+   - With an exact version: change the Repository tag to the new version, then click **Apply** (or **Force update**).
+3. Keep the `data` and `config` mappings and `NEXTAUTH_SECRET` unchanged; startup applies database migrations and keeps existing accounts, tags, questions and exam papers.
+4. Check the container log and `/api/health`, then sign in and verify the running version and data.
+
+**Rollback**: stop the container, restore the pre-upgrade `data/` and `config/`, change the Repository tag back to the old version, and start it. Once the database has been migrated, switching back to the old image alone may not be compatible.
+
+
 ## Persistent directories
 
 | Container directory | Contents | Handling |

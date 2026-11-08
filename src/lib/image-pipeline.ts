@@ -9,7 +9,8 @@
  * - 输出同时按最长边、总像素和体积限制；质量不低于下限，体积仍超出时缩小尺寸而不是继续降低质量，保护小字与公式。
  * - 日志只记录格式、像素、体积和用时，不记录图片内容。
  */
-import type { ImageRegion } from "@/lib/image-crop";
+import { applyEraseStrokes } from "@/lib/image-crop";
+import type { EraseStroke, ImageRegion } from "@/lib/image-crop";
 import type { ImportImageInfo } from "@/lib/import/import-task-types";
 
 export interface ImageOutputLimits {
@@ -181,8 +182,17 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     });
 }
 
-/** 把源图的一个区域绘制到指定大小的画布（白底，透明 PNG 转 JPEG 不变黑） */
-function drawRegion(source: DecodedSource, sx: number, sy: number, sw: number, sh: number, width: number, height: number): HTMLCanvasElement {
+/** 把源图的一个区域绘制到指定大小的画布（白底，透明 PNG 转 JPEG 不变黑），并按需擦除做题笔迹 */
+function drawRegion(
+    source: DecodedSource,
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number,
+    width: number,
+    height: number,
+    erase?: EraseStroke[],
+): HTMLCanvasElement {
     const canvas = createCanvas(width, height);
     const context = canvas.getContext("2d");
     if (!context) throw new Error("CANVAS_UNSUPPORTED");
@@ -191,6 +201,9 @@ function drawRegion(source: DecodedSource, sx: number, sy: number, sw: number, s
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = "high";
     context.drawImage(source, sx, sy, sw, sh, 0, 0, width, height);
+    if (erase?.length) {
+        applyEraseStrokes(context, erase, sourceSize(source), { sx, sy, sw, sh }, { width, height });
+    }
     return canvas;
 }
 
@@ -257,7 +270,7 @@ export async function renderRegion(prepared: Pick<PreparedImage, "source" | "wid
     const sw = Math.max(1, Math.min(prepared.width - sx, Math.round(clamp(region.width) * prepared.width)));
     const sh = Math.max(1, Math.min(prepared.height - sy, Math.round(clamp(region.height) * prepared.height)));
     let size = computeOutputSize(sw, sh, limits);
-    let canvas = drawRegion(prepared.source, sx, sy, sw, sh, size.width, size.height);
+    let canvas = drawRegion(prepared.source, sx, sy, sw, sh, size.width, size.height, region.erase);
     const crop = performance.now() - cropStarted;
 
     const compressStarted = performance.now();
@@ -268,7 +281,7 @@ export async function renderRegion(prepared: Pick<PreparedImage, "source" | "wid
             quality = Math.round((quality - QUALITY_STEP) * 100) / 100;
         } else {
             size = { width: Math.max(1, Math.floor(size.width * SHRINK_STEP)), height: Math.max(1, Math.floor(size.height * SHRINK_STEP)), scale: size.scale * SHRINK_STEP };
-            canvas = drawRegion(prepared.source, sx, sy, sw, sh, size.width, size.height);
+            canvas = drawRegion(prepared.source, sx, sy, sw, sh, size.width, size.height, region.erase);
         }
         blob = await canvasToBlob(canvas, quality);
     }
