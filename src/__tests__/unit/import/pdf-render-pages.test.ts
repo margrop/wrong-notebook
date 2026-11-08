@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
     computePdfOutputSize,
     computePdfRenderScale,
+    MAX_PDF_RENDER_SCALE,
     MAX_SCAN_PAGES_PER_IMPORT,
     parsePageRanges,
 } from "@/lib/import/file-parsers/pdf/render-pages";
@@ -53,10 +54,18 @@ describe("parsePageRanges", () => {
 });
 
 describe("computePdfRenderScale / computePdfOutputSize", () => {
-    it("小页面不放大（scale=1）", () => {
-        expect(computePdfRenderScale(612, 792)).toBe(1);
+    it("A4 页面放大到输出上限（约 225 DPI），不再停在 72 DPI", () => {
+        // 612×792 为 Letter，像素上限决定约 3.18 倍；长边上限允许更大，因此取像素限制
+        const scale = computePdfRenderScale(612, 792);
+        expect(scale).toBeGreaterThan(3);
+        expect(scale).toBeCloseTo(Math.sqrt(DEFAULT_IMAGE_LIMITS.maxPixels / (612 * 792)), 5);
         const output = computePdfOutputSize(612, 792);
-        expect(output).toEqual({ width: 612, height: 792, scale: 1 });
+        expect(output.width).toBeGreaterThan(1800);
+        expect(output.width * output.height).toBeLessThanOrEqual(DEFAULT_IMAGE_LIMITS.maxPixels);
+    });
+
+    it("极小页面最多放大 4 倍", () => {
+        expect(computePdfRenderScale(100, 100)).toBe(MAX_PDF_RENDER_SCALE);
     });
 
     it("长边超限按时长边缩放", () => {

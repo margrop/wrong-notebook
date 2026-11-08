@@ -287,6 +287,7 @@ export const en = {
             pdfRendering: "Rendering PDF pages… ({done}/{total})",
             pdfCreatingBatches: "Creating recognition batches… ({done}/{total})",
             pdfConfirm: "Convert to images and import with AI",
+            pdfBatchesSubmitted: "Submitted recognition batches for {count} pages; pages without questions are skipped automatically.",
             pdfImageOptionTitle: "Question images (screenshots)",
             pdfImageOptionWithGraphics: "Questions with graphics",
             pdfImageOptionAll: "All questions (default, keeps the original look)",

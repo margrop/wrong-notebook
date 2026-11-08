@@ -132,7 +132,7 @@ describe("FileImportPanel：扫描版 PDF", () => {
         expect(toast.error).not.toHaveBeenCalled();
     });
 
-    it("默认全部页，确认后逐页创建 image 批次；单批直达详情页", async () => {
+    it("默认全部页，确认后逐页创建 image 批次；扫描版统一去导入中心（无题页会被自动跳过）", async () => {
         renderPagesMock.mockResolvedValue([renderedPage(1)]);
         createBatchesMock.mockResolvedValue({ successes: [{ pageNumber: 1, batch: batch("b1") }], failures: [] });
         await render("nb-1");
@@ -148,7 +148,8 @@ describe("FileImportPanel：扫描版 PDF", () => {
         const renderArgs = renderPagesMock.mock.calls[0];
         expect(renderArgs?.[1]).toEqual([1, 2, 3]);
         expect(createBatchesMock).toHaveBeenCalled();
-        expect(pushMock).toHaveBeenCalledWith("/import-batches/b1");
+        expect(pushMock).toHaveBeenCalledWith("/import-tasks");
+        expect(toast.success).toHaveBeenCalledWith("已提交 1 页的识别批次；没有题目的页面会自动跳过。");
     });
 
     it("页码范围 1-2 只渲染所选页；多批跳转到导入中心列表", async () => {
