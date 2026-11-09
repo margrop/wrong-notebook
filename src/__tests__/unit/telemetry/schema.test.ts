@@ -89,7 +89,12 @@ describe('页面与分桶', () => {
         expect(normalizePage('/exams/1/print')).toBe('exams');
         expect(normalizePage('/admin/user/1')).toBe('admin');
         expect(normalizePage('/setup')).toBe('settings');
-        expect(normalizePage('/import-tasks')).toBe('other');
+        expect(normalizePage('/import-tasks')).toBe('imports');
+        expect(normalizePage('/import-batches/abc')).toBe('imports');
+        expect(normalizePage('/print-preview')).toBe('print');
+        expect(normalizePage('/login')).toBe('auth');
+        expect(normalizePage('/initialize?token=x')).toBe('setup');
+        expect(normalizePage('/unknown/page')).toBe('other');
     });
 
     it('数量、行数与耗时分桶', () => {
