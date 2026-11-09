@@ -58,15 +58,40 @@ export function sanitizeStack(input: unknown): string | null {
     return frames.length ? frames.join("\n").slice(0, MAX_STACK) : null;
 }
 
-/** 堆栈首帧的稳定形式：去掉主机、查询串、行列号与构建产物 chunk 哈希，用于计算指纹 */
+/**
+ * 部署根目录不进入指纹：Docker 的 /app、Vercel 的 /var/task、npm 的全局安装目录、
+ * 桌面版与安卓的 server 目录会让同一个 bug 得到不同指纹。保留从 .next、node_modules、
+ * src 等稳定目录开始的相对路径。
+ */
+const STABLE_PATH_MARKERS = ["/.next/", "/_next/", "/node_modules/", "/src/", "/public/", "/dist-scripts/", "/packages/"];
+
+function stripDeploymentRoot(frame: string): string {
+    const path = frame.replace(/\\/g, "/");
+    for (const marker of STABLE_PATH_MARKERS) {
+        const index = path.indexOf(marker);
+        if (index !== -1) return path.slice(index);
+    }
+    return path;
+}
+
+/** 堆栈首帧的稳定形式：去掉部署根目录、主机、查询串、行列号与构建产物 chunk 哈希，用于计算指纹 */
 export function normalizedTopFrame(stack: unknown): string {
-    const top = sanitizeStack(stack)?.split("\n")[0] ?? "";
+    const top = stripDeploymentRoot(sanitizeStack(stack)?.split("\n")[0] ?? "");
     return top
         .replace(/:\d+(:\d+)?\)?$/, "")
         .replace(/\)$/, "")
-        // 构建产物文件名中的哈希：page-3f2a9c1b.js、chunks/1234-abcd1234ef.js、_next/static/chunks/abc123def456.js
-        .replace(/([./_-])[0-9a-f]{6,}(?=[./_-])/gi, "$1#")
+        // 构建产物文件名中的哈希：page-3f2a9c1b.js、chunks/1234-abcd1234ef.js、Turbopack 的 _1csx8ckltgali._.js
+        .replace(/([./_-])[a-z0-9]{6,}(?=[._-])/gi, "$1#")
         .replace(/\/\d+(?=[.-])/g, "/#");
+}
+
+/** 指纹用的消息摘要：脱敏后压掉空白与长 ID，只保留前 160 字符；message 本身仍只存本地 */
+export function normalizedMessageToken(input: unknown): string {
+    return (sanitizeMessage(input) ?? "")
+        .replace(/\b[a-z0-9]{16,}\b/gi, ":id")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 160);
 }
 
 /** UA 只保留浏览器大类、主版本与系统大类，如 "Chrome 140 / Android" */

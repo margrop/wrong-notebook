@@ -5,7 +5,7 @@ import { getAppVersion } from "@/lib/app-version";
 import { createLogger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { normalizeErrorName, parseEventPayload } from "@/lib/telemetry/schema";
-import { normalizedTopFrame, normalizePath, sanitizeMessage, sanitizeStack, summarizeUserAgent } from "@/lib/telemetry/sanitize";
+import { normalizedMessageToken, normalizedTopFrame, normalizePath, sanitizeMessage, sanitizeStack, summarizeUserAgent } from "@/lib/telemetry/sanitize";
 import { getTelemetryState } from "@/lib/telemetry/state";
 import type { TelemetryErrorKind, TelemetryEventName, TelemetryEventPayloads } from "@/lib/telemetry/schema";
 import type { TelemetryState } from "@/lib/telemetry/state";
@@ -57,10 +57,20 @@ export interface TelemetryErrorInput {
     userAgent?: string | null;
 }
 
-/** 指纹 = sha256(kind + scope + name + 归一化后的堆栈首帧) 前 16 位；同一个 bug 在不同实例、不同构建下保持一致 */
-export function errorFingerprint(input: Pick<TelemetryErrorInput, "kind" | "scope" | "name" | "stack">): string {
+/**
+ * 指纹 = sha256(kind + scope + name + 归一化首帧 + 归一化消息) 前 16 位。
+ * 首帧去掉部署根目录与构建 chunk 哈希；消息去掉空白、长 ID 与动态数字，
+ * 让同一 bug 在不同实例、不同构建下保持一致，并区分同一包装函数抛出的不同错误。
+ */
+export function errorFingerprint(input: Pick<TelemetryErrorInput, "kind" | "scope" | "name" | "stack" | "message">): string {
     return createHash("sha256")
-        .update([input.kind, input.scope, input.name, normalizedTopFrame(input.stack)].join("\n"))
+        .update([
+            input.kind,
+            input.scope,
+            input.name,
+            normalizedTopFrame(input.stack),
+            normalizedMessageToken(input.message),
+        ].join("\n"))
         .digest("hex")
         .slice(0, 16);
 }

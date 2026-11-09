@@ -2,7 +2,7 @@
  * 错误回报脱敏与指纹稳定性
  */
 import { describe, expect, it } from 'vitest';
-import { normalizedTopFrame, normalizePath, sanitizeMessage, sanitizeStack, summarizeUserAgent } from '@/lib/telemetry/sanitize';
+import { normalizedMessageToken, normalizedTopFrame, normalizePath, sanitizeMessage, sanitizeStack, summarizeUserAgent } from '@/lib/telemetry/sanitize';
 import { errorFingerprint } from '@/lib/telemetry/server';
 
 describe('脱敏', () => {
@@ -18,6 +18,13 @@ describe('脱敏', () => {
         expect(sanitizeMessage('user a.b@example.com failed at https://x.com/api?token=abc for 13800138000'))
             .toBe('user <email> failed at https://x.com/api for <num>');
         expect(sanitizeMessage('x'.repeat(600))).toHaveLength(500);
+    });
+
+    it('指纹消息摘要压掉空白与长 ID，只保留 160 字符', () => {
+        expect(normalizedMessageToken('  Invalid `prisma.subject.create()`   invocation:\n\nUnique constraint failed  '))
+            .toBe('Invalid `prisma.subject.create()` invocation: Unique constraint failed');
+        expect(normalizedMessageToken(`failed for ${'a'.repeat(24)}`)).toBe('failed for :id');
+        expect(normalizedMessageToken('x '.repeat(100).trim())).toHaveLength(160);
     });
 
     it('stack 只保留调用帧，帧里只留 pathname', () => {
@@ -42,5 +49,23 @@ describe('指纹', () => {
         expect(fp).toMatch(/^[0-9a-f]{16}$/);
         expect(errorFingerprint({ kind: 'client', scope: '[GlobalError]', name: 'Error', stack: b })).toBe(fp);
         expect(errorFingerprint({ kind: 'client', scope: '[GlobalError]', name: 'TypeError', stack: b })).not.toBe(fp);
+    });
+
+    it('部署根目录与 Turbopack chunk 哈希不改变指纹', () => {
+        const docker = 'Error: x\n    at Object.handleError (/app/.next/server/chunks/_1csx8ckltgali._.js:7:2976)';
+        const vercel = 'Error: x\n    at Object.handleError (/var/task/.next/server/chunks/_2wxyz8abcdef._.js:7:2976)';
+        expect(normalizedTopFrame(docker)).toBe(normalizedTopFrame(vercel));
+        const dockerPrisma = 'Error: x\n    at $n.handleRequestError (/app/node_modules/@prisma/client/runtime/library.js:121:7315)';
+        const npmPrisma = 'Error: x\n    at $n.handleRequestError (/opt/wrong-notebook/node_modules/@prisma/client/runtime/library.js:121:7315)';
+        expect(normalizedTopFrame(dockerPrisma)).toBe(normalizedTopFrame(npmPrisma));
+        const input = { kind: 'server' as const, scope: 'api:practice.record', name: 'Error' };
+        expect(errorFingerprint({ ...input, stack: docker })).toBe(errorFingerprint({ ...input, stack: vercel }));
+    });
+
+    it('同一首帧的不同错误码用消息摘要区分', () => {
+        const stack = 'Error: x\n    at Object.handleError (/app/.next/server/chunks/_1csx8ckltgali._.js:7:2976)';
+        const base = { kind: 'server' as const, scope: 'api:reanswer', name: 'Error', stack };
+        expect(errorFingerprint({ ...base, message: 'AI_AUTH_ERROR' }))
+            .not.toBe(errorFingerprint({ ...base, message: 'AI_TIMEOUT_ERROR' }));
     });
 });

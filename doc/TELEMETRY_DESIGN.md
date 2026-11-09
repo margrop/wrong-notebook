@@ -277,7 +277,10 @@ export const DEFAULT_TELEMETRY_ENDPOINT = "https://wrong-notebook-telemetry.marg
 - 服务端：同一指纹 1 分钟内只写一行（内存 LRU，最多 500 个 key）。
 
 ### 5.3 指纹
-`fingerprint = sha256(kind + scope + name + 归一化后的堆栈首帧)` 取前 16 位。归一化时去掉行列号以外的 URL 部分，以及构建产物的 chunk 哈希，让同一个 bug 在不同实例、不同构建下得到相同的指纹。
+`fingerprint = sha256(kind + scope + name + 归一化后的堆栈首帧 + 归一化后的消息摘要)` 取前 16 位。
+首帧去掉协议、主机、行列号、部署根目录（Docker 的 `/app`、Vercel 的 `/var/task`、npm/桌面/安卓的安装目录）与构建产物的 chunk 哈希（含 Turbopack 的 base36 名称），让同一个 bug 在不同实例、不同构建下得到相同的指纹。
+消息摘要先按 §5.4 脱敏，再压掉空白、把 16 位以上的字母数字片段替换为 `:id`，取前 160 字符；它只参与哈希，原文仍只存本地。
+同一包装函数（如 `BaseAIProvider.handleError`）抛出的不同错误码靠消息摘要区分，避免所有 AI 失败被并成一个指纹。
 
 ### 5.4 脱敏（服务端在写库前执行）
 - `path`：只保留 pathname，把 cuid、十六进制、长数字片段替换成 `:id`。
