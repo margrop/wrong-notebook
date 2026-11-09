@@ -27,7 +27,7 @@ model User {
   role      String   @default("user") // "admin" or "user"
   isActive  Boolean  @default(true)   // 用户是否启用
 
-  confirmBeforeImport Boolean @default(false) // 导入题目前是否进入人工校对页
+  confirmBeforeImport Boolean @default(true) // 导入题目前是否进入人工校对页（默认先核对 AI 识别结果）
   questionDuplicateThreshold Float @default(90) // 百分比，相似度严格大于此值时判重
   masteryThreshold Int @default(50) // 百分比，掌握概率达到此值视为已掌握
   enableGeogebra Boolean @default(false) // 是否显示 GeoGebra 动态演示
@@ -341,6 +341,7 @@ model ImportTask {
   targetSubjectId String?   // 固定放入的错题本；为空时按识别学科匹配或在校对页选择
   paperLevel      String?   // 指定的卷别分组
   imageData       String    // 压缩后的题目图片（data URL），入库后清空，原图保存在错题中
+  source          String?   // 错题来源（如「期中试卷」），入库时写入错题
   imageInfo       String?   // 图片格式、像素与体积（JSON），不含图片内容
   result          String?   // 识别结果（JSON），即待校对草稿；入库失败可直接重试保存
   errorItemId     String?

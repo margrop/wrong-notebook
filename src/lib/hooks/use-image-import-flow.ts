@@ -33,6 +33,7 @@ export interface ImageFlowDeps {
     fixedSubjectId?: string;
     confirmBeforeImport: boolean;
     importSubjectId?: string | null;
+    source?: string | null;
     setAnalysisStep: (step: ProgressStatus) => void;
     setTask: (task: ImportTaskDetail) => void;
     setPendingTaskId: (id: string) => void;
@@ -45,7 +46,7 @@ export interface ImageFlowDeps {
  * 管理裁剪器状态、分段暂存、批量图片与已完成阶段列表。
  */
 export function useImageImportFlow(deps: ImageFlowDeps) {
-    const { logPrefix, t, language, analyzeSubjectId, fixedSubjectId, confirmBeforeImport, importSubjectId } = deps;
+    const { logPrefix, t, language, analyzeSubjectId, fixedSubjectId, confirmBeforeImport, importSubjectId, source } = deps;
     const router = useRouter();
     const [croppingImage, setCroppingImage] = useState<string | null>(null);
     const [isCropperOpen, setIsCropperOpen] = useState(false);
@@ -57,7 +58,7 @@ export function useImageImportFlow(deps: ImageFlowDeps) {
     // 离开页面时释放解码后的原图与预览图；只在卸载时执行，重新渲染不能释放（裁剪还要用原图）
     useEffect(() => () => preparedRef.current?.dispose(), []);
 
-    const targetCtx = { fixedSubjectId, confirmBeforeImport, importSubjectId };
+    const targetCtx = { fixedSubjectId, confirmBeforeImport, importSubjectId, source };
 
     const decodeErrorMessage = (error: ImageDecodeError) =>
         t.upload.decodeErrors[error.code].replace("{format}", error.format.toUpperCase());

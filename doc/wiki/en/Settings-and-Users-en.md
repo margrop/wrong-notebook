@@ -6,7 +6,7 @@ After signing in, open "Settings → General" to adjust your own preferences:
 
 | Setting | Default |
 | --- | --- |
-| Review before import | When on, review before saving; useful when every question must be checked |
+| Review before import | On by default: check the recognition result before saving; when off, results are saved directly. Keep it on because AI may misread numbers, symbols and figures |
 | Grade recognition for new questions | Fixed mode by default: use the chosen grade and semester, or the current account grade if unset; AI recognition is also available |
 | SVG animated explanations | On |
 | GeoGebra interactive demos | Off |

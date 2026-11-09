@@ -22,7 +22,7 @@ export function setAllSelected(draft: BatchDraft, selected: boolean, canSelect: 
     return updateItems(draft, draft.items.map((item) => ({ ...item, selected: selected && canSelect(item) })));
 }
 
-export function updateItem(draft: BatchDraft, key: string, patch: Partial<Pick<DraftItem, "text" | "material" | "regions" | "selected" | "answer" | "analysis" | "knowledgePoints" | "difficultyStars" | "questionType" | "wrongAnswer" | "image">>): BatchDraft {
+export function updateItem(draft: BatchDraft, key: string, patch: Partial<Pick<DraftItem, "text" | "material" | "regions" | "selected" | "answer" | "analysis" | "knowledgePoints" | "difficultyStars" | "questionType" | "wrongAnswer" | "image" | "source">>): BatchDraft {
     return updateItems(draft, draft.items.map((item) => {
         if (item.key !== key) return item;
         const next = { ...item, ...patch };

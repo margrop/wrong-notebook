@@ -52,6 +52,8 @@ function HomeContent() {
     // Input mode: "image" for photo upload, "text" for AI solve, "direct" for manual entry, "file" for question bank files
     // 记住上次的录入方式
     const [inputMode, setInputMode] = useStoredChoice<HomeInputMode>(INPUT_MODE_STORAGE_KEY, HOME_INPUT_MODES, "image");
+    // 拍照录入的错题来源，随任务保存
+    const [photoSource, setPhotoSource] = useState("");
 
     const targetNotebookId = initialNotebookId;
     const targetNotebook = targetNotebookId ? notebooks.find(n => n.id === targetNotebookId) : undefined;
@@ -61,6 +63,7 @@ function HomeContent() {
         analyzeSubjectId: targetNotebookId,
         importSubjectId: initialNotebookId,
         textNotebook: targetNotebook && { id: targetNotebook.id, name: targetNotebook.name },
+        source: photoSource.trim() || null,
     });
 
     useEffect(() => {
@@ -123,6 +126,7 @@ function HomeContent() {
                                 <BatchImportPanel
                                     images={flow.batchImages}
                                     subjectId={initialNotebookId}
+                                    source={photoSource}
                                     onClose={flow.closeBatch}
                                 />
                             ) : inputMode === "image" ? (
@@ -135,7 +139,7 @@ function HomeContent() {
                                         onDiscard={flow.discardParts}
                                     />
                                 )}
-                                <UploadZone onImageSelect={flow.selectImage} isAnalyzing={flow.isBusy} />
+                                <UploadZone onImageSelect={flow.selectImage} isAnalyzing={flow.isBusy} source={photoSource} onSourceChange={setPhotoSource} />
                             </>
                             ) : inputMode === "text" ? (
                                 <TextInputZone

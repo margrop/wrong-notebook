@@ -62,6 +62,7 @@ export function draftItemToParsed(item: DraftItem, options: DraftToParsedOptions
         questionType: normalizeQuestionType(item.questionType),
         gradeSemester: null,
         hasFigure: item.hasFigure ?? false,
+        source: item.source?.trim() || null,
     };
     const parsed = ParsedQuestionSchema.safeParse(result);
     return parsed.success ? parsed.data : null;

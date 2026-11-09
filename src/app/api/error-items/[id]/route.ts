@@ -54,7 +54,7 @@ export const PUT = withUser(async (req: Request, { user, params }: RouteContext 
         if (!parsed.success) {
             return validationError("Invalid request body", parsed.error.issues);
         }
-        const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands, difficultyStars, questionType } = parsed.data;
+        const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands, difficultyStars, questionType, source } = parsed.data;
         const { figureScale, figureAlign } = parsed.data;
         if (figureScale !== undefined && !isValidFigureScale(figureScale)) {
             return badRequest("figureScale must be an integer from 10 to 200");
@@ -138,6 +138,7 @@ export const PUT = withUser(async (req: Request, { user, params }: RouteContext 
         if (geogebraCommands !== undefined) updateData.geogebraCommands = geogebraCommands || null;
         if (difficultyStars !== undefined) updateData.difficultyStars = difficultyStars;
         if (normalizedQuestionType !== undefined) updateData.questionType = normalizedQuestionType;
+        if (source !== undefined) updateData.source = source?.trim() || null;
 
         logger.info({ id }, 'Updating error item');
 

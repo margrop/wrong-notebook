@@ -185,9 +185,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 11 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
+    it('导出文件使用第 12 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(11);
+        expect(backup.version).toBe(12);
         expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
@@ -542,7 +542,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         const image = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
         const result = JSON.stringify({ questionText: '备份中的草稿题目', answerText: '答', analysis: '析', knowledgePoints: [], subject: '数学' });
         await database.importTask.createMany({ data: [
-            { userId: 'user-1', mode: 'review', status: 'review', subjectId: 'math', targetSubjectId: 'math', imageData: image, result, timings: '{"server":{"analyze":1200}}', createdAt: new Date('2026-10-01T00:00:00Z') },
+            { userId: 'user-1', mode: 'review', status: 'review', subjectId: 'math', targetSubjectId: 'math', source: '期中试卷', imageData: image, result, timings: '{"server":{"analyze":1200}}', createdAt: new Date('2026-10-01T00:00:00Z') },
             { userId: 'user-1', mode: 'auto', status: 'analyzing', imageData: image, createdAt: new Date('2026-10-02T00:00:00Z') },
             { userId: 'user-1', mode: 'auto', status: 'failed', error: 'AI_TIMEOUT_ERROR', imageData: image, createdAt: new Date('2026-10-03T00:00:00Z') },
             { userId: 'user-1', mode: 'auto', status: 'saved', imageData: '', result, createdAt: new Date('2026-10-04T00:00:00Z') },
@@ -562,7 +562,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             ['failed', 'AI_TIMEOUT_ERROR'],
         ]);
         // 来源标识写入幂等键，用于判断重复导入
-        expect(tasks[0]).toMatchObject({ imageData: image, subjectId: math.id, targetSubjectId: math.id, clientRequestId: expect.any(String) });
+        expect(tasks[0]).toMatchObject({ imageData: image, subjectId: math.id, targetSubjectId: math.id, source: '期中试卷', clientRequestId: expect.any(String) });
         expect(JSON.parse(tasks[0].result!).questionText).toBe('备份中的草稿题目');
 
         // 再次导入同一文件不重复创建
@@ -834,7 +834,7 @@ describe('跨账号合并导入', () => {
         const { stats } = await importBackup(backup, '?merge=true');
 
         expect(stats.preferencesRestored).toBe(false);
-        expect((await database.user.findUniqueOrThrow({ where: { id: 'user-1' } })).confirmBeforeImport).toBe(false);
+        expect((await database.user.findUniqueOrThrow({ where: { id: 'user-1' } })).confirmBeforeImport).toBe(true);
         expect((await database.user.findUniqueOrThrow({ where: { id: 'user-2' } })).confirmBeforeImport).toBe(true);
         const importedItem = await database.errorItem.findFirstOrThrow({ where: { questionText: '家长录入的题目', userId: 'user-1' } });
         expect(importedItem.userId).toBe('user-1');

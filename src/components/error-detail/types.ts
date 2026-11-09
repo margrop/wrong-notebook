@@ -22,6 +22,7 @@ export interface ErrorItemDetail {
     referenceImageUrl?: string | null;
     wrongAnswerImageUrl?: string | null;
     userNotes: string | null;
+    source?: string | null;
     subjectId?: string | null;
     subject?: {
         id: string;

@@ -4,12 +4,24 @@
  */
 import { renderRegion } from "@/lib/image-pipeline";
 import type { RenderedImage } from "@/lib/image-pipeline";
+import type { ImageOutputLimits } from "@/lib/image-pipeline";
 import type { DraftRegion } from "@/lib/question-split/draft";
 
 /** 裁剪时四周额外保留的边距（相对整图），避免框得太紧切掉题号或配图边缘 */
 export const REGION_PADDING = 0.008;
 /** 拼接多个区域时的间隔（像素） */
 const STACK_GAP = 16;
+/**
+ * 多段拼接的输出限制：拼接后的长图按 8192 长边、约 2400 万像素、4MB 输出。
+ * 默认的 4096 / 490 万像素会把两页竖拍拼接压到约 1300 宽，题目文字随之缩小到难以识别。
+ */
+const STACK_LIMITS: ImageOutputLimits = {
+    maxLongEdge: 8192,
+    maxPixels: 24 * 1024 * 1024,
+    maxBytes: 4 * 1024 * 1024,
+    startQuality: 0.9,
+    minQuality: 0.8,
+};
 
 export function padRegion(region: DraftRegion, padding = REGION_PADDING): DraftRegion {
     const x = Math.max(0, region.x - padding);
@@ -74,7 +86,8 @@ async function renderStack(pieces: StackPiece[], scaleToWidth: boolean): Promise
     });
     const bitmap = await createImageBitmap(canvas);
     try {
-        return await renderRegion({ source: bitmap, width: canvas.width, height: canvas.height });
+        return await renderRegion({ source: bitmap, width: canvas.width, height: canvas.height },
+            { x: 0, y: 0, width: 1, height: 1 }, STACK_LIMITS);
     } finally {
         bitmap.close();
     }

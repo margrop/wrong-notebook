@@ -70,6 +70,7 @@ export interface ImportTaskDetail extends ImportTaskSummary {
     result: ParsedQuestion | null;
     imageData: string | null;
     paperLevel: string | null;
+    source: string | null;
 }
 
 export interface ImportTaskListResponse {

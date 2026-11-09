@@ -94,6 +94,8 @@ export const zh = {
                 brushThin: "细",
                 brushMedium: "中",
                 brushThick: "粗",
+                rotateLeft: "向左旋转 90°",
+                rotateRight: "向右旋转 90°",
             },
             progress: {
                 reading: "正在读取照片...",
@@ -296,6 +298,8 @@ export const zh = {
         upload: {
             // dragDrop: "点击或拖拽上传图片", // Moved to app
             support: "支持 JPG、PNG、WebP 和 HEIC/HEIF 照片",
+            sourceLabel: "错题来源",
+            sourcePlaceholder: "如：期中数学试卷（选填）",
             parts: {
                 addNext: "下一段在另一张",
                 cropHint: "第 {n} 段：框选这一段，确认后接在前面各段下方，拼成一道题识别。",
@@ -361,6 +365,8 @@ export const zh = {
             cancel: "取消",
             save: "保存到错题本",
             selectNotebook: "选择错题本",
+            source: "错题来源",
+            sourcePlaceholder: "如：期中数学试卷第 12 题（选填）",
             gradeSemester: "年级/学期",
             preview: {
                 question: "题目预览",
@@ -506,6 +512,8 @@ export const zh = {
             clickToView: "点击查看大图",
             clickToEnlarge: "点击图片查看大图",
             questionInfo: "试题信息",
+            source: "来源",
+            sourcePlaceholder: "如：期中数学试卷第 12 题（选填）",
             mistakeAnalysis: "错因分析",
             noMistakeAnalysis: "暂无错因分析",
             close: "✕ 关闭",
@@ -1548,6 +1556,8 @@ export const zh = {
             },
             fields: {
                 title: "答案与知识点",
+                source: "来源",
+                sourcePlaceholder: "如：期中数学试卷（选填）",
                 answer: "参考答案",
                 analysis: "解析",
                 knowledgePoints: "知识点",

@@ -107,7 +107,7 @@ export async function GET(req: Request) {
             where: { ...userFilter, OR: [{ status: { not: 'saved' } }, { batchId: { in: importBatches.map((batch) => batch.id) } }] },
             select: {
                 id: true, clientRequestId: true, userId: true, mode: true, status: true, language: true, subjectId: true, targetSubjectId: true,
-                paperLevel: true, imageData: true, imageInfo: true, result: true, error: true, timings: true,
+                paperLevel: true, source: true, imageData: true, imageInfo: true, result: true, error: true, timings: true,
                 attempts: true, createdAt: true, finishedAt: true, batchId: true, batchItemKey: true, inputText: true,
                 errorItemId: true, duplicate: true,
             },

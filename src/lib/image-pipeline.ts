@@ -9,8 +9,8 @@
  * - 输出同时按最长边、总像素和体积限制；质量不低于下限，体积仍超出时缩小尺寸而不是继续降低质量，保护小字与公式。
  * - 日志只记录格式、像素、体积和用时，不记录图片内容。
  */
-import { applyEraseStrokes } from "@/lib/image-crop";
-import type { EraseStroke, ImageRegion } from "@/lib/image-crop";
+import { drawRotatedCrop, rotatedCropGeometry } from "@/lib/image-crop";
+import type { EraseStroke, ImageRegion, RotatedCropGeometry } from "@/lib/image-crop";
 import type { ImportImageInfo } from "@/lib/import/import-task-types";
 
 export interface ImageOutputLimits {
@@ -182,13 +182,10 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     });
 }
 
-/** 把源图的一个区域绘制到指定大小的画布（白底，透明 PNG 转 JPEG 不变黑），并按需擦除做题笔迹 */
+/** 把源图的一个区域（可旋转）绘制到指定大小的画布（白底，透明 PNG 转 JPEG 不变黑），并按需擦除做题笔迹 */
 function drawRegion(
     source: DecodedSource,
-    sx: number,
-    sy: number,
-    sw: number,
-    sh: number,
+    geometry: RotatedCropGeometry,
     width: number,
     height: number,
     erase?: EraseStroke[],
@@ -196,14 +193,7 @@ function drawRegion(
     const canvas = createCanvas(width, height);
     const context = canvas.getContext("2d");
     if (!context) throw new Error("CANVAS_UNSUPPORTED");
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, width, height);
-    context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = "high";
-    context.drawImage(source, sx, sy, sw, sh, 0, 0, width, height);
-    if (erase?.length) {
-        applyEraseStrokes(context, erase, sourceSize(source), { sx, sy, sw, sh }, { width, height });
-    }
+    drawRotatedCrop(context, source, geometry, width, height, erase);
     return canvas;
 }
 
@@ -238,7 +228,8 @@ export async function prepareImage(file: Blob, onConverting?: () => void): Promi
 
     // 预览缩略图：只用于显示和框选，裁剪仍从原图进行
     const preview = computeOutputSize(width, height, { maxLongEdge: PREVIEW_LONG_EDGE, maxPixels: Number.POSITIVE_INFINITY });
-    const previewBlob = await canvasToBlob(drawRegion(source, 0, 0, width, height, preview.width, preview.height), 0.85);
+    const previewGeometry = rotatedCropGeometry(width, height, FULL_IMAGE);
+    const previewBlob = await canvasToBlob(drawRegion(source, previewGeometry, preview.width, preview.height), 0.85);
     const previewUrl = URL.createObjectURL(previewBlob);
     const convert = performance.now() - convertStarted;
 
@@ -264,13 +255,9 @@ const FULL_IMAGE: ImageRegion = { x: 0, y: 0, width: 1, height: 1 };
 /** 从原图裁剪区域并编码为 JPEG：先降质量到下限，仍超出体积时再缩小尺寸 */
 export async function renderRegion(prepared: Pick<PreparedImage, "source" | "width" | "height">, region: ImageRegion = FULL_IMAGE, limits: ImageOutputLimits = DEFAULT_IMAGE_LIMITS): Promise<RenderedImage> {
     const cropStarted = performance.now();
-    const clamp = (value: number) => Math.min(1, Math.max(0, value));
-    const sx = Math.round(clamp(region.x) * prepared.width);
-    const sy = Math.round(clamp(region.y) * prepared.height);
-    const sw = Math.max(1, Math.min(prepared.width - sx, Math.round(clamp(region.width) * prepared.width)));
-    const sh = Math.max(1, Math.min(prepared.height - sy, Math.round(clamp(region.height) * prepared.height)));
-    let size = computeOutputSize(sw, sh, limits);
-    let canvas = drawRegion(prepared.source, sx, sy, sw, sh, size.width, size.height, region.erase);
+    const geometry = rotatedCropGeometry(prepared.width, prepared.height, region);
+    let size = computeOutputSize(geometry.outputWidth, geometry.outputHeight, limits);
+    let canvas = drawRegion(prepared.source, geometry, size.width, size.height, region.erase);
     const crop = performance.now() - cropStarted;
 
     const compressStarted = performance.now();
@@ -281,7 +268,7 @@ export async function renderRegion(prepared: Pick<PreparedImage, "source" | "wid
             quality = Math.round((quality - QUALITY_STEP) * 100) / 100;
         } else {
             size = { width: Math.max(1, Math.floor(size.width * SHRINK_STEP)), height: Math.max(1, Math.floor(size.height * SHRINK_STEP)), scale: size.scale * SHRINK_STEP };
-            canvas = drawRegion(prepared.source, sx, sy, sw, sh, size.width, size.height, region.erase);
+            canvas = drawRegion(prepared.source, geometry, size.width, size.height, region.erase);
         }
         blob = await canvasToBlob(canvas, quality);
     }

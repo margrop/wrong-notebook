@@ -26,6 +26,7 @@ export interface CreateImportTaskInput {
     subjectId?: string | null;
     targetSubjectId?: string | null;
     paperLevel?: string | null;
+    source?: string | null;
     /** 批量框选始终直接入库 */
     mode?: "auto";
     imageInfo?: ImportImageInfo;

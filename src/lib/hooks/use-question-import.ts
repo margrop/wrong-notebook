@@ -30,6 +30,8 @@ interface QuestionImportOptions {
     textNotebook?: { id: string; name: string };
     /** 校对后保存时固定放入的错题本，不传则使用校对页中选择的错题本 */
     fixedSubjectId?: string;
+    /** 拍照录入时用户填写的错题来源（选填） */
+    source?: string | null;
 }
 
 /**
@@ -37,7 +39,7 @@ interface QuestionImportOptions {
  * 上传完成后不再遮挡页面：识别在服务端继续，可离开页面，结果在状态卡和「识别任务」中取回。
  * 文字解题仍在请求内完成。首页与错题本的添加错题页共用。
  */
-export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId, textNotebook, fixedSubjectId }: QuestionImportOptions) {
+export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId, textNotebook, fixedSubjectId, source }: QuestionImportOptions) {
     const { t, language } = useLanguage();
     const saver = useQuestionSaver(logPrefix);
     const [analysisStep, setAnalysisStep] = useState<ProgressStatus>('idle');
@@ -61,6 +63,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
     const imageFlow = useImageImportFlow({
         logPrefix, t, language, analyzeSubjectId, fixedSubjectId,
         confirmBeforeImport, importSubjectId,
+        source,
         setAnalysisStep,
         setPendingTaskId,
         setTask: pending.setTask,

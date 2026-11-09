@@ -2,6 +2,7 @@
 
 import { DifficultyStars } from "@/components/difficulty-stars";
 import { GradeSemesterSelect } from "@/components/grade-semester-select";
+import { Input } from "@/components/ui/input";
 import { NotebookSelector } from "@/components/notebook-selector";
 import { PaperGroupSelect } from "@/components/paper-group-select";
 import { Label } from "@/components/ui/label";
@@ -17,7 +18,7 @@ interface MetaFieldsProps {
     onChange: UpdateDraft;
 }
 
-/** 归属错题本、题型、年级学期、卷别与难度星级 */
+/** 归属错题本、来源、题型、年级学期、卷别与难度星级 */
 export function MetaFields({ data, paperLevel, onChange }: MetaFieldsProps) {
     const { t } = useLanguage();
 
@@ -26,6 +27,16 @@ export function MetaFields({ data, paperLevel, onChange }: MetaFieldsProps) {
             <div className="space-y-2">
                 <Label>{t.editor.selectNotebook || "Select Notebook"}</Label>
                 <NotebookSelector value={data.subjectId} onChange={(subjectId) => onChange({ subjectId })} />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="correction-source">{t.editor.source || "Source"}</Label>
+                <Input
+                    id="correction-source"
+                    value={data.source ?? ""}
+                    onChange={(event) => onChange({ source: event.target.value || null })}
+                    placeholder={t.editor.sourcePlaceholder || "e.g. Midterm exam"}
+                />
             </div>
 
             <div className="space-y-2">
