@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { downloadBlobFile } from "@/lib/download-file";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { getErrorMessage } from "@/lib/error-message";
@@ -22,7 +23,7 @@ const FORMAT_STORAGE_KEY = "error-list-export-format";
 function loadSavedFormat(): ExportFormat {
     try {
         const saved = window.localStorage.getItem(FORMAT_STORAGE_KEY);
-        return saved === "excel" || saved === "word" ? saved : "json";
+        return saved === "excel" || saved === "word" || saved === "json" ? saved : "json";
     } catch {
         return "json";
     }
@@ -34,18 +35,6 @@ function saveFormat(format: ExportFormat): void {
     } catch {
         // localStorage 不可用时忽略
     }
-}
-
-/** 触发浏览器下载 */
-function downloadBlob(blob: Blob, filename: string): void {
-    const objectUrl = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(objectUrl);
 }
 
 interface ExportQuestionsDialogProps {
@@ -94,11 +83,12 @@ export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: Expor
         try {
             const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
             let skipped = 0;
+            let saved = false;
             if (format === "excel") {
                 const { questions, skipped: skippedCount } = await fetchQuestions();
                 skipped = skippedCount;
                 const blob = await buildQuestionsXlsx(questions);
-                downloadBlob(blob, `wrong-notebook-questions-${dateStr}.xlsx`);
+                saved = await downloadBlobFile(blob, `wrong-notebook-questions-${dateStr}.xlsx`);
             } else if (format === "word") {
                 const { questions, skipped: skippedCount } = await fetchQuestions();
                 skipped = skippedCount;
@@ -108,7 +98,7 @@ export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: Expor
                     includeAnswers,
                     includeImages,
                 });
-                downloadBlob(blob, `wrong-notebook-questions-${dateStr}.docx`);
+                saved = await downloadBlobFile(blob, `wrong-notebook-questions-${dateStr}.docx`);
             } else {
                 const res = await fetch("/api/error-items/export-questions", {
                     method: "POST",
@@ -122,15 +112,16 @@ export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: Expor
                 skipped = Number(res.headers.get("X-Export-Skipped") ?? "0");
                 const blob = await res.blob();
                 const filenameMatch = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/);
-                downloadBlob(blob, filenameMatch ? filenameMatch[1] : `wrong-notebook-questions-${dateStr}.json`);
+                saved = await downloadBlobFile(blob, filenameMatch ? filenameMatch[1] : `wrong-notebook-questions-${dateStr}.json`);
             }
-            if (skipped > 0) {
+            // 安卓「另存为」取消时不提示成功，也不关闭对话框
+            if (saved && skipped > 0) {
                 toast.success(t.notebook.exportJsonDialog.success);
                 toast.warning(t.notebook.exportJsonDialog.emptyQuestionWarning.replace("{count}", String(skipped)));
-            } else {
+            } else if (saved) {
                 toast.success(t.notebook.exportJsonDialog.success);
             }
-            onOpenChange(false);
+            if (saved) onOpenChange(false);
         } catch (error) {
             frontendLogger.error("[ErrorList]", "Export questions failed", { error });
             toast.error(t.notebook.exportJsonDialog.failed + "：" + getErrorMessage(error));

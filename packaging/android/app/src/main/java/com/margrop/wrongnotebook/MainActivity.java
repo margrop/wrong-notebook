@@ -6,6 +6,7 @@ import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Build;
@@ -13,6 +14,7 @@ import android.os.Bundle;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.util.Base64;
 import android.view.View;
 import android.webkit.CookieManager;
@@ -36,10 +38,11 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -56,6 +59,8 @@ public class MainActivity extends Activity {
     private static final int REQUEST_FILE_CHOOSER = 1;
     private static final int REQUEST_SAVE_FILE = 2;
     private static final String BRIDGE_NAME = "WrongNotebookAndroid";
+    private static final String KEY_SAVE_NAME = "pendingSaveName";
+    private static final String KEY_SAVE_MIME = "pendingSaveMime";
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     /** 本次运行中用户已确认信任的证书（主机 + 证书信息） */
@@ -76,7 +81,16 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> fileCallback;
     private File cameraFile;
     private Uri cameraUri;
-    private byte[] pendingFile;
+    /** 原生「另存为」待写入的临时文件；文件保存在应用目录，对话框期间进程被回收也不丢 */
+    private File pendingSaveFile;
+    private String pendingSaveName;
+    private String pendingSaveMime;
+    private FileOutputStream pendingSaveStream;
+    private boolean pendingSaveFailed;
+    /** 页面已完成加载并注入 Bridge，可以回调保存结果 */
+    private boolean pageReady;
+    /** 保存结果先缓存，页面重新加载时在 onPageFinished 补发 */
+    private String[] pendingSaveResult;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,6 +112,16 @@ public class MainActivity extends Activity {
         startingView = findViewById(R.id.starting_view);
         startingMessage = findViewById(R.id.starting_message);
         bridgeScript = readAsset("bridge.js");
+
+        // 系统「另存为」对话框期间 Activity 可能被回收；从固定的临时文件恢复待保存内容
+        File pending = pendingSaveTempFile();
+        if (pending.isFile()) {
+            pendingSaveFile = pending;
+            if (savedInstanceState != null) {
+                pendingSaveName = savedInstanceState.getString(KEY_SAVE_NAME);
+                pendingSaveMime = savedInstanceState.getString(KEY_SAVE_MIME);
+            }
+        }
 
         findViewById(R.id.retry).setOnClickListener(v -> {
             errorView.setVisibility(View.GONE);
@@ -180,6 +204,8 @@ public class MainActivity extends Activity {
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         if (webView != null) webView.saveState(outState);
+        outState.putString(KEY_SAVE_NAME, pendingSaveName);
+        outState.putString(KEY_SAVE_MIME, pendingSaveMime);
     }
 
     @Override
@@ -205,6 +231,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        closePendingSaveStream();
         executor.shutdown();
         if (webView != null) webView.destroy();
         super.onDestroy();
@@ -260,52 +287,169 @@ public class MainActivity extends Activity {
 
     // ---------- 保存网页生成的文件（导出备份、试卷等） ----------
 
-    private void startSave(String dataUrl, String fileName, String mimeType) {
-        int comma = dataUrl.indexOf(',');
-        if (!dataUrl.startsWith("data:") || comma < 0) {
-            Toast.makeText(this, R.string.file_save_failed, Toast.LENGTH_SHORT).show();
+    /** 待保存内容固定写到应用目录的 pending.tmp；对话框返回后复制到用户选择的位置 */
+    private File pendingSaveTempFile() {
+        return new File(new File(getFilesDir(), "exports"), "pending.tmp");
+    }
+
+    /** 网页分块传来的文件内容写到临时文件，避免整份文件以 data URL 跨 JS 桥与驻留内存 */
+    private synchronized void beginSaveTransfer(String fileName, String mimeType) {
+        closePendingSaveStream();
+        pendingSaveFile = null;
+        pendingSaveName = fileName;
+        pendingSaveMime = mimeType;
+        pendingSaveFailed = false;
+
+        File dir = getFilesDir();
+        File exports = new File(dir, "exports");
+        if (!exports.isDirectory() && !exports.mkdirs()) {
+            pendingSaveFailed = true;
             return;
         }
-        String header = dataUrl.substring(0, comma);
-        String payload = dataUrl.substring(comma + 1);
+        File file = pendingSaveTempFile();
+        //noinspection ResultOfMethodCallIgnored
+        file.delete();
         try {
-            pendingFile = header.endsWith(";base64")
-                    ? Base64.decode(payload, Base64.DEFAULT)
-                    : URLDecoder.decode(payload, StandardCharsets.UTF_8.name()).getBytes(StandardCharsets.UTF_8);
+            pendingSaveStream = new FileOutputStream(file);
+            pendingSaveFile = file;
+        } catch (IOException e) {
+            pendingSaveFailed = true;
+        }
+    }
+
+    private synchronized void appendSaveChunk(String base64) {
+        if (pendingSaveFailed || pendingSaveStream == null) return;
+        try {
+            pendingSaveStream.write(Base64.decode(base64, Base64.DEFAULT));
         } catch (IllegalArgumentException | IOException e) {
+            pendingSaveFailed = true;
+        }
+    }
+
+    private synchronized void finishSaveTransfer() {
+        closePendingSaveStream();
+        boolean failed = pendingSaveFailed;
+        File file = pendingSaveFile;
+        String name = pendingSaveName;
+        String mime = pendingSaveMime;
+        runForTrustedPage(() -> startSave(file, name, mime, failed));
+    }
+
+    private synchronized void abortSaveTransfer() {
+        closePendingSaveStream();
+        File file = pendingSaveFile;
+        pendingSaveFile = null;
+        if (file != null) {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    private synchronized void closePendingSaveStream() {
+        if (pendingSaveStream == null) return;
+        try {
+            pendingSaveStream.close();
+        } catch (IOException ignored) {
+            // 关闭失败时保留已写入的内容，后续复制仍可读取
+        }
+        pendingSaveStream = null;
+    }
+
+    private void startSave(File file, String fileName, String mimeType, boolean failed) {
+        if (failed || file == null || !file.isFile()) {
+            if (file != null) {
+                //noinspection ResultOfMethodCallIgnored
+                file.delete();
+            }
+            pendingSaveFile = null;
             Toast.makeText(this, R.string.file_save_failed, Toast.LENGTH_SHORT).show();
+            finishSaveResult(false, false, getString(R.string.file_save_failed));
             return;
         }
 
+        pendingSaveFile = file;
+        pendingSaveName = fileName;
+        pendingSaveMime = mimeType;
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType(mimeType == null || mimeType.isEmpty() ? "application/octet-stream" : mimeType);
+        // Blob 类型可能带 charset 参数（如 application/json; charset=utf-8），DocumentsUI 只认纯 MIME
+        String type = mimeType == null ? "" : mimeType.split(";")[0].trim();
+        intent.setType(type.isEmpty() ? "application/octet-stream" : type);
         intent.putExtra(Intent.EXTRA_TITLE, fileName == null || fileName.isEmpty() ? "download" : fileName);
         try {
             startActivityForResult(intent, REQUEST_SAVE_FILE);
         } catch (ActivityNotFoundException e) {
-            pendingFile = null;
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+            pendingSaveFile = null;
             Toast.makeText(this, R.string.no_app_for_action, Toast.LENGTH_SHORT).show();
+            finishSaveResult(false, false, getString(R.string.no_app_for_action));
         }
     }
 
     private void writePendingFile(Uri uri) {
-        byte[] data = pendingFile;
-        pendingFile = null;
-        if (data == null) return;
+        File source = pendingSaveFile;
+        pendingSaveFile = null;
+        String name = pendingSaveName;
+        if (source == null || !source.isFile()) {
+            Toast.makeText(this, R.string.file_save_failed, Toast.LENGTH_SHORT).show();
+            finishSaveResult(false, false, getString(R.string.file_save_failed));
+            return;
+        }
         executor.execute(() -> {
             boolean ok;
-            try (OutputStream out = getContentResolver().openOutputStream(uri)) {
+            try (InputStream in = new FileInputStream(source);
+                 OutputStream out = getContentResolver().openOutputStream(uri)) {
                 if (out == null) throw new IOException("Cannot open " + uri);
-                out.write(data);
+                byte[] buffer = new byte[64 * 1024];
+                int read;
+                while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
                 ok = true;
             } catch (IOException e) {
                 ok = false;
             }
+            //noinspection ResultOfMethodCallIgnored
+            source.delete();
             boolean saved = ok;
-            runOnUiThread(() -> Toast.makeText(this,
-                    saved ? R.string.file_saved : R.string.file_save_failed, Toast.LENGTH_SHORT).show());
+            runOnUiThread(() -> {
+                if (saved) {
+                    String label = saveDisplayName(uri, name);
+                    Toast.makeText(this, getString(R.string.file_saved_to, label), Toast.LENGTH_LONG).show();
+                    finishSaveResult(true, false, label);
+                } else {
+                    Toast.makeText(this, R.string.file_save_failed, Toast.LENGTH_SHORT).show();
+                    finishSaveResult(false, false, getString(R.string.file_save_failed));
+                }
+            });
         });
+    }
+
+    /** 读取用户选择文件的显示名，用于「已保存到 …」提示；取不到时回退到导出文件名 */
+    private String saveDisplayName(Uri uri, String fallback) {
+        try (Cursor cursor = getContentResolver().query(
+                uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                String value = cursor.getString(0);
+                if (value != null && !value.isEmpty()) return value;
+            }
+        } catch (RuntimeException ignored) {
+            // 某些提供方不支持查询显示名
+        }
+        return fallback == null || fallback.isEmpty() ? uri.toString() : fallback;
+    }
+
+    /** 保存结果先缓存；页面未加载完成时由 onPageFinished 补发，避免 Activity 重建后丢回调 */
+    private void finishSaveResult(boolean saved, boolean canceled, String message) {
+        pendingSaveResult = new String[]{saved ? "1" : "0", canceled ? "1" : "0", message};
+        runOnUiThread(this::deliverSaveResult);
+    }
+
+    private void deliverSaveResult() {
+        if (pendingSaveResult == null || webView == null || !pageReady) return;
+        String[] result = pendingSaveResult;
+        pendingSaveResult = null;
+        webView.evaluateJavascript("window.__wrongNotebookOnSaveResult && window.__wrongNotebookOnSaveResult("
+                + result[0] + "," + result[1] + "," + JSONObject.quote(result[2]) + ")", null);
     }
 
     // ---------- 选择图片 / 拍照上传 ----------
@@ -431,7 +575,14 @@ public class MainActivity extends Activity {
             if (resultCode == RESULT_OK && data != null && data.getData() != null) {
                 writePendingFile(data.getData());
             } else {
-                pendingFile = null;
+                File source = pendingSaveFile;
+                pendingSaveFile = null;
+                if (source != null) {
+                    //noinspection ResultOfMethodCallIgnored
+                    source.delete();
+                }
+                Toast.makeText(this, R.string.file_save_canceled, Toast.LENGTH_SHORT).show();
+                finishSaveResult(false, true, getString(R.string.file_save_canceled));
             }
             return;
         }
@@ -452,13 +603,16 @@ public class MainActivity extends Activity {
 
         @Override
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+            pageReady = false;
             errorView.setVisibility(View.GONE);
         }
 
         @Override
         public void onPageFinished(WebView view, String url) {
             view.evaluateJavascript(bridgeScript, null);
+            pageReady = true;
             CookieManager.getInstance().flush();
+            deliverSaveResult();
         }
 
         @Override
@@ -546,8 +700,23 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void saveFile(String dataUrl, String fileName, String mimeType) {
-            runForTrustedPage(() -> startSave(dataUrl, fileName, mimeType));
+        public void beginSaveFile(String fileName, String mimeType) {
+            beginSaveTransfer(fileName, mimeType);
+        }
+
+        @JavascriptInterface
+        public void appendSaveFileChunk(String base64) {
+            appendSaveChunk(base64);
+        }
+
+        @JavascriptInterface
+        public void endSaveFile() {
+            finishSaveTransfer();
+        }
+
+        @JavascriptInterface
+        public void abortSaveFile() {
+            abortSaveTransfer();
         }
 
         @JavascriptInterface

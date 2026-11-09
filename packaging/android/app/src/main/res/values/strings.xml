@@ -18,7 +18,8 @@
     <string name="ssl_title">Untrusted certificate</string>
     <string name="ssl_message">The certificate of %1$s is not trusted (it may be self-signed). Continue only if this is your own server.</string>
     <string name="ssl_continue">Continue</string>
-    <string name="file_saved">Saved</string>
+    <string name="file_saved_to">Saved to %1$s</string>
+    <string name="file_save_canceled">Save canceled</string>
     <string name="file_save_failed">Failed to save file</string>
     <string name="camera_unavailable">Camera is unavailable. Choose a photo from the album or a file instead.</string>
     <string name="no_app_for_action">No app can handle this action</string>

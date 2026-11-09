@@ -18,7 +18,8 @@
     <string name="ssl_title">证书不受信任</string>
     <string name="ssl_message">%1$s 的证书不受信任（可能是自签名证书）。只有确认是自己的服务器时才继续。</string>
     <string name="ssl_continue">继续</string>
-    <string name="file_saved">已保存</string>
+    <string name="file_saved_to">已保存到 %1$s</string>
+    <string name="file_save_canceled">已取消保存</string>
     <string name="file_save_failed">保存文件失败</string>
     <string name="camera_unavailable">无法打开相机，请从相册或文件中选择照片。</string>
     <string name="no_app_for_action">没有可以处理此操作的应用</string>

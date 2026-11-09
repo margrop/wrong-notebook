@@ -61,8 +61,9 @@ export function DataBackupSettings({ isAdmin, userId, userEmail }: DataBackupSet
         }
         setExporting(true);
         try {
-            await downloadFile(all ? '/api/export?all=true' : '/api/export', all ? 'wrong-notebook-export-all.json' : 'wrong-notebook-export.json');
-            toast.success(t.settings?.exportSuccess || "Export successful");
+            // 安卓 App 的保存对话框异步返回：确认文件已写入后再提示成功
+            const saved = await downloadFile(all ? '/api/export?all=true' : '/api/export', all ? 'wrong-notebook-export-all.json' : 'wrong-notebook-export.json');
+            if (saved) toast.success(t.settings?.exportSuccess || "Export successful");
         } catch (error) {
             frontendLogger.error('[DataBackupSettings]', all ? 'Export all failed' : 'Export failed', { error });
             toast.error(t.settings?.exportFailed || "Export failed");

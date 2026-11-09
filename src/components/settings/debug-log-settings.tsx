@@ -45,11 +45,11 @@ export function DebugLogSettings() {
         return () => clearInterval(timer);
     }, [status?.enabled, refresh]);
 
-    const runAction = async (action: () => Promise<void>, successText: string) => {
+    /** action 返回 false 表示用户取消了文件保存，此时不提示成功 */
+    const runAction = async (action: () => Promise<boolean | void>, successText: string) => {
         setBusy(true);
         try {
-            await action();
-            toast.success(successText);
+            if (await action() !== false) toast.success(successText);
         } catch (error) {
             frontendLogger.error('[DebugLogSettings]', 'Debug log action failed', { error });
             toast.error(text.failed);
@@ -67,8 +67,9 @@ export function DebugLogSettings() {
     }, text.cleared);
 
     const handleExport = () => runAction(async () => {
-        await downloadFile(`${STATUS_URL}/export`, "wrong-notebook-debug.json");
+        const saved = await downloadFile(`${STATUS_URL}/export`, "wrong-notebook-debug.json");
         await refresh();
+        return saved;
     }, text.exported);
 
     const format = (iso: string | null) => (iso ? formatDateTime(iso, 'yyyy-MM-dd HH:mm', timeZone) : '');
