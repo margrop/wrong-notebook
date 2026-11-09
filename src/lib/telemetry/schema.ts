@@ -22,6 +22,7 @@ export const TELEMETRY_CLIENTS = ["browser", "pwa", "desktop", "android"] as con
 export const TELEMETRY_PAGES = [
     "home", "notebooks", "error_detail", "practice", "review", "stats", "tags", "exams", "settings", "admin", "imports", "print", "auth", "setup", "other",
 ] as const;
+export type TelemetryPage = typeof TELEMETRY_PAGES[number];
 
 export const SETTINGS_SECTIONS = ["general", "ai", "tts", "prompts", "telemetry"] as const;
 export type SettingsSection = typeof SETTINGS_SECTIONS[number];
