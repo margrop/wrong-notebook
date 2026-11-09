@@ -14,7 +14,7 @@ The JSON export does not include full user accounts with passwords, AI data shar
 
 ## Web export and import
 
-Export JSON from the data management section in the settings and keep it safe. When a regular user imports, the email in the export file must match the current account; admins can import and export data for all users.
+Export JSON from the data management section in the settings and keep it safe. When a regular user imports, the email in the export file normally must match the current account; a backup from another account can be merged into the current account after confirmation, with notebooks, tags, questions and exam papers all assigned to the current account and the other account's preferences not restored. Admins can import and export data for all users.
 
 ### Export JSON (Question Exchange Format)
 

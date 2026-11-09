@@ -31,6 +31,8 @@ export async function POST(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const importAll = searchParams.get('all') === 'true';
+    // 合并其他账号的备份：非本人邮箱时也允许导入，数据全部归到当前账号，偏好设置不还原
+    const merge = searchParams.get('merge') === 'true';
 
     // 只有管理员可以导入全部数据
     if (importAll && session.user.role !== 'admin') {
@@ -50,8 +52,8 @@ export async function POST(req: Request) {
         }
         const body = parsed.data;
 
-        // 非管理员模式：验证导出数据属于当前用户
-        if (!importAll && body.user.email !== user.email) {
+        // 非管理员模式：导出数据属于当前用户，或显式要求合并其他账号的备份
+        if (!importAll && body.user.email !== user.email && !merge) {
             return badRequest("Import data does not belong to current user");
         }
 
@@ -85,7 +87,7 @@ export async function POST(req: Request) {
 
             logger.info({
                 userId: user.id,
-                scope: importAll ? 'all' : 'user',
+                scope: importAll ? 'all' : merge && body.user.email !== user.email ? 'merge' : 'user',
                 ...stats,
             }, 'Data import completed');
 
