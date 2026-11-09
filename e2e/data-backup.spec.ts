@@ -31,7 +31,7 @@ test('[E2E-M07] 其他账号备份合并到当前账号并在同邮箱空账号�
     await download.saveAs(file);
     const contents = readFileSync(file, 'utf8');
     const backup = JSON.parse(contents) as { version: number; user: Record<string, unknown>; errorItems: unknown[]; extensions?: unknown };
-    expect(backup.version).toBe(11);
+    expect(backup.version).toBe(12);
     expect(backup.extensions).toEqual({});
     expect(backup.errorItems).toHaveLength(2);
     expect(backup.user).not.toHaveProperty('password');
