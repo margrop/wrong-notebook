@@ -1,0 +1,19 @@
+#!/bin/sh
+# 群晖套件：升级前先停容器；新版启动时按新镜像重建，数据目录不变。
+set -eu
+
+APP_NAME="${SYNOPKG_PKGNAME:-wrongnotebook}"
+PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${APP_NAME}/target}"
+VOL="${SYNOPKG_PKGDEST_VOL:-/volume1}"
+DATA_ROOT="${VOL}/docker/wrong-notebook"
+if [ ! -d "${VOL}" ]; then
+    DATA_ROOT="${SYNOPKG_PKGVAR:-/var/packages/${APP_NAME}/var}/data-root"
+fi
+WN_DATA_DIR="${DATA_ROOT}/data"
+WN_CONFIG_DIR="${DATA_ROOT}/config"
+WN_HOST_PORT="${SYNOPKG_PKGPORT:-39300}"
+WN_IMAGE_TAG="$(cat "${PKG_DEST}/image-tag" 2>/dev/null || printf '%s' "${SYNOPKG_PKGVER:-0.0.0}")"
+
+. "${PKG_DEST}/docker-container.sh"
+wn_stop_container
+exit 0

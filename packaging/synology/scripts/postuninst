@@ -1,0 +1,4 @@
+#!/bin/sh
+# 群晖套件：卸载后容器已由 preuninst 移除；不删除数据目录。
+set -eu
+exit 0

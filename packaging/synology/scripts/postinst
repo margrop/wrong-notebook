@@ -1,0 +1,4 @@
+#!/bin/sh
+# 群晖套件：安装后目录和密钥在首次启动时由 start-stop-status 创建。
+set -eu
+exit 0

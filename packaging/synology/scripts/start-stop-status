@@ -1,0 +1,56 @@
+#!/bin/sh
+# 群晖套件服务控制：start / stop / status / restart。
+# 套件只负责 Docker 容器；数据目录放在套件所在存储卷的 docker/wrong-notebook 下，卸载套件不会删除。
+set -eu
+
+APP_NAME="${SYNOPKG_PKGNAME:-wrongnotebook}"
+PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${APP_NAME}/target}"
+VOL="${SYNOPKG_PKGDEST_VOL:-/volume1}"
+DATA_ROOT="${VOL}/docker/wrong-notebook"
+if [ ! -d "${VOL}" ]; then
+    DATA_ROOT="${SYNOPKG_PKGVAR:-/var/packages/${APP_NAME}/var}/data-root"
+fi
+
+WN_DATA_DIR="${DATA_ROOT}/data"
+WN_CONFIG_DIR="${DATA_ROOT}/config"
+WN_HOST_PORT="${SYNOPKG_PKGPORT:-39300}"
+WN_IMAGE_TAG="$(cat "${PKG_DEST}/image-tag" 2>/dev/null || printf '%s' "${SYNOPKG_PKGVER:-0.0.0}")"
+
+. "${PKG_DEST}/docker-container.sh"
+
+setup_hint() {
+    NAS_HOST="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo NAS)"
+    echo "错题本已启动：http://${NAS_HOST}:${WN_HOST_PORT}/"
+    if [ -s "${WN_CONFIG_DIR}/setup-token" ]; then
+        echo "初始化链接：http://${NAS_HOST}:${WN_HOST_PORT}/initialize?token=$(cat "${WN_CONFIG_DIR}/setup-token")"
+    fi
+}
+
+start() {
+    wn_start_container
+    setup_hint
+}
+
+stop() {
+    wn_stop_container
+    echo "stopped"
+}
+
+status() {
+    if wn_status_container; then
+        echo "running"
+        return 0
+    fi
+    echo "stopped"
+    return 3
+}
+
+case "${1:-start}" in
+    start) start ;;
+    stop) stop ;;
+    status) status ;;
+    restart) stop; sleep 1; start ;;
+    prestart) exit 0 ;;
+    prestop) stop ;;
+    *) echo "Usage: $0 {start|stop|status|restart}" >&2; exit 1 ;;
+esac
