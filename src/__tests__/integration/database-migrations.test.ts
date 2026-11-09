@@ -132,8 +132,8 @@ describe('真实 Prisma 数据库迁移', () => {
         interface LegacyRow { [key: string]: unknown; userId?: string; paperLevel?: string; id?: string; }
         const beforeItems = rows('ErrorItem').map((row) => ({ ...(row as LegacyRow), questionType: (row as LegacyRow).questionType ?? null }));
         const beforeRelated = relatedTables.map((table) => rows(table).map((row) => {
-            // 新增的 AI 数据授权列：旧用户升级后为空，需重新授权
-            if (table === 'User') return { ...row, aiDataConsentAt: row.aiDataConsentAt ?? null };
+            // 新增的 AI 数据授权列：旧用户升级后为空，需重新授权；识别默认改为先人工核对，旧用户一并升级
+            if (table === 'User') return { ...row, aiDataConsentAt: row.aiDataConsentAt ?? null, confirmBeforeImport: 1 };
             if (table === 'Subject' || table === 'KnowledgeTag') return { ...row, tagSet: row.tagSet ?? 'default' };
             if (table === 'ExamQuestion') return { ...row, figureScale: row.figureScale ?? 100, figureAlign: row.figureAlign ?? 'center', answerSpacePx: null, score: null, questionType: null };
             if (table === 'ExamPaper') return { ...row, mode: row.mode ?? 'generate', groupByType: row.groupByType ?? 0 };
