@@ -3,6 +3,30 @@
 本文件记录各正式版的改动，由 `scripts/changelog.sh` 根据提交信息生成，请勿手动编辑。
 预览版（`v年.月.日-n`）的改动见 [GitHub Releases](https://github.com/margrop/wrong-notebook/releases)，并归入其后的正式版。
 
+## [2026.11.9](https://github.com/margrop/wrong-notebook/releases/tag/v2026.11.9) - 2026-11-09
+
+### ✨ 新功能
+- 数据导入支持合并其他账号的备份
+- 多选错题批量移动到其他错题本
+- 增加群晖与威联通 Docker 套件
+- 裁剪框可擦除做题痕迹并从原图截取题目图片
+- 大学错题本的知识点由 AI 生成并逐步收敛
+- 错题本支持大学学段
+- 识别与文本分析可分别使用不同渠道并支持备用渠道
+- 提示词支持自定义解题模板与一键复制、粘贴替换
+
+### 🛠 修复
+- 导入时保留语文与无课程库学段的知识点标签
+- 补安卓运行时版本比较的类型声明
+- 安卓单机版改用依赖 libicu 79 的 Termux nodejs
+- 修复扫描版 PDF 导入分辨率过低与无题页失败批次
+- 单题裁剪竖向长图的底边线与手柄保持可见
+- 渠道分工不再重复渲染主渠道配置表单
+- 打印视图题目达到 1000 道时加载失败
+- 错题超过 999 道时今日复习与薄弱知识点接口报错
+
+**完整变更**：https://github.com/margrop/wrong-notebook/compare/v2026.11.6...v2026.11.9
+
 ## [2026.11.6](https://github.com/margrop/wrong-notebook/releases/tag/v2026.11.6) - 2026-11-06
 
 ### ✨ 新功能
