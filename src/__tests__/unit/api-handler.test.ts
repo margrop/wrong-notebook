@@ -28,8 +28,23 @@ vi.mock('@/lib/prisma', () => ({
     },
 }));
 
-import { withUser, withAdmin } from '@/lib/api-handler';
+import { apiScopeFromRequest, withUser, withAdmin } from '@/lib/api-handler';
 import { withRecoverableResponse, resetRecoverableResponsesForTest, getStoredResponse } from '@/lib/recoverable-response';
+
+describe('apiScopeFromRequest', () => {
+    it('按实际路由生成 scope，并把动态 ID 折叠为 id', () => {
+        expect(apiScopeFromRequest(new Request('http://localhost/api/practice/record')))
+            .toBe('api:practice.record');
+        expect(apiScopeFromRequest(new Request('http://localhost/api/error-items/clxabc123def456ghi789jkl/reanswer?x=1')))
+            .toBe('api:error-items.id.reanswer');
+        expect(apiScopeFromRequest(new Request('http://localhost/api/exams/123456'))).toBe('api:exams.id');
+    });
+
+    it('非 API 路径或缺失请求时保留兜底 scope', () => {
+        expect(apiScopeFromRequest(new Request('http://localhost/dashboard'))).toBe('api:unhandled');
+        expect(apiScopeFromRequest()).toBe('api:unhandled');
+    });
+});
 
 const loggedInSession = {
     user: {

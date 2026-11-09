@@ -26,6 +26,25 @@ import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("api-handler");
 
+/**
+ * 未捕获 API 错误的 scope：用实际路由代替笼统的 api:unhandled。
+ * 动态 ID 片段折叠为 id，便于在错误看板按接口定位；不含查询串与用户数据。
+ */
+export function apiScopeFromRequest(req?: Request): string {
+    if (!req) return "api:unhandled";
+    try {
+        const path = new URL(req.url).pathname;
+        const segments = path.split("/").filter(Boolean);
+        if (segments[0] !== "api") return "api:unhandled";
+        const token = segments.slice(1)
+            .map((segment) => (/^\d{3,}$/.test(segment) || /^[a-z0-9]{16,}$/i.test(segment) ? "id" : segment))
+            .join(".");
+        return `api:${token || "root"}`.slice(0, 64);
+    } catch {
+        return "api:unhandled";
+    }
+}
+
 /** 包装后的 handler 上下文：原有路由上下文加上当前登录用户与 session */
 export interface AuthenticatedContext {
     user: User;
@@ -85,7 +104,7 @@ function wrapWithAuth<Context extends AnyContext>(
             return await handler(req ?? new Request("http://localhost"), context);
         } catch (error) {
             logger.error({ error }, "Unhandled error in API route");
-            return internalError(undefined, { error, scope: "api:unhandled" });
+            return internalError(undefined, { error, scope: apiScopeFromRequest(req) });
         }
     };
 }
