@@ -347,6 +347,13 @@ describe('文字多题批次', () => {
         // 没有失败的题时再重试无事可做
         expect((await RETRY(json({}), params(batch.id))).status).toBe(409);
     });
+    it('批次来源写入每道入库题目', async () => {
+        const { batch } = await create({ source: 'text', text: '1．计算 1 + 1。\n2．计算 2 + 2。', questionSource: '期中数学试卷', targetSubjectId: 'math' });
+        await start(batch.id, { version: batch.version });
+        await waitForImportBatchTasksForTest(batch.id);
+        const items = await database.errorItem.findMany({ where: { userId: 'user-1' }, select: { source: true } });
+        expect(items.map((item) => item.source)).toEqual(['期中数学试卷', '期中数学试卷']);
+    });
 
     it('公共材料只作用于所属题组，解析时拼在题干前', async () => {
         const text = '1．计算 1 + 1。\n\n阅读下面的材料，回答 2～3 题。\n某商店上午卖出 30 件，下午卖出 45 件。\n2．全天卖出多少件？\n3．下午比上午多卖多少件？\n4．计算 9 - 3。';

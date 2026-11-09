@@ -42,6 +42,8 @@ export interface TargetSubjectContext {
     confirmBeforeImport: boolean;
     /** 免确认直接入库时放入的错题本 */
     importSubjectId?: string | null;
+    /** 题目来源（选填），写入识别结果与错题 */
+    source?: string | null;
 }
 
 /**
@@ -104,6 +106,7 @@ export function buildCreateTaskParams(
         targetSubjectId: resolveTargetSubjectId(ctx),
         clientTimings: image.timings,
         imageInfo: image.info,
+        source: ctx.source?.trim() || undefined,
     };
 }
 
@@ -141,6 +144,7 @@ export function buildImageBatchParams(
         language: ctx.language,
         subjectId: ctx.analyzeSubjectId,
         targetSubjectId: resolveTargetSubjectId(ctx),
+        questionSource: ctx.source?.trim() || undefined,
     };
 }
 

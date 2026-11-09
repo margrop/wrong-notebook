@@ -27,7 +27,7 @@ export function DraftItemFields({ item, onEdit }: DraftItemFieldsProps) {
     const [open, setOpen] = useState(false);
 
     const hasAnyField = Boolean(
-        item.answer?.trim() || item.analysis?.trim() || item.knowledgePoints?.length || item.difficultyStars != null || item.wrongAnswer?.trim(),
+        item.source?.trim() || item.answer?.trim() || item.analysis?.trim() || item.knowledgePoints?.length || item.difficultyStars != null || item.wrongAnswer?.trim(),
     );
 
     return (
@@ -44,6 +44,17 @@ export function DraftItemFields({ item, onEdit }: DraftItemFieldsProps) {
 
             {open && (
                 <div className="mt-2 space-y-3">
+                    <div className="space-y-1">
+                        <Label htmlFor={`${item.key}-source`} className="text-xs">{t.importBatch.fields.source}</Label>
+                        <Input
+                            id={`${item.key}-source`}
+                            value={item.source ?? ""}
+                            onChange={(event) => onEdit((draft) => updateItem(draft, item.key, { source: event.target.value.trim() || null }))}
+                            className="text-sm"
+                            maxLength={200}
+                            placeholder={t.importBatch.fields.sourcePlaceholder}
+                        />
+                    </div>
                     <div className="space-y-1">
                         <Label htmlFor={`${item.key}-type`} className="text-xs">{t.questionType.label}</Label>
                         <Select
@@ -127,6 +138,7 @@ export function DraftItemFields({ item, onEdit }: DraftItemFieldsProps) {
             {!open && hasAnyField && (
                 <p className="mt-1 truncate text-xs text-muted-foreground">
                     {[
+                        item.source?.trim() && `${t.importBatch.fields.source}：${item.source.trim()}`,
                         item.answer?.trim() && t.importBatch.fields.answer,
                         item.analysis?.trim() && t.importBatch.fields.analysis,
                         item.knowledgePoints?.length && `${t.importBatch.fields.knowledgePoints}（${item.knowledgePoints.length}）`,

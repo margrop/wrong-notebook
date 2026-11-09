@@ -1,5 +1,8 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useUploadZone, isScreenshotSupported } from "@/lib/hooks/use-upload-files";
 import { DragDropArea } from "./upload-zone/drag-drop-area";
 import { HiddenFileInputs, ImageSourceButtons } from "./upload-zone/image-source-buttons";
@@ -8,13 +11,30 @@ import { PasteButton, ScreenshotButton } from "./upload-zone/paste-screenshot-bu
 interface UploadZoneProps {
     onImageSelect: (file: File) => void;  // 改为传递 File 对象
     isAnalyzing: boolean;
+    /** 错题来源（选填） */
+    source?: string;
+    onSourceChange?: (source: string) => void;
 }
 
-export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
+export function UploadZone({ onImageSelect, isAnalyzing, source = "", onSourceChange }: UploadZoneProps) {
+    const { t } = useLanguage();
     const zone = useUploadZone({ onImageSelect, isAnalyzing });
 
     return (
         <div className="space-y-4">
+            {onSourceChange && (
+                <div className="space-y-2">
+                    <Label htmlFor="photo-source">{t.upload.sourceLabel || "Question source"}</Label>
+                    <Input
+                        id="photo-source"
+                        value={source}
+                        onChange={(event) => onSourceChange(event.target.value)}
+                        placeholder={t.upload.sourcePlaceholder || "e.g. Midterm exam (optional)"}
+                        maxLength={200}
+                        disabled={isAnalyzing}
+                    />
+                </div>
+            )}
             {/* 隐藏的选择器始终存在，桌面端「从文件选择」也可用 */}
             <HiddenFileInputs
                 cameraInput={zone.cameraInput}

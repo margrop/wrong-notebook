@@ -34,6 +34,8 @@ export default function AddErrorPage() {
     usePageTitle(t.notebooks.title, notebook?.name, t.pageTitle.addError);
     // 录入方式：image 拍照，text 文字录入；记住上次的选择
     const [inputMode, setInputMode] = useStoredChoice<NotebookInputMode>(INPUT_MODE_STORAGE_KEY, NOTEBOOK_INPUT_MODES, "image");
+    // 拍照录入的错题来源，随任务保存
+    const [photoSource, setPhotoSource] = useState("");
 
     // 本页的题目都放入当前错题本
     const flow = useQuestionImport({
@@ -42,6 +44,7 @@ export default function AddErrorPage() {
         importSubjectId: notebookId,
         textNotebook: { id: notebookId, name: notebook?.name || "" },
         fixedSubjectId: notebookId,
+        source: photoSource.trim() || null,
     });
 
     useEffect(() => {
@@ -96,6 +99,7 @@ export default function AddErrorPage() {
                             <BatchImportPanel
                                 images={flow.batchImages}
                                 subjectId={notebookId}
+                                source={photoSource}
                                 onClose={flow.closeBatch}
                             />
                         ) : inputMode === "image" ? (
@@ -108,7 +112,7 @@ export default function AddErrorPage() {
                                         onDiscard={flow.discardParts}
                                     />
                                 )}
-                                <UploadZone onImageSelect={flow.selectImage} isAnalyzing={flow.isBusy} />
+                                <UploadZone onImageSelect={flow.selectImage} isAnalyzing={flow.isBusy} source={photoSource} onSourceChange={setPhotoSource} />
                             </>
                         ) : (
                             <TextInputZone

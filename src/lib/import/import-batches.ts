@@ -36,7 +36,7 @@ import { parsedQuestionToSavePayload } from "@/lib/question/parsed-question-payl
 import { runSerializedTransaction, serializeWrite } from "@/lib/db-write-queue";
 import { prisma } from "@/lib/prisma";
 import { mapAnalysisError, parseImageDataUrl, splitQuestionsForUser } from "@/lib/question/question-analysis";
-import { batchDraftSchema, draftFromTextSplit, draftImageSchema, MAX_DRAFT_TEXT_LENGTH, MAX_ITEM_KNOWLEDGE_POINTS, newItemKey, readyItems } from "@/lib/question-split/draft";
+import { applyDraftSource, batchDraftSchema, draftFromTextSplit, draftImageSchema, MAX_DRAFT_TEXT_LENGTH, MAX_ITEM_KNOWLEDGE_POINTS, newItemKey, readyItems } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftItem } from "@/lib/question-split/draft";
 import { compactLines, composeQuestionInput, MAX_SPLIT_QUESTIONS, MAX_SPLIT_TEXT_LENGTH, splitQuestionText } from "@/lib/question-split/text";
 import { normalizeQuestionType } from "@/lib/question/question-type";
@@ -103,6 +103,7 @@ export const createImportBatchSchema = z.object({
     subjectId: z.string().max(100).nullish(),
     targetSubjectId: z.string().max(100).nullish(),
     paperLevel: z.string().max(30).nullish(),
+    questionSource: z.string().trim().max(200).nullish(),
 }).superRefine((input, context) => {
     if (input.source === 'text' && !input.text?.trim() && !input.items?.length) context.addIssue({ code: 'custom', path: ['text'], message: 'TEXT_REQUIRED' });
     if (input.source === 'text' && input.text?.trim() && input.items?.length) {
@@ -389,6 +390,8 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
         draft = draftFromTextSplit(split.questions, split.ignored, split.overflow);
     }
 
+    draft = draft ? applyDraftSource(draft, input.questionSource) : draft;
+
     const id = randomUUID().replace(/-/g, '');
     const release = splitter === 'ai' ? register(id) : () => undefined;
     // 结构化批次：sourceText 存可读的拼接文本或文件名说明（不超现有列的合理长度）
@@ -553,6 +556,7 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
                         imageData: source === 'image' ? image!.imageBase64 : (item.image ?? ''),
                         imageInfo: image?.imageInfo ? JSON.stringify(image.imageInfo) : null,
                         inputText: source === 'text' ? composeQuestionInput(item) : null,
+                        source: item.source?.trim() || null,
                         batchId: id,
                         batchItemKey: item.key,
                         timings: JSON.stringify({ client: {}, server: {} }),

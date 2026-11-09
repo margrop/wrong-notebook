@@ -24,6 +24,8 @@ export interface CreateImportBatchInput {
     subjectId?: string | null;
     targetSubjectId?: string | null;
     paperLevel?: string | null;
+    /** 错题来源（选填）；与 source 的「文字/照片」字段不同 */
+    questionSource?: string | null;
 }
 
 /** 上传失败时的重试次数（同一幂等键） */

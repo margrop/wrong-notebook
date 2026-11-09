@@ -3,6 +3,7 @@
 import { NotebookSelector } from "@/components/notebook-selector";
 import { GradeSemesterSelect } from "@/components/grade-semester-select";
 import { PaperGroupSelect } from "@/components/paper-group-select";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
@@ -22,6 +23,7 @@ interface MetadataForm {
     subjectId: string | null;
     gradeSemester: string;
     paperLevel: string;
+    source: string;
     questionType: string;
 }
 
@@ -44,6 +46,7 @@ export function QuestionMetadata({ item, onChanged }: QuestionMetadataProps) {
 
     const field = useEditableField<MetadataForm>({
         read: () => ({
+            source: item.source || "",
             subjectId: item.subjectId || null,
             gradeSemester: item.gradeSemester || "",
             paperLevel: item.paperLevel || "",
@@ -51,8 +54,9 @@ export function QuestionMetadata({ item, onChanged }: QuestionMetadataProps) {
         }),
         save: async (value) => {
             // 只提交改动的关联字段，未分类题目及已停用分组中的题目也能单独修改年级。
-            const { subjectId, paperLevel, questionType, ...metadata } = value;
+            const { subjectId, paperLevel, questionType, source, ...metadata } = value;
             await apiClient.put(`/api/error-items/${item.id}`, {
+                ...((source.trim() || null) !== (item.source || null) ? { source: source.trim() || null } : {}),
                 ...metadata,
                 ...(paperLevel !== (item.paperLevel || "") ? { paperLevel: paperLevel || null } : {}),
                 ...(subjectId !== (item.subjectId || null) ? { subjectId } : {}),
@@ -75,6 +79,7 @@ export function QuestionMetadata({ item, onChanged }: QuestionMetadataProps) {
             {field.editing ? (
                 <div className="space-y-3">
                     <div className="space-y-2"><label className="text-sm text-muted-foreground">{t.notebooks?.title || "Notebook"}</label><NotebookSelector value={field.value.subjectId || undefined} onChange={(subjectId) => update({ subjectId })} /></div>
+                    <div className="space-y-2"><label htmlFor="detail-source" className="text-sm text-muted-foreground">{t.detail.source || "Source"}</label><Input id="detail-source" value={field.value.source} onChange={(event) => update({ source: event.target.value })} placeholder={t.detail.sourcePlaceholder || "e.g. Midterm exam"} maxLength={200} /></div>
                     <div className="space-y-2"><label className="text-sm text-muted-foreground">{t.questionType.label || "Question Type"}</label>
                         <Select value={field.value.questionType} onValueChange={(val) => update({ questionType: val === NO_QUESTION_TYPE ? "" : val })}>
                             <SelectTrigger><SelectValue placeholder={t.questionType.notSet || "Not set"} /></SelectTrigger>
@@ -93,6 +98,7 @@ export function QuestionMetadata({ item, onChanged }: QuestionMetadataProps) {
             ) : (
                 <div className="space-y-2 text-sm">
                     <div className="flex justify-between"><span className="text-muted-foreground">{t.notebooks?.title || "Notebook"}:</span><span className="font-medium">{item.subject?.name || notSet}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">{t.detail.source || "Source"}:</span><span className="font-medium">{item.source || notSet}</span></div>
                     <div className="flex justify-between"><span className="text-muted-foreground">{t.questionType.label || "Question Type"}:</span><span className="font-medium">{questionTypeLabel(item.questionType)}</span></div>
                     <div className="flex justify-between"><span className="text-muted-foreground">{t.editor.gradeSemester}:</span><span className="font-medium">{item.gradeSemester || notSet}</span></div>
                     <div className="flex justify-between"><span className="text-muted-foreground">{t.filter.paperLevel}:</span><span className="font-medium">{groupName(item.paperLevel)}</span></div>

@@ -17,6 +17,8 @@ interface BatchImportPanelProps {
     images: BatchImage[];
     /** 指定错题本；为空时按 AI 识别的学科匹配或新建错题本 */
     subjectId?: string | null;
+    /** 错题来源（选填），写入各题 */
+    source?: string | null;
     onClose: () => void;
 }
 
@@ -62,7 +64,7 @@ async function runWithConcurrency(indexes: number[], limit: number, run: (index:
 /**
  * 一图多题：先把所有框上传为服务端识别任务（落库后锁屏或关闭页面也会继续），再等待各题的识别与入库结果。
  */
-export function BatchImportPanel({ images, subjectId, onClose }: BatchImportPanelProps) {
+export function BatchImportPanel({ images, subjectId, source, onClose }: BatchImportPanelProps) {
     const { t, language } = useLanguage();
     const [items, setItems] = useState<BatchItem[]>(() => images.map(() => ({ status: "pending" })));
     const startedRef = useRef(false);
@@ -94,6 +96,7 @@ export function BatchImportPanel({ images, subjectId, onClose }: BatchImportPane
                     imageBase64: image.dataUrl,
                     language,
                     subjectId,
+                    source: source?.trim() || undefined,
                     targetSubjectId: subjectId,
                     mode: "auto",
                     clientTimings: image.timings,
@@ -108,7 +111,7 @@ export function BatchImportPanel({ images, subjectId, onClose }: BatchImportPane
             fail(index, error);
             return false;
         }
-    }, [images, language, subjectId, updateItem, fail]);
+    }, [images, language, subjectId, source, updateItem, fail]);
 
     /** 第二步：等待服务端识别与入库结果 */
     const watch = useCallback(async (index: number) => {

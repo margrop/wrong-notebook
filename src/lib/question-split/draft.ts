@@ -73,6 +73,8 @@ export const draftItemSchema = z.object({
     questionType: z.string().max(200).nullish(),
     /** 学生的错误作答；旧草稿没有此字段 */
     wrongAnswer: z.string().max(MAX_DRAFT_TEXT_LENGTH).nullish(),
+    /** 错题来源（选填）；旧草稿没有此字段 */
+    source: z.string().trim().max(200).nullish(),
     /** 题目原图；旧草稿没有此字段 */
     image: draftImageSchema.nullish(),
 });
@@ -126,9 +128,20 @@ export function draftFromTextSplit(questions: SplitTextQuestion[], ignored: stri
             difficultyStars: question.difficultyStars ?? null,
             questionType: normalizeQuestionType(question.questionType),
             wrongAnswer: question.wrongAnswer ?? null,
+            source: null,
         };
     });
     return { items, ignored: ignored.slice(0, 200), warnings: overflow > 0 || questions.length > MAX_SPLIT_QUESTIONS ? ['tooMany'] : [] };
+}
+
+/** 批次级来源填入尚无来源的题目；已有来源（用户逐题修改）保持不变 */
+export function applyDraftSource(draft: BatchDraft, source: string | null | undefined): BatchDraft {
+    const value = source?.trim();
+    if (!value) return draft;
+    return {
+        ...draft,
+        items: draft.items.map((item) => (item.source?.trim() ? item : { ...item, source: value })),
+    };
 }
 
 /** 可以开始解析的题：文字批次需有题干，图片批次需有区域 */

@@ -5,6 +5,8 @@ export interface ParsedQuestionSaveOptions {
     subjectId?: string | null;
     imageUrl?: string | null;
     paperLevel?: string | null;
+    /** 错题来源；为空时使用识别结果中的来源 */
+    source?: string | null;
 }
 
 /** 纯空白（含空串、全角/半角空格、制表符）还原为空串；非空白原样返回 */
@@ -32,6 +34,7 @@ export function parsedQuestionToSavePayload(parsed: ParsedQuestion, options: Par
         subjectId: options.subjectId || undefined,
         subjectName: options.subjectId ? undefined : parsed.subject,
         originalImageUrl: options.imageUrl || "",
+        source: (options.source ?? parsed.source)?.trim() || null,
         paperLevel: options.paperLevel || undefined,
     };
 }

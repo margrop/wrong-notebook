@@ -150,13 +150,13 @@ afterAll(async () => {
 
 describe('识别导入任务', () => {
     it('人工校对：上传后立即返回任务编号，识别结果持久保存为待校对草稿，确认后入库一次', async () => {
-        const { response, task } = await create({ subjectId: 'math', clientTimings: { compress: 120, read: 5 }, imageInfo: { sourceType: 'image/heic', decoder: 'heic', outputWidth: 1600, outputHeight: 1200, outputBytes: 300000 } });
+        const { response, task } = await create({ subjectId: 'math', source: '期中数学试卷', clientTimings: { compress: 120, read: 5 }, imageInfo: { sourceType: 'image/heic', decoder: 'heic', outputWidth: 1600, outputHeight: 1200, outputBytes: 300000 } });
         expect(response.status).toBe(202);
         expect(task).toMatchObject({ status: 'analyzing', mode: 'review' });
         await waitForImportTaskForTest(task.id);
 
         const stored = await getTask(task.id, true);
-        expect(stored.task).toMatchObject({ status: 'review', unread: true, hasResult: true, imageData: IMAGE });
+        expect(stored.task).toMatchObject({ status: 'review', unread: true, hasResult: true, imageData: IMAGE, source: '期中数学试卷' });
         expect(stored.task.result.questionText).toBe('求解方程 x + 2 = 5');
         expect(stored.task.timings.client).toMatchObject({ compress: 120, read: 5 });
         expect(stored.task.timings.server.analyze).toEqual(expect.any(Number));
@@ -167,7 +167,7 @@ describe('识别导入任务', () => {
         const body = await saved.json();
         expect(body.importTask).toMatchObject({ status: 'saved', errorItemId: body.id, notebookName: '数学' });
         const item = await database.errorItem.findUniqueOrThrow({ where: { id: body.id } });
-        expect(item).toMatchObject({ questionText: '校对后的题目：求解 x + 2 = 5', originalImageUrl: IMAGE, subjectId: 'math', userId: 'user-1' });
+        expect(item).toMatchObject({ questionText: '校对后的题目：求解 x + 2 = 5', originalImageUrl: IMAGE, subjectId: 'math', userId: 'user-1', source: '期中数学试卷' });
 
         // 重复确认：返回原结果，不重复入库
         const again = await confirm(task.id);

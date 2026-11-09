@@ -401,6 +401,15 @@ describe('/api/error-items', () => {
             expect(mocks.mockPrismaErrorItem.create.mock.calls[0][0].data.questionType).toBeNull();
             expect(mocks.mockPrismaErrorItem.create.mock.calls[1][0].data.questionType).toBeNull();
         });
+        it('创建时保存错题来源', async () => {
+            mocks.mockPrismaErrorItem.create.mockResolvedValue({ id: 'error-item-1', userId: 'user-123' });
+            const response = await POST(new Request('http://localhost/api/error-items', {
+                method: 'POST',
+                body: JSON.stringify({ questionText: '新题', source: '期中数学试卷' }),
+            }));
+            expect(response.status).toBe(201);
+            expect(mocks.mockPrismaErrorItem.create.mock.calls[0][0].data.source).toBe('期中数学试卷');
+        });
 
         it('未提供难度星级时保存为空', async () => {
             mocks.mockPrismaErrorItem.create.mockResolvedValue({ id: 'error-item-1', userId: 'user-123' });
@@ -758,6 +767,18 @@ describe('/api/error-items', () => {
 
             expect(response.status).toBe(200);
             expect(data.paperLevel).toBe('group-b');
+        });
+        it('可以设置和清空错题来源', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({ id: 'error-item-1', userId: 'user-123', source: null });
+            mocks.mockPrismaErrorItem.update.mockResolvedValue({ id: 'error-item-1', userId: 'user-123' });
+            const put = (source: unknown) => PUT(new Request('http://localhost/api/error-items/error-item-1', {
+                method: 'PUT', body: JSON.stringify({ source }), headers: { 'Content-Type': 'application/json' },
+            }), { params: Promise.resolve({ id: 'error-item-1' }) });
+
+            expect((await put('期中数学试卷')).status).toBe(200);
+            expect(mocks.mockPrismaErrorItem.update.mock.calls[0][0].data.source).toBe('期中数学试卷');
+            expect((await put(null)).status).toBe(200);
+            expect(mocks.mockPrismaErrorItem.update.mock.calls[1][0].data.source).toBeNull();
         });
 
         it('可以手动修改和清除难度星级，非法值返回 400', async () => {

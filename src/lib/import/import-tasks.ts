@@ -107,6 +107,7 @@ export const createImportTaskSchema = z.object({
     subjectId: z.string().max(100).nullish(),
     targetSubjectId: z.string().max(100).nullish(),
     paperLevel: z.string().max(30).nullish(),
+    source: z.string().trim().max(200).nullish(),
     /** 一图多题批量导入始终直接入库 */
     mode: z.literal('auto').optional(),
     imageInfo: imageInfoSchema.optional(),
@@ -175,12 +176,13 @@ export function toSummary(task: SummaryRow): ImportTaskSummary {
 }
 
 /** 任务详情：题目图片只在明确需要（进入校对页）时返回，状态轮询与创建响应不重复传输整张图片 */
-function toDetail(task: SummaryRow & { paperLevel: string | null; imageData?: string }, options: { image?: boolean } = {}): ImportTaskDetail {
+function toDetail(task: SummaryRow & { paperLevel: string | null; source?: string | null; imageData?: string }, options: { image?: boolean } = {}): ImportTaskDetail {
     return {
         ...toSummary(task),
         result: parseResult(task.result),
         imageData: options.image ? task.imageData || null : null,
         paperLevel: task.paperLevel,
+        source: task.source ?? null,
     };
 }
 
@@ -331,6 +333,7 @@ function autoSavePayload(task: ImportTask, result: ParsedQuestion) {
     return parsedQuestionToSavePayload(result, {
         subjectId: task.targetSubjectId,
         imageUrl: task.imageData,
+        source: task.source ?? null,
         paperLevel: task.paperLevel,
     });
 }
@@ -469,7 +472,7 @@ async function executeTask(id: string): Promise<void> {
                 where: { id, status: 'analyzing' },
                 data: {
                     status: next,
-                    result: JSON.stringify(result),
+                    result: JSON.stringify(task?.source ? { ...result, source: task.source } : result),
                     error: null,
                     timings,
                     heartbeatAt: new Date(),
@@ -532,6 +535,7 @@ export async function createImportTask(user: User, raw: unknown, measured: { rec
                 targetSubjectId: input.targetSubjectId || null,
                 paperLevel: input.paperLevel || null,
                 imageData: input.imageBase64,
+                source: input.source?.trim() || null,
                 imageInfo: input.imageInfo ? JSON.stringify(input.imageInfo) : null,
                 timings: JSON.stringify({
                     client: input.clientTimings ?? {},
@@ -600,7 +604,7 @@ export async function getImportTask(user: Pick<User, 'id'>, id: string, options:
     await reconcileInterrupted(user.id, id);
     const task = await prisma.importTask.findFirst({
         where: { id, userId: user.id },
-        select: { ...summarySelect, paperLevel: true, imageData: options.image === true },
+        select: { ...summarySelect, paperLevel: true, source: true, imageData: options.image === true },
     });
     return task ? toDetail(task, options) : null;
 }
@@ -652,7 +656,7 @@ export async function confirmImportTask(user: User, id: string, raw: unknown): P
         return current ? busyOrDone(current) : notFound('IMPORT_TASK_NOT_FOUND');
     }
     try {
-        const outcome = await saveTask(task, user, { ...parsed.data, subjectId, originalImageUrl: task.imageData });
+        const outcome = await saveTask(task, user, { ...parsed.data, source: parsed.data.source ?? task.source, subjectId, originalImageUrl: task.imageData });
         if (!outcome.ok) return questionSaveFailureToResponse(outcome.failure);
         const saved = await prisma.importTask.findUniqueOrThrow({ where: { id }, include: withItem });
         return NextResponse.json({ ...outcome.body, importTask: toSummary(saved) }, { status: outcome.status });

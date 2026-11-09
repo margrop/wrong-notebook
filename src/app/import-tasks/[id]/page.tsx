@@ -99,7 +99,7 @@ export default function ImportTaskPage() {
             <QuestionSaveError message={saver.saveError} onDismiss={saver.dismissSaveError} />
             {task.status === "review" && task.result ? (
                 <CorrectionEditor
-                    initialData={task.result}
+                    initialData={{ ...task.result, source: task.result.source ?? task.source }}
                     imagePreview={image?.data ?? null}
                     onSave={save}
                     onCancel={() => router.push(backHref)}

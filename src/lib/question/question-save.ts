@@ -52,6 +52,7 @@ export const importSchema = z.object({
     geogebraCommands: z.string().nullish(),
     // 宽松接受：无法识别的题型在保存时规范化为 null，不因此拒绝整题
     questionType: z.string().max(200).nullish(),
+    source: z.string().trim().max(200).nullish(),
 });
 
 export type ImportQuestionInput = z.infer<typeof importSchema>;
@@ -119,6 +120,7 @@ async function saveQuestionInner(user: User, body: ImportQuestionInput, options:
         paperLevel,
         difficultyStars,
         geogebraCommands,
+        source,
     } = body;
     // 题型规范化：无法识别时存 null
     const questionType = normalizeQuestionType(body.questionType);
@@ -214,6 +216,7 @@ async function saveQuestionInner(user: User, body: ImportQuestionInput, options:
                     figureAlign: body.figureAlign,
                     geogebraCommands: geogebraCommands || null,
                     questionType,
+                    source: source?.trim() || null,
                     masteryLevel: 0,
                     ...options.extraErrorItemData,
                     tags: {

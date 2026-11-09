@@ -27,6 +27,7 @@ export const ParsedQuestionSchema = z.object({
     gradeSemester: z.string().max(100).nullable().optional(), // 题目年级学期，AI 无法判断时为空
     hasFigure: z.boolean().optional(), // 题目是否带配图
     figureSvg: z.string().nullable().optional(), // AI 重绘的 SVG 配图（已净化）
+    source: z.string().trim().max(200).nullish(), // 用户填写的错题来源（如「期中试卷」），AI 不输出
 });
 
 /**
