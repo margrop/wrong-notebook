@@ -114,6 +114,10 @@ A fresh start has no default account: open the one-time setup link from the log 
 
 DSM 7.2 or later uses Container Manager; the older Docker package works similarly. The suggested data directory is `/volume1/docker/wrong-notebook`; replace the path if your storage volume differs.
 
+**Package install (recommended)**: install Container Manager first, then choose `WrongNotebook-Synology-<version>.spk` under Package Center → **Manual Install**. The package pulls the matching image, generates `NEXTAUTH_SECRET`, maps host port `39300` to container `3000`, and stores data at `<package volume>/docker/wrong-notebook/{data,config}`; the Package Center **Open** link opens the app, and the first start shows the admin setup page. Upgrading the package recreates the container from the new image and keeps data; uninstalling keeps the data directory.
+
+Manual container method:
+
 1. **Prepare directories**: create `docker/wrong-notebook/data` and `config` in File Station, or run over SSH:
 
    ```bash
@@ -141,6 +145,10 @@ For access by domain name, configure a reverse proxy under DSM **Control Panel �
 ## QNAP QTS (Container Station)
 
 Use Container Station. The suggested data directory is `/share/Container/wrong-notebook`; Container Station's default shared folder is `Container`, so replace the path if you store data elsewhere.
+
+**Package install (recommended)**: install Container Station first, then choose `WrongNotebook-QNAP-<version>.qpkg` under App Center → **Manual Install**. The package pulls the matching image, generates `NEXTAUTH_SECRET`, maps host port `39300` to container `3000`, and stores data at `/share/Container/wrong-notebook/{data,config}`; the App Center open link opens the app, and the first start shows the admin setup page. Upgrading the package recreates the container from the new image and keeps data; uninstalling keeps the data directory.
+
+Manual container method:
 
 1. **Prepare directories**: create them in File Station, or run over SSH:
 

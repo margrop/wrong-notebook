@@ -129,7 +129,7 @@ describe('批次内容', () => {
     });
 
     it('同一批只含一个版本（升级前的旧记录先发），每批最多 100 条', async () => {
-        await database.telemetryEvent.create({ data: { name: 'app_opened', payload: '{"client":"pwa"}', version: '2000.1.1', local: false, createdAt: new Date(NOW.getTime() - 2 * HOUR) } });
+        await database.telemetryEvent.create({ data: { name: 'app_opened', payload: '{"client":"pwa"}', version: '2000.1.1', local: false, createdAt: new Date(NOW.getTime() - 24 * HOUR) } });
         await addEvents(120);
         const fetchMock = okFetch();
         await flushOutbox({ now: NOW, fetchImpl: fetchMock });

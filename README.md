@@ -30,7 +30,7 @@
 
 - **🆓 免费账号就能用**：选择「MiniMax Code OAuth」渠道，用 MiniMax Code 账号网页登录即可使用，不需要购买 API Key，应用每天自动签到领取积分（见 [MiniMax Code OAuth](#minimax-code-oauth)）；火山引擎新用户也有[免费推理额度](#火山引擎免费试用)。
 - **📚 复习闭环**：举一反三变式题自动判题、AI 评估掌握概率、艾宾浩斯间隔的今日复习、按错题组卷打印并回填结果。
-- **📦 多平台安装**：Docker 镜像（amd64 / arm64）、npm、Windows、macOS、Linux、飞牛OS、安卓手机与平板（单机版或客户端），也可添加到手机主屏幕（PWA）。
+- **📦 多平台安装**：Docker 镜像（amd64 / arm64）、npm、Windows、macOS、Linux、飞牛OS、群晖/威联通套件、安卓手机与平板（单机版或客户端），也可添加到手机主屏幕（PWA）。
 
 > 本仓库 fork 自 [wttwins/wrong-notebook](https://github.com/wttwins/wrong-notebook)，在其基础上增加了上述及下文列出的大部分功能。
 
@@ -193,7 +193,7 @@
 
 按上手难度从易到难排列。全新安装没有默认账号：首次启动时会生成一次性初始化链接，打开后设置管理员邮箱和密码，再进入安装向导配置 AI 渠道、创建第一个错题本。桌面版、安卓单机版会自动打开该链接；Docker 用 `docker logs wrong-notebook 2>&1 | grep initialize` 查看；npm、源码运行打印在终端里。链接中的主机为 `localhost` 时，从其他设备访问需换成服务器地址（或设置 `NEXTAUTH_URL`）。尚未创建管理员时，登录页也会显示这些说明。
 
-### 方式一：安装包（Windows / macOS / Linux / 飞牛OS / 安卓 / npm）
+### 方式一：安装包（Windows / macOS / Linux / 飞牛OS / 群晖 / 威联通 / 安卓 / npm）
 
 从[下载页](https://wrong-notebook.margrop.net/download/)（自动识别系统与架构）或 [Releases](https://github.com/margrop/wrong-notebook/releases) 下载对应安装包，安装后直接打开：
 
@@ -203,6 +203,8 @@
 | macOS | `WrongNotebook-Mac-<版本>-arm64.dmg`（Apple 芯片）、`WrongNotebook-Mac-<版本>-x64.dmg`（Intel） |
 | Linux | `WrongNotebook-Linux-<版本>-<架构>.AppImage`、`.deb` |
 | 飞牛OS | `WrongNotebook-FnOS-<版本>-x86.fpk`、`WrongNotebook-FnOS-<版本>-arm.fpk` |
+| 群晖 DSM | `WrongNotebook-Synology-<版本>.spk`（套件中心手动安装，Docker 套件，需 Container Manager） |
+| 威联通 QTS | `WrongNotebook-QNAP-<版本>.qpkg`（App Center 手动安装，Docker 套件，需 Container Station） |
 | 安卓手机 / 平板（单机版） | `WrongNotebook-Android-Phone-<版本>.apk`（竖屏）、`WrongNotebook-Android-Tablet-<版本>.apk`（横竖屏自动旋转） |
 | 安卓手机 / 平板（客户端） | `WrongNotebook-Android-Client-Phone-<版本>.apk`、`WrongNotebook-Android-Client-Tablet-<版本>.apk` |
 
@@ -293,6 +295,10 @@ wrong-notebook --port 3000
 
 DSM 7.2 及以上使用 **Container Manager**（旧版为 Docker 套件）。建议数据目录为 `/volume1/docker/wrong-notebook/{data,config}`；先在 File Station 或 SSH 中创建，其他存储卷路径相应替换。
 
+**套件安装（推荐）**：先安装 Container Manager，然后在套件中心 →「手动安装」选择 `WrongNotebook-Synology-<版本>.spk`。套件自动拉取对应版本镜像、生成 `NEXTAUTH_SECRET`、把主机端口 `39300` 映射到容器 `3000`，数据放在套件所在存储卷的 `/docker/wrong-notebook/{data,config}`；套件中心的「打开」进入应用，首次启动按页面提示设置管理员。升级套件会按新镜像重建容器并保留数据，卸载套件保留数据目录。
+
+手动容器方式：
+
 1. **拉取映像**：Container Manager → **映像** → 新增，从注册表搜索 `margrop/wrong-notebook`，或从 URL 添加 `ghcr.io/margrop/wrong-notebook:<精确版本>`。
 2. **新建容器**：**容器** → 新增 → 从映像创建。容器名 `wrong-notebook`；端口本地 `3000` → 容器 `3000`；卷映射 `/volume1/docker/wrong-notebook/data` → `/app/data`、`.../config` → `/app/config`（读写）；环境变量 `NEXTAUTH_SECRET`、`NEXTAUTH_URL`、`PRESERVE_EXISTING_DATA=true`；开启自动重启。
 3. **初始化**：启动后在容器详情日志中查找 `initialize` 链接（令牌也在 `/volume1/docker/wrong-notebook/config/setup-token`），设置管理员邮箱和密码。
@@ -302,6 +308,10 @@ DSM 7.2 及以上使用 **Container Manager**（旧版为 Docker 套件）。建
 #### 威联通 QTS（Container Station）
 
 使用 **Container Station**。建议数据目录为 `/share/Container/wrong-notebook/{data,config}`；Container Station 的默认共享文件夹是 `Container`，自定义存储位置时相应替换。
+
+**套件安装（推荐）**：先安装 Container Station，然后在 App Center →「手动安装」选择 `WrongNotebook-QNAP-<版本>.qpkg`。套件自动拉取对应版本镜像、生成 `NEXTAUTH_SECRET`、把主机端口 `39300` 映射到容器 `3000`，数据放在 `/share/Container/wrong-notebook/{data,config}`；App Center 的打开链接进入应用，首次启动按页面提示设置管理员。升级套件会按新镜像重建容器并保留数据，卸载套件保留数据目录。
+
+手动容器方式：
 
 1. **拉取映像**：在映像页拉取 `ghcr.io/margrop/wrong-notebook:<精确版本>`；也可通过 SSH 执行 `docker pull`，或使用 **应用程序**（Compose）方式。
 2. **新建容器**：容器 → 创建，选择已拉取的映像。容器名 `wrong-notebook`；端口主机 `3000` → 容器 `3000`；卷映射 `/share/Container/wrong-notebook/data` → `/app/data`、`.../config` → `/app/config`；环境变量 `NEXTAUTH_SECRET`、`NEXTAUTH_URL`、`PRESERVE_EXISTING_DATA=true`；重启策略 `unless-stopped`。
@@ -589,7 +599,7 @@ E2E 启动器会在系统临时目录复制应用和依赖、执行正式迁移�
 
 | 文档 | 内容 |
 | :--- | :--- |
-| [INSTALL_PACKAGES.md](doc/INSTALL_PACKAGES.md) | npm、桌面版、飞牛OS、安卓安装包与构建 |
+| [INSTALL_PACKAGES.md](doc/INSTALL_PACKAGES.md) | npm、桌面版、飞牛OS、群晖/威联通套件、安卓安装包与构建 |
 | [HTTPS_SETUP.md](doc/HTTPS_SETUP.md) | HTTPS 配置（屏幕截图需要） |
 | [TIME_ZONE.md](doc/TIME_ZONE.md) | 应用时区 |
 | [LOGGING_GUIDE.md](doc/LOGGING_GUIDE.md) | 日志 |

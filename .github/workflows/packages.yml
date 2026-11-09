@@ -1,7 +1,7 @@
 name: Packages
 
-# 全平台安装包：npm、Windows、macOS、Linux、飞牛OS、安卓（单机版、客户端版，各分手机版、平板版）
-# Prisma 引擎与构建机平台绑定，因此每个平台在对应架构的 Runner 上分别构建
+# 全平台安装包：npm、Windows、macOS、Linux、飞牛OS、群晖、威联通、安卓（单机版、客户端版，各分手机版、平板版）
+# Prisma 引擎与构建机平台绑定，因此原生平台在对应架构的 Runner 上分别构建；群晖/威联通为 noarch Docker 套件
 on:
   push:
     tags:
@@ -342,6 +342,79 @@ jobs:
           path: dist/WrongNotebook-FnOS-*.fpk
           if-no-files-found: error
 
+  synology:
+    name: Synology SPK
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Resolve version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "PACKAGE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          fi
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Build SPK
+        run: node scripts/package/build.mjs synology
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-synology
+          path: dist/WrongNotebook-Synology-*.spk
+          if-no-files-found: error
+
+  qnap:
+    name: QNAP QPKG
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Resolve version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "PACKAGE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install QDK
+        shell: bash
+        run: |
+          curl -fsSL -o /tmp/qdk.deb "https://github.com/qnap-dev/QDK/releases/download/v2.5.3/qdk_2.5.3_amd64.deb"
+          echo "17b3841b7d4590a4ee025844ba583304b5e3c497d9fa8934d5175131d3908022  /tmp/qdk.deb" | sha256sum -c -
+          sudo apt-get install -y /tmp/qdk.deb
+          export PATH="$PATH:/usr/share/QDK/bin"
+          qbuild --version || true
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Build QPKG
+        run: |
+          export PATH="$PATH:/usr/share/QDK/bin"
+          node scripts/package/build.mjs qnap
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-qnap
+          path: dist/WrongNotebook-QNAP-*.qpkg
+          if-no-files-found: error
+
   android:
     name: Android
     if: github.server_url == 'https://github.com'
@@ -456,7 +529,7 @@ jobs:
 
   release:
     name: Upload to Release
-    needs: [npm, desktop, fnos, android]
+    needs: [npm, desktop, fnos, synology, qnap, android]
     if: github.server_url == 'https://github.com' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:

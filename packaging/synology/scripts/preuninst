@@ -1,0 +1,23 @@
+#!/bin/sh
+# 群晖套件：卸载前停止并移除容器；数据目录保留，重装后可继续使用。
+set -eu
+
+find_docker() {
+    if command -v docker >/dev/null 2>&1; then
+        command -v docker
+        return 0
+    fi
+    for candidate in /usr/local/bin/docker /usr/bin/docker /var/packages/ContainerManager/target/usr/bin/docker; do
+        if [ -x "${candidate}" ]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if docker_bin="$(find_docker)"; then
+    "${docker_bin}" stop -t 20 wrong-notebook >/dev/null 2>&1 || true
+    "${docker_bin}" rm -f wrong-notebook >/dev/null 2>&1 || true
+fi
+exit 0

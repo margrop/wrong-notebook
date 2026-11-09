@@ -1,0 +1,54 @@
+#!/bin/sh
+# 威联通 QPKG 生命周期钩子。套件只管理 Docker 容器，需先安装 Container Station。
+# qinstall.sh 会 source 本文件，函数返回值由 err_log 控制。
+
+find_docker() {
+    if command -v docker >/dev/null 2>&1; then
+        command -v docker
+        return 0
+    fi
+    for candidate in \
+        /usr/local/bin/docker \
+        /usr/bin/docker \
+        /share/CACHEDEV1_DATA/.qpkg/container-station/bin/docker \
+        /share/CACHEDEV2_DATA/.qpkg/container-station/bin/docker \
+        /share/CACHEDEV3_DATA/.qpkg/container-station/bin/docker; do
+        if [ -x "${candidate}" ]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+pkg_check_requirement() {
+    if ! find_docker >/dev/null 2>&1; then
+        err_log "未找到 docker CLI。请先在 App Center 安装 Container Station，再安装错题本。"
+    fi
+}
+
+pkg_install() {
+    QPKG_DIR="${SYS_QPKG_DIR}"
+    if [ -d /share/Container ]; then
+        DATA_ROOT=/share/Container/wrong-notebook
+    else
+        DATA_ROOT="${QPKG_DIR}/data-root"
+    fi
+    WN_DATA_DIR="${DATA_ROOT}/data"
+    WN_CONFIG_DIR="${DATA_ROOT}/config"
+    WN_HOST_PORT=39300
+    WN_IMAGE_TAG="$(cat "${QPKG_DIR}/image-tag" 2>/dev/null || echo 0.0.0)"
+    . "${QPKG_DIR}/docker-container.sh"
+    wn_ensure_dirs
+    wn_generate_secret
+}
+
+pkg_post_install() {
+    QPKG_DIR="${SYS_QPKG_DIR}"
+    if [ -d /share/Container ]; then DATA_ROOT=/share/Container/wrong-notebook; else DATA_ROOT="${QPKG_DIR}/data-root"; fi
+    NAS_HOST="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo NAS)"
+    echo "错题本：http://${NAS_HOST}:39300/ ；初始化令牌见 ${DATA_ROOT}/config/setup-token"
+}
+
+# 卸载脚本会先调用 wrongnotebook.sh stop（容器随之移除）；数据目录在 QPKG 之外，无需 PKG_PRE_REMOVE。
+

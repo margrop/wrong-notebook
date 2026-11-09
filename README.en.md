@@ -30,7 +30,7 @@ An AI-powered notebook for the questions you got wrong. Snap a photo or type a q
 
 - **🆓 Works with free accounts**: choose the "MiniMax Code OAuth" channel and sign in with a MiniMax Code account in the browser, with no API key to buy; the app checks in every day to collect credits (see [MiniMax Code OAuth](#minimax-code-oauth)). New Volcengine users also get a [free inference quota](#volcengine-free-trial).
 - **📚 A complete review loop**: auto-graded similar questions, AI mastery estimates, daily review at Ebbinghaus intervals, and printable exams built from your mistakes with per-question results.
-- **📦 Install anywhere**: Docker image (amd64 / arm64), npm, Windows, macOS, Linux, fnOS, Android phones and tablets (standalone or client), or add it to your home screen as a PWA.
+- **📦 Install anywhere**: Docker image (amd64 / arm64), npm, Windows, macOS, Linux, fnOS, Synology/QNAP packages, Android phones and tablets (standalone or client), or add it to your home screen as a PWA.
 
 > This repository is a fork of [wttwins/wrong-notebook](https://github.com/wttwins/wrong-notebook); most of the features above and below were added here. The built-in knowledge-point library follows the Chinese K-12 curriculum (primary, junior high and senior high school). The interface is available in Simplified Chinese and English.
 
@@ -193,7 +193,7 @@ Practice statistics show total practice, accuracy (correct / attempted) and acti
 
 Ordered from easiest to most hands-on. Fresh installs have no default account: the first start generates a one-time setup link where you choose the admin email and password, then the setup wizard helps you set up an AI provider and create your first notebook. The desktop and standalone Android apps open the link automatically; for Docker run `docker logs wrong-notebook 2>&1 | grep initialize`; npm and source runs print it in the terminal. If the link host is `localhost`, replace it with the server address when opening it from another device (or set `NEXTAUTH_URL`). Until an admin exists, the sign-in page shows these instructions too.
 
-### Option 1: Installers (Windows / macOS / Linux / fnOS / Android / npm)
+### Option 1: Installers (Windows / macOS / Linux / fnOS / Synology / QNAP / Android / npm)
 
 Download the package for your platform from the [download page](https://wrong-notebook.margrop.net/en/download/) (detects your OS and architecture) or from [Releases](https://github.com/margrop/wrong-notebook/releases), install it and open it:
 
@@ -203,6 +203,8 @@ Download the package for your platform from the [download page](https://wrong-no
 | macOS | `WrongNotebook-Mac-<version>-arm64.dmg` (Apple silicon), `WrongNotebook-Mac-<version>-x64.dmg` (Intel) |
 | Linux | `WrongNotebook-Linux-<version>-<arch>.AppImage`, `.deb` |
 | fnOS | `WrongNotebook-FnOS-<version>-x86.fpk`, `WrongNotebook-FnOS-<version>-arm.fpk` |
+| Synology DSM | `WrongNotebook-Synology-<version>.spk` (manual install in Package Center; Docker package, requires Container Manager) |
+| QNAP QTS | `WrongNotebook-QNAP-<version>.qpkg` (manual install in App Center; Docker package, requires Container Station) |
 | Android phone / tablet (standalone) | `WrongNotebook-Android-Phone-<version>.apk` (portrait), `WrongNotebook-Android-Tablet-<version>.apk` (rotates between portrait and landscape) |
 | Android phone / tablet (client) | `WrongNotebook-Android-Client-Phone-<version>.apk`, `WrongNotebook-Android-Client-Tablet-<version>.apk` |
 
@@ -295,6 +297,10 @@ Unraid creates the host directories if they do not exist. After the first start,
 
 DSM 7.2 or later uses **Container Manager** (older versions use the Docker package). The suggested data directory is `/volume1/docker/wrong-notebook/{data,config}`; create it first in File Station or over SSH, and replace the path if your storage volume differs.
 
+**Package install (recommended)**: install Container Manager first, then choose `WrongNotebook-Synology-<version>.spk` under Package Center → **Manual Install**. The package pulls the matching image, generates `NEXTAUTH_SECRET`, maps host port `39300` to container `3000`, and stores data at `<package volume>/docker/wrong-notebook/{data,config}`; the Package Center **Open** link opens the app, and the first start shows the admin setup page. Upgrading the package recreates the container from the new image and keeps data; uninstalling keeps the data directory.
+
+Manual container method:
+
 1. **Pull the image**: Container Manager → **Image** → Add, search the registry for `margrop/wrong-notebook`, or add `ghcr.io/margrop/wrong-notebook:<exact-version>` by URL.
 2. **Create the container**: **Container** → Add → Create from image. Name it `wrong-notebook`; map host port `3000` → container `3000`; mount `/volume1/docker/wrong-notebook/data` → `/app/data` and `.../config` → `/app/config` (read/write); set `NEXTAUTH_SECRET`, `NEXTAUTH_URL` and `PRESERVE_EXISTING_DATA=true`; enable auto restart.
 3. **Initialize**: after starting, find the `initialize` link in the container details log (the token is also in `/volume1/docker/wrong-notebook/config/setup-token`), then set the admin email and password.
@@ -304,6 +310,10 @@ DSM 7.2 or later uses **Container Manager** (older versions use the Docker packa
 #### QNAP QTS (Container Station)
 
 Use **Container Station**. The suggested data directory is `/share/Container/wrong-notebook/{data,config}`; Container Station's default shared folder is `Container`, so replace the path if you store data elsewhere.
+
+**Package install (recommended)**: install Container Station first, then choose `WrongNotebook-QNAP-<version>.qpkg` under App Center → **Manual Install**. The package pulls the matching image, generates `NEXTAUTH_SECRET`, maps host port `39300` to container `3000`, and stores data at `/share/Container/wrong-notebook/{data,config}`; the App Center open link opens the app, and the first start shows the admin setup page. Upgrading the package recreates the container from the new image and keeps data; uninstalling keeps the data directory.
+
+Manual container method:
 
 1. **Pull the image**: pull `ghcr.io/margrop/wrong-notebook:<exact-version>` on the image page; you can also run `docker pull` over SSH or use an **Application** (Compose).
 2. **Create the container**: Container → Create, select the pulled image. Name it `wrong-notebook`; map host port `3000` → container `3000`; mount `/share/Container/wrong-notebook/data` → `/app/data` and `.../config` → `/app/config`; set `NEXTAUTH_SECRET`, `NEXTAUTH_URL` and `PRESERVE_EXISTING_DATA=true`; restart policy `unless-stopped`.
@@ -591,7 +601,7 @@ For usage, deployment and FAQ, see the [Wiki in English](https://github.com/marg
 
 | Document | Content |
 | :--- | :--- |
-| [INSTALL_PACKAGES.md](doc/INSTALL_PACKAGES.md) | npm, desktop, fnOS and Android packages and builds |
+| [INSTALL_PACKAGES.md](doc/INSTALL_PACKAGES.md) | npm, desktop, fnOS, Synology/QNAP packages and Android packages and builds |
 | [HTTPS_SETUP.md](doc/HTTPS_SETUP.md) | HTTPS setup (needed for screen capture) |
 | [TIME_ZONE.md](doc/TIME_ZONE.md) | Application time zone |
 | [LOGGING_GUIDE.md](doc/LOGGING_GUIDE.md) | Logging |

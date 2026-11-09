@@ -7,15 +7,19 @@
  *   node scripts/package/build.mjs desktop [electron-builder 参数...]
  *                                                          打包 Windows / macOS / Linux 桌面安装包
  *   node scripts/package/build.mjs fnos --arch x86|arm     打包飞牛OS fpk（需要 fnpack）
+ *   node scripts/package/build.mjs synology                打包群晖 SPK（Docker 套件，无需 bundle）
+ *   node scripts/package/build.mjs qnap                    打包威联通 QPKG（Docker 套件，需要 QDK qbuild）
  *   node scripts/package/build.mjs android [--mode standalone|client] [--flavor phone|tablet]
  *                                                          打包安卓 APK（需要 Android SDK 和 Gradle）：单机版内置服务端，
  *                                                          需先构建 dist/bundle 和安卓 Prisma 引擎；客户端版连接已部署的服务器
  *
  * 版本号依次取 --version、环境变量 PACKAGE_VERSION、package.json。
- * Prisma 引擎与当前构建机平台一致，因此桌面端和飞牛OS 需在目标平台上构建（见 .github/workflows/packages.yml）。
+ * Prisma 引擎与当前构建机平台一致，因此桌面端、飞牛OS 和原生服务端安装包需在目标平台上构建（见 .github/workflows/packages.yml）。
+ * 群晖/威联通套件只管理 Docker 容器，使用 noarch 包，不依赖构建机架构。
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildAndroidRuntime } from './android-runtime.mjs';
@@ -351,6 +355,107 @@ function buildFnos() {
     log(`飞牛OS 安装包已生成：${path.relative(ROOT, out)}`);
 }
 
+/** 群晖版本号需 [feature]-[build]；预览版已有序号，正式版补 -1（镜像标签仍用原始版本） */
+function synologyVersion(value) {
+    return value.includes('-') ? value : `${value}-1`;
+}
+
+/** QPKG 的 QPKG_VER 最长 10 个字符；去掉年份前缀，镜像标签仍用完整版本 */
+function qnapVersion(value) {
+    const short = value.replace(/^20/, '');
+    return short.length <= 10 ? short : short.slice(0, 10);
+}
+
+function makeTarGz(outFile, cwd, entries) {
+    run('tar', ['-czf', outFile, ...entries], { cwd });
+}
+
+function verifyTarEntries(file, required) {
+    const listing = spawnSync('tar', ['-tzf', file], { encoding: 'utf8' });
+    if (listing.status !== 0) throw new Error(`无法读取 ${file}: ${listing.stderr}`);
+    const names = new Set(listing.stdout.split('\n').map((line) => line.replace(/^\.\//, '').replace(/\/$/, '')));
+    for (const name of required) {
+        if (!names.has(name)) throw new Error(`${path.basename(file)} 缺少 ${name}`);
+    }
+}
+
+/** qbuild 出错时仍可能返回 0；用尾部标记、体积和文件名确认不是残缺归档 */
+function verifyQpkg(file, expectedName, expectedVersion) {
+    if (path.basename(file) !== expectedName) throw new Error(`qbuild 生成的包名不符：${path.basename(file)}`);
+    const data = fs.readFileSync(file);
+    if (data.length < 16 * 1024) throw new Error(`QPKG 体积过小（${data.length} 字节），可能缺少数据归档`);
+    const tail = data.subarray(data.length - 100).toString('latin1');
+    if (!tail.includes('QNAPQPKG') || !tail.includes(expectedVersion)) {
+        throw new Error(`QPKG 尾部标记或版本不符：${file}`);
+    }
+}
+
+/**
+ * 群晖 SPK：Docker 套件，noarch；package.tgz 内只有容器控制脚本、图标和说明。
+ * INFO 的 adminport/adminurl 让套件中心的「打开」直接指向 http://<NAS>:39300/。
+ */
+async function buildSynology() {
+    const stage = path.join(DIST, 'synology');
+    rm(stage);
+    log('准备群晖 SPK 打包目录');
+    copy(path.join(PACKAGING, 'synology'), stage);
+    copy(path.join(PACKAGING, 'docker', 'docker-container.sh'), path.join(stage, 'package', 'docker-container.sh'));
+    fs.writeFileSync(path.join(stage, 'package', 'image-tag'), `${version}\n`);
+    fs.chmodSync(path.join(stage, 'package', 'docker-container.sh'), 0o755);
+    for (const file of fs.readdirSync(path.join(stage, 'scripts'))) fs.chmodSync(path.join(stage, 'scripts', file), 0o755);
+
+    // 套件图标由 packaging/synology 预置（64×64、256×256），避免构建时引入图像处理依赖
+
+    makeTarGz('package.tgz', stage, ['-C', 'package', '.']);
+    const checksum = crypto.createHash('md5').update(fs.readFileSync(path.join(stage, 'package.tgz'))).digest('hex');
+    const infoFile = path.join(stage, 'INFO');
+    fs.writeFileSync(infoFile, fs.readFileSync(infoFile, 'utf8')
+        .replace(/^version=.*$/m, `version="${synologyVersion(version)}"`)
+        .replace(/^checksum=.*$/m, `checksum="${checksum}"`));
+
+    const out = path.join(DIST, `WrongNotebook-Synology-${version}.spk`);
+    makeTarGz(out, stage, ['INFO', 'package.tgz', 'scripts', 'conf', 'PACKAGE_ICON.PNG', 'PACKAGE_ICON_256.PNG']);
+    verifyTarEntries(out, ['INFO', 'package.tgz', 'scripts/start-stop-status', 'conf/privilege', 'PACKAGE_ICON.PNG', 'PACKAGE_ICON_256.PNG']);
+    log(`群晖套件已生成：${path.relative(ROOT, out)}`);
+}
+
+/**
+ * 威联通 QPKG：Docker 套件，noarch；用 QDK qbuild 生成自解压归档。
+ * 没有 qbuild 时保留 dist/qnap 打包目录，可在装有 QDK 的机器上继续构建。
+ */
+async function buildQnap() {
+    const stage = path.join(DIST, 'qnap');
+    rm(stage);
+    log('准备威联通 QPKG 打包目录');
+    copy(path.join(PACKAGING, 'qnap'), stage);
+    copy(path.join(PACKAGING, 'docker', 'docker-container.sh'), path.join(stage, 'shared', 'docker-container.sh'));
+    fs.writeFileSync(path.join(stage, 'shared', 'image-tag'), `${version}\n`);
+    fs.chmodSync(path.join(stage, 'shared', 'docker-container.sh'), 0o755);
+    fs.chmodSync(path.join(stage, 'shared', 'wrongnotebook.sh'), 0o755);
+    fs.chmodSync(path.join(stage, 'package_routines'), 0o755);
+
+    // QPKG 图标由 packaging/qnap/icons 预置（64×64、灰度 64×64、80×80 GIF）
+
+    const cfgFile = path.join(stage, 'qpkg.cfg');
+    fs.writeFileSync(cfgFile, fs.readFileSync(cfgFile, 'utf8')
+        .replace(/^QPKG_VER=.*$/m, `QPKG_VER="${qnapVersion(version)}"`));
+
+    const probe = spawnSync('qbuild', ['--help'], { stdio: 'ignore' });
+    if (probe.error) {
+        log('未找到 qbuild，已生成打包目录 dist/qnap；安装 QDK 后执行 qbuild 即可');
+        return;
+    }
+    run('qbuild', [], { cwd: stage });
+    const built = fs.readdirSync(path.join(stage, 'build')).filter((file) => file.endsWith('.qpkg'));
+    if (built.length !== 1) throw new Error(`qbuild 应生成 1 个 qpkg，实际 ${built.length} 个`);
+    const builtFile = path.join(stage, 'build', built[0]);
+    const expectedName = `wrongnotebook_${qnapVersion(version)}.qpkg`;
+    verifyQpkg(builtFile, expectedName, qnapVersion(version));
+    const out = path.join(DIST, `WrongNotebook-QNAP-${version}.qpkg`);
+    fs.renameSync(builtFile, out);
+    log(`威联通套件已生成：${path.relative(ROOT, out)}`);
+}
+
 /**
  * 安卓 APK 有两种模式，各分手机版（竖屏）和平板版（横竖屏）：
  *   - standalone 单机版：内置 Node.js、Prisma 引擎和 dist/bundle，在手机上运行完整服务端，数据保存在本机
@@ -404,9 +509,9 @@ async function buildAndroid() {
     }
 }
 
-const commands = { bundle: buildBundle, npm: buildNpm, desktop: buildDesktop, fnos: buildFnos, android: buildAndroid };
+const commands = { bundle: buildBundle, npm: buildNpm, desktop: buildDesktop, fnos: buildFnos, synology: buildSynology, qnap: buildQnap, android: buildAndroid };
 if (!commands[command]) {
-    console.error('用法：node scripts/package/build.mjs <bundle|npm|desktop|fnos|android> [参数]');
+    console.error('用法：node scripts/package/build.mjs <bundle|npm|desktop|fnos|synology|qnap|android> [参数]');
     process.exit(1);
 }
 try {
