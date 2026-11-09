@@ -5,7 +5,7 @@ import { openSettings } from './support/flows';
 import { FIGURE } from './support/mock-ai.mjs';
 import { acceptConfirmDialog } from './helpers';
 
-test('[E2E-M07] 拒绝跨邮箱导入并在同邮箱空账号恢复备份', async ({ page, browser, scenario }) => {
+test('[E2E-M07] 其他账号备份合并到当前账号并在同邮箱空账号恢复备份', async ({ page, browser, scenario }) => {
     const secondBook = await scenario.db.subject.create({ data: { name: '第二套体系', userId: scenario.user.id, stage: 'junior_high', subjectKey: 'math', tagSet: 'e2e-secondary' } });
     const leafIds: string[] = [];
     for (const [index, tagSet] of ['default', 'e2e-secondary'].entries()) {
@@ -43,20 +43,22 @@ test('[E2E-M07] 拒绝跨邮箱导入并在同邮箱空账号恢复备份', asyn
         await scenario.login(foreign, true);
         await foreign.goto('/');
         const settings = await openSettings(foreign, '危险');
-        // 新账号可自动初始化默认空本和默认卷别，核对导入前后集合完全相同。
+        // 新账号可自动初始化默认空本和默认卷别，再导入其他账号的备份。
         expect((await foreign.request.get('/api/notebooks')).ok()).toBeTruthy();
         expect((await foreign.request.get('/api/paper-groups')).ok()).toBeTruthy();
-        const booksBefore = await scenario.db.subject.findMany({ where: { userId: scenario.otherUser.id }, orderBy: { id: 'asc' } });
-        const groupsBefore = await scenario.db.paperGroup.findMany({ where: { userId: scenario.otherUser.id }, orderBy: { id: 'asc' } });
         await settings.locator('input[type="file"]').setInputFiles(file);
         await settings.getByRole('button', { name: '导入数据', exact: true }).click();
-        const rejected = foreign.waitForResponse((response) => response.url().endsWith('/api/import') && response.request().method() === 'POST');
+        const merged = foreign.waitForResponse((response) => response.url().includes('/api/import') && response.request().method() === 'POST');
+        // 导入成功后页面会自动刷新，等待本次刷新完成再关闭页面。
+        const foreignReloaded = foreign.waitForEvent('load');
         await acceptConfirmDialog(foreign);
-        expect((await rejected).status()).toBe(400);
-        expect(await scenario.db.errorItem.count({ where: { userId: scenario.otherUser.id } })).toBe(0);
-        expect(await scenario.db.subject.findMany({ where: { userId: scenario.otherUser.id }, orderBy: { id: 'asc' } })).toEqual(booksBefore);
-        expect(await scenario.db.practiceRecord.count({ where: { userId: scenario.otherUser.id } })).toBe(0);
-        expect(await scenario.db.paperGroup.findMany({ where: { userId: scenario.otherUser.id }, orderBy: { id: 'asc' } })).toEqual(groupsBefore);
+        expect((await merged).ok()).toBeTruthy();
+        await foreignReloaded;
+        const mergedItems = await scenario.db.errorItem.findMany({ where: { userId: scenario.otherUser.id } });
+        expect(mergedItems).toHaveLength(2);
+        expect(mergedItems.every((item) => item.subjectId !== null)).toBe(true);
+        expect(await scenario.db.subject.count({ where: { userId: scenario.otherUser.id, name: '第二套体系' } })).toBe(1);
+        expect(await scenario.db.practiceRecord.count({ where: { userId: scenario.otherUser.id } })).toBe(1);
         expect(await scenario.db.errorItem.count({ where: { userId: scenario.user.id } })).toBe(2);
     } finally { await foreign.close(); }
     // 仅在本次临时库重建同邮箱账号，模拟新设备上的空账号，保留身份校验。
@@ -67,7 +69,7 @@ test('[E2E-M07] 拒绝跨邮箱导入并在同邮箱空账号恢复备份', asyn
     const settings = await openSettings(receiver, '危险');
     await settings.locator('input[type="file"]').setInputFiles(file);
     await settings.getByRole('button', { name: '导入数据', exact: true }).click();
-    const imported = receiver.waitForResponse((response) => response.url().endsWith('/api/import') && response.request().method() === 'POST');
+    const imported = receiver.waitForResponse((response) => response.url().includes('/api/import') && response.request().method() === 'POST');
     // 导入成功后页面会自动刷新，等待本次刷新完成再进行后续导航。
     const reloaded = receiver.waitForEvent('load');
     await acceptConfirmDialog(receiver);
