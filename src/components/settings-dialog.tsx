@@ -61,6 +61,7 @@ export function SettingsDialog() {
     const { data: session } = useSession();
     const isAdmin = session?.user?.role === 'admin';
     const userId = session?.user?.id ?? '';
+    const userEmail = session?.user?.email ?? '';
     const { t } = useLanguage();
     const router = useRouter();
     const [open, setOpen] = useState(false);
@@ -208,7 +209,7 @@ export function SettingsDialog() {
 
                     <TabsContent value="danger" className="space-y-4 py-4">
                         <div className="space-y-3">
-                            <DataBackupSettings isAdmin={isAdmin} userId={userId} />
+                            <DataBackupSettings isAdmin={isAdmin} userId={userId} userEmail={userEmail} />
                             <DangerZoneSettings isAdmin={isAdmin} />
                             <DeleteAccountSettings isAdmin={isAdmin} />
                         </div>

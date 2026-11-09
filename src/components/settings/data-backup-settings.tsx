@@ -17,6 +17,8 @@ type ImportStats = Record<string, number | boolean | undefined>;
 interface DataBackupSettingsProps {
     isAdmin: boolean;
     userId: string;
+    /** 当前登录账号邮箱，用于识别备份是否来自其他账号 */
+    userEmail: string;
 }
 
 function formatImportResult(stats: ImportStats, t: Translations): string {
@@ -32,7 +34,7 @@ function formatImportResult(stats: ImportStats, t: Translations): string {
 }
 
 /** 数据备份：导出、导入 JSON；管理员可导出、导入全部用户的数据 */
-export function DataBackupSettings({ isAdmin, userId }: DataBackupSettingsProps) {
+export function DataBackupSettings({ isAdmin, userId, userEmail }: DataBackupSettingsProps) {
     const { t } = useLanguage();
     const [exporting, setExporting] = useState(false);
     const [importing, setImporting] = useState(false);
@@ -71,17 +73,33 @@ export function DataBackupSettings({ isAdmin, userId }: DataBackupSettingsProps)
 
     const handleImport = async (all: boolean) => {
         if (!selectedFile) return;
+        let data: unknown;
+        try {
+            data = JSON.parse(await selectedFile.text());
+        } catch (error) {
+            frontendLogger.error('[DataBackupSettings]', 'Import file is not valid JSON', { error });
+            toast.error(t.settings?.importFailed || "Import failed");
+            return;
+        }
+
+        const backupUser = typeof data === 'object' && data !== null && 'user' in data ? data.user : undefined;
+        const sourceEmail = typeof backupUser === 'object' && backupUser !== null && 'email' in backupUser && typeof backupUser.email === 'string'
+            ? backupUser.email
+            : null;
+        const merging = !all && !!sourceEmail && !!userEmail && sourceEmail !== userEmail;
         const confirmText = all
             ? (t.settings?.importAllConfirm || "Import all users' data? This will restore data for all users from the export file.")
-            : (t.settings?.importConfirm || "Are you sure you want to import?");
+            : merging
+                ? (t.settings?.importOtherAccountConfirm || "This backup belongs to {email}. Importing merges it into the current account without restoring that account's preferences. Continue?").replace("{email}", sourceEmail ?? "")
+                : (t.settings?.importConfirm || "Are you sure you want to import?");
         if (!(await confirmDialog(confirmText))) {
             return;
         }
 
         setImporting(true);
         try {
-            const data = JSON.parse(await selectedFile.text());
-            const { stats } = await apiClient.post<{ stats: ImportStats }>(all ? '/api/import?all=true' : '/api/import', data);
+            const url = all ? '/api/import?all=true' : merging ? '/api/import?merge=true' : '/api/import';
+            const { stats } = await apiClient.post<{ stats: ImportStats }>(url, data);
             toast.success(formatImportResult(stats, t));
             setSelectedFile(null);
             window.location.reload();
@@ -90,7 +108,7 @@ export function DataBackupSettings({ isAdmin, userId }: DataBackupSettingsProps)
                 toast.info(t.errors.TASK_ALREADY_RUNNING);
                 await refreshImportTask();
             } else {
-                frontendLogger.error('[DataBackupSettings]', all ? 'Import all failed' : 'Import failed', { error });
+                frontendLogger.error('[DataBackupSettings]', all ? 'Import all failed' : merging ? 'Merge import failed' : 'Import failed', { error });
                 toast.error(t.settings?.importFailed || "Import failed");
             }
         } finally {

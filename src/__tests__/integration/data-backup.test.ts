@@ -44,8 +44,8 @@ async function exportBackup() {
     return response.json();
 }
 
-async function importBackup(body: object) {
-    const response = await IMPORT(new Request('http://localhost/api/import', {
+async function importBackup(body: object, query = '') {
+    const response = await IMPORT(new Request(`http://localhost/api/import${query}`, {
         method: 'POST',
         body: JSON.stringify(body),
         headers: { 'Content-Type': 'application/json' },
@@ -803,5 +803,55 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             // 核心数据回滚到导入前（清空后）的状态
             expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBe(itemsAfterClear);
         });
+    });
+});
+
+describe('跨账号合并导入', () => {
+    const originalSession = { user: { id: 'user-1', email: 'backup-test@example.com', role: 'user' }, expires: '2099-01-01' };
+
+    /** 创建另一个账号的备份（含该账号的偏好设置和题目） */
+    async function exportOtherAccountBackup() {
+        await database.user.create({
+            data: { id: 'user-2', email: 'parent@example.com', password: 'test-only', confirmBeforeImport: true },
+        });
+        await database.subject.create({
+            data: { id: 'parent-math', name: '家长数学', stage: 'junior_high', subjectKey: 'math', userId: 'user-2' },
+        });
+        await database.errorItem.create({
+            data: { id: 'parent-item', userId: 'user-2', subjectId: 'parent-math', originalImageUrl: '', questionText: '家长录入的题目', answerText: '答案', analysis: '解析' },
+        });
+        mocks.session = { user: { id: 'user-2', email: 'parent@example.com', role: 'user' }, expires: '2099-01-01' };
+        const backup = await exportBackup();
+        mocks.session = originalSession;
+        return backup;
+    }
+
+    it('merge=true 时把其他账号的备份合并到当前账号，且不还原对方偏好', async () => {
+        const backup = await exportOtherAccountBackup();
+        expect(backup.user.email).toBe('parent@example.com');
+        await clearUserData();
+
+        const { stats } = await importBackup(backup, '?merge=true');
+
+        expect(stats.preferencesRestored).toBe(false);
+        expect((await database.user.findUniqueOrThrow({ where: { id: 'user-1' } })).confirmBeforeImport).toBe(false);
+        expect((await database.user.findUniqueOrThrow({ where: { id: 'user-2' } })).confirmBeforeImport).toBe(true);
+        const importedItem = await database.errorItem.findFirstOrThrow({ where: { questionText: '家长录入的题目', userId: 'user-1' } });
+        expect(importedItem.userId).toBe('user-1');
+        const importedNotebook = await database.subject.findUniqueOrThrow({ where: { id: importedItem.subjectId! } });
+        expect(importedNotebook.userId).toBe('user-1');
+    });
+
+    it('未指定 merge=true 时仍拒绝其他账号的备份', async () => {
+        const backup = await exportOtherAccountBackup();
+        await clearUserData();
+        const response = await IMPORT(new Request('http://localhost/api/import', {
+            method: 'POST',
+            body: JSON.stringify(backup),
+            headers: { 'Content-Type': 'application/json' },
+        }));
+
+        expect(response.status).toBe(400);
+        expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBe(0);
     });
 });
