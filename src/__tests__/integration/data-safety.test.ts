@@ -23,6 +23,7 @@ vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.mock('next-auth', () => ({ getServerSession: vi.fn(() => Promise.resolve(mocks.session)) }));
 
 import { POST as BATCH_DELETE } from '@/app/api/error-items/batch-delete/route';
+import { POST as BATCH_MOVE } from '@/app/api/error-items/batch-move/route';
 import { POST as SYSTEM_RESET } from '@/app/api/admin/system-reset/route';
 import { GET as DASHBOARD } from '@/app/api/admin/dashboard/route';
 import { GET as USER_DETAIL } from '@/app/api/admin/users/[id]/detail/route';
@@ -40,6 +41,8 @@ const signInAs = (user: { id: string; email: string }, role = 'user') => {
 const json = (body: unknown) => ({ method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
 const createItem = (userId: string, subjectId?: string) =>
     database.errorItem.create({ data: { userId, subjectId, originalImageUrl: 'data:image/png;base64,AA==' } });
+const createNotebook = (userId: string, name: string, subjectKey: string) =>
+    database.subject.create({ data: { userId, name, stage: 'junior_high', subjectKey } });
 
 beforeAll(() => {
     // 数据库使用系统临时目录，不接触开发或生产数据
@@ -100,6 +103,55 @@ describe('POST /api/error-items/batch-delete', () => {
         expect((await send([])).status).toBe(400);
         expect((await send('abc')).status).toBe(400);
         expect((await send(Array.from({ length: 101 }, (_, i) => `id-${i}`))).status).toBe(400);
+    });
+});
+
+describe('POST /api/error-items/batch-move', () => {
+    const send = (body: unknown) => BATCH_MOVE(new Request('http://localhost/api/error-items/batch-move', json(body)));
+
+    it('未登录时拒绝，不移动任何错题', async () => {
+        const source = await createNotebook(alice.id, '数学', 'math');
+        const target = await createNotebook(alice.id, '英语', 'english');
+        const item = await createItem(alice.id, source.id);
+
+        expect((await send({ ids: [item.id], subjectId: target.id })).status).toBe(401);
+        const unchanged = await database.errorItem.findUnique({ where: { id: item.id } });
+        expect(unchanged?.subjectId).toBe(source.id);
+    });
+
+    it('只移动自己的错题，其他用户的和不存在的 ID 列为失败', async () => {
+        const source = await createNotebook(alice.id, '数学', 'math');
+        const target = await createNotebook(alice.id, '英语', 'english');
+        const mine = await createItem(alice.id, source.id);
+        const theirs = await createItem(bob.id);
+        signInAs(alice);
+
+        const response = await send({ ids: [mine.id, theirs.id, 'missing'], subjectId: target.id });
+
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toEqual({ moved: 1, failed: [theirs.id, 'missing'] });
+        expect((await database.errorItem.findUnique({ where: { id: mine.id } }))?.subjectId).toBe(target.id);
+        expect((await database.errorItem.findUnique({ where: { id: theirs.id } }))?.subjectId).toBe(null);
+    });
+
+    it('目标错题本不存在或属于其他用户时拒绝，且不改动错题', async () => {
+        const source = await createNotebook(alice.id, '数学', 'math');
+        const bobNotebook = await createNotebook(bob.id, '数学', 'math');
+        const item = await createItem(alice.id, source.id);
+        signInAs(alice);
+
+        expect((await send({ ids: [item.id], subjectId: 'missing' })).status).toBe(403);
+        expect((await send({ ids: [item.id], subjectId: bobNotebook.id })).status).toBe(403);
+        expect((await database.errorItem.findUnique({ where: { id: item.id } }))?.subjectId).toBe(source.id);
+    });
+
+    it('拒绝空列表、缺少目标错题本和一次超过 100 条', async () => {
+        const target = await createNotebook(alice.id, '数学', 'math');
+        signInAs(alice);
+
+        expect((await send({ ids: [], subjectId: target.id })).status).toBe(400);
+        expect((await send({ ids: ['a'] })).status).toBe(400);
+        expect((await send({ ids: Array.from({ length: 101 }, (_, i) => `id-${i}`), subjectId: target.id })).status).toBe(400);
     });
 });
 

@@ -37,6 +37,12 @@ export const batchDeleteSchema = z.object({
     ids: z.array(z.string().min(1)).min(1).max(100),
 });
 
+/** POST /api/error-items/batch-move 请求体 */
+export const batchMoveSchema = z.object({
+    ids: z.array(z.string().min(1)).min(1).max(100),
+    subjectId: z.string().min(1),
+});
+
 /** POST /api/error-items/:id/geogebra 请求体（所有字段可选，后端从 DB fallback） */
 export const geogebraAnalyzeSchema = z.object({
     questionText: z.string().optional(),

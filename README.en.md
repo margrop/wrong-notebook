@@ -175,7 +175,7 @@ Practice statistics show total practice, accuracy (correct / attempted) and acti
 
 ### Management and statistics
 
-- **🔍 Filters**: filter by mastery, date range, knowledge point, question type, grade and term, paper level and more; supports bulk actions and comparing the similarity of two questions. Selected questions can be exported as JSON, Excel or Word (the Excel columns match the question bank import template, so the file can be re-imported directly).
+- **🔍 Filters**: filter by mastery, date range, knowledge point, question type, grade and term, paper level and more; supports bulk actions and comparing the similarity of two questions. Selected questions can be moved to another notebook (tags stay unchanged), or exported as JSON, Excel or Word (the Excel columns match the question bank import template, so the file can be re-imported directly).
 - **📊 Statistics**: mastery rate, trends and subject distribution for both mistakes and practice, with time-range and subject filters.
 - **⏳ Background tasks**: the button at the bottom right shows the progress of long-running jobs such as recognition, AI generation, animation voice, bulk tagging and exam generation. Jobs keep running on the server after you leave the page. Photo recognition results are also kept in **Recognition**.
 - **💾 Import and export**: export or import data backups in **Settings**, including notebooks, questions, system and custom tags, practice and answer records, exams, personal preferences and synthesized cloud voice. Tags are restored by tag system and parent path, keeping identically named chapters and knowledge points under different grades separate and reconnecting questions to their specific tag nodes. Account credentials and AI settings are not included.
