@@ -194,6 +194,8 @@ jobs:
       - name: Build desktop installers (unsigned)
         shell: bash
         env:
+          # GitHub release-assets CDN 偶发 504，改用国内 Electron 镜像下载运行时
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: node scripts/package/build.mjs desktop ${{ matrix.args }}
 
