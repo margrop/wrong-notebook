@@ -3,6 +3,24 @@
 本文件记录各正式版的改动，由 `scripts/changelog.sh` 根据提交信息生成，请勿手动编辑。
 预览版（`v年.月.日-n`）的改动见 [GitHub Releases](https://github.com/margrop/wrong-notebook/releases)，并归入其后的正式版。
 
+## [2026.11.10](https://github.com/margrop/wrong-notebook/releases/tag/v2026.11.10) - 2026-11-10
+
+### ✨ 新功能
+- 拍照与校对可设置错题来源
+- 重绘配图可单独框选原图区域
+
+### 🛠 修复
+- 裁剪支持旋转并提高跨页拼接分辨率
+- 识别结果默认先人工核对
+- 恢复遥测页面类型导出
+- 安卓 App 导出文件后退出且无保存位置提示
+- 试卷分组并发创建撞唯一约束返回重名错误
+- 遥测页面枚举补齐导入、打印与登录页
+- 未捕获 API 错误按实际路由上报 scope
+- 错误指纹跨部署路径稳定并纳入归一化消息
+
+**完整变更**：https://github.com/margrop/wrong-notebook/compare/v2026.11.9...v2026.11.10
+
 ## [2026.11.9](https://github.com/margrop/wrong-notebook/releases/tag/v2026.11.9) - 2026-11-09
 
 ### ✨ 新功能
