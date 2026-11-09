@@ -196,8 +196,16 @@ jobs:
         env:
           # GitHub release-assets CDN 偶发 504，改用国内 Electron 镜像下载运行时
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: node scripts/package/build.mjs desktop ${{ matrix.args }}
+        run: |
+          # GitHub release-assets CDN 偶发 504；重试可利用 electron-builder 缓存继续下载
+          for attempt in 1 2 3; do
+            if node scripts/package/build.mjs desktop ${{ matrix.args }}; then exit 0; fi
+            if [[ "$attempt" -eq 3 ]]; then exit 1; fi
+            echo "桌面安装包构建失败，30 秒后第 $((attempt + 1)) 次重试"
+            sleep 30
+          done
 
       - name: 检查 Windows 签名配置与安装包元数据
         if: env.SIGNPATH_MODE != 'off'
