@@ -33,7 +33,11 @@ function inputOptions(options: PromptOptions): Record<string, unknown> {
 
 function referenceOptions(options: PromptOptions): PromptOptions {
     const result = { ...options };
-    const fields = ['prefetchedMathTags', 'prefetchedPhysicsTags', 'prefetchedChemistryTags', 'prefetchedBiologyTags', 'prefetchedEnglishTags'] as const;
+    const fields = [
+        'prefetchedMathTags', 'prefetchedPhysicsTags', 'prefetchedChemistryTags',
+        'prefetchedBiologyTags', 'prefetchedEnglishTags', 'prefetchedChineseTags',
+        'prefetchedHistoryTags', 'prefetchedGeographyTags', 'prefetchedPoliticsTags',
+    ] as const;
     for (const field of fields) {
         if (options[field]) result[field] = options[field].length ? [ref('tagOptions.' + field)] : [];
     }
@@ -41,6 +45,8 @@ function referenceOptions(options: PromptOptions): PromptOptions {
         result.candidateTags = {
             subjectName: safeSubject(options.candidateTags.subjectName) || '本题学科',
             tags: options.candidateTags.tags.length ? [ref('tagOptions.candidateTags.tags')] : [],
+            // 该学段没有课程库时允许自行命名，提示词必须据此切换选择规则
+            ...(options.candidateTags.allowCustom ? { allowCustom: true } : {}),
         };
     }
     result.originalFigureSvg = options.originalFigureSvg ? ref('tagOptions.originalFigureSvg') : null;

@@ -3,7 +3,8 @@ import type { PromptOptions } from './prompts';
 
 const SUBJECT_TAG_FIELDS = {
     数学: 'prefetchedMathTags', 物理: 'prefetchedPhysicsTags', 化学: 'prefetchedChemistryTags',
-    生物: 'prefetchedBiologyTags', 英语: 'prefetchedEnglishTags',
+    生物: 'prefetchedBiologyTags', 英语: 'prefetchedEnglishTags', 语文: 'prefetchedChineseTags',
+    历史: 'prefetchedHistoryTags', 地理: 'prefetchedGeographyTags', 政治: 'prefetchedPoliticsTags',
 } as const;
 
 /**
@@ -18,10 +19,13 @@ export function normalizeAiQuestionTags<T extends { knowledgePoints: string[]; s
         if (!options.candidateTags) {
             const field = SUBJECT_TAG_FIELDS[question.subject as keyof typeof SUBJECT_TAG_FIELDS];
             if (field) {
-                allowedTags = options[field];
+                // 该学科暂无内置知识点（如历史、地理、政治）时允许 AI 自行命名
+                const subjectTags = options[field];
+                allowedTags = subjectTags?.length ? subjectTags : undefined;
             } else {
-                const available = Object.values(SUBJECT_TAG_FIELDS).flatMap(key => options[key] ? [options[key]] : []);
-                allowedTags = available.length ? available.flat() : undefined;
+                const available = Object.values(SUBJECT_TAG_FIELDS)
+                    .flatMap(key => options[key] ?? []);
+                allowedTags = available.length ? available : undefined;
             }
         }
     }

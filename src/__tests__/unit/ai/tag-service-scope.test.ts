@@ -7,7 +7,7 @@ const findMany = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/prisma', () => ({ prisma: { knowledgeTag: { findMany } } }));
 vi.mock('@/lib/logger', () => ({ createLogger: vi.fn(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() })) }));
 
-import { getNotebookCandidateTags, getScopeTagsFromDB } from '@/lib/ai/tag-service';
+import { getNotebookCandidateTags, getScopeTagsFromDB, prefetchSubjectTags } from '@/lib/ai/tag-service';
 
 // 年级 → 章节 → 知识点；小学两个年级、初中一个年级
 const tree = [
@@ -49,5 +49,30 @@ describe('getScopeTagsFromDB', () => {
     it('数据库出错时返回空列表', async () => {
         findMany.mockRejectedValue(new Error('db down'));
         expect(await getScopeTagsFromDB('math', 'primary')).toEqual([]);
+    });
+});
+
+describe('prefetchSubjectTags', () => {
+    beforeEach(() => {
+        findMany.mockReset();
+        findMany.mockResolvedValue(tree);
+    });
+
+    it('未指定学科时预取全部学科标签，语文不再缺省为空', async () => {
+        const tags = await prefetchSubjectTags(null, 5);
+        expect(Object.keys(tags).sort()).toEqual([
+            'prefetchedBiologyTags', 'prefetchedChemistryTags', 'prefetchedChineseTags',
+            'prefetchedEnglishTags', 'prefetchedGeographyTags', 'prefetchedHistoryTags',
+            'prefetchedMathTags', 'prefetchedPhysicsTags', 'prefetchedPoliticsTags',
+        ]);
+        // 数据库查询由 Prisma 过滤学科与叶子节点，mock 只验证预取键已包含语文
+        expect(tags.prefetchedChineseTags).toContain('10以内数的认识');
+    });
+
+    it('指定学科时只预取该学科标签', async () => {
+        const tags = await prefetchSubjectTags('语文', 5);
+        expect(tags.prefetchedChineseTags.length).toBeGreaterThan(0);
+        expect(tags.prefetchedMathTags).toEqual([]);
+        expect(tags.prefetchedEnglishTags).toEqual([]);
     });
 });

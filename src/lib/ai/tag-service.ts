@@ -238,7 +238,8 @@ export async function getNotebookCandidateTags(scope: NotebookScope, tagSet: str
 }
 
 /**
- * 未指定错题本时的旧逻辑：数学按学生年级取标签，其他学科取全部；未知学科时各科都取，让 AI 判断
+ * 未指定错题本时的候选标签：数学按学生年级取标签，其他学科取该学科全部知识点；
+ * 未知学科时各科都取，让 AI 判断后再按学科过滤。
  */
 export async function prefetchSubjectTags(subject: string | null | undefined, grade: GradeLevel | null | undefined, tagSet: string = 'default') {
     return {
@@ -247,5 +248,9 @@ export async function prefetchSubjectTags(subject: string | null | undefined, gr
         prefetchedChemistryTags: (subject === '化学' || !subject) ? await getTagsFromDB('chemistry', tagSet) : [],
         prefetchedBiologyTags: (subject === '生物' || !subject) ? await getTagsFromDB('biology', tagSet) : [],
         prefetchedEnglishTags: (subject === '英语' || !subject) ? await getTagsFromDB('english', tagSet) : [],
+        prefetchedChineseTags: (subject === '语文' || !subject) ? await getTagsFromDB('chinese', tagSet) : [],
+        prefetchedHistoryTags: (subject === '历史' || !subject) ? await getTagsFromDB('history', tagSet) : [],
+        prefetchedGeographyTags: (subject === '地理' || !subject) ? await getTagsFromDB('geography', tagSet) : [],
+        prefetchedPoliticsTags: (subject === '政治' || !subject) ? await getTagsFromDB('politics', tagSet) : [],
     };
 }

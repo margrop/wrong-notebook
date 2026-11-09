@@ -59,6 +59,13 @@ describe('AI 请求的材料边界', () => {
         expect(JSON.parse(request.user).data.gradeSemester).toContain(material);
     });
 
+    it('识别请求把 allowCustom 传给提示词，按自行命名规则选择知识点', () => {
+        const request = generateAnalyzeRequest('zh', null, '数学', {
+            candidateTags: { subjectName: '数学', tags: [], allowCustom: true },
+        });
+        expect(request.system).toContain('原样复用');
+        expect(request.system).not.toContain('必须从上述列表中选择精确匹配的标签');
+    });
 
 });
 
