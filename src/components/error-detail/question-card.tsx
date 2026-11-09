@@ -83,7 +83,7 @@ export function QuestionCard({ item, educationStage, saveFields, onUpdate, reloa
                                 hasImage={!!item.originalImageUrl}
                                 onDone={(originalImageUrl) => { onUpdate({ originalImageUrl }); setShowImage(true); }}
                             />
-                            {item.originalImageUrl && <RegenerateFigureButton errorItemId={item.id} onDone={onUpdate} />}
+                            {item.originalImageUrl && <RegenerateFigureButton errorItemId={item.id} originalImageUrl={item.originalImageUrl} onDone={onUpdate} />}
                         </>}
                     />
                 </div>

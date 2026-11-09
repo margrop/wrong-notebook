@@ -48,6 +48,24 @@ describe('POST /api/error-items/:id/figure', () => {
         expect(mocks.errorItem.update).toHaveBeenCalledWith(expect.objectContaining({ data: { hasFigure: true, figureSvg: svg } }));
         expect(await response.json()).toEqual({ hasFigure: true, figureSvg: svg });
     });
+    it('优先使用框选的配图区域，而不是整张原图', async () => {
+        mocks.generateFigureSvg.mockResolvedValue({ hasFigure: true, figureSvg: svg });
+        const response = await POST(new Request('http://localhost', {
+            method: 'POST',
+            body: JSON.stringify({ imageBase64: 'data:image/jpeg;base64,Q0Q=' }),
+        }), { params: Promise.resolve({ id: 'e1' }) });
+        expect(response.status).toBe(200);
+        expect(mocks.generateFigureSvg).toHaveBeenCalledWith('Q0Q=', 'image/jpeg', '如图，求三角形面积');
+    });
+
+    it('非法配图裁剪数据返回 400，不调用 AI', async () => {
+        const response = await POST(new Request('http://localhost', {
+            method: 'POST',
+            body: JSON.stringify({ imageBase64: 'https://example.com/figure.png' }),
+        }), { params: Promise.resolve({ id: 'e1' }) });
+        expect(response.status).toBe(400);
+        expect(mocks.generateFigureSvg).not.toHaveBeenCalled();
+    });
 
     it('AI 判断没有配图时清除旧配图', async () => {
         mocks.generateFigureSvg.mockResolvedValue({ hasFigure: false, figureSvg: null });

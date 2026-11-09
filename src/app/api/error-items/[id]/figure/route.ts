@@ -9,22 +9,29 @@ import { describeQuestion, findRunningTask, reserveBackgroundTask, runReservedTa
 import { serializeWrite } from "@/lib/db-write-queue";
 import { consumeAiQuota } from "@/lib/ai-quota";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
+import { z } from "zod";
 
 const logger = createLogger('api:error-items:figure');
 
 type RouteContext = { params: Promise<{ id: string }> };
+/** 可选的配图裁剪结果（data URL）；未提供时使用整张原图 */
+const figureCropSchema = z.object({
+    imageBase64: z.string().max(15 * 1024 * 1024).regex(/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/).optional(),
+}).strip();
 
 /**
  * POST /api/error-items/:id/figure
  * 用原题图片让 AI 重新判断是否有配图，并重绘 SVG 配图后保存
  */
 async function handlePost(
-    _req: Request,
+    req: Request,
     { user, params }: RouteContext & AuthenticatedContext
 ) {
     const { id } = await params;
 
     try {
+        const parsedBody = figureCropSchema.safeParse(await req.json().catch(() => ({})));
+        if (!parsedBody.success) return badRequest("INVALID_IMAGE");
         const item = await prisma.errorItem.findUnique({
             where: { id },
             select: { userId: true, shortId: true, originalImageUrl: true, questionText: true },
@@ -35,9 +42,12 @@ async function handlePost(
 
         // 原图以 data URL 保存；文字录入的题目没有原图，无法重绘
         const match = item.originalImageUrl?.match(/^data:([^;]+);base64,([\s\S]+)$/);
-        if (!match) {
+        const cropped = parsedBody.data.imageBase64?.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/);
+        if (!cropped && !match) {
             return badRequest("NO_ORIGINAL_IMAGE");
         }
+        const imageBase64 = cropped?.[2] ?? match![2];
+        const mimeType = cropped?.[1] ?? match![1];
 
         // 按目标防重复：同一错题同一时刻只允许一个「重绘配图」任务（reserve 失败返回 409，不扣额度、不调用 AI）
         const target = `error-item:${id}:figure`;
@@ -60,7 +70,7 @@ async function handlePost(
 
         const updated = await runReservedTask(handle, async () => {
             const ai = await getAIService({ userId: user.id, kind: 'figure' });
-            const figure = await ai.generateFigureSvg(match[2], match[1], item.questionText);
+            const figure = await ai.generateFigureSvg(imageBase64, mimeType, item.questionText);
             return prisma.errorItem.update({
                 where: { id },
                 data: { hasFigure: figure.hasFigure, figureSvg: figure.figureSvg },
