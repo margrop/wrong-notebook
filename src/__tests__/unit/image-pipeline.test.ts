@@ -91,7 +91,7 @@ beforeEach(() => {
         const context: FakeCanvasContext & Record<string, unknown> = {
             save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(),
             stroke: vi.fn(), arc: vi.fn(), fill: vi.fn(), lineWidth: 0, strokeStyle: '',
-            fillRect: vi.fn(), drawImage, fillStyle: '', imageSmoothingEnabled: false, imageSmoothingQuality: 'low',
+            fillRect: vi.fn(), drawImage, translate: vi.fn(), rotate: vi.fn(), fillStyle: '', imageSmoothingEnabled: false, imageSmoothingQuality: 'low',
         };
         const canvas: FakeCanvas & Record<string, unknown> = {
             width: 0, height: 0, quality: [], drawImage, context,
@@ -128,6 +128,12 @@ describe('renderRegion', () => {
         expect(canvases[0].drawImage).toHaveBeenCalledWith(original.source, 1000, 1500, 2000, 750, 0, 0, 2000, 750);
         expect(result).toMatchObject({ width: 2000, height: 750, quality: 0.9, bytes: 1000 });
         expect(result.dataUrl).toMatch(/^data:image\/jpeg;base64,/);
+    });
+    it('按旋转角度从原图裁剪并交换输出宽高', async () => {
+        const original = source(4000, 3000);
+        const result = await renderRegion(original, { x: 0.25, y: 0.5, width: 0.5, height: 0.25, rotation: 90 });
+        expect(canvases[0].drawImage).toHaveBeenCalledWith(original.source, 2000, 750, 1000, 1500, 0, 0, 1000, 1500);
+        expect(result).toMatchObject({ width: 1500, height: 1000 });
     });
 
     it('800×8000 的细长图即使体积很小也按像素与最长边缩小', async () => {

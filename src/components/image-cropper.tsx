@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import type { CSSProperties } from "react";
-import { Eraser, Trash2, Undo2 } from "lucide-react";
+import { Eraser, RotateCcw, RotateCw, Trash2, Undo2 } from "lucide-react";
 import ReactCrop from "react-image-crop";
 import type { Crop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
@@ -11,8 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { RegionSelector } from "@/components/region-selector";
 import { ZoomControls } from "@/components/zoom-controls";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { applyEraseStrokes, cropImageRegions, toSafeImageSrc } from "@/lib/image-crop";
-import type { EraseStroke, ImageRegion } from "@/lib/image-crop";
+import { applyEraseStrokes, cropImageRegions, drawRotatedCrop, rotatedCropGeometry, rotatedFrameSize, toSafeImageSrc } from "@/lib/image-crop";
+import type { EraseStroke, ImageRegion, ImageRotation } from "@/lib/image-crop";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { useImageZoom } from "@/lib/hooks/use-image-zoom";
 import { useStoredChoice } from "@/lib/hooks/use-stored-choice";
@@ -64,6 +64,46 @@ interface ImageCropperProps {
 export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiCropComplete, onRegionsSelected, allowMulti = true, onAutoSplit, onAddPart, partCount = 0, eraseEnabled = true }: ImageCropperProps) {
     const { t } = useLanguage();
     const safeImageSrc = toSafeImageSrc(imageSrc);
+    // 旋转角度与图片绑定，换图后回到 0 度，无需在 effect 中同步重置
+    const [rotationState, setRotationState] = useState<{ src: string | undefined; rotation: ImageRotation }>({ src: imageSrc, rotation: 0 });
+    const rotation = rotationState.src === imageSrc ? rotationState.rotation : 0;
+    const setRotation = (next: ImageRotation) => setRotationState({ src: imageSrc, rotation: next });
+    const [rotatedCache, setRotatedCache] = useState<{ src: string | undefined; rotation: ImageRotation; url: string } | null>(null);
+    const rotatedSrc = rotation === 0
+        ? safeImageSrc
+        : (rotatedCache && rotatedCache.src === safeImageSrc && rotatedCache.rotation === rotation ? rotatedCache.url : safeImageSrc);
+    // 旋转预览：裁剪坐标相对旋转后的画面，最终从原图按同一角度裁剪
+    useEffect(() => {
+        if (!safeImageSrc || rotation === 0) return;
+        let cancelled = false;
+        let objectUrl: string | null = null;
+        const image = new Image();
+        image.decoding = "async";
+        image.src = safeImageSrc;
+        image.decode().then(() => {
+            if (cancelled) return;
+            const geometry = rotatedCropGeometry(image.naturalWidth, image.naturalHeight,
+                { x: 0, y: 0, width: 1, height: 1, rotation });
+            const frame = rotatedFrameSize(image.naturalWidth, image.naturalHeight, rotation);
+            const canvas = document.createElement("canvas");
+            canvas.width = frame.width;
+            canvas.height = frame.height;
+            const context = canvas.getContext("2d");
+            if (!context) return;
+            drawRotatedCrop(context, image, geometry, frame.width, frame.height);
+            canvas.toBlob((blob) => {
+                if (!blob || cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                setRotatedCache({ src: safeImageSrc, rotation, url: objectUrl });
+            }, "image/jpeg", 0.9);
+        }).catch((error: unknown) => {
+            frontendLogger.warn("[ImageCropper]", "Rotate preview failed", { error });
+        });
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [safeImageSrc, rotation]);
     // 始终保存百分比坐标，缩放改变图片显示尺寸后仍然准确
     const [crop, setCrop] = useState<Crop>();
     const imgRef = useRef<HTMLImageElement>(null);
@@ -110,6 +150,14 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
     const strokes = useMemo(() => (eraseState.src === imageSrc ? eraseState.strokes : []), [eraseState, imageSrc]);
     const setStrokes = (next: EraseStroke[] | ((current: EraseStroke[]) => EraseStroke[])) =>
         setEraseState((current) => ({ src: imageSrc, strokes: typeof next === "function" ? next(current.strokes) : next }));
+    const rotate = (delta: 90 | -90) => {
+        const next = ((rotation + delta) % 360 + 360) % 360;
+        setRotation(next as ImageRotation);
+        setCrop(undefined);
+        setRegions([]);
+        setStrokes([]);
+        resetZoom();
+    };
     const [erasing, setErasing] = useState(false);
     const [brushSize, setBrushSize] = useState<BrushSize>("medium");
     const [imageReady, setImageReady] = useState(0);
@@ -176,13 +224,13 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
     const handleMultiConfirm = async () => {
         if (regions.length === 0) return;
         if (onRegionsSelected) {
-            onRegionsSelected(regions, true);
+            onRegionsSelected(regions.map((region) => ({ ...region, rotation })), true);
             setRegions([]);
             return;
         }
         if (!multiImgRef.current || !onMultiCropComplete) return;
         try {
-            onMultiCropComplete(await cropImageRegions(multiImgRef.current, regions));
+            onMultiCropComplete(await cropImageRegions(multiImgRef.current, regions.map((region) => ({ ...region, rotation: 0 }))));
             setRegions([]);
         } catch (e) {
             frontendLogger.error('[ImageCropper]', 'Multi-image crop failed', { error: e });
@@ -201,7 +249,7 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
         const base = crop && crop.width > 0 && crop.height > 0
             ? { x: crop.x / 100, y: crop.y / 100, width: crop.width / 100, height: crop.height / 100 }
             : { x: 0, y: 0, width: 1, height: 1 };
-        return strokes.length ? { ...base, erase: strokes } : base;
+        return { ...base, rotation, ...(strokes.length ? { erase: strokes } : {}) };
     };
 
     const handleConfirm = async () => {
@@ -216,7 +264,7 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
         }
         if (!imgRef.current || !onCropComplete) return;
         try {
-            const [croppedBlob] = await cropImageRegions(imgRef.current, [region]);
+            const [croppedBlob] = await cropImageRegions(imgRef.current, [{ ...region, rotation: 0 }]);
             onCropComplete(croppedBlob);
         } catch (e) {
             frontendLogger.error('[ImageCropper]', 'Crop failed', { error: e });
@@ -237,7 +285,7 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
                             {mode === "multi" ? (
                                 <RegionSelector
                                     ref={multiImgRef}
-                                    imageSrc={safeImageSrc}
+                                    imageSrc={rotatedSrc}
                                     regions={regions}
                                     onChange={setRegions}
                                     imageStyle={imageStyle}
@@ -249,7 +297,7 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
                                         <img
                                             ref={imgRef}
                                             alt="Crop me"
-                                            src={safeImageSrc}
+                                            src={rotatedSrc}
                                             onLoad={onImageLoad}
                                             style={imageStyle}
                                             className="block"
@@ -270,6 +318,14 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete, onMultiC
                                 </div>
                             )}
                         </div>
+                    </div>
+                    <div className="absolute left-3 top-3 flex gap-1 rounded-md bg-background/90 p-1 shadow-sm">
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => rotate(-90)} aria-label={t.common.cropper.rotateLeft} title={t.common.cropper.rotateLeft}>
+                            <RotateCcw className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => rotate(90)} aria-label={t.common.cropper.rotateRight} title={t.common.cropper.rotateRight}>
+                            <RotateCw className="h-4 w-4" />
+                        </Button>
                     </div>
                     <div className="absolute right-3 top-3">
                         <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetZoom} />

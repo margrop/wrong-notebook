@@ -94,6 +94,8 @@ export const en = {
                 brushThin: "Thin",
                 brushMedium: "Medium",
                 brushThick: "Thick",
+                rotateLeft: "Rotate left 90°",
+                rotateRight: "Rotate right 90°",
             },
             progress: {
                 reading: "Reading photo...",
@@ -296,6 +298,8 @@ export const en = {
         upload: {
             // dragDrop: "Click or drag image to upload", // Moved to app
             support: "JPG, PNG, WebP and HEIC/HEIF photos",
+            sourceLabel: "Question source",
+            sourcePlaceholder: "e.g. Midterm math exam (optional)",
             parts: {
                 addNext: "Rest is on another sheet",
                 cropHint: "Part {n}: frame this part. On confirm it is joined below the earlier parts and recognized as one question.",
@@ -362,6 +366,8 @@ export const en = {
             save: "Save to Notebook",
             selectNotebook: "Select Notebook",
             gradeSemester: "Grade/Semester",
+            source: "Question source",
+            sourcePlaceholder: "e.g. Midterm math exam, question 12 (optional)",
             preview: {
                 question: "Question Preview",
                 answer: "Answer Preview",
@@ -506,6 +512,8 @@ export const en = {
             clickToView: "Click to view full image",
             clickToEnlarge: "Click to enlarge",
             questionInfo: "Question Info",
+            source: "Source",
+            sourcePlaceholder: "e.g. Midterm math exam, question 12 (optional)",
             mistakeAnalysis: "Mistake Analysis",
             noMistakeAnalysis: "No mistake analysis yet.",
             close: "Close",
@@ -1549,6 +1557,8 @@ export const en = {
             },
             fields: {
                 title: "Answers & knowledge points",
+                source: "Source",
+                sourcePlaceholder: "e.g. Midterm math exam (optional)",
                 answer: "Answer",
                 analysis: "Analysis",
                 knowledgePoints: "Knowledge points",
