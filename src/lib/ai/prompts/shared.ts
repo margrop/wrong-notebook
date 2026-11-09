@@ -185,6 +185,10 @@ export interface PromptOptions {
   prefetchedChemistryTags?: string[];
   prefetchedBiologyTags?: string[];
   prefetchedEnglishTags?: string[];
+  prefetchedChineseTags?: string[];
+  prefetchedHistoryTags?: string[];
+  prefetchedGeographyTags?: string[];
+  prefetchedPoliticsTags?: string[];
   // 错题本学段 + 学科下的全部知识点；提供时直接使用，不再按学科、年级取标签
   candidateTags?: CandidateTags;
   // 举一反三时原题的 SVG 配图，供 AI 参考重新画图

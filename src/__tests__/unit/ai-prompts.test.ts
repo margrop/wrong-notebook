@@ -90,6 +90,16 @@ describe('AI Prompts', () => {
             const prompt = generateAnalyzePrompt('zh', null, '数学');
             expect(prompt).toContain('数学');
         });
+        it('未指定学科时列出语文等全部学科候选标签', () => {
+            const prompt = generateAnalyzePrompt('zh', null, null, {
+                prefetchedChineseTags: ['声母', '韵母'],
+                prefetchedHistoryTags: ['辛亥革命'],
+            });
+            expect(prompt).toContain('**语文标签 (Chinese Tags):**');
+            expect(prompt).toContain('"声母", "韵母"');
+            expect(prompt).toContain('**历史标签 (History Tags):**');
+            expect(prompt).toContain('"辛亥革命"');
+        });
 
         it('应该根据年级过滤数学标签（初一）', () => {
             const prompt = generateAnalyzePrompt('zh', 7, '数学');
