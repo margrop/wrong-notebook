@@ -13,9 +13,10 @@ dist-scripts
 data
 certs
 
-# 安装包构建配置与产物（保留单元测试所需的 packaging/runtime）
+# 安装包构建配置与产物（保留单元测试所需的 packaging/runtime 与安卓 bridge）
 packaging/*
 !packaging/runtime
+!packaging/android/app/src/main/assets/bridge.js
 
 # 版本控制与开发配置
 .git
