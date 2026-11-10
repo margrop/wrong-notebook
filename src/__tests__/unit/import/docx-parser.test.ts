@@ -729,6 +729,15 @@ describe("docx 解析：自动编号后紧跟数字", () => {
         expect(result.questions).toHaveLength(3);
         expect(result.questions[1].text).toContain("2008 年的题");
     });
+
+    it("半角「1.」自动编号后接中文时直接拼接，不补空格", async () => {
+        const buffer = makeDocxBuffer({
+            body: numPara("5", 0, t("第一题")),
+            numbering: abstractNum("50", [{ numFmt: "decimal", lvlText: "%1." }]) + num("5", "50"),
+        });
+        const result = await parseDocx(buffer);
+        expect(result.questions[0].text).toBe("1．第一题");
+    });
 });
 
 describe("docx 解析：OLE 公式对象 WMF 结构还原为 LaTeX（W3）", () => {
