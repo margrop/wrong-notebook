@@ -11,6 +11,8 @@ const LastPracticeSchema = z.object({
     subject: z.string().optional(),
     figureSvg: z.string().nullable().optional(),
     difficulty: z.enum(['easy', 'medium', 'hard', 'harder']),
+    /** ai 生成 | bank 真题库选题；旧数据没有此字段时按 ai */
+    source: z.enum(['ai', 'bank']).optional(),
     generatedAt: z.string(),
 });
 

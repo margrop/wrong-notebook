@@ -93,6 +93,13 @@ export async function GET(req: Request) {
             where: userFilter,
         });
 
+        const questionBanks = await prisma.questionBank.findMany({
+            where: userFilter,
+            include: {
+                questions: { orderBy: { createdAt: 'asc' } },
+            },
+        });
+
         // 待校对任务与未完成批次不再进入备份（第 13 版）：它们带整页图片，只在原设备继续处理
         const importBatches: unknown[] = [];
         const importTasks: unknown[] = [];
@@ -148,6 +155,7 @@ export async function GET(req: Request) {
                 })),
             })),
             paperGroups,
+            questionBanks,
             ttsSpeeches,
             importTasks,
             importBatches,
@@ -167,6 +175,7 @@ export async function GET(req: Request) {
             importTasksCount: importTasks.length,
             importBatchesCount: importBatches.length,
             ttsSpeechesCount: ttsSpeeches.length,
+            questionBanksCount: questionBanks.length,
         }, 'Data export completed');
 
         void recordEvent("data_exported", { scope: exportAll ? "all" : "user", rows: rowsBucket(errorItems.length) });

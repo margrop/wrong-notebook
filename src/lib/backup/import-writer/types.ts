@@ -18,6 +18,8 @@ export interface ImportStats {
     ttsSpeechesImported: number;
     importTasksCreated: number;
     importBatchesCreated: number;
+    questionBanksCreated: number;
+    bankQuestionsCreated: number;
     extensionsImported: Record<string, number>;
 }
 
@@ -88,6 +90,8 @@ export function createImportContext({ tx, user, importAll, normalized }: ImportW
             ttsSpeechesImported: 0,
             importTasksCreated: 0,
             importBatchesCreated: 0,
+            questionBanksCreated: 0,
+            bankQuestionsCreated: 0,
             extensionsImported: {},
         },
         masteryIds: new Set<string>(),

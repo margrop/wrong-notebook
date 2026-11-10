@@ -44,6 +44,8 @@ export function usePracticeSession(errorItemId: string | null) {
     const [gradeReason, setGradeReason] = useState<string | null>(null);
     const [gradeFailed, setGradeFailed] = useState(false);
     const [difficulty, setDifficulty] = useState<PracticeDifficulty>("medium");
+    // 出题来源：ai 按错题生成变式题，bank 从真题库按知识点选题
+    const [source, setSource] = useState<'ai' | 'bank'>('ai');
     // 生成当前题目时使用的难度（下拉框改动后不影响已生成题目的记录）
     const [generatedDifficulty, setGeneratedDifficulty] = useState<string>("medium");
     // 每生成一道新题递增，用于重置结果卡片
@@ -79,6 +81,7 @@ export function usePracticeSession(errorItemId: string | null) {
                     figureSvg: practice.figureSvg ?? null,
                 });
                 setDifficulty(practice.difficulty);
+                setSource(practice.source ?? 'ai');
                 setGeneratedDifficulty(practice.difficulty);
                 setGeneratedAt(practice.generatedAt);
             })
@@ -122,7 +125,7 @@ export function usePracticeSession(errorItemId: string | null) {
                         figureSvg: practice.figureSvg ?? null,
                     });
                     setDifficulty(practice.difficulty);
-                    setGeneratedDifficulty(practice.difficulty);
+                    setSource(practice.source ?? 'ai');
                     setGeneratedAt(practice.generatedAt);
                 })
                 .catch(err => frontendLogger.warn('[Practice]', 'Failed to reload last practice question', { error: err }));
@@ -147,6 +150,7 @@ export function usePracticeSession(errorItemId: string | null) {
                 errorItemId,
                 language,
                 difficulty,
+                source,
             }, { timeout, recoverable: true });
             setQuestion(data);
             setGeneratedDifficulty(difficulty);
@@ -161,7 +165,7 @@ export function usePracticeSession(errorItemId: string | null) {
                 const msg = getApiErrorMessage(err) || "";
                 const matched = AI_ERROR_KEYS.find(([code]) => msg.includes(code));
                 const fallback = t.practice.errors?.default || "Failed to generate";
-                setError((matched && t.errors?.[matched[1]]) || fallback);
+                setError(msg.includes('BANK_NO_MATCH') ? (t.practice.errors?.bankNoMatch || fallback) : ((matched && t.errors?.[matched[1]]) || fallback));
             }
         } finally {
             setLoading(false);
@@ -210,6 +214,7 @@ export function usePracticeSession(errorItemId: string | null) {
     return {
         question, loading: loading || !!taskRunning, loadingCached, error, generatedAt,
         difficulty, setDifficulty, generatedDifficulty, questionVersion,
+        source, setSource,
         userAnswer, setUserAnswer, notes, setNotes,
         isSubmitted, isCorrect, grading, gradeReason, gradeFailed, showAnswer, suggestedResult,
         generateQuestion, submitAnswer, revealAnswer,

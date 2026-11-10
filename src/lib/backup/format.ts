@@ -11,7 +11,7 @@ import { z } from "zod";
  */
 
 /** 当前备份文件版本号 */
-export const BACKUP_VERSION = 13;
+export const BACKUP_VERSION = 14;
 
 /** 备份文件中的用户对象 */
 export interface BackupUser {
@@ -228,6 +228,45 @@ export interface BackupExtensionEntry {
     data: unknown;
 }
 
+/** 真题库题目（version 14 起导出） */
+export interface BackupBankQuestion {
+    id: string;
+    externalId: string | null;
+    stage: string;
+    subjectKey: string | null;
+    grade: number | null;
+    semester: string | null;
+    questionType: string | null;
+    difficultyStars: number | null;
+    text: string;
+    material: string | null;
+    optionsJson: string | null;
+    answer: string | null;
+    analysis: string | null;
+    knowledgePoints: string | null;
+    source: string | null;
+    figureSvg: string | null;
+    createdAt: string | Date;
+}
+
+/** 用户导入的真题库（version 14 起导出） */
+export interface BackupQuestionBank {
+    id: string;
+    userId: string;
+    name: string;
+    description: string | null;
+    stage: string;
+    subjectKey: string | null;
+    gradeRange: string | null;
+    source: string | null;
+    sourceUrl: string | null;
+    license: string | null;
+    formatVersion: number;
+    questionCount: number;
+    createdAt: string | Date;
+    updatedAt: string | Date;
+    questions: BackupBankQuestion[];
+}
 /** 备份文件的顶层结构：导出侧写出的结构 */
 export interface BackupFile {
     version: number;
@@ -242,6 +281,8 @@ export interface BackupFile {
     practiceRecords: BackupPracticeRecord[];
     examPapers: BackupExamPaper[];
     paperGroups: BackupPaperGroup[];
+    /** 真题库（version 14 起导出） */
+    questionBanks: BackupQuestionBank[];
     /** 动画讲解的云端语音 */
     ttsSpeeches: unknown[];
     /** 未处理的识别导入任务（version 5 起导出） */
@@ -305,6 +346,18 @@ export type ImportedBackupPaperGroup = Omit<BackupPaperGroup, "createdAt" | "upd
     updatedAt: ImportedDate;
 };
 
+/** 导入侧的真题库题目 */
+export type ImportedBackupBankQuestion = Omit<BackupBankQuestion, "createdAt"> & {
+    createdAt: ImportedDate;
+};
+
+/** 导入侧的真题库 */
+export type ImportedBackupQuestionBank = Omit<BackupQuestionBank, "createdAt" | "updatedAt" | "questions"> & {
+    createdAt: ImportedDate;
+    updatedAt: ImportedDate;
+    questions: ImportedBackupBankQuestion[];
+};
+
 /**
  * 导入侧可接受的备份结构。旧版本缺失的顶层字段标为可选，
  * 日期字段在导入侧为字符串（JSON 解析结果），避免拒绝旧版本备份。
@@ -323,6 +376,7 @@ export interface ImportableBackupFile {
     practiceRecords?: ImportedBackupPracticeRecord[];
     examPapers?: ImportedBackupExamPaper[];
     paperGroups?: ImportedBackupPaperGroup[];
+    questionBanks?: ImportedBackupQuestionBank[];
     ttsSpeeches?: unknown;
     importTasks?: unknown;
     importBatches?: unknown;

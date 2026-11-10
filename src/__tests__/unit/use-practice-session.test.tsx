@@ -98,12 +98,25 @@ describe('usePracticeSession', () => {
         await act(async () => session.generateQuestion());
 
         expect(mocks.post).toHaveBeenCalledWith('/api/practice/generate',
-            { errorItemId: 'item-1', language: expect.any(String), difficulty: 'easy' },
+            { errorItemId: 'item-1', language: expect.any(String), difficulty: 'easy', source: 'ai' },
             { timeout: 60000, recoverable: true });
         expect(session.question?.questionText).toBe('3 + 4 = ?');
         expect(session.generatedDifficulty).toBe('easy');
         expect(session.questionVersion).toBe(1);
         expect(session.loading).toBe(false);
+    });
+
+    it('选择真题库时按 bank 来源请求，并记住来源', async () => {
+        mocks.post.mockResolvedValueOnce(generated);
+        await render();
+
+        await act(async () => session.setSource('bank'));
+        await act(async () => session.generateQuestion());
+
+        expect(mocks.post).toHaveBeenCalledWith('/api/practice/generate',
+            { errorItemId: 'item-1', language: expect.any(String), difficulty: 'medium', source: 'bank' },
+            { timeout: 60000, recoverable: true });
+        expect(session.source).toBe('bank');
     });
 
     it('生成失败时按错误码显示对应提示', async () => {

@@ -25,6 +25,9 @@ vi.mock('@/lib/mastery', async (importOriginal) => ({
 
 import { GET as EXPORT } from '@/app/api/export/route';
 import { POST as IMPORT } from '@/app/api/import/route';
+import { GET as LIST_BANKS, POST as IMPORT_BANK } from '@/app/api/question-banks/route';
+import { selectBankQuestion } from '@/lib/question-bank/selection';
+import { POST as GENERATE_PRACTICE } from '@/app/api/practice/generate/route';
 import { sanitizeFigureSvg } from '@/lib/figure-svg';
 import { embedNarration, sanitizeSvgAnimation } from '@/lib/svg-animation';
 import { encodeMp3 } from '@/lib/tts/mp3';
@@ -58,6 +61,8 @@ async function importBackup(body: object, query = '') {
 /** 清空当前用户的学习数据（保留账户），模拟换机后导入 */
 async function clearUserData() {
     await database.examPaper.deleteMany({ where: { userId: 'user-1' } });
+    await database.bankQuestion.deleteMany();
+    await database.questionBank.deleteMany();
     await database.errorItem.deleteMany({ where: { userId: 'user-1' } });
     await database.subject.deleteMany({ where: { userId: 'user-1' } });
     await database.knowledgeTag.deleteMany({ where: { userId: 'user-1' } });
@@ -90,6 +95,7 @@ beforeEach(async () => {
     await database.reviewSchedule.deleteMany();
     await database.practiceRecord.deleteMany();
     await database.examPaper.deleteMany();
+    await database.questionBank.deleteMany();
     await database.errorItem.deleteMany();
     await database.knowledgeTag.deleteMany();
     await database.subject.deleteMany();
@@ -186,9 +192,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 12 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
+    it('导出文件使用第 14 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(13);
+        expect(backup.version).toBe(14);
         expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
@@ -210,6 +216,124 @@ describe('数据导出后再导入（真实 SQLite）', () => {
                 expect.objectContaining({ id: 'tag-2', tagSet: 'cn-math-taxonomy' }),
             ])
         );
+    });
+
+    it('真题库与题目随备份往返，按 ID 去重且不影响错题', async () => {
+        await database.questionBank.create({
+            data: {
+                id: 'bank-1', userId: 'user-1', name: '小学数学题库', stage: 'primary', subjectKey: 'math',
+                gradeRange: '[1,2,3,4,5,6]', source: 'cn-math-taxonomy', license: 'CC BY-NC 4.0', questionCount: 2,
+                createdAt: new Date('2026-11-01T00:00:00Z'),
+                questions: {
+                    create: [
+                        {
+                            id: 'bank-q-1', externalId: 'q1', stage: 'primary', subjectKey: 'math', grade: 1, semester: '上',
+                            questionType: 'fill_blank', difficultyStars: 2, text: '3 的后面一个数是几？',
+                            answer: '4', analysis: '从 1 往后数。', knowledgePoints: '["1到5各数的认识"]',
+                            source: '一年级上册 第1单元',
+                        },
+                        {
+                            id: 'bank-q-2', externalId: 'q2', stage: 'primary', subjectKey: 'math', grade: 2, semester: '下',
+                            questionType: 'single_choice', difficultyStars: 3, text: '下列算式中正确的是？',
+                            optionsJson: '{"A":"1+1=3","B":"2+2=4"}', answer: 'B', analysis: '2+2=4。',
+                            knowledgePoints: '["加法"]',
+                        },
+                    ],
+                },
+            },
+        });
+        const backup = await exportBackup();
+        expect(backup.questionBanks).toContainEqual(expect.objectContaining({
+            id: 'bank-1', name: '小学数学题库', questionCount: 2,
+            questions: expect.arrayContaining([expect.objectContaining({ id: 'bank-q-1', text: '3 的后面一个数是几？' })]),
+        }));
+
+        await clearUserData();
+        const { stats } = await importBackup(backup);
+        expect(stats).toMatchObject({ questionBanksCreated: 1, bankQuestionsCreated: 2, errorItemsCreated: 2 });
+
+        const restored = await database.questionBank.findFirstOrThrow({ where: { id: 'bank-1' }, include: { questions: true } });
+        expect(restored).toMatchObject({
+            name: '小学数学题库', stage: 'primary', subjectKey: 'math', source: 'cn-math-taxonomy',
+            license: 'CC BY-NC 4.0', questionCount: 2, createdAt: new Date('2026-11-01T00:00:00Z'),
+        });
+        expect(restored.questions.map((question) => question.id).sort()).toEqual(['bank-q-1', 'bank-q-2']);
+        expect(restored.questions.find((question) => question.id === 'bank-q-2')?.optionsJson).toBe('{"A":"1+1=3","B":"2+2=4"}');
+
+        // 重复导入按原 ID 跳过，不产生重复题库或题目
+        await importBackup(backup);
+        expect(await database.questionBank.count({ where: { userId: 'user-1' } })).toBe(1);
+        expect(await database.bankQuestion.count()).toBe(2);
+    });
+
+    it('真题库导入默认不进错题，可选写入；按知识点从题库选题', async () => {
+        const file = {
+            format: 'wrong-notebook-question-bank',
+            version: 1,
+            meta: {
+                id: 'primary-math', title: '小学数学题库', stage: 'primary', subject: 'math', grades: [1, 2],
+                count: 2, tagged: true, source: 'test-source', license: 'MIT',
+            },
+            questions: [
+                { id: 'q1', grade: 1, semester: '上', questionType: 'fill_blank', difficultyStars: 2,
+                    text: '3 的后面一个数是几？', answer: '4', analysis: '从 1 往后数。', knowledgePoints: ['数的认识'] },
+                { id: 'q2', grade: 2, semester: '下', questionType: 'single_choice', difficultyStars: 3,
+                    text: '下列算式中正确的是？', options: { A: '1+1=3', B: '2+2=4' }, answer: 'B',
+                    analysis: '2+2=4。', knowledgePoints: ['加法'] },
+            ],
+        };
+        const post = (body: object) => IMPORT_BANK(new Request('http://localhost/api/question-banks', {
+            method: 'POST',
+            body: JSON.stringify(body),
+            headers: { 'Content-Type': 'application/json' },
+        }));
+
+        const itemsBefore = await database.errorItem.count({ where: { userId: 'user-1' } });
+        const first = await post({ file });
+        expect(first.status).toBe(201);
+        expect(await database.questionBank.count({ where: { userId: 'user-1' } })).toBe(1);
+        expect(await database.bankQuestion.count()).toBe(2);
+        // 默认只进入真题库，不产生错题
+        expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBe(itemsBefore);
+
+        const list = await LIST_BANKS(new Request('http://localhost/api/question-banks'));
+        expect(list.status).toBe(200);
+        expect((await list.json()).banks).toContainEqual(expect.objectContaining({ name: '小学数学题库', questionCount: 2 }));
+
+        const selected = await selectBankQuestion({
+            userId: 'user-1',
+            errorItem: {
+                id: 'item-1',
+                questionText: '求解 x + 2 = 5',
+                subject: { name: '数学', stage: 'primary', subjectKey: 'math' },
+            },
+            tagNames: ['数的认识'],
+            difficulty: 'medium',
+        });
+        expect(selected?.question.questionText).toContain('3 的后面一个数是几？');
+        expect(selected?.bankName).toBe('小学数学题库');
+
+        await database.subject.create({ data: { id: 'primary-math', name: '小学数学', stage: 'primary', subjectKey: 'math', userId: 'user-1' } });
+        const second = await post({ file, name: '小学数学题库（含错题）', addToErrorItems: true, notebookId: 'primary-math' });
+        expect(second.status).toBe(201);
+        const result = await second.json();
+        expect(result.errorItemsCreated).toBe(2);
+        expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBe(itemsBefore + 2);
+
+        const duplicateName = await post({ file });
+
+        // 真题库选题走完整路由：不调用 AI，返回 bank 来源与题库题目
+        const addedItem = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1', subjectId: 'primary-math' } });
+        const practice = await GENERATE_PRACTICE(new Request('http://localhost/api/practice/generate', {
+            method: 'POST',
+            body: JSON.stringify({ errorItemId: addedItem.id, source: 'bank', difficulty: 'medium' }),
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        expect(practice.status).toBe(200);
+        const practiceBody = await practice.json();
+        expect(practiceBody.source).toBe('bank');
+        expect(practiceBody.questionText).toBeTruthy();
+        expect(duplicateName.status).toBe(409);
     });
 
     it('遥测记录与协议、遥测设置属于实例数据，不进入备份', async () => {
@@ -637,7 +761,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(response.status).toBe(200);
         const compressed = Buffer.from(await response.arrayBuffer());
         expect([compressed[0], compressed[1]]).toEqual([0x1f, 0x8b]);
-        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(13);
+        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(14);
 
         await clearUserData();
         const imported = await IMPORT(new Request('http://localhost/api/import', {
@@ -650,7 +774,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
     });
 
     it('导入体积上限放宽到 256MB：78MB 备份不再被拒绝，超出上限返回明确提示', async () => {
-        const backup = { version: 13, user: { email: mocks.session.user.email }, errorItems: [] };
+        const backup = { version: 14, user: { email: mocks.session.user.email }, errorItems: [] };
         const post = (contentLength: number) => IMPORT(new Request('http://localhost/api/import', {
             method: 'POST',
             body: JSON.stringify(backup),

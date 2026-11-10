@@ -12,6 +12,7 @@ import { PracticeResultCard } from "@/components/practice-result-card";
 import { QuestionFigure } from "@/components/question-figure";
 import { DifficultyPicker, DifficultySelect } from "@/components/practice/difficulty-picker";
 import { GenerateButton } from "@/components/practice/generate-button";
+import { PracticeSourcePicker } from "@/components/practice/source-picker";
 import { PracticeFeedback } from "@/components/practice/practice-feedback";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
@@ -61,6 +62,7 @@ function PracticeContent() {
 
                 {!question && !session.loadingCached && (
                     <div className="flex flex-col items-center gap-4">
+                        <PracticeSourcePicker value={session.source} onChange={session.setSource} disabled={loading} />
                         <DifficultyPicker value={session.difficulty} onChange={session.setDifficulty} />
                         <GenerateButton loading={loading} onClick={session.generateQuestion} />
                     </div>
@@ -73,7 +75,8 @@ function PracticeContent() {
                         <CardHeader>
                             <CardTitle className="flex justify-between items-center">
                                 <span>{t.app.practiceProblem}</span>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <PracticeSourcePicker value={session.source} onChange={session.setSource} disabled={loading} />
                                     <DifficultySelect value={session.difficulty} onChange={session.setDifficulty} disabled={loading} />
                                     <GenerateButton loading={loading} onClick={session.generateQuestion} regenerate />
                                 </div>

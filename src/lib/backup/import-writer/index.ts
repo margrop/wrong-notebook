@@ -7,6 +7,7 @@ import { createImportContext } from "./types";
 import type { ImportWriterOptions, ImportWriterResult } from "./types";
 import { importPreferences, importSubjects } from "./subjects";
 import { importSystemTags, importCustomTags, preloadErrorItemTags } from "./tags";
+import { importQuestionBanks } from "./banks";
 import { importPaperGroups, importErrorItems } from "./error-items";
 import { importReviewSchedules, importExamPapers } from "./exams";
 import { importPracticeRecords, syncMasteryThreshold } from "./practice";
@@ -29,6 +30,8 @@ export async function importBackupData(options: ImportWriterOptions): Promise<Im
     // 4. 卷别分组与错题
     await importPaperGroups(ctx);
     await importErrorItems(ctx);
+    // 4.1 真题库与题目（独立于错题本）
+    await importQuestionBanks(ctx);
     // 5-6. 复习计划与试卷
     await importReviewSchedules(ctx);
     await importExamPapers(ctx);

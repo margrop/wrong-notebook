@@ -1,8 +1,15 @@
 # Practice and Exams
 
+## Question Bank
+
+The **Question Bank** page manages standalone banks. Upload a bank package JSON file, or download primary, junior-high and senior-high subject banks from the [shared bank repository](https://github.com/margrop/wrong-notebook-question-bank). Imported questions stay in the bank by default and do not become mistakes; tick "Also add to notebooks" and choose a target notebook to write them there. Search questions by text, knowledge point or grade; rename or delete a bank, delete a question, or add a single question to a notebook. Banks and their questions are included in full backups (backup version 14).
+
+The shared index and package format are documented by `index.json` and `schema/question-bank.schema.json` in the repository; the app only reads them.
+
+
 ## Similar-question practice
 
-Open similar-question practice from a question's detail page and choose a difficulty; the AI generates a variant testing the same knowledge points. Generated questions are fill-in-the-blank or free-response, and the question text should not carry a question number, score or multiple-choice options.
+Open similar-question practice from a question's detail page, then choose the question source and difficulty: AI generates a variant testing the same knowledge points, or practice picks a question from an imported bank by knowledge point. AI-generated questions are fill-in-the-blank or free-response, without a question number, score or multiple-choice options; bank questions keep their original type, options, answer and analysis. Bank selection prefers questions whose knowledge points match the mistake's tags, prefers the chosen difficulty among equal matches, and skips questions practised recently for that mistake. It does not call the AI or spend quota; when nothing matches, the app asks you to import a bank or use AI generation.
 
 Answer on your own first, then view the answer and analysis and record whether you got it right. Records are linked to the original question for reviewing practice history and evaluating mastery.
 
@@ -23,6 +30,7 @@ Mastery probability is estimated from the actual answer history linked to the or
 - Notebooks can be filtered by these three statuses; the "not mastered" scope of random exam papers covers both to review and reviewing.
 - Without usable answer records, the mastery probability is empty.
 - Evaluation runs in the background, so after recording results you may need to wait or refresh to see the update.
+- In **Review in order**, marking a question right sets its mastery probability to 100% and its status to Mastered immediately; a wrong answer is re-evaluated from the answer history.
 
 Mastery probability helps plan reviews. It does not guarantee the student understands the question and is not an exam score.
 
@@ -33,9 +41,10 @@ Mastery probability helps plan reviews. It does not guarantee the student unders
 The **Review** page in the navigation lists questions due today, and the home page shows how many are due.
 
 - Reviews follow intervals of 1, 2, 4, 7, 15 and 30 days: the first review is the day after adding a question; each correct answer moves it to the next interval, and a wrong answer starts over.
-- Intervals count from the most recent answer, whether from similar-question practice, manual entry, exams or duplicate imports; "not attempted" records do not change the schedule.
+- Intervals count from the most recent answer, whether from similar-question practice, sequential review, manual entry, exams or duplicate imports; "not attempted" records do not change the schedule.
 - After 6 correct answers in a row the question is no longer scheduled. Dates follow the application time zone, and the earliest due questions come first.
 - Open a card for details, or click **Practice** to practice right away; after you record a result the question leaves the list until its next interval.
+- **Review in order** walks through the questions due today one by one: show the question, reveal the answer and analysis, then mark it right (marked as mastered) or wrong (enter the mistake reason, saved in the question's practice history). A recorded question advances automatically to the next; when finished you return to the list. The list has paging at both the top and bottom, and the current page is kept in the URL as `?page=`.
 
 ## Generate an exam paper
 

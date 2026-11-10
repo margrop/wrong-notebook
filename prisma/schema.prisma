@@ -45,6 +45,56 @@ model User {
   paperGroups PaperGroup[]
   importTasks ImportTask[]
   importBatches ImportBatch[]
+  questionBanks QuestionBank[]
+}
+
+/// 用户导入的真题库：共享题库包或本地题库文件的结构化副本，独立于错题本
+model QuestionBank {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String   // 显示名，同一用户内唯一
+  description   String?
+  stage         String   // primary / junior_high / senior_high / university
+  subjectKey    String?  // math / english / ...
+  gradeRange    String?  // JSON 数组，如 [1,2,3,4,5,6]
+  source        String?  // 来源名，如 cn-math-taxonomy
+  sourceUrl     String?
+  license       String?
+  formatVersion Int      @default(1)
+  questionCount Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  questions     BankQuestion[]
+
+  @@unique([userId, name])
+  @@index([userId, createdAt])
+}
+
+/// 真题库中的单题；知识点存名称 JSON，按名称与错题标签匹配选题
+model BankQuestion {
+  id              String   @id @default(cuid())
+  bankId          String
+  bank            QuestionBank @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  externalId      String?  // 题库包内的稳定题号
+  stage           String
+  subjectKey      String?
+  grade           Int?
+  semester        String?
+  questionType    String?
+  difficultyStars Int?
+  text            String
+  material        String?
+  optionsJson     String?  // {"A":"...","B":"..."}
+  answer          String?
+  analysis        String?
+  knowledgePoints String?  // JSON 数组
+  source          String?
+  figureSvg       String?
+  createdAt       DateTime @default(now())
+
+  @@index([bankId, stage, subjectKey])
+  @@index([bankId, grade])
 }
 
 // 统一知识点标签表 (支持无限层级)

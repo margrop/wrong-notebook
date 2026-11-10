@@ -11,6 +11,7 @@ import { serializeWrite } from "@/lib/db-write-queue";
 import { parseLastPractice, serializeLastPractice } from "@/lib/last-practice";
 import type { LastPractice } from "@/lib/last-practice";
 import { consumeAiQuota } from "@/lib/ai-quota";
+import { selectBankQuestion } from "@/lib/question-bank/selection";
 import { withRecoverableResponse } from "@/lib/recoverable-response";
 
 const logger = createLogger('api:practice:generate');
@@ -30,7 +31,7 @@ async function handleGet(req: Request, { user }: AuthenticatedContext) {
 
         const item = await prisma.errorItem.findUnique({
             where: { id: errorItemId },
-            select: { userId: true, lastPractice: true }
+            select: { userId: true, lastPractice: true },
         });
         if (!item || item.userId !== user.id) {
             return notFound("Item not found");
@@ -38,8 +39,8 @@ async function handleGet(req: Request, { user }: AuthenticatedContext) {
 
         return NextResponse.json({ practice: parseLastPractice(item.lastPractice) });
     } catch (error) {
-        logger.error({ error }, 'Error loading last practice');
-        return internalError("Failed to load last practice question", { error, scope: "api:practice" });
+        logger.error({ error }, 'Error reading practice');
+        return internalError("Failed to read practice question");
     }
 }
 
@@ -51,11 +52,11 @@ async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
         if (!parsed.success) {
             return badRequest("errorItemId is required");
         }
-        const { errorItemId, language, difficulty } = parsed.data;
+        const { errorItemId, language, difficulty, source, bankId } = parsed.data;
 
         const errorItemWithSubject = await prisma.errorItem.findUnique({
             where: { id: errorItemId },
-            include: { subject: true }
+            include: { subject: true, tags: { select: { name: true } } }
         });
 
         // 只能基于自己的错题生成，否则等于间接读取他人题目
@@ -63,14 +64,17 @@ async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
             return notFound("Item not found");
         }
 
-        let tags: string[] = [];
-        try {
-            tags = JSON.parse(errorItemWithSubject.knowledgePoints || "[]");
-        } catch {
-            tags = [];
+        let tags: string[] = Array.isArray(errorItemWithSubject.tags) ? errorItemWithSubject.tags.map((tag) => tag.name) : [];
+        if (tags.length === 0) {
+            try {
+                const parsedTags: unknown = JSON.parse(errorItemWithSubject.knowledgePoints || "[]");
+                tags = Array.isArray(parsedTags) ? parsedTags.filter((tag): tag is string => typeof tag === 'string') : [];
+            } catch {
+                tags = [];
+            }
         }
 
-        // 按目标防重复：同一错题同一时刻只允许一个「举一反三」任务（reserve 失败返回 409，不扣额度、不调用 AI）
+        // 按目标防重复：同一错题同一时刻只允许一个「举一反三」任务（reserve 失败返回 409、不扣额度、不调用 AI）
         const target = `error-item:${errorItemId}:practice`;
         const handle = reserveBackgroundTask({
             userId: user.id,
@@ -83,37 +87,66 @@ async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
             return taskAlreadyRunning(findRunningTask(user.id, target) ?? { id: '', kind: 'practice', startedAt: '', target });
         }
 
-        const limited = await serializeWrite(() => consumeAiQuota(user, 'practice'));
-        if (limited) {
-            handle.cancel();
-            return limited;
+        let practiceQuestion;
+        if (source === 'bank') {
+            // 真题库选题不调用 AI、不消耗额度
+            const selected = await runReservedTask(handle, () => selectBankQuestion({
+                userId: user.id,
+                errorItem: {
+                    id: errorItemWithSubject.id,
+                    questionText: errorItemWithSubject.questionText,
+                    subject: errorItemWithSubject.subject
+                        ? {
+                            name: errorItemWithSubject.subject.name,
+                            stage: errorItemWithSubject.subject.stage,
+                            subjectKey: errorItemWithSubject.subject.subjectKey,
+                        }
+                        : null,
+                },
+                tagNames: tags,
+                difficulty: difficulty ?? 'medium',
+                bankId: bankId ?? null,
+            }));
+            if (!selected) {
+                handle.cancel();
+                return badRequest('BANK_NO_MATCH');
+            }
+            practiceQuestion = selected.question;
+        } else {
+            const limited = await serializeWrite(() => consumeAiQuota(user, 'practice'));
+            if (limited) {
+                handle.cancel();
+                return limited;
+            }
+
+            const aiService = await getAIService({ userId: user.id, kind: 'practice' });
+            const similarQuestion = await runReservedTask(handle, () =>
+                aiService.generateSimilarQuestion(
+                    errorItemWithSubject.questionText || "",
+                    tags,
+                    language,
+                    difficulty || 'medium',
+                    errorItemWithSubject.gradeSemester,
+                    errorItemWithSubject.figureSvg
+                )
+            );
+
+            // Inject the subject from the database with type safety
+            const validSubjects = ["数学", "科学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"] as const;
+            const subjectName = errorItemWithSubject.subject?.name || "其他";
+            similarQuestion.subject = (validSubjects as readonly string[]).includes(subjectName) ? subjectName as typeof validSubjects[number] : "其他";
+            practiceQuestion = similarQuestion;
         }
-
-        const aiService = await getAIService({ userId: user.id, kind: 'practice' });
-        const similarQuestion = await runReservedTask(handle, () =>
-            aiService.generateSimilarQuestion(
-                errorItemWithSubject.questionText || "",
-                tags,
-                language,
-                difficulty || 'medium',
-                errorItemWithSubject.gradeSemester,
-                errorItemWithSubject.figureSvg
-            )
-        );
-
-        // Inject the subject from the database with type safety
-        const validSubjects = ["数学", "科学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"] as const;
-        const subjectName = errorItemWithSubject.subject?.name || "其他";
-        similarQuestion.subject = (validSubjects as readonly string[]).includes(subjectName) ? subjectName as typeof validSubjects[number] : "其他";
 
         // 暂存本次生成结果，下次进入练习页直接显示；写入失败不影响本次返回
         const lastPractice: LastPractice = {
-            questionText: similarQuestion.questionText,
-            answerText: similarQuestion.answerText,
-            analysis: similarQuestion.analysis,
-            subject: similarQuestion.subject,
-            figureSvg: similarQuestion.figureSvg ?? null,
+            questionText: practiceQuestion.questionText,
+            answerText: practiceQuestion.answerText,
+            analysis: practiceQuestion.analysis,
+            subject: practiceQuestion.subject,
+            figureSvg: practiceQuestion.figureSvg ?? null,
             difficulty: DIFFICULTIES.find(d => d === difficulty) ?? 'medium',
+            source: source === 'bank' ? 'bank' : 'ai',
             generatedAt: new Date().toISOString(),
         };
         try {
@@ -125,7 +158,7 @@ async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
             logger.warn({ error }, 'Failed to cache last practice question');
         }
 
-        return NextResponse.json({ ...similarQuestion, difficulty: lastPractice.difficulty, generatedAt: lastPractice.generatedAt });
+        return NextResponse.json({ ...practiceQuestion, difficulty: lastPractice.difficulty, source: lastPractice.source, generatedAt: lastPractice.generatedAt });
     } catch (error) {
         logger.error({ error }, 'Error generating practice');
         const errorMessage = error instanceof Error ? error.message : "Failed to generate practice question";

@@ -142,6 +142,7 @@ export interface NormalizedImportData {
     practiceRecords: NormalizedPracticeRecord[];
     examPapers: NormalizedExamPaper[];
     paperGroups: NonNullable<ImportData['paperGroups']>;
+    questionBanks: NonNullable<ImportData['questionBanks']>;
 }
 
 function normalizeErrorItem(item: ImportedBackupErrorItem): NormalizedErrorItem {
@@ -197,7 +198,7 @@ function normalizePracticeRecord(record: ImportedBackupPracticeRecord): Normaliz
         raw: record,
         result: isPracticeResult(record.result) ? record.result : undefined,
         createdAt: safeParseDate(record.createdAt),
-        source: ['practice', 'manual', 'exam', 'duplicate_import'].includes(record.source || '') ? record.source! : 'practice',
+        source: ['practice', 'manual', 'exam', 'duplicate_import', 'review'].includes(record.source || '') ? record.source! : 'practice',
     };
 }
 
@@ -234,5 +235,6 @@ export function normalizeBackupForImport(body: ImportData, belongsToCurrentUser:
         practiceRecords: (body.practiceRecords ?? []).map(normalizePracticeRecord),
         examPapers: (body.examPapers ?? []).map(normalizeExamPaper),
         paperGroups: body.paperGroups ?? [],
+        questionBanks: body.questionBanks ?? [],
     };
 }
