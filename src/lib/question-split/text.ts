@@ -140,6 +140,15 @@ export function stripQuestionNumber(text: string): string {
     return lines.join('\n');
 }
 
+/** 去掉题目开头的点号题号（「1.」「1．」），保留「第1题」等写法；用于图片识别的题干 */
+export function stripDottedQuestionNumber(text: string): string {
+    const lines = text.split('\n');
+    const first = lines[0]?.replace(LEADING_SPACE, '') ?? '';
+    const match = matchQuestionNumber(first);
+    if (match?.family === 'dot') lines[0] = first.slice(match.prefixLength);
+    return lines.join('\n');
+}
+
 /** 统一换行、去掉行首缩进与行尾空白 */
 export function normalizeLines(text: string): string[] {
     return text.replace(/\r\n?/g, '\n').split('\n').map((line) => line.replace(LEADING_SPACE, '').replace(/[\s　]+$/, ''));
