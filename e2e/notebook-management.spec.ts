@@ -56,10 +56,16 @@ test('新建错题本、搜索和批量删除错题，清空后删除错题本',
     await page.getByRole('button', { name: '删除' }).first().click();
     await expect(page.getByText('请先清空错题本中的所有题目')).toBeVisible();
 
-    // 进入选择模式，选中一题批量删除
+    // 进入选择模式，点击题目卡片切换选中，再点一次取消
     await page.getByRole('button', { name: '多选', exact: true }).click();
-    const card = page.locator('a', { hasText: remove }).locator('..');
-    await card.getByRole('checkbox').click();
+    const cardLink = page.locator('a', { hasText: remove });
+    const cardText = cardLink.getByText(remove);
+    await cardText.click();
+    await expect(page.getByText('已选 1 项')).toBeVisible();
+    await cardText.click();
+    await expect(page.getByText('已选 0 项')).toBeVisible();
+    await cardText.click();
+    await expect(page.getByText('已选 1 项')).toBeVisible();
     await page.getByRole('button', { name: /删除选中/ }).click();
     await acceptConfirmDialog(page);
     await expect(page.getByText(remove)).not.toBeVisible({ timeout: 10000 });
