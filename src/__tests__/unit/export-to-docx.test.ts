@@ -157,9 +157,9 @@ describe("buildDocxParagraphs", () => {
     it("题号连续", () => {
         const paragraphs = buildDocxParagraphs(sampleQuestions, {});
         const allText = JSON.stringify(paragraphs);
-        expect(allText).toContain("1. 下列哪个选项是正确的？");
-        expect(allText).toContain("2. 1+1=____。");
-        expect(allText).toContain("3. 简述勾股定理。");
+        expect(allText).toContain("1．下列哪个选项是正确的？");
+        expect(allText).toContain("2．1+1=____。");
+        expect(allText).toContain("3．简述勾股定理。");
     });
 
     it("答案部分开关：默认开启含参考答案", () => {
