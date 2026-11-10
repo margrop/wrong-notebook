@@ -11,6 +11,8 @@ interface PaginationProps {
     onPageChange: (page: number) => void;
     total?: number;
     pageSize?: number;
+    /** 是否显示「显示 x-y / 共 z」汇总；顶部紧凑分页器可关闭后右对齐 */
+    showSummary?: boolean;
 }
 
 export function Pagination({
@@ -19,6 +21,7 @@ export function Pagination({
     onPageChange,
     total,
     pageSize,
+    showSummary = true,
 }: PaginationProps) {
     const { t } = useLanguage();
 
@@ -56,8 +59,8 @@ export function Pagination({
     const pageNumbers = getPageNumbers();
 
     return (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
-            {total !== undefined && pageSize !== undefined && (
+        <div className={`flex flex-col sm:flex-row items-center gap-4 py-4 ${showSummary ? "justify-between" : "justify-end"}`}>
+            {showSummary && total !== undefined && pageSize !== undefined && (
                 <div className="text-sm text-muted-foreground order-2 sm:order-1">
                     {(t.pagination?.showing || "Showing {start}-{end} of {total}")
                         .replace("{start}", ((page - 1) * pageSize + 1).toString())

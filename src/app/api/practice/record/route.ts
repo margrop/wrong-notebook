@@ -6,6 +6,7 @@ import type { AuthenticatedContext } from "@/lib/api-handler";
 import { internalError, notFound, validationError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { PRACTICE_RESULTS, scheduleMasteryEvaluation } from "@/lib/mastery";
+import { masteryLevelOf } from "@/lib/mastery-status";
 import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
 
 const logger = createLogger('api:practice:record');
@@ -19,9 +20,10 @@ const recordSchema = z.object({
     questionText: z.string().max(20000).nullable().optional(),
     answerText: z.string().max(20000).nullable().optional(),
     analysis: z.string().max(50000).nullable().optional(),
+    mistakeAnalysis: z.string().max(50000).nullable().optional(),
     figureSvg: z.string().max(MAX_FIGURE_SVG_LENGTH).nullable().optional(),
-    // manual：在错题详情中直接录入结果，不附带新题
-    source: z.enum(['practice', 'manual']).optional(),
+    // manual：在错题详情中直接录入结果，不附带新题；review：在今日复习中按顺序作答
+    source: z.enum(['practice', 'manual', 'review']).optional(),
     takenAt: z.string().datetime({ offset: true }).optional(),
 });
 
@@ -31,7 +33,7 @@ async function handlePost(req: Request, { user }: AuthenticatedContext) {
         if (!parsed.success) {
             return validationError("Invalid practice record", parsed.error.issues);
         }
-        const { errorItemId, difficulty, questionText, answerText, analysis } = parsed.data;
+        const { errorItemId, difficulty, questionText, answerText, analysis, mistakeAnalysis } = parsed.data;
         let subject = parsed.data.subject;
         const source = parsed.data.source ?? 'practice';
         const figureSvg = sanitizeFigureSvg(parsed.data.figureSvg);
@@ -67,6 +69,7 @@ async function handlePost(req: Request, { user }: AuthenticatedContext) {
                     questionText,
                     answerText,
                     analysis,
+                    mistakeAnalysis,
                     figureSvg,
                     source,
                 } : {}),
@@ -75,7 +78,21 @@ async function handlePost(req: Request, { user }: AuthenticatedContext) {
         });
 
         if (errorItemId && result) {
-            scheduleMasteryEvaluation([errorItemId]);
+            if (source === 'review' && result === 'correct') {
+                // 顺序复习中明确做对，直接标记为已掌握，不必等待后台评估
+                await prisma.errorItem.update({
+                    where: { id: errorItemId },
+                    data: {
+                        masteryProbability: 1,
+                        masteryLevel: masteryLevelOf('mastered'),
+                        masterySource: 'rule',
+                        masteryReason: '顺序复习做对，标记为已掌握',
+                        masteryEvaluatedAt: new Date(),
+                    },
+                });
+            } else {
+                scheduleMasteryEvaluation([errorItemId]);
+            }
         }
 
         return NextResponse.json(record);

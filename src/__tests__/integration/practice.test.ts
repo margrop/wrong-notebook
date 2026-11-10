@@ -666,6 +666,63 @@ describe('/api/practice', () => {
             expect(mocks.mockPrismaPracticeRecord.create).not.toHaveBeenCalled();
         });
 
+        it('顺序复习做对：记录结果并直接标记为已掌握', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({ userId: 'user-123' });
+            mocks.mockPrismaErrorItem.update.mockReset();
+            mocks.mockPrismaErrorItem.update.mockResolvedValue({ id: 'error-item-1' });
+            mocks.mockPrismaPracticeRecord.create.mockResolvedValue({ id: 'record-1' });
+
+            const response = await RECORD_POST(new Request('http://localhost/api/practice/record', {
+                method: 'POST',
+                body: JSON.stringify({ errorItemId: 'error-item-1', result: 'correct', source: 'review' }),
+            }));
+
+            expect(response.status).toBe(200);
+            expect(mocks.mockPrismaPracticeRecord.create).toHaveBeenCalledWith({
+                data: expect.objectContaining({
+                    errorItemId: 'error-item-1',
+                    result: 'correct',
+                    source: 'review',
+                }),
+            });
+            expect(mocks.mockPrismaErrorItem.update).toHaveBeenCalledWith({
+                where: { id: 'error-item-1' },
+                data: expect.objectContaining({
+                    masteryProbability: 1,
+                    masteryLevel: 2,
+                    masterySource: 'rule',
+                }),
+            });
+            expect(mocks.scheduleMasteryEvaluation).not.toHaveBeenCalled();
+        });
+
+        it('顺序复习做错：错因随作答记录保存并重新评估掌握', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({ userId: 'user-123' });
+            mocks.mockPrismaPracticeRecord.create.mockResolvedValue({ id: 'record-2' });
+
+            const response = await RECORD_POST(new Request('http://localhost/api/practice/record', {
+                method: 'POST',
+                body: JSON.stringify({
+                    errorItemId: 'error-item-1',
+                    result: 'wrong',
+                    source: 'review',
+                    mistakeAnalysis: '移项时符号写反',
+                }),
+            }));
+
+            expect(response.status).toBe(200);
+            expect(mocks.mockPrismaPracticeRecord.create).toHaveBeenCalledWith({
+                data: expect.objectContaining({
+                    errorItemId: 'error-item-1',
+                    result: 'wrong',
+                    source: 'review',
+                    mistakeAnalysis: '移项时符号写反',
+                }),
+            });
+            expect(mocks.scheduleMasteryEvaluation).toHaveBeenCalledWith(['error-item-1']);
+            expect(mocks.mockPrismaErrorItem.update).not.toHaveBeenCalled();
+        });
+
         it('举一反三新题的配图净化后随记录保存', async () => {
             mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({ userId: 'user-123' });
             mocks.mockPrismaPracticeRecord.create.mockResolvedValue({ id: 'record-1' });

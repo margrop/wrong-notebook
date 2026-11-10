@@ -248,4 +248,15 @@ describe("normalizeBackupForImport", () => {
         expect(record.result).toBeUndefined();
         expect(record.source).toBe("practice");
     });
+
+    it("练习记录：保留顺序复习来源", () => {
+        const data = asImportable(buildMinimal(BACKUP_VERSION, {
+            practiceRecords: [{
+                id: "r1", userId: "u1", subject: null, difficulty: null,
+                isCorrect: true, errorItemId: "e1", result: "correct", source: "review",
+                createdAt: "2024-01-01T00:00:00.000Z",
+            }],
+        }));
+        expect(normalizeBackupForImport(data, true).practiceRecords[0].source).toBe("review");
+    });
 });
