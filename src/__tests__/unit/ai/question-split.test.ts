@@ -208,6 +208,19 @@ describe('分题结果校验', () => {
         expect(result.warnings).toContain('truncated');
     });
 
+    it('图片分题：题干开头的题号与点后空格去掉（label 已单独记录）', () => {
+        const result = parseQuestionSplit(JSON.stringify({ quality: 'clear', questions: [
+            { label: '1', text: '1. 求长方形的面积。', regions: [{ x: 0, y: 0, w: 500, h: 200 }] },
+            { label: '2', text: '2．计算 3 + 4。', regions: [{ x: 0, y: 300, w: 500, h: 200 }] },
+            { label: '3', text: '1.5 米长的绳子还剩多少？', regions: [{ x: 0, y: 600, w: 500, h: 200 }] },
+        ] }), imageInput);
+        expect(result.questions.map((question) => question.text)).toEqual([
+            '求长方形的面积。',
+            '计算 3 + 4。',
+            '1.5 米长的绳子还剩多少？',
+        ]);
+    });
+
     it('图片分题：没有区域的题标记未定位，看不清与不完整如实标记，模糊照片给出提示', () => {
         const result = parseQuestionSplit(JSON.stringify({ quality: 'blurry', questions: [
             { label: '3', text: '看不清', regions: [], unclear: true, partial: true },

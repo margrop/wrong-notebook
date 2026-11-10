@@ -9,7 +9,7 @@
  */
 import { z } from 'zod';
 import { stripThinkingTags } from './schema';
-import { joinLines, MAX_SPLIT_QUESTIONS, stripQuestionNumber } from '../question-split/text';
+import { joinLines, MAX_SPLIT_QUESTIONS, stripDottedQuestionNumber, stripQuestionNumber } from '../question-split/text';
 import type { DraftItemFlag, DraftRegion, DraftWarning } from '../question-split/draft';
 import { MAX_ITEM_REGIONS, MIN_REGION_SIZE } from '../question-split/draft';
 
@@ -199,7 +199,9 @@ function parseImageSplit(questions: unknown[], quality: string | null | undefine
     for (const entry of questions) {
         const parsed = rawQuestion.safeParse(entry);
         if (!parsed.success) continue;
-        const text = (parsed.data.text || '').trim().slice(0, MAX_SPLIT_EXCERPT_LENGTH);
+        // 图片分题的 label 已单独给出；模型常把题号写进 text（如「1. 题干」），这里去掉点号题号与点后空格。
+        // 只处理「1.」「1．」，保留「第一题」这类题干首句
+        const text = stripDottedQuestionNumber((parsed.data.text || '').trim()).slice(0, MAX_SPLIT_EXCERPT_LENGTH);
         const regions = (parsed.data.regions || []).map(normalizeSplitRegion).filter((region): region is DraftRegion => region !== null).slice(0, MAX_ITEM_REGIONS);
         if (!text && regions.length === 0) continue;
         const flags: DraftItemFlag[] = [];

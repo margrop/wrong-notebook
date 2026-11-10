@@ -20,6 +20,7 @@ import {
 } from "./schema";
 import { normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
 import { parseRecognizedGrade } from "@/lib/question/question-grade";
+import { stripDottedQuestionNumber } from "@/lib/question-split/text";
 import { createLogger } from "../logger";
 
 const logger = createLogger('ai:response-parser');
@@ -59,7 +60,9 @@ export function splitKnowledgePoints(raw: string | null | undefined): string[] {
 export function parseQuestionResponse(text: string): ParsedQuestion {
     logger.debug({ textLength: text.length }, 'Parsing AI response');
 
-    const questionText = extractTag(text, "question_text");
+    const rawQuestionText = extractTag(text, "question_text");
+    // 识别题干保留原题文字，但顶层题号单独记录；去掉「1. 题干」的点号题号可避免被 Markdown 当作有序列表
+    const questionText = rawQuestionText ? stripDottedQuestionNumber(rawQuestionText) : null;
     const answerText = extractTag(text, "answer_text");
     const analysis = extractTag(text, "analysis");
     const subjectRaw = extractTag(text, "subject");

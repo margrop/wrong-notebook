@@ -119,6 +119,13 @@ describe('parseQuestionResponse', () => {
         expect(result.difficultyStars).toBe(3);
     });
 
+    it('去掉题干开头的顶层题号与点后空格，小数开头保留', () => {
+        const numbered = BASE_XML.replace('求函数 f(x) = x^2 的最小值', '1. 求函数 f(x) = x^2 的最小值');
+        expect(parseQuestionResponse(numbered).questionText).toBe('求函数 f(x) = x^2 的最小值');
+        const decimal = BASE_XML.replace('求函数 f(x) = x^2 的最小值', '1.5 米长的绳子还剩多少？');
+        expect(parseQuestionResponse(decimal).questionText).toBe('1.5 米长的绳子还剩多少？');
+    });
+
     it('缺少必需标签时抛错', () => {
         expect(() => parseQuestionResponse('<question_text>只有题目</question_text>')).toThrow(
             'Missing critical XML tags'
