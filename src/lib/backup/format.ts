@@ -11,7 +11,7 @@ import { z } from "zod";
  */
 
 /** 当前备份文件版本号 */
-export const BACKUP_VERSION = 12;
+export const BACKUP_VERSION = 13;
 
 /** 备份文件中的用户对象 */
 export interface BackupUser {

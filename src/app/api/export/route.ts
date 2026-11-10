@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { gzipSync } from "node:zlib";
 import { unauthorized, internalError, forbidden } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { getAppTimeZone } from "@/lib/config";
@@ -36,6 +37,8 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const exportAll = searchParams.get('all') === 'true';
+    // 备份含题目原图与云端语音，网页导出默认请求 gzip 压缩，导入时自动解压
+    const compress = searchParams.get('compress') === 'gzip';
 
     // 只有管理员可以导出全部数据
     if (exportAll && session.user.role !== 'admin') {
@@ -90,29 +93,9 @@ export async function GET(req: Request) {
             where: userFilter,
         });
 
-        // 未完成的多题批次（分题草稿、分题失败、已开始但仍有题未入库），version 6 起导出
-        const importBatches = await prisma.importBatch.findMany({
-            where: { ...userFilter, OR: [{ status: { not: 'started' } }, { tasks: { some: { status: { not: 'saved' } } } }] },
-            select: {
-                id: true, clientRequestId: true, userId: true, source: true, splitter: true, status: true, mode: true, language: true,
-                subjectId: true, targetSubjectId: true, paperLevel: true, sourceText: true, imageData: true, imageInfo: true, draft: true,
-                error: true, attempts: true, createdAt: true, startedAt: true, finishedAt: true,
-            },
-            orderBy: { createdAt: 'asc' },
-        });
-
-        // 尚未处理的识别导入任务（待校对草稿、失败可重试的任务）；单独的已保存任务只是记录，不导出。
-        // 未完成批次中已保存的题一并导出（含所关联的错题），恢复后批次的题数、已保存数与题目链接保持不变
-        const importTasks = await prisma.importTask.findMany({
-            where: { ...userFilter, OR: [{ status: { not: 'saved' } }, { batchId: { in: importBatches.map((batch) => batch.id) } }] },
-            select: {
-                id: true, clientRequestId: true, userId: true, mode: true, status: true, language: true, subjectId: true, targetSubjectId: true,
-                paperLevel: true, source: true, imageData: true, imageInfo: true, result: true, error: true, timings: true,
-                attempts: true, createdAt: true, finishedAt: true, batchId: true, batchItemKey: true, inputText: true,
-                errorItemId: true, duplicate: true,
-            },
-            orderBy: { createdAt: 'asc' },
-        });
+        // 待校对任务与未完成批次不再进入备份（第 13 版）：它们带整页图片，只在原设备继续处理
+        const importBatches: unknown[] = [];
+        const importTasks: unknown[] = [];
 
         // 与动画讲解文字一致的云端语音（MP3），导入后无需重新合成
         const ttsSpeeches = await exportSpeeches(errorItems.flatMap((item) => [
@@ -188,11 +171,12 @@ export async function GET(req: Request) {
 
         void recordEvent("data_exported", { scope: exportAll ? "all" : "user", rows: rowsBucket(errorItems.length) });
         const jsonString = JSON.stringify(exportData, null, 2);
+        const body = compress ? gzipSync(Buffer.from(jsonString, 'utf8')) : jsonString;
         const filename = exportAll
             ? `wrong-notebook-export-all-${formatDateTime(new Date(), 'yyyy-MM-dd', getAppTimeZone())}.json`
             : `wrong-notebook-export-${formatDateTime(new Date(), 'yyyy-MM-dd', getAppTimeZone())}.json`;
 
-        return new NextResponse(jsonString, {
+        return new NextResponse(body, {
             headers: {
                 'Content-Type': 'application/json; charset=utf-8',
                 'Content-Disposition': `attachment; filename="${filename}"`,

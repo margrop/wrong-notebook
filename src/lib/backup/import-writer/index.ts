@@ -10,7 +10,7 @@ import { importSystemTags, importCustomTags, preloadErrorItemTags } from "./tags
 import { importPaperGroups, importErrorItems } from "./error-items";
 import { importReviewSchedules, importExamPapers } from "./exams";
 import { importPracticeRecords, syncMasteryThreshold } from "./practice";
-import { importBatchesAndTasks, importRegisteredExtensions } from "./misc";
+import { importRegisteredExtensions } from "./misc";
 
 export { createImportContext } from "./types";
 export type { ImportStats, ImportContext, ImportWriterOptions, ImportWriterResult } from "./types";
@@ -35,8 +35,7 @@ export async function importBackupData(options: ImportWriterOptions): Promise<Im
     // 7、9. 练习记录与掌握阈值同步
     await importPracticeRecords(ctx);
     await syncMasteryThreshold(ctx);
-    // 8、10. 导入批次/任务与扩展数据
-    await importBatchesAndTasks(ctx);
+    // 10. 导入扩展数据；待校对任务与未完成批次不再参与导入
     await importRegisteredExtensions(ctx);
 
     return { stats: ctx.stats, masteryIds: [...ctx.masteryIds] };
