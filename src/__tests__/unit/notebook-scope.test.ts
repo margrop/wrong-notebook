@@ -17,18 +17,21 @@ describe('错题本学段与学科', () => {
     it('只允许标签库中存在的学段与学科组合', () => {
         expect(isValidNotebookScope('primary', 'math')).toBe(true);
         expect(isValidNotebookScope('primary', 'chinese')).toBe(true);
+        expect(isValidNotebookScope('primary', 'science')).toBe(true);
         expect(isValidNotebookScope('primary', 'physics')).toBe(false);
         expect(isValidNotebookScope('junior_high', 'physics')).toBe(true);
+        expect(isValidNotebookScope('junior_high', 'science')).toBe(true);
         expect(isValidNotebookScope('university', 'math')).toBe(true);
         expect(isValidNotebookScope('university', 'politics')).toBe(true);
         expect(isValidNotebookScope('primary', 'music')).toBe(false);
         expect(isValidNotebookScope(undefined, undefined)).toBe(false);
-        expect(STAGE_SUBJECTS.primary).toEqual(['math', 'english', 'chinese']);
+        expect(STAGE_SUBJECTS.primary).toEqual(['math', 'english', 'chinese', 'science']);
         expect(STAGE_SUBJECTS.university).toEqual(NOTEBOOK_SUBJECTS);
     });
 
     it('旧错题本未记录学科时按名称推断，学段缺省为小学', () => {
         expect(resolveNotebookScope({ name: '初二数学', stage: null, subjectKey: null })).toEqual({ stage: 'primary', subject: 'math' });
+        expect(resolveNotebookScope({ name: '小学科学', stage: 'primary', subjectKey: null })).toEqual({ stage: 'primary', subject: 'science' });
         expect(resolveNotebookScope({ name: '我的错题', stage: 'senior_high', subjectKey: 'physics' })).toEqual({ stage: 'senior_high', subject: 'physics' });
         expect(resolveNotebookScope({ name: '综合', stage: 'junior_high' })).toEqual({ stage: 'junior_high', subject: null });
         expect(resolveNotebookScope({ name: '数学', stage: 'bogus', subjectKey: 'bogus' })).toEqual({ stage: 'primary', subject: 'math' });

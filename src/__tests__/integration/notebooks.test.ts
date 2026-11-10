@@ -157,6 +157,22 @@ describe('/api/notebooks', () => {
             }));
         });
 
+        it('允许创建小学科学错题本并保存学段与学科', async () => {
+            const notebook = { id: 'nb-science', name: '小学科学', stage: 'primary', subjectKey: 'science', _count: { errorItems: 0 } };
+            mocks.mockPrismaSubject.findUnique.mockResolvedValue(null);
+            mocks.mockPrismaSubject.create.mockResolvedValue(notebook);
+
+            const response = await POST(new Request('http://localhost/api/notebooks', {
+                method: 'POST',
+                body: JSON.stringify({ name: '小学科学', stage: 'primary', subjectKey: 'science' }),
+            }));
+
+            expect(response.status).toBe(201);
+            expect(mocks.mockPrismaSubject.create).toHaveBeenCalledWith(expect.objectContaining({
+                data: expect.objectContaining({ name: '小学科学', stage: 'primary', subjectKey: 'science', userId: mockUser.id }),
+            }));
+        });
+
         it('允许创建大学错题本并保存学段与学科', async () => {
             const notebook = { id: 'nb-university', name: '考研数学', stage: 'university', subjectKey: 'math', _count: { errorItems: 0 } };
             mocks.mockPrismaSubject.findUnique.mockResolvedValue(null);

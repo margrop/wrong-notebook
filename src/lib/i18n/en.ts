@@ -581,6 +581,7 @@ export const en = {
             subjects: {
                 math: "Math",
                 english: "English",
+                science: "Science",
                 physics: "Physics",
                 chemistry: "Chemistry",
                 biology: "Biology",

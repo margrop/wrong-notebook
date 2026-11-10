@@ -12,5 +12,5 @@ export const UNIVERSITY_GRADES = ['大一', '大二', '大三', '大四'] as con
 
 /** 可创建大学错题本的学科，与 NOTEBOOK_SUBJECTS 一致（单测保证不漂移） */
 export const UNIVERSITY_SUBJECTS = [
-    'math', 'english', 'chinese', 'physics', 'chemistry', 'biology', 'history', 'geography', 'politics',
+    'math', 'english', 'chinese', 'science', 'physics', 'chemistry', 'biology', 'history', 'geography', 'politics',
 ] as const;

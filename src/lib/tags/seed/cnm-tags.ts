@@ -14,12 +14,15 @@ export const CNM_TOPICS_URL = "https://raw.githubusercontent.com/xiaoyang111222/
 /** 上传文件大小上限（官方文件约 2.6MB） */
 export const CNM_MAX_FILE_BYTES = 20 * 1024 * 1024;
 
-/** 数据中的学科映射到本项目学科；未列出的学科（如小学科学）跳过 */
+/** 数据中的学科映射到本项目学科；未列出的学科跳过 */
 const SUBJECT_MAP: Record<string, string> = {
     math: "math",
     chinese: "chinese",
     english: "english",
+    science: "science",
     physics: "physics",
+    chemistry: "chemistry",
+    biology: "biology",
     history: "history",
     geography: "geography",
     morality: "politics", // 道德与法治

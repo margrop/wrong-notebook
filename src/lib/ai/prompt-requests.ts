@@ -23,7 +23,7 @@ function safeGrade(value?: string | null): string | null {
 }
 
 function safeSubject(value?: string | null): string | null {
-    return value && ['数学', '物理', '化学', '生物', '英语', '语文', '历史', '地理', '政治', '其他'].includes(value) ? value : null;
+    return value && ['数学', '科学', '物理', '化学', '生物', '英语', '语文', '历史', '地理', '政治', '其他'].includes(value) ? value : null;
 }
 
 /** 保留候选清单是否存在、是否为空的信息，清单正文始终放在用户消息里。 */
@@ -34,7 +34,7 @@ function inputOptions(options: PromptOptions): Record<string, unknown> {
 function referenceOptions(options: PromptOptions): PromptOptions {
     const result = { ...options };
     const fields = [
-        'prefetchedMathTags', 'prefetchedPhysicsTags', 'prefetchedChemistryTags',
+        'prefetchedMathTags', 'prefetchedScienceTags', 'prefetchedPhysicsTags', 'prefetchedChemistryTags',
         'prefetchedBiologyTags', 'prefetchedEnglishTags', 'prefetchedChineseTags',
         'prefetchedHistoryTags', 'prefetchedGeographyTags', 'prefetchedPoliticsTags',
     ] as const;

@@ -11,6 +11,7 @@ export interface TagTreeNode {
 export const SUBJECTS = [
     { key: 'math', name: '数学' },
     { key: 'english', name: '英语' },
+    { key: 'science', name: '科学' },
     { key: 'physics', name: '物理' },
     { key: 'chemistry', name: '化学' },
     { key: 'biology', name: '生物' },

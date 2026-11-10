@@ -102,7 +102,7 @@ async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
         );
 
         // Inject the subject from the database with type safety
-        const validSubjects = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"] as const;
+        const validSubjects = ["数学", "科学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"] as const;
         const subjectName = errorItemWithSubject.subject?.name || "其他";
         similarQuestion.subject = (validSubjects as readonly string[]).includes(subjectName) ? subjectName as typeof validSubjects[number] : "其他";
 

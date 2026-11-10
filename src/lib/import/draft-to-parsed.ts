@@ -9,7 +9,7 @@ import type { DraftItem } from "@/lib/question-split/draft";
 import { normalizeQuestionType } from "@/lib/question/question-type";
 
 /** ParsedQuestionSchema 中 subject 枚举的中文名 */
-const SUBJECT_NAMES = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"] as const;
+const SUBJECT_NAMES = ["数学", "科学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"] as const;
 
 /** 题目原文：公共材料拼在题干前（与 composeQuestionInput 一致，但不附加参考答案等小节） */
 function composeQuestionText(item: Pick<DraftItem, "text" | "material">): string {

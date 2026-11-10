@@ -64,6 +64,7 @@ describe('prefetchSubjectTags', () => {
             'prefetchedBiologyTags', 'prefetchedChemistryTags', 'prefetchedChineseTags',
             'prefetchedEnglishTags', 'prefetchedGeographyTags', 'prefetchedHistoryTags',
             'prefetchedMathTags', 'prefetchedPhysicsTags', 'prefetchedPoliticsTags',
+            'prefetchedScienceTags',
         ]);
         // 数据库查询由 Prisma 过滤学科与叶子节点，mock 只验证预取键已包含语文
         expect(tags.prefetchedChineseTags).toContain('10以内数的认识');
@@ -74,5 +75,11 @@ describe('prefetchSubjectTags', () => {
         expect(tags.prefetchedChineseTags.length).toBeGreaterThan(0);
         expect(tags.prefetchedMathTags).toEqual([]);
         expect(tags.prefetchedEnglishTags).toEqual([]);
+    });
+
+    it('指定科学时只预取科学标签', async () => {
+        const tags = await prefetchSubjectTags('科学', 5);
+        expect(tags.prefetchedScienceTags.length).toBeGreaterThan(0);
+        expect(tags.prefetchedMathTags).toEqual([]);
     });
 });

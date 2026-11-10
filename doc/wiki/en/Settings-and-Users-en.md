@@ -105,7 +105,7 @@ Admins can import the PEP curriculum tag system as a second tag library alongsid
 1. Download the required JSON file: [topics.json](https://raw.githubusercontent.com/xiaoyang111222/cn-math-taxonomy/HEAD/data/topics.json) (about 2.6 MB, from [cn-math-taxonomy](https://github.com/xiaoyang111222/cn-math-taxonomy)).
 2. Open "Settings → User Management → PEP Curriculum Knowledge Points" and click "Select topics.json and Import".
 
-The data is mainly math and also covers Chinese, English, physics, history, geography and morality & law (filed under politics); unsupported subjects such as primary science are skipped. The import is incremental and safe to repeat, and does not change the built-in tag system or existing questions. Afterwards, "PEP Curriculum Standard" can be chosen under "Tag System" when creating a notebook; it cannot be changed later. The command-line equivalent is `npx tsx scripts/seed-cnm-tags.ts <file path>`.
+The data is mainly math and also covers Chinese, English, science, physics, chemistry, biology, history, geography and morality & law (filed under politics). The import is incremental and safe to repeat, and does not change the built-in tag system or existing questions. Afterwards, "PEP Curriculum Standard" can be chosen under "Tag System" when creating a notebook; it cannot be changed later, and a primary science notebook can draw its knowledge points from it. The command-line equivalent is `npx tsx scripts/seed-cnm-tags.ts <file path>`.
 
 ## Privacy and telemetry
 

@@ -244,6 +244,7 @@ export async function getNotebookCandidateTags(scope: NotebookScope, tagSet: str
 export async function prefetchSubjectTags(subject: string | null | undefined, grade: GradeLevel | null | undefined, tagSet: string = 'default') {
     return {
         prefetchedMathTags: (subject === '数学' || !subject) ? await getMathTagsFromDB(grade || null, tagSet) : [],
+        prefetchedScienceTags: (subject === '科学' || !subject) ? await getTagsFromDB('science', tagSet) : [],
         prefetchedPhysicsTags: (subject === '物理' || !subject) ? await getTagsFromDB('physics', tagSet) : [],
         prefetchedChemistryTags: (subject === '化学' || !subject) ? await getTagsFromDB('chemistry', tagSet) : [],
         prefetchedBiologyTags: (subject === '生物' || !subject) ? await getTagsFromDB('biology', tagSet) : [],

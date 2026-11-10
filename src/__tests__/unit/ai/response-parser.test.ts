@@ -134,6 +134,10 @@ describe('parseQuestionResponse', () => {
         expect(parseQuestionResponse(xml).subject).toBe('其他');
     });
 
+    it('识别科学学科', () => {
+        expect(parseQuestionResponse(BASE_XML + '<subject>科学</subject>').subject).toBe('科学');
+    });
+
     it('requires_image 非 true 时默认为 false', () => {
         expect(parseQuestionResponse(BASE_XML + '<requires_image>false</requires_image>').requiresImage).toBe(false);
         expect(parseQuestionResponse(BASE_XML).requiresImage).toBe(false);

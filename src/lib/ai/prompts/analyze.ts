@@ -29,7 +29,7 @@ export const DEFAULT_ANALYZE_TEMPLATE = `【角色与核心任务 (ROLE AND CORE
 请严格按照以下结构输出内容：
 
 <subject>
-在此处填写学科，必须是以下之一："数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"。
+在此处填写学科，必须是以下之一："数学", "科学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"。
 </subject>
 
 <knowledge_points>
@@ -174,6 +174,9 @@ export function generateAnalyzePrompt(
   const biologyTags = options?.prefetchedBiologyTags || [];
   const biologyTagsString = biologyTags.length > 0 ? biologyTags.map(tag => `"${tag}"`).join(", ") : '（无可用标签）';
 
+
+  const scienceTags = options?.prefetchedScienceTags || [];
+  const scienceTagsString = scienceTags.length > 0 ? scienceTags.map(tag => `"${tag}"`).join(", ") : '（无可用标签）';
   const englishTags = options?.prefetchedEnglishTags || [];
   const englishTagsString = englishTags.length > 0 ? englishTags.map(tag => `"${tag}"`).join(", ") : '（无可用标签）';
 
@@ -243,6 +246,14 @@ ${biologyTagsString}
 **重要提示**：
 - 必须从上述列表中选择精确匹配的标签
 - 每题最多 5 个标签`;
+  } else if (subject === '科学') {
+    tagsSection = `**科学标签 (Science Tags):**
+使用课程大纲中的**精确标签名称**，可选标签如下：
+${scienceTagsString}
+
+**重要提示**：
+- 必须从上述列表中选择精确匹配的标签
+- 每题最多 5 个标签`;
   } else if (subject === '英语') {
     tagsSection = `**英语标签 (English Tags):**
 使用课程大纲中的**精确标签名称**，可选标签如下：
@@ -296,6 +307,9 @@ ${chemistryTagsString}
 
 **生物标签 (Biology Tags):**
 ${biologyTagsString}
+
+**科学标签 (Science Tags):**
+${scienceTagsString}
 
 **英语标签 (English Tags):**
 ${englishTagsString}

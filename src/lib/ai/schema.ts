@@ -16,7 +16,7 @@ export const ParsedQuestionSchema = z.object({
     mistakeAnalysis: z.string().optional().default(""),
     mistakeStatus: z.enum(["not_attempted", "wrong_attempt", "unknown"]).optional().default("unknown"),
     subject: z.enum([
-        "数学", "物理", "化学", "生物",
+        "数学", "科学", "物理", "化学", "生物",
         "英语", "语文", "历史", "地理",
         "政治", "其他"
     ]),

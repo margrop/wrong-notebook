@@ -33,6 +33,8 @@ const topics = [
     { id: 'cnm_s002', name: '数列的概念', grade: 13, semester: '上', chapter: '选必二 第四章 数列 4.1' },
     { id: 'cnm_e001', name: '一般现在时', subject: 'english', grade: 9, semester: '全', chapter: '九年级 Unit 1' },
     { id: 'cnm_m001', name: '规则意识', subject: 'morality', grade: 8, semester: '上', chapter: '八年级上册 第三单元' },
+    { id: 'cnm_c001', name: '物质的分类', subject: 'chemistry', grade: 9, semester: '上', chapter: '九年级上册 第一单元 走进化学世界' },
+    { id: 'cnm_b001', name: '细胞的结构', subject: 'biology', grade: 7, semester: '上', chapter: '七年级上册 第一单元 生物和细胞' },
     { id: 'cnm_x001', name: '植物的生长', subject: 'science', grade: 3, semester: '上', chapter: '三年级上册' },
 ];
 
@@ -102,25 +104,36 @@ describe('/api/admin/cnm-tags', () => {
         expect((await importTopics({})).status).toBe(400);
     });
 
-    it('导入后按学段取得候选知识点，跳过不支持的学科，重复导入不新增', async () => {
+    it('导入后按学段取得候选知识点，重复导入不新增', async () => {
         const response = await importTopics({ topics });
         expect(response.status).toBe(200);
         const body = await response.json();
-        expect(body.result).toEqual({ total: 8, created: 7, skipped: 0, ignored: 1 });
-        expect(body.status).toMatchObject({ tagSet: CNM_TAG_SET, knowledgePoints: 7, subjects: { math: 5, english: 1, politics: 1 } });
+        expect(body.result).toEqual({ total: 10, created: 10, skipped: 0, ignored: 0 });
+        expect(body.status).toMatchObject({
+            tagSet: CNM_TAG_SET,
+            knowledgePoints: 10,
+            subjects: { math: 5, english: 1, politics: 1, science: 1, chemistry: 1, biology: 1 },
+        });
 
         const roots = await database.knowledgeTag.findMany({ where: { tagSet: CNM_TAG_SET, parentId: null }, orderBy: { name: 'asc' } });
-        expect(roots.map((tag) => tag.name).sort()).toEqual(['一年级上', '九年级', '八年级上', '七年级上', '高一', '高中 选必二'].sort());
+        expect(roots.map((tag) => `${tag.subject}:${tag.name}`).sort()).toEqual([
+            'math:一年级上', 'math:七年级上', 'math:高一', 'math:高中 选必二',
+            'english:九年级', 'politics:八年级上', 'science:三年级上', 'chemistry:九年级上', 'biology:七年级上',
+        ].sort());
 
         const junior = await getNotebookCandidateTags({ subject: 'math', stage: 'junior_high' }, CNM_TAG_SET);
         expect(junior?.tags).toEqual(expect.arrayContaining(['正数和负数', '有理数的加法']));
         expect(junior?.tags).not.toContain('集合的概念');
         const senior = await getNotebookCandidateTags({ subject: 'math', stage: 'senior_high' }, CNM_TAG_SET);
         expect(senior?.tags).toEqual(expect.arrayContaining(['集合的概念', '数列的概念']));
+        const science = await getNotebookCandidateTags({ subject: 'science', stage: 'primary' }, CNM_TAG_SET);
+        expect(science?.tags).toEqual(['植物的生长']);
+        const chemistry = await getNotebookCandidateTags({ subject: 'chemistry', stage: 'junior_high' }, CNM_TAG_SET);
+        expect(chemistry?.tags).toEqual(['物质的分类']);
 
         const again = await (await importTopics({ topics })).json();
-        expect(again.result).toMatchObject({ created: 0, skipped: 7 });
-        expect(await database.knowledgeTag.count({ where: { tagSet: CNM_TAG_SET } })).toBe(7 + 6 + 6);
+        expect(again.result).toMatchObject({ created: 0, skipped: 10 });
+        expect(await database.knowledgeTag.count({ where: { tagSet: CNM_TAG_SET } })).toBe(28);
     });
 
     it('旧脚本创建的年级节点改为新名称，保留节点与题目关联', async () => {
@@ -130,7 +143,7 @@ describe('/api/admin/cnm-tags', () => {
         const builtIn = await database.knowledgeTag.create({ data: { name: '初一上', subject: 'math', isSystem: true } });
 
         const body = await (await importTopics({ topics })).json();
-        expect(body.result).toMatchObject({ created: 6, skipped: 1 });
+        expect(body.result).toMatchObject({ created: 9, skipped: 1 });
 
         expect(await database.knowledgeTag.findUnique({ where: { id: legacy.id } })).toMatchObject({ name: '七年级上' });
         expect(await database.knowledgeTag.findUnique({ where: { id: leaf.id } })).toMatchObject({ parentId: chapter.id });

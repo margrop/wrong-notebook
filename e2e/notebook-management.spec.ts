@@ -20,6 +20,9 @@ test('新建错题本、搜索和批量删除错题，清空后删除错题本',
     await page.goto('/notebooks');
     await page.getByRole('button', { name: '新建错题本' }).click();
     const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('学科').click();
+    await expect(page.getByRole('option', { name: '科学' })).toBeVisible();
+    await page.getByRole('option', { name: '科学' }).click();
     await dialog.getByLabel('错题本名称').fill(notebookName);
     await dialog.getByRole('button', { name: /^创建$/ }).click();
     await expect(dialog).not.toBeVisible();

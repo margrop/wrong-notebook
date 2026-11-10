@@ -77,7 +77,7 @@ export function parseQuestionResponse(text: string): ParsedQuestion {
 
     // Process Subject
     let subject: ParsedQuestion['subject'] = '其他';
-    const validSubjects: ParsedQuestion['subject'][] = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"];
+    const validSubjects: ParsedQuestion['subject'][] = ["数学", "科学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"];
     if (subjectRaw && (validSubjects as string[]).includes(subjectRaw)) {
         subject = subjectRaw as ParsedQuestion['subject'];
     }

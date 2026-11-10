@@ -181,6 +181,7 @@ export interface PromptOptions {
   customTemplate?: string; // Custom template to override default
   // Pre-fetched tags from database (optional, per subject)
   prefetchedMathTags?: string[];
+  prefetchedScienceTags?: string[];
   prefetchedPhysicsTags?: string[];
   prefetchedChemistryTags?: string[];
   prefetchedBiologyTags?: string[];

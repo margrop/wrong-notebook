@@ -581,6 +581,7 @@ export const zh = {
             subjects: {
                 math: "数学",
                 english: "英语",
+                science: "科学",
                 physics: "物理",
                 chemistry: "化学",
                 biology: "生物",

@@ -64,7 +64,7 @@ export const DEFAULT_REANSWER_TEMPLATE = `【角色与核心任务 (ROLE AND COR
 </mistake_analysis>
 
 <subject>
-判断题目所属学科，只能填写以下之一：数学、物理、化学、生物、英语、语文、历史、地理、政治、其他
+判断题目所属学科，只能填写以下之一：数学、科学、物理、化学、生物、英语、语文、历史、地理、政治、其他
 </subject>
 
 <difficulty_stars>

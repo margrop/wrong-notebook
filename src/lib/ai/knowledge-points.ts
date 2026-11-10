@@ -2,9 +2,10 @@ import { MAX_KNOWLEDGE_TAGS } from './schema';
 import type { PromptOptions } from './prompts';
 
 const SUBJECT_TAG_FIELDS = {
-    数学: 'prefetchedMathTags', 物理: 'prefetchedPhysicsTags', 化学: 'prefetchedChemistryTags',
-    生物: 'prefetchedBiologyTags', 英语: 'prefetchedEnglishTags', 语文: 'prefetchedChineseTags',
-    历史: 'prefetchedHistoryTags', 地理: 'prefetchedGeographyTags', 政治: 'prefetchedPoliticsTags',
+    数学: 'prefetchedMathTags', 科学: 'prefetchedScienceTags', 物理: 'prefetchedPhysicsTags',
+    化学: 'prefetchedChemistryTags', 生物: 'prefetchedBiologyTags', 英语: 'prefetchedEnglishTags',
+    语文: 'prefetchedChineseTags', 历史: 'prefetchedHistoryTags', 地理: 'prefetchedGeographyTags',
+    政治: 'prefetchedPoliticsTags',
 } as const;
 
 /**

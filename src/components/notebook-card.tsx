@@ -1,6 +1,6 @@
 "use client";
 
-import { Atom, BookOpen, BookText, ChevronRight, FlaskConical, Globe, Landmark, Languages, Leaf, Scale, Sigma } from "lucide-react";
+import { Atom, BookOpen, BookText, ChevronRight, FlaskConical, Globe, Landmark, Languages, Leaf, Microscope, Scale, Sigma } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NotebookScopeLabel } from "@/components/notebook-scope-label";
 import { resolveNotebookScope } from "@/lib/notebook-scope";
@@ -20,6 +20,7 @@ const SUBJECT_STYLE: Record<NotebookSubject, { icon: LucideIcon; className: stri
     math: { icon: Sigma, className: "bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300" },
     english: { icon: Languages, className: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300" },
     chinese: { icon: BookText, className: "bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300" },
+    science: { icon: Microscope, className: "bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300" },
     physics: { icon: Atom, className: "bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300" },
     chemistry: { icon: FlaskConical, className: "bg-teal-100 text-teal-600 dark:bg-teal-500/15 dark:text-teal-300" },
     biology: { icon: Leaf, className: "bg-lime-100 text-lime-700 dark:bg-lime-500/15 dark:text-lime-300" },

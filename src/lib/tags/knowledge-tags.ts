@@ -68,12 +68,13 @@ export function calculateGradeNumber(
  * @param subjectName 错题本名称
  * @returns 学科标识
  */
-export function inferSubjectFromName(subjectName: string | null): 'math' | 'physics' | 'chemistry' | 'biology' | 'english' | 'chinese' | 'history' | 'geography' | 'politics' | null {
+export function inferSubjectFromName(subjectName: string | null): 'math' | 'science' | 'physics' | 'chemistry' | 'biology' | 'english' | 'chinese' | 'history' | 'geography' | 'politics' | null {
     if (!subjectName) return null;
 
     const lowerName = subjectName.toLowerCase();
 
     if (lowerName.includes('math') || lowerName.includes('数学')) return 'math';
+    if (lowerName.includes('science') || lowerName.includes('科学')) return 'science';
     if (lowerName.includes('physics') || lowerName.includes('物理')) return 'physics';
     if (lowerName.includes('chemistry') || lowerName.includes('化学')) return 'chemistry';
     if (lowerName.includes('biology') || lowerName.includes('生物')) return 'biology';

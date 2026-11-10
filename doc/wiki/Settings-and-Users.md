@@ -105,7 +105,7 @@
 1. 下载所需的 JSON 文件：[topics.json](https://raw.githubusercontent.com/xiaoyang111222/cn-math-taxonomy/HEAD/data/topics.json)（约 2.6MB，来自 [cn-math-taxonomy](https://github.com/xiaoyang111222/cn-math-taxonomy)）。
 2. 打开“设置 → 用户管理 → 人教版课标知识点”，点击“选择 topics.json 并导入”。
 
-数据以数学为主，也包含语文、英语、物理、历史、地理和道德与法治（归入政治）；小学科学等不支持的学科会跳过。导入是增量的，可重复执行，不改动内置标签体系和已有题目。导入后创建错题本时可在“标签体系”中选择「人教版课标体系」，创建后不可更改。也可在命令行执行 `npx tsx scripts/seed-cnm-tags.ts <文件路径>`。
+数据以数学为主，也包含语文、英语、科学、物理、化学、生物、历史、地理和道德与法治（归入政治）。导入是增量的，可重复执行，不改动内置标签体系和已有题目。导入后创建错题本时可在“标签体系”中选择「人教版课标体系」，创建后不可更改；小学科学错题本可据此取得知识点。也可在命令行执行 `npx tsx scripts/seed-cnm-tags.ts <文件路径>`。
 
 ## 隐私与遥测
 

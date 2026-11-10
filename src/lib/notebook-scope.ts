@@ -10,16 +10,15 @@ export const NOTEBOOK_STAGES = ["primary", "junior_high", "senior_high", "univer
 export type NotebookStage = (typeof NOTEBOOK_STAGES)[number];
 export const DEFAULT_NOTEBOOK_STAGE: NotebookStage = "primary";
 
-export const NOTEBOOK_SUBJECTS = ["math", "english", "chinese", "physics", "chemistry", "biology", "history", "geography", "politics"] as const;
+export const NOTEBOOK_SUBJECTS = ["math", "english", "chinese", "science", "physics", "chemistry", "biology", "history", "geography", "politics"] as const;
 export type NotebookSubject = (typeof NOTEBOOK_SUBJECTS)[number];
 
 /**
- * 各学段可选的学科：只列出标签库中有该学段知识点的学科。
- * 语文已包含小学各年级的章节和知识点，故小学可选「数学/英语/语文」；
- * 其余学科（物理/化学/生物/历史/地理/政治）当前标签库仍无小学知识点，故不在小学列出。
+ * 各学段可选的学科。科学的小学知识点由人教版课标体系提供（导入后可选），
+ * 内置体系暂无科学课程，该错题本的知识点由 AI 生成后逐步收敛；其余学科沿用内置课程知识点。
  */
 export const STAGE_SUBJECTS: Record<NotebookStage, readonly NotebookSubject[]> = {
-    primary: ["math", "english", "chinese"],
+    primary: ["math", "english", "chinese", "science"],
     junior_high: NOTEBOOK_SUBJECTS,
     senior_high: NOTEBOOK_SUBJECTS,
     // 大学没有内置课程知识点，知识点由 AI 在错题本内自由生成后逐步收敛
@@ -28,8 +27,8 @@ export const STAGE_SUBJECTS: Record<NotebookStage, readonly NotebookSubject[]> =
 
 /** 学科的中文名（提示词中使用） */
 export const SUBJECT_DISPLAY_NAMES: Record<NotebookSubject, string> = {
-    math: "数学", english: "英语", chinese: "语文", physics: "物理", chemistry: "化学",
-    biology: "生物", history: "历史", geography: "地理", politics: "政治",
+    math: "数学", english: "英语", chinese: "语文", science: "科学", physics: "物理",
+    chemistry: "化学", biology: "生物", history: "历史", geography: "地理", politics: "政治",
 };
 
 // 标签库顶层节点是年级（如「三年级」「七年级上」「高一下」，课标体系高中按册名为「高中 选必一」），按名称归入学段
