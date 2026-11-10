@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { join } from 'node:path';
 import { test, expect, runState } from './support/fixtures';
 import { openSettings } from './support/flows';
@@ -29,9 +30,11 @@ test('[E2E-M07] 其他账号备份合并到当前账号并在同邮箱空账号�
     const download = await downloadPromise;
     const file = join(runState.reportDir, `${scenario.id}-backup.json`);
     await download.saveAs(file);
-    const contents = readFileSync(file, 'utf8');
+    const raw = readFileSync(file);
+    // 网页导出为 gzip 压缩的 .json；旧版纯 JSON 也能读取
+    const contents = (raw[0] === 0x1f && raw[1] === 0x8b ? gunzipSync(raw) : raw).toString('utf8');
     const backup = JSON.parse(contents) as { version: number; user: Record<string, unknown>; errorItems: unknown[]; extensions?: unknown };
-    expect(backup.version).toBe(12);
+    expect(backup.version).toBe(13);
     expect(backup.extensions).toEqual({});
     expect(backup.errorItems).toHaveLength(2);
     expect(backup.user).not.toHaveProperty('password');

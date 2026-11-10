@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { CheckCircle2, Download, Loader2, Upload } from "lucide-react";
+import { gunzipSync } from "fflate";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient, ApiError } from "@/lib/api-client";
+import { MAX_BACKUP_IMPORT_BYTES } from "@/lib/backup/limits";
 import { useRunningTask } from "@/lib/hooks/use-running-task";
 import { downloadFile } from "@/lib/download-file";
 import { confirmDialog, toast } from "@/lib/feedback";
@@ -62,7 +64,7 @@ export function DataBackupSettings({ isAdmin, userId, userEmail }: DataBackupSet
         setExporting(true);
         try {
             // 安卓 App 的保存对话框异步返回：确认文件已写入后再提示成功
-            const saved = await downloadFile(all ? '/api/export?all=true' : '/api/export', all ? 'wrong-notebook-export-all.json' : 'wrong-notebook-export.json');
+            const saved = await downloadFile(all ? '/api/export?all=true&compress=gzip' : '/api/export?compress=gzip', all ? 'wrong-notebook-export-all.json' : 'wrong-notebook-export.json');
             if (saved) toast.success(t.settings?.exportSuccess || "Export successful");
         } catch (error) {
             frontendLogger.error('[DataBackupSettings]', all ? 'Export all failed' : 'Export failed', { error });
@@ -74,9 +76,21 @@ export function DataBackupSettings({ isAdmin, userId, userEmail }: DataBackupSet
 
     const handleImport = async (all: boolean) => {
         if (!selectedFile) return;
+        if (selectedFile.size > MAX_BACKUP_IMPORT_BYTES) {
+            toast.error(t.importFile.tooLarge.replace("{max}", String(MAX_BACKUP_IMPORT_BYTES / 1024 / 1024)));
+            return;
+        }
         let data: unknown;
         try {
-            data = JSON.parse(await selectedFile.text());
+            // 新版导出为 gzip 压缩的 JSON（文件名仍是 .json）；旧版纯 JSON 原样解析
+            const bytes = new Uint8Array(await selectedFile.arrayBuffer());
+            const gzipped = bytes.length > 1 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+            const decompressed = gzipped ? gunzipSync(bytes) : bytes;
+            if (decompressed.length > MAX_BACKUP_IMPORT_BYTES) {
+                toast.error(t.importFile.tooLarge.replace("{max}", String(MAX_BACKUP_IMPORT_BYTES / 1024 / 1024)));
+                return;
+            }
+            data = JSON.parse(new TextDecoder().decode(decompressed));
         } catch (error) {
             frontendLogger.error('[DataBackupSettings]', 'Import file is not valid JSON', { error });
             toast.error(t.settings?.importFailed || "Import failed");
@@ -100,7 +114,8 @@ export function DataBackupSettings({ isAdmin, userId, userEmail }: DataBackupSet
         setImporting(true);
         try {
             const url = all ? '/api/import?all=true' : merging ? '/api/import?merge=true' : '/api/import';
-            const { stats } = await apiClient.post<{ stats: ImportStats }>(url, data);
+            // 直接上传选中文件：压缩文件按原字节发送，服务端按 gzip 魔数自动解压
+            const { stats } = await apiClient.postRaw<{ stats: ImportStats }>(url, selectedFile, { timeout: 300000 });
             toast.success(formatImportResult(stats, t));
             setSelectedFile(null);
             window.location.reload();

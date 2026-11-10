@@ -160,6 +160,8 @@ async function request<T>(url: string, options: RequestOptions = {}): Promise<T>
 export const apiClient = {
     get: <T>(url: string, options?: RequestOptions) => request<T>(url, { ...options, method: 'GET' }),
     post: <TResponse, TBody = unknown>(url: string, body: TBody, options?: RequestOptions) => request<TResponse>(url, { ...options, method: 'POST', body: JSON.stringify(body) }),
+    /** 原样发送请求体（文件或已编码字节），供 gzip 备份上传使用 */
+    postRaw: <TResponse>(url: string, body: BodyInit, options?: RequestOptions) => request<TResponse>(url, { ...options, method: 'POST', body }),
     put: <TResponse, TBody = unknown>(url: string, body: TBody, options?: RequestOptions) => request<TResponse>(url, { ...options, method: 'PUT', body: JSON.stringify(body) }),
     patch: <TResponse, TBody = unknown>(url: string, body: TBody, options?: RequestOptions) => request<TResponse>(url, { ...options, method: 'PATCH', body: JSON.stringify(body) }),
     delete: <T>(url: string, options?: RequestOptions) => request<T>(url, { ...options, method: 'DELETE' }),
