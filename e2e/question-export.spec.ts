@@ -5,7 +5,7 @@
  */
 import { expect, test } from './support/fixtures';
 import type { Page, Scenario } from './support/fixtures';
-import { TINY_PNG_DATA_URL, captureDownload, readXlsxRows, unzipDocx } from './support/e6-helpers';
+import { TINY_PNG_DATA_URL, TINY_WEBP_DATA_URL, captureDownload, readXlsxRows, unzipDocx } from './support/e6-helpers';
 
 /** 通过 db 创建 3 道测试错题：A（含 PNG data URL 原图）、B、C */
 async function seedThreeItems(scenario: Scenario) {
@@ -135,7 +135,9 @@ test('[E2E-F6-2] 多选 3 题导出 Excel：.xlsx 表头与导入模板一致（
 });
 
 test('[E2E-F6-3] 多选 3 题导出 Word（含答案与解析）：.docx 含 3 道题干与「参考答案」；勾选原图时 word/media/ 下有图片', async ({ page, scenario }) => {
-    await seedThreeItems(scenario);
+    const { itemA } = await seedThreeItems(scenario);
+    // 真实上传的错题原图现在存为 WebP；Word 导出必须把它重编码为 JPEG 再嵌入
+    await scenario.db.errorItem.update({ where: { id: itemA.id }, data: { originalImageUrl: TINY_WEBP_DATA_URL } });
     await scenario.login(page);
     await page.goto(`/notebooks/${scenario.book.id}`);
     await expect(page.getByText(`计算 1 + 2。${scenario.marker}`)).toBeVisible();

@@ -12,6 +12,9 @@ const TINY_PNG_BASE64 =
 
 export const TINY_PNG_DATA_URL = `data:image/png;base64,${TINY_PNG_BASE64}`;
 
+/** 64×64 WebP（302 字节），用于验证 Word 导出把 WebP 原图重编码为 JPEG 嵌入 */
+export const TINY_WEBP_DATA_URL = 'data:image/webp;base64,UklGRiYBAABXRUJQVlA4IBoBAABQBwCdASpAAEAAPo08mEelI6KhMfqoAKARiWkABEFfIB8+6SAeTjNO0xqvN9sWIxHbVT9GVjRaupj9eQAIIFwjN4aAAP75EKiduGW7iYe4Lzvc4qRG3Ih3l4ZcCLN+o//4X/lJxL5PwEEUZN6Xl+4t49P8rVdjLuo++LGdfgsL1c5Hft+oSF+O0r3Kr+D3RZLa/197CyJwaJD0gkIfVtxF1PvYpnw9Hz+or92vi0LsP2/R/0gTG9lf3P15QXI9zsIMi94Y2hdy/JLZgI/PV+t2sErWjygVOljOQWJ/ofkIAgF2RNUp3YCIUqs5VcEkLf5Cou/Bk2p3FFnjGo45/9trEK4Tgk05DeGNEzt2eINhEFJx2UmglbkAAAA=';
+
 /** 解压 .docx（zip），返回路径 → 内容映射；XML 条目为 UTF-8 文本，二进制条目为字节数（String(length)） */
 export function unzipDocx(buffer: Buffer): Record<string, string> {
     const entries = unzipSync(new Uint8Array(buffer));

@@ -72,7 +72,7 @@ for (const profile of viewports) {
             expect(task).toMatchObject({ status: 'saved', imageData: '' });
             const item = await scenario.db.errorItem.findUniqueOrThrow({ where: { id: task.errorItemId! } });
             expect(item.questionText).toBe(`校对后的方程 x + 2 = 5。${scenario.marker}`);
-            expect(item.originalImageUrl).toMatch(/^data:image\/jpeg;base64,/);
+            expect(item.originalImageUrl).toMatch(/^data:image\/webp;base64,/);
             expect(await analysisCalls(scenario)).toBe(1);
         });
 

@@ -1,5 +1,5 @@
 /**
- * 题目图片处理流程（浏览器端）：读取 → 解码（含 HEIC/HEIF 转换与方向处理）→ 预览缩略图 → 按原图裁剪 → 限制尺寸与体积后编码为 JPEG。
+ * 题目图片处理流程（浏览器端）：读取 → 解码（含 HEIC/HEIF 转换与方向处理）→ 预览缩略图 → 按原图裁剪 → 限制尺寸与体积后编码（优先 WebP，不支持时 JPEG）。
  *
  * - 按文件头识别真实格式，不依赖文件扩展名或浏览器报告的 MIME。
  * - 优先使用系统解码（Safari 等可直接解码 HEIC）；系统无法解码的 HEIC/HEIF 才按需加载解码库（libheif，约 2MB），
@@ -20,14 +20,14 @@ export interface ImageOutputLimits {
     maxPixels: number;
     /** 编码后的最大字节数 */
     maxBytes: number;
-    /** 初始 JPEG 质量 */
+    /** 初始编码质量 */
     startQuality: number;
-    /** 最低 JPEG 质量；达到后仍超出体积时缩小尺寸 */
+    /** 最低编码质量；达到后仍超出体积时缩小尺寸 */
     minQuality: number;
 }
 
 /**
- * 默认输出限制：约 490 万像素（2560×1920）、最长边 4096、1.5MB、质量 0.9→0.8。
+ * 默认输出限制：约 490 万像素（2560×1920）、最长边 4096、1.5MB、质量 0.9→0.8；优先 WebP 编码。
  * 整页手机照片竖拍（3024×4032）输出 1920×2560，与原先按 1920 宽缩放相同；横拍（4032×3024）输出 2560×1920，
  * 比原先的 1920×1440 多保留细节。题目裁剪区域通常在像素上限内，按原分辨率输出。
  * 原先小于 1MB 的图片不做任何缩放（如 800×8000 的长图原样上传），现在同样受像素与最长边限制。
@@ -167,10 +167,17 @@ function createCanvas(width: number, height: number): HTMLCanvasElement {
     return canvas;
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-        canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("CANVAS_EMPTY"))), "image/jpeg", quality);
-    });
+function canvasToBlob(canvas: HTMLCanvasElement, quality: number, type = "image/jpeg"): Promise<Blob> {
+    const { promise, resolve, reject } = Promise.withResolvers<Blob>();
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("CANVAS_EMPTY"))), type, quality);
+    return promise;
+}
+
+/** 最终图片优先编码为 WebP（同等质量体积约小 25%）；浏览器不支持时返回的 PNG/JPEG 中，PNG 再重编码为 JPEG */
+async function encodeImage(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+    const encoded = await canvasToBlob(canvas, quality, "image/webp");
+    if (encoded.type === "image/webp" || encoded.type === "image/jpeg") return encoded;
+    return canvasToBlob(canvas, quality, "image/jpeg");
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -262,7 +269,7 @@ export async function renderRegion(prepared: Pick<PreparedImage, "source" | "wid
 
     const compressStarted = performance.now();
     let quality = limits.startQuality;
-    let blob = await canvasToBlob(canvas, quality);
+    let blob = await encodeImage(canvas, quality);
     for (let attempt = 0; blob.size > limits.maxBytes && attempt < 12; attempt++) {
         if (quality - QUALITY_STEP >= limits.minQuality - 1e-9) {
             quality = Math.round((quality - QUALITY_STEP) * 100) / 100;
@@ -270,7 +277,7 @@ export async function renderRegion(prepared: Pick<PreparedImage, "source" | "wid
             size = { width: Math.max(1, Math.floor(size.width * SHRINK_STEP)), height: Math.max(1, Math.floor(size.height * SHRINK_STEP)), scale: size.scale * SHRINK_STEP };
             canvas = drawRegion(prepared.source, geometry, size.width, size.height, region.erase);
         }
-        blob = await canvasToBlob(canvas, quality);
+        blob = await encodeImage(canvas, quality);
     }
     const dataUrl = await blobToDataUrl(blob);
     return {

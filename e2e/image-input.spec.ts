@@ -117,7 +117,7 @@ test.describe('照片格式与尺寸', () => {
         await page.goto('/');
     });
 
-    test('[E2E-I01] 真实 HEIC 照片在浏览器无法直接解码时按需加载解码库，转为真正的 JPEG 后进入裁剪', async ({ page, scenario }, testInfo) => {
+    test('[E2E-I01] 真实 HEIC 照片在浏览器无法直接解码时按需加载解码库，解码后进入裁剪并保存为 WebP', async ({ page, scenario }, testInfo) => {
         const largeScripts = () => page.evaluate(() => performance.getEntriesByType('resource')
             .filter((entry) => entry.name.endsWith('.js') && (entry as PerformanceResourceTiming).decodedBodySize > 1_000_000).length);
         expect(await largeScripts()).toBe(0);
@@ -129,7 +129,7 @@ test.describe('照片格式与尺寸', () => {
         await page.getByRole('button', { name: /确认|Confirm/ }).click();
         await expect.poll(() => scenario.db.importTask.count({ where: { userId: scenario.user.id } })).toBe(1);
         const task = await scenario.db.importTask.findFirstOrThrow({ where: { userId: scenario.user.id } });
-        expect(task.imageData).toMatch(/^data:image\/jpeg;base64,\/9j\//);
+        expect(task.imageData).toMatch(/^data:image\/webp;base64,/);
         const info = JSON.parse(task.imageInfo!);
         expect(info).toMatchObject({ decoder: 'heic', sourceWidth: 1024, sourceHeight: 1024, outputWidth: 1024, outputHeight: 1024 });
         const timings = JSON.parse(task.timings!);
@@ -176,7 +176,7 @@ test.describe('照片格式与尺寸', () => {
         const info = JSON.parse(task.imageInfo!);
         expect(info).toMatchObject({ sourceWidth: 800, sourceHeight: 8000, outputWidth: 409, outputHeight: 4096 });
         expect(info.outputWidth * info.outputHeight).toBeLessThanOrEqual(2560 * 1920);
-        expect(task.imageData).toMatch(/^data:image\/jpeg;/);
+        expect(task.imageData).toMatch(/^data:image\/webp;/);
     });
 
     test('[E2E-I12] 桌面竖向长图的单题裁剪下边线在可视区内，可直接拖动下边', async ({ page }, testInfo) => {

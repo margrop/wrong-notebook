@@ -3,10 +3,10 @@
  * 生成便于打印成试卷的 Word 文档：
  * - 文档标题（可自定义，默认「错题导出 yyyy-MM-dd」）；
  * - 按 section（无则按题型显示名，再无则不分组）分组，组标题为「第X大题 …」；
- * - 题号连续（1. 2. …），题干保留换行；
+ * - 题号连续（1．2． …），题干保留换行；
  * - 可选「包含原图」：images[] 的 data URL 解码后按宽度上限等比缩放插入；
  * - 可选「包含答案与解析」（默认开启）：统一放在文末「参考答案」部分，
- *   按「N. 答案【解析：…】」格式书写，可被导入端 fillAnswersFromTail 按题号回填；
+ *   按「N．答案【解析：…】」格式书写，可被导入端 fillAnswersFromTail 按题号回填；
  * - LaTeX 公式（$…$、$$…$$）以原文保留；figureSvg 不导出。
  *
  * Markdown 的粗体/斜体标记（**…**、*…*）按原样保留为文本，不做转换。
@@ -38,7 +38,7 @@ export interface DocxExportOptions {
 /** 图片字节 + 从头部读出的像素尺寸 */
 export interface ImageBytesWithSize {
     bytes: Uint8Array;
-    /** 图片类型：目前 data URL 只允许 png / jpeg / webp；docx 对 webp 支持差，按 png 写入 */
+    /** 图片类型：docx 的 ImageRun 只接受 png / jpg；WebP 由 docxImageBytes 在浏览器中转为 JPEG */
     type: "png" | "jpg";
     widthPx: number;
     heightPx: number;
@@ -64,10 +64,31 @@ export function dataUrlToImageBytes(dataUrl: string): ImageBytesWithSize | null 
     }
     const size = readImageSize(bytes);
     if (!size) return null;
-    // docx 的 ImageRun 不支持 webp，按扩展名写入会损坏文件；webp 直接跳过
+    // docx 的 ImageRun 不支持 webp：同步解码读不出尺寸，由 docxImageBytes 在浏览器中重编码为 JPEG
     const mime = match[1].toLowerCase();
     if (mime === "webp") return null;
     return { bytes, type: mime === "png" ? "png" : "jpg", widthPx: size.width, heightPx: size.height };
+}
+
+/** Word 的 ImageRun 不支持 WebP：导出前在浏览器中解码并转为 JPEG data URL；无画布环境保持原样 */
+async function docxCompatibleDataUrl(dataUrl: string): Promise<string> {
+    if (!/^data:image\/webp;base64,/.test(dataUrl) || typeof document === "undefined" || typeof createImageBitmap !== "function") return dataUrl;
+    try {
+        const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
+        try {
+            const canvas = document.createElement("canvas");
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+            const context = canvas.getContext("2d");
+            if (!context) return dataUrl;
+            context.drawImage(bitmap, 0, 0);
+            return canvas.toDataURL("image/jpeg", 0.9);
+        } finally {
+            bitmap.close();
+        }
+    } catch {
+        return dataUrl;
+    }
 }
 
 /**
@@ -223,8 +244,9 @@ export function buildDocxParagraphs(questions: StructuredQuestion[], options: Do
         for (const { question, number } of group.items) {
             const stemLines = (question.text ?? "").replace(/\r\n?/g, "\n").split("\n");
             stemLines.forEach((line, lineIndex) => {
+                // 题号用全角「．」：正文以数字开头时「2．1+1」仍能识别为题号，不会像半角「2.1+1」被当成小数
                 paragraphs.push(new Paragraph({
-                    children: [new TextRun(lineIndex === 0 ? `${number}. ${line}` : line)],
+                    children: [new TextRun(lineIndex === 0 ? `${number}．${line}` : line)],
                 }));
             });
 
@@ -257,10 +279,10 @@ export function buildDocxParagraphs(questions: StructuredQuestion[], options: Do
             for (const { question, number } of answered) {
                 const answer = question.answer?.trim() ?? "";
                 const analysis = question.analysis?.trim() ?? "";
-                // 「N. 答案：… 解析：…」：parseAnswerEntryContent 能识别「解析：」前缀并回填
+                // 「N．答案：… 解析：…」：parseAnswerEntryContent 能识别「解析：」前缀并回填
                 const text = analysis ? `答案：${answer} 解析：${analysis}` : `答案：${answer}`;
                 paragraphs.push(new Paragraph({
-                    children: [new TextRun(`${number}. ${text}`)],
+                    children: [new TextRun(`${number}．${text}`)],
                 }));
             }
         }
@@ -274,7 +296,13 @@ export function buildDocxParagraphs(questions: StructuredQuestion[], options: Do
  */
 export async function buildQuestionsDocx(questions: StructuredQuestion[], options: DocxExportOptions): Promise<Blob> {
     const { Document, Packer } = await import("docx");
-    const paragraphs = buildDocxParagraphs(questions, options);
+    // 原图可能存为 WebP；先在浏览器转为 JPEG，再由同步的段落构建器嵌入
+    const prepared = options.includeImages
+        ? await Promise.all(questions.map(async (question) => question.images?.length
+            ? { ...question, images: await Promise.all(question.images.map(async (image) => ({ ...image, dataUrl: await docxCompatibleDataUrl(image.dataUrl) }))) }
+            : question))
+        : questions;
+    const paragraphs = buildDocxParagraphs(prepared, options);
     const doc = new Document({ sections: [{ children: paragraphs }] });
     return Packer.toBlob(doc);
 }
