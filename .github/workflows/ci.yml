@@ -228,7 +228,16 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+        # 系统依赖来自 Ubuntu 软件源，托管机器偶尔解析不了软件源域名；
+        # 每次最多等 4 分钟、重试 3 次，仍失败时只装浏览器本体（托管镜像已带大部分系统库）
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 240 npx playwright install --with-deps chromium; then exit 0; fi
+            echo "::warning::安装 Playwright 系统依赖失败（第 ${attempt} 次），30 秒后重试"
+            sleep 30
+          done
+          echo "::warning::系统依赖仍无法安装，改为只安装浏览器"
+          npx playwright install chromium
 
       - name: Run isolated E2E with local model service
         run: npm run test:e2e
