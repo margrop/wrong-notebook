@@ -9,7 +9,7 @@ import {
     generateTextFixPrompt,
     SVG_ANIMATION_REQUEST, SVG_NARRATION_REQUEST,
 } from './prompts';
-import type { PromptOptions, PromptRequest, LatexFixField } from './prompts';
+import type { FigureCanvas, PromptOptions, PromptRequest, LatexFixField } from './prompts';
 import type { AnswerGradingInput, GradeLevel, MasteryEvaluationInput, TagSuggestionInput } from './types';
 import type { LatexFixInput } from './latex-fix';
 import type { QuestionSplitInput } from './question-split';
@@ -126,8 +126,15 @@ export function generateTagSuggestRequest(input: TagSuggestionInput): PromptRequ
     }), { ...input });
 }
 
-export function generateFigureRequest(questionText?: string | null): PromptRequest {
-    return createPromptRequest(generateFigurePrompt(ref('questionText')), { questionText });
+/** 画布尺寸是受控的整数，可以进入系统规则；超出合理范围时视为未知 */
+function safeCanvas(canvas?: FigureCanvas | null): FigureCanvas | null {
+    if (!canvas) return null;
+    const valid = (value: number) => Number.isInteger(value) && value >= 16 && value <= 4096;
+    return valid(canvas.width) && valid(canvas.height) ? { width: canvas.width, height: canvas.height, cropped: canvas.cropped === true } : null;
+}
+
+export function generateFigureRequest(questionText?: string | null, canvas?: FigureCanvas | null): PromptRequest {
+    return createPromptRequest(generateFigurePrompt(ref('questionText'), safeCanvas(canvas)), { questionText });
 }
 
 export function generateGeogebraRequest(questionText: string, answerText: string, analysis: string, previousErrors?: string): PromptRequest {

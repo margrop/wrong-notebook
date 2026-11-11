@@ -53,6 +53,13 @@ describe('AI 请求的材料边界', () => {
         expect(JSON.parse(request.user).data.difficulty).toBe('medium');
     });
 
+    it('配图画布只接受合理范围内的整数尺寸', () => {
+        expect(generateFigureRequest('如图', { width: 800, height: 468, cropped: true }).system).toContain('viewBox="0 0 800 468"');
+        const forged = { width: 800.5, height: 468, cropped: true };
+        expect(generateFigureRequest('如图', forged).system).not.toContain('viewBox="0 0 800');
+        expect(generateFigureRequest('如图', { width: 99999, height: 468, cropped: false }).system).not.toContain('99999');
+    });
+
     it('伪造的年级也不能进入系统规则', () => {
         const request = generateReanswerRequest('zh', '题目', '数学', {}, '小学三年级，' + material);
         expect(request.system).not.toContain(material);

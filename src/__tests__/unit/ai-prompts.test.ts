@@ -56,6 +56,22 @@ describe('AI Prompts', () => {
             expect(generateFigurePrompt(null)).toContain('（无题目文字）');
         });
 
+        it('重绘配图时先列元素清单，并强调箭头方向与连线', () => {
+            const prompt = generateFigurePrompt('如图');
+            expect(prompt.indexOf('<figure_outline>')).toBeGreaterThan(-1);
+            expect(prompt.indexOf('<figure_outline>')).toBeLessThan(prompt.indexOf('<figure_svg>'));
+            expect(prompt).toContain('箭头方向必须与原图一致');
+            expect(prompt).toContain('共用同一端点坐标');
+            expect(prompt).toContain('按原图比例与相对位置绘制');
+        });
+
+        it('已知画布尺寸时要求 viewBox 与图片像素一致', () => {
+            const prompt = generateFigurePrompt('如图', { width: 800, height: 468, cropped: true });
+            expect(prompt).toContain('viewBox="0 0 800 468"');
+            expect(prompt).toContain('已从题目图片中裁剪出配图区域');
+            expect(generateFigurePrompt('如图', { width: 800, height: 468, cropped: false })).not.toContain('裁剪');
+        });
+
         it('提供错题本候选知识点时只列出这些标签，不再按学科、年级取标签', () => {
             const prompt = generateAnalyzePrompt('zh', 4, '数学', {
                 candidateTags: { subjectName: '数学', tags: ['鸡兔同笼', '植树问题'] },
