@@ -263,6 +263,8 @@ Every release publishes an image to GitHub Container Registry, `ghcr.io/margrop/
 
    Or download [`docker-compose.yml`](docker-compose.yml) into the current directory, set `NEXTAUTH_SECRET` (and `NEXTAUTH_URL`), then run `docker compose up -d`.
 
+   When `NEXTAUTH_SECRET` is not set, the container generates a secret on first start and keeps it in `.nextauth_secret` under the data directory.
+
 3. **Sign in**: open `http://your-ip-or-domain:3000`.
 
 4. **Upgrade**: pull the new image and recreate the container. Data stays in the mounted directories; startup runs database migrations and fills in missing built-in Chinese tags while preserving existing tag IDs and question links. Back up the `data/` directory before upgrading.

@@ -261,6 +261,8 @@ wrong-notebook --port 3000
 
    或下载仓库中的 [`docker-compose.yml`](docker-compose.yml) 放到当前目录，修改 `NEXTAUTH_SECRET`（及 `NEXTAUTH_URL`）后执行 `docker compose up -d`。
 
+   未设置 `NEXTAUTH_SECRET` 时，容器首次启动会生成密钥并保存到数据目录的 `.nextauth_secret`，之后保持不变。
+
 3. **登录**：访问 `http://你的IP或域名:3000`。
 
 4. **升级**：拉取新镜像并重建容器，数据保留在挂载目录中，启动时执行数据库迁移并增量补齐内置语文标签，保留已有标签 ID 和题目关联。升级前建议先备份 `data/` 目录。
