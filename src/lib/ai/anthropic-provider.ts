@@ -137,7 +137,7 @@ export class AnthropicProvider extends BaseAIProvider {
                 max_tokens: limit,
                 system: request.system,
                 messages: [{ role: 'user', content }],
-            }).withResponse();
+            }, { signal: request.signal }).withResponse();
             requestId = readRequestId(httpResponse.headers);
             // 兼容接口的推理模型会返回 thinking 块，只取正文
             const text = message.content

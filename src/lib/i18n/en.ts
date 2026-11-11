@@ -1191,7 +1191,7 @@ export const en = {
             aiAuth: "⚠️ Invalid API key\n\nPlease check your AI provider settings and verify the API key is correct",
             aiConnectionFailed: "⚠️ Cannot connect to AI service\n\nPlease check:\n• Internet connection\n• Proxy settings\n• Firewall configuration",
             aiResponseError: "⚠️ AI returned invalid response\n\nPlease try again, contact support if issue persists",
-            AI_TIMEOUT_ERROR: "Request timeout. Please try again.",
+            AI_TIMEOUT_ERROR: "The AI took too long to respond. Please try again. Reasoning models are slow on full-page images; select a smaller area or switch to a faster model.",
             AI_QUOTA_EXCEEDED: "API quota exceeded or insufficient balance. Please check your account.",
             AI_PERMISSION_DENIED: "Permission denied (403). Please check your API key permissions.",
             AI_NOT_FOUND: "Resource not found (404). Please check endpoint URL or model name.",

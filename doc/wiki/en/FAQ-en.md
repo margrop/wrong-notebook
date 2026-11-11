@@ -31,6 +31,10 @@ Fields saved in the web UI take precedence over environment variables. Check the
 
 A successful connection does not mean the model accepts images. Make sure the chosen model has vision capability, the compatible API accepts image requests, the image is complete and readable, and the server can reach the provider. `localhost` inside a container is the container itself; see [AI Configuration](AI-Configuration-en).
 
+## Auto split or recognition stays at "Recognizing" for a long time?
+
+Each AI call, including automatic retries after failures, waits at most 10 minutes. After that the task is marked as failed and can be retried or discarded in "Recognition tasks". Reasoning models (such as GLM or DeepSeek in thinking mode) are slow on full-page images; select a smaller area before splitting, or use a faster model for image recognition in "Settings → AI".
+
 ## "AI response format error", or animation generation fails?
 
 Check whether the model follows the tag or JSON output format and whether its maximum output length is large enough. Animations contain long SVG code and are easily truncated by short output limits. Switch to a more suitable model; on timeouts, check the network and adjust the admin analysis timeout.

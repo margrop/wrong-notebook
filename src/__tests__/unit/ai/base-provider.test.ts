@@ -4,7 +4,7 @@
  * 用最小测试子类验证：14 个业务方法调用 complete 时传入的 task/system/user/image 正确；
  * 空响应抛错；异常经 handleError 后抛出。
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@/lib/logger', () => ({
     createLogger: vi.fn(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), box: vi.fn(), divider: vi.fn() })),
@@ -20,7 +20,7 @@ vi.mock('@/lib/ai/tag-service', () => ({
     prefetchSubjectTags: vi.fn(() => Promise.resolve({})),
 }));
 
-import { BaseAIProvider } from '@/lib/ai/base-provider';
+import { AI_CALL_DEADLINE_MS, BaseAIProvider } from '@/lib/ai/base-provider';
 import type { CompletionRequest } from '@/lib/ai/base-provider';
 import type { CompletionEvent, CompletionResult } from '@/lib/ai/completion';
 
@@ -300,5 +300,48 @@ describe('BaseAIProvider 补全观察者', () => {
         provider.observeCompletions(undefined);
         await expect(provider.fixQuestionText([{ id: 'q1', text: '原文' }])).resolves.toBeDefined();
         expect(events).toHaveLength(0);
+    });
+});
+
+describe('BaseAIProvider 调用总时限', () => {
+    /** 模拟一直不返回、直到收到中止信号才失败的服务商 */
+    function hangingProvider(): TestProvider {
+        const provider = new TestProvider();
+        provider.completeText.mockImplementation((request) => new Promise((_, reject) => {
+            request.signal?.addEventListener('abort', () => reject(new Error('Request was aborted.')));
+        }));
+        return provider;
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('超过总时限后中止请求（含 SDK 重试），按 AI_TIMEOUT_ERROR 失败', async () => {
+        expect(AI_CALL_DEADLINE_MS).toBe(10 * 60 * 1000);
+        const provider = hangingProvider();
+        const result = provider.splitQuestions({ kind: 'text', lines: ['1. 题目'], language: 'zh' }).catch((error: unknown) => error);
+        await vi.advanceTimersByTimeAsync(AI_CALL_DEADLINE_MS - 1);
+        expect(provider.completeText.mock.calls[0][0].signal?.aborted).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        const error = await result;
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe('AI_TIMEOUT_ERROR');
+    });
+
+    it('未超时的服务商错误照常归类，不被当成超时', async () => {
+        const provider = new TestProvider();
+        provider.completeText.mockRejectedValue(new Error('401 Unauthorized'));
+        await expect(provider.splitQuestions({ kind: 'text', lines: ['1. 题目'], language: 'zh' })).rejects.toThrow('AI_AUTH_ERROR');
+    });
+
+    it('按时返回时清除计时器', async () => {
+        const provider = new TestProvider();
+        await provider.splitQuestions({ kind: 'text', lines: ['1. 题目'], language: 'zh' });
+        expect(vi.getTimerCount()).toBe(0);
     });
 });

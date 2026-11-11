@@ -80,6 +80,8 @@ describe('OpenAI Provider 响应解析', () => {
             mockCompletionCreate.mockResolvedValue(response('1. （5分）求 2+2 的值。'));
             expect((await provider.generateSimilarQuestion('原题', [])).questionText).toBe('求 2+2 的值。');
             expect(mockCompletionCreate.mock.calls[0][0].messages[0].content).toContain('只能生成填空题或解答题');
+            // 总时限的中止信号随请求传给 SDK，超时后连同 SDK 内部重试一起停止
+            expect(mockCompletionCreate.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
             mockCompletionCreate.mockResolvedValue(response('求和。\nA. 2\nB. 4'));
             await expect(provider.generateSimilarQuestion('原题', [])).rejects.toThrow('AI_RESPONSE_ERROR');
         });

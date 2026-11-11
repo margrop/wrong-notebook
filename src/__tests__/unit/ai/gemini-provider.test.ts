@@ -67,6 +67,7 @@ describe('Gemini Provider 响应解析', () => {
         mockGenerateContent.mockResolvedValue(response('1. （5分）求 2+2 的值。'));
         expect((await provider.generateSimilarQuestion('原题', [])).questionText).toBe('求 2+2 的值。');
         expect(mockGenerateContent.mock.calls[0][0].config.systemInstruction).toContain('只能生成填空题或解答题');
+        expect(mockGenerateContent.mock.calls[0][0].config.abortSignal).toBeInstanceOf(AbortSignal);
         mockGenerateContent.mockResolvedValue(response('求和。\nA. 2\nB. 4'));
         await expect(provider.generateSimilarQuestion('原题', [])).rejects.toThrow('AI_RESPONSE_ERROR');
     });

@@ -25,6 +25,13 @@ import { completionErrorCode } from './completion';
 
 const logger = createLogger('ai:base');
 
+/**
+ * 单次 AI 调用（含 SDK 内部重试）的总时限，与 SDK 单次请求的默认超时相同。
+ * SDK 超时后还会再重试 2 次，推理模型看大图时最坏要等 30 分钟以上才失败，后台分题与识别任务会一直停在「识别中」；
+ * 加上总时限后，超时即按 AI_TIMEOUT_ERROR 失败，可重试。
+ */
+export const AI_CALL_DEADLINE_MS = 10 * 60 * 1000;
+
 /** 一次补全请求：system 为系统提示词，user 为用户提示词，image 为可选图片 */
 export interface CompletionImage {
     base64: string;
@@ -54,6 +61,8 @@ export interface CompletionRequest {
     image?: CompletionImage;
     /** 附加在图片后的额外文字（如配图重绘时的提示） */
     extraUserText?: string;
+    /** 总时限到期时中止请求；由 run 设置，各提供商透传给 SDK */
+    signal?: AbortSignal;
 }
 
 /**
@@ -79,7 +88,7 @@ export abstract class BaseAIProvider implements AIService {
     protected async run(request: CompletionRequest): Promise<string> {
         const startedAt = Date.now();
         try {
-            const result = await this.complete(request);
+            const result = await this.completeBeforeDeadline(request);
             this.notifyCompletion({
                 task: request.task,
                 status: 'succeeded',
@@ -98,6 +107,21 @@ export abstract class BaseAIProvider implements AIService {
                 errorCode: completionErrorCode(error),
             });
             throw error;
+        }
+    }
+
+    /** 在总时限内完成补全；到期时中止请求（含 SDK 内部重试），按 AI_TIMEOUT_ERROR 失败 */
+    private async completeBeforeDeadline(request: CompletionRequest): Promise<CompletionResult> {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(new Error('AI_TIMEOUT_ERROR')), AI_CALL_DEADLINE_MS);
+        try {
+            return await this.complete({ ...request, signal: controller.signal });
+        } catch (error) {
+            if (!controller.signal.aborted) throw error;
+            logger.warn({ provider: this.providerName, task: request.task, deadlineMs: AI_CALL_DEADLINE_MS }, 'AI request exceeded deadline');
+            throw new Error('AI_TIMEOUT_ERROR', { cause: error });
+        } finally {
+            clearTimeout(timer);
         }
     }
 

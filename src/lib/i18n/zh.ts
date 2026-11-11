@@ -1190,7 +1190,7 @@ export const zh = {
             aiAuth: "⚠️ API 密钥无效\n\n请检查设置中的 AI 提供商配置，确认 API Key 是否正确",
             aiConnectionFailed: "⚠️ 无法连接到 AI 服务\n\n请检查：\n• 网络连接是否正常\n• 是否需要配置代理\n• 防火墙设置",
             aiResponseError: "⚠️ AI 返回了无效的响应\n\n请重试，如果问题持续请联系支持",
-            AI_TIMEOUT_ERROR: "请求超时，请稍后重试。",
+            AI_TIMEOUT_ERROR: "AI 响应超时，请稍后重试。推理模型识别整页图片较慢，可以只框选部分区域，或换用更快的模型。",
             AI_QUOTA_EXCEEDED: "API 配额不足或余额已用完，请检查您的账户。",
             AI_PERMISSION_DENIED: "权限被拒绝 (403)，请检查 API Key 权限设置。",
             AI_NOT_FOUND: "资源不存在 (404)，请检查端点 URL 或模型名称。",

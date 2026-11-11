@@ -158,6 +158,7 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
                         messages: adaptedMessages,
                         max_tokens: maxTokens,
                     }),
+                    signal: request.signal,
                 });
 
                 if (!res.ok) {
@@ -184,7 +185,7 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
                     { role: "user", content: userContent },
                 ],
                 max_tokens: maxTokens,
-            }).withResponse();
+            }, { signal: request.signal }).withResponse();
             requestId = readRequestId(httpResponse.headers);
             return data;
         }, this.outputLimitModel);

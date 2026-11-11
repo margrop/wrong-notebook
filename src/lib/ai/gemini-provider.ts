@@ -61,9 +61,9 @@ export class GeminiProvider extends BaseAIProvider {
         const contents = this.buildContents(request);
         const response = await this.retryOperation(() => this.ai.models.generateContent({
             model: this.modelName,
-            config: { systemInstruction: request.system },
+            config: { systemInstruction: request.system, abortSignal: request.signal },
             contents,
-        }));
+        }), 3, request.signal);
 
         const text = response.text || '';
         if (!text) {
@@ -103,7 +103,7 @@ export class GeminiProvider extends BaseAIProvider {
         return contents;
     }
 
-    private async retryOperation<T>(operation: () => Promise<T>, maxRetries: number = 3): Promise<T> {
+    private async retryOperation<T>(operation: () => Promise<T>, maxRetries: number = 3, signal?: AbortSignal): Promise<T> {
         let lastError: unknown;
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -129,7 +129,8 @@ export class GeminiProvider extends BaseAIProvider {
                     msg.includes('econnrefused') ||  // Connection refused
                     msg.includes('unavailable');
 
-                if (!isRetryable || attempt === maxRetries) {
+                // 总时限已到（中止信号也会带 timeout 字样）时不再重试
+                if (!isRetryable || attempt === maxRetries || signal?.aborted) {
                     throw error;
                 }
 
