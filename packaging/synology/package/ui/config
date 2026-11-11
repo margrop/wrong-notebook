@@ -1,0 +1,14 @@
+{
+    ".url": {
+        "com.margrop.wrongnotebook": {
+            "type": "url",
+            "allUsers": true,
+            "title": "错题本",
+            "desc": "AI 错题本",
+            "icon": "images/icon_{0}.png",
+            "protocol": "http",
+            "port": "39300",
+            "url": "/"
+        }
+    }
+}

@@ -1,4 +1,3 @@
 #!/bin/sh
-# 群晖套件：升级后容器由 start-stop-status 按新版本重建。
-set -eu
+# 群晖套件：升级后容器已由 docker-project 资源按新版 compose 重建。
 exit 0

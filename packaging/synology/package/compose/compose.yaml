@@ -1,0 +1,17 @@
+# 由群晖套件的 docker-project 资源（Container Manager 提供）创建，并随套件启停。
+# 该资源会强制容器以套件用户运行，因此数据放在套件用户可写的套件数据目录
+# （/var/packages/wrongnotebook/var，即 /volumeN/@appdata/wrongnotebook），配置也放在其中。
+# 未设置 NEXTAUTH_SECRET：镜像入口脚本会在数据目录生成并保存。
+services:
+  wrong-notebook:
+    image: ghcr.io/margrop/wrong-notebook:__IMAGE_TAG__
+    container_name: wrong-notebook
+    restart: unless-stopped
+    ports:
+      - "39300:3000"
+    volumes:
+      - /var/packages/wrongnotebook/var:/app/data
+    environment:
+      CONFIG_DIR: /app/data/config
+      PRESERVE_EXISTING_DATA: "true"
+      AUTH_TRUST_HOST: "true"

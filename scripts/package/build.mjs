@@ -366,19 +366,6 @@ function qnapVersion(value) {
     return short.length <= 10 ? short : short.slice(0, 10);
 }
 
-function makeTarGz(outFile, cwd, entries) {
-    run('tar', ['-czf', outFile, ...entries], { cwd });
-}
-
-function verifyTarEntries(file, required) {
-    const listing = spawnSync('tar', ['-tzf', file], { encoding: 'utf8' });
-    if (listing.status !== 0) throw new Error(`无法读取 ${file}: ${listing.stderr}`);
-    const names = new Set(listing.stdout.split('\n').map((line) => line.replace(/^\.\//, '').replace(/\/$/, '')));
-    for (const name of required) {
-        if (!names.has(name)) throw new Error(`${path.basename(file)} 缺少 ${name}`);
-    }
-}
-
 /** qbuild 出错时仍可能返回 0；用尾部标记、体积和文件名确认不是残缺归档 */
 function verifyQpkg(file, expectedName, expectedVersion) {
     if (path.basename(file) !== expectedName) throw new Error(`qbuild 生成的包名不符：${path.basename(file)}`);
@@ -390,8 +377,25 @@ function verifyQpkg(file, expectedName, expectedVersion) {
     }
 }
 
+/** 群晖 SPK 外层必须是未压缩的 tar，gzip 压缩后套件中心会提示「套件文件格式不正确」 */
+function verifySpk(file, required) {
+    const head = fs.readFileSync(file).subarray(0, 512);
+    if (head[0] === 0x1f && head[1] === 0x8b) throw new Error(`${path.basename(file)} 不能用 gzip 压缩`);
+    if (head.subarray(257, 262).toString('latin1') !== 'ustar') throw new Error(`${path.basename(file)} 不是 tar 归档`);
+    const listing = spawnSync('tar', ['-tf', file], { encoding: 'utf8' });
+    if (listing.status !== 0) throw new Error(`无法读取 ${file}: ${listing.stderr}`);
+    const names = new Set(listing.stdout.split('\n').map((line) => line.replace(/^\.\//, '').replace(/\/$/, '')));
+    for (const name of required) {
+        if (!names.has(name)) throw new Error(`${path.basename(file)} 缺少 ${name}`);
+    }
+    const stray = [...names].filter((name) => path.basename(name).startsWith('._'));
+    if (stray.length > 0) throw new Error(`${path.basename(file)} 混入 macOS 元数据文件：${stray.join(', ')}`);
+}
+
 /**
- * 群晖 SPK：Docker 套件，noarch；package.tgz 内只有容器控制脚本、图标和说明。
+ * 群晖 SPK：Docker 套件，noarch；package.tgz 内只有 compose 项目和说明。
+ * DSM 7 不允许第三方套件以 root 运行，容器由 conf/resource 的 docker-project 资源
+ * （Container Manager 提供）创建和启停，套件脚本以套件用户运行。
  * INFO 的 adminport/adminurl 让套件中心的「打开」直接指向 http://<NAS>:39300/。
  */
 async function buildSynology() {
@@ -399,14 +403,15 @@ async function buildSynology() {
     rm(stage);
     log('准备群晖 SPK 打包目录');
     copy(path.join(PACKAGING, 'synology'), stage);
-    copy(path.join(PACKAGING, 'docker', 'docker-container.sh'), path.join(stage, 'package', 'docker-container.sh'));
-    fs.writeFileSync(path.join(stage, 'package', 'image-tag'), `${version}\n`);
-    fs.chmodSync(path.join(stage, 'package', 'docker-container.sh'), 0o755);
+    const composeFile = path.join(stage, 'package', 'compose', 'compose.yaml');
+    fs.writeFileSync(composeFile, fs.readFileSync(composeFile, 'utf8').replace('__IMAGE_TAG__', version));
     for (const file of fs.readdirSync(path.join(stage, 'scripts'))) fs.chmodSync(path.join(stage, 'scripts', file), 0o755);
 
     // 套件图标由 packaging/synology 预置（64×64、256×256），避免构建时引入图像处理依赖
 
-    makeTarGz('package.tgz', stage, ['-C', 'package', '.']);
+    // COPYFILE_DISABLE：在 macOS 上构建时不把扩展属性写成 ._ 文件
+    const tarEnv = { env: { COPYFILE_DISABLE: '1' } };
+    run('tar', ['-czf', 'package.tgz', '-C', 'package', '.'], { cwd: stage, ...tarEnv });
     const checksum = crypto.createHash('md5').update(fs.readFileSync(path.join(stage, 'package.tgz'))).digest('hex');
     const infoFile = path.join(stage, 'INFO');
     fs.writeFileSync(infoFile, fs.readFileSync(infoFile, 'utf8')
@@ -414,8 +419,9 @@ async function buildSynology() {
         .replace(/^checksum=.*$/m, `checksum="${checksum}"`));
 
     const out = path.join(DIST, `WrongNotebook-Synology-${version}.spk`);
-    makeTarGz(out, stage, ['INFO', 'package.tgz', 'scripts', 'conf', 'PACKAGE_ICON.PNG', 'PACKAGE_ICON_256.PNG']);
-    verifyTarEntries(out, ['INFO', 'package.tgz', 'scripts/start-stop-status', 'conf/privilege', 'PACKAGE_ICON.PNG', 'PACKAGE_ICON_256.PNG']);
+    const entries = ['INFO', 'package.tgz', 'scripts', 'conf', 'PACKAGE_ICON.PNG', 'PACKAGE_ICON_256.PNG'];
+    run('tar', ['-cf', out, ...entries], { cwd: stage, ...tarEnv });
+    verifySpk(out, ['INFO', 'package.tgz', 'scripts/start-stop-status', 'conf/privilege', 'conf/resource', 'PACKAGE_ICON.PNG', 'PACKAGE_ICON_256.PNG']);
     log(`群晖套件已生成：${path.relative(ROOT, out)}`);
 }
 

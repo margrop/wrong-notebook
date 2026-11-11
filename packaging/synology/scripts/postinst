@@ -1,4 +1,3 @@
 #!/bin/sh
-# 群晖套件：安装后目录和密钥在首次启动时由 start-stop-status 创建。
-set -eu
+# 群晖套件：容器由 conf/resource 的 docker-project 资源创建，安装后无需额外处理。
 exit 0

@@ -1,56 +1,44 @@
 #!/bin/sh
-# 群晖套件服务控制：start / stop / status / restart。
-# 套件只负责 Docker 容器；数据目录放在套件所在存储卷的 docker/wrong-notebook 下，卸载套件不会删除。
+# 群晖套件服务控制。脚本以套件用户运行，不能调用 docker：
+# 容器由 conf/resource 的 docker-project 资源随套件启停，这里只按服务端口报告状态。
 set -eu
 
-APP_NAME="${SYNOPKG_PKGNAME:-wrongnotebook}"
-PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${APP_NAME}/target}"
-VOL="${SYNOPKG_PKGDEST_VOL:-/volume1}"
-DATA_ROOT="${VOL}/docker/wrong-notebook"
-if [ ! -d "${VOL}" ]; then
-    DATA_ROOT="${SYNOPKG_PKGVAR:-/var/packages/${APP_NAME}/var}/data-root"
-fi
+WN_HOST_PORT=39300
 
-WN_DATA_DIR="${DATA_ROOT}/data"
-WN_CONFIG_DIR="${DATA_ROOT}/config"
-WN_HOST_PORT="${SYNOPKG_PKGPORT:-39300}"
-WN_IMAGE_TAG="$(cat "${PKG_DEST}/image-tag" 2>/dev/null || printf '%s' "${SYNOPKG_PKGVER:-0.0.0}")"
-
-. "${PKG_DEST}/docker-container.sh"
-
-setup_hint() {
-    NAS_HOST="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo NAS)"
-    echo "错题本已启动：http://${NAS_HOST}:${WN_HOST_PORT}/"
-    if [ -s "${WN_CONFIG_DIR}/setup-token" ]; then
-        echo "初始化链接：http://${NAS_HOST}:${WN_HOST_PORT}/initialize?token=$(cat "${WN_CONFIG_DIR}/setup-token")"
-    fi
+# 端口有 HTTP 响应即视为运行中（数据库迁移期间健康检查尚未就绪，也算已启动）
+responding() {
+    curl -s -o /dev/null --max-time 5 "http://127.0.0.1:${WN_HOST_PORT}/api/health" 2>/dev/null
 }
 
-start() {
-    wn_start_container
-    setup_hint
+wait_responding() {
+    i=0
+    while [ "${i}" -lt 90 ]; do
+        if responding; then
+            return 0
+        fi
+        i=$((i + 1))
+        sleep 2
+    done
+    return 1
 }
 
-stop() {
-    wn_stop_container
-    echo "stopped"
-}
-
-status() {
-    if wn_status_container; then
-        echo "running"
-        return 0
-    fi
-    echo "stopped"
-    return 3
-}
-
-case "${1:-start}" in
-    start) start ;;
-    stop) stop ;;
-    status) status ;;
-    restart) stop; sleep 1; start ;;
-    prestart) exit 0 ;;
-    prestop) stop ;;
-    *) echo "Usage: $0 {start|stop|status|restart}" >&2; exit 1 ;;
+case "${1:-status}" in
+    start)
+        if ! wait_responding; then
+            echo "错题本容器未在预期时间内响应，请在 Container Manager 的「项目」中查看 wrong-notebook 的日志。"
+            exit 1
+        fi
+        ;;
+    stop | prestart | prestop) ;;
+    status)
+        if responding; then
+            exit 0
+        fi
+        exit 3
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|status}" >&2
+        exit 1
+        ;;
 esac
+exit 0

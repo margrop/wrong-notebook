@@ -301,7 +301,7 @@ Unraid creates the host directories if they do not exist. After the first start,
 
 DSM 7.2 or later uses **Container Manager** (older versions use the Docker package). The suggested data directory is `/volume1/docker/wrong-notebook/{data,config}`; create it first in File Station or over SSH, and replace the path if your storage volume differs.
 
-**Package install (recommended)**: install Container Manager first, then choose `WrongNotebook-Synology-<version>.spk` under Package Center → **Manual Install**. The package pulls the matching image, generates `NEXTAUTH_SECRET`, maps host port `39300` to container `3000`, and stores data at `<package volume>/docker/wrong-notebook/{data,config}`; the Package Center **Open** link opens the app, and the first start shows the admin setup page. Upgrading the package recreates the container from the new image and keeps data; uninstalling keeps the data directory.
+**Package install (recommended)**: install Container Manager first, then choose `WrongNotebook-Synology-<version>.spk` under Package Center → **Manual Install**. DSM 7.2.1 or later is required. The package creates the `wrong-notebook` project in Container Manager, pulls the matching image (installation can take a while on a slow network), maps host port `39300` to container `3000`, and stores data in the package data directory `/volumeN/@appdata/wrongnotebook`; open the app from the **Wrong Notebook** icon in the DSM main menu or at `http://<NAS address>:39300`, and the first start shows the admin setup page. Upgrading the package recreates the container from the new image and keeps data; uninstalling keeps the data directory.
 
 Manual container method:
 

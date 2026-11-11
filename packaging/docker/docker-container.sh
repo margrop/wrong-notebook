@@ -1,5 +1,5 @@
 #!/bin/sh
-# 群晖 SPK / 威联通 QPKG 共用的 Docker 容器控制。
+# 威联通 QPKG 的 Docker 容器控制（群晖套件改由 Container Manager 的 docker-project 资源管理容器）。
 # 调用方先设置 WN_IMAGE_TAG、WN_DATA_DIR、WN_CONFIG_DIR，再 source 本文件。
 set -eu
 
