@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import { Loader2, RefreshCw, Save } from "lucide-react";
 import { GeogebraDraft } from "@/components/correction-editor/geogebra-draft";
 import { MetaFields } from "@/components/correction-editor/meta-fields";
@@ -23,7 +24,7 @@ import { normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
 import { usePaperGroups } from "@/lib/hooks/use-paper-groups";
 import { getReanswerErrorMessage } from "@/lib/question/reanswer-error";
 import { buildReanswerRequestBody } from "@/lib/question/reanswer-request";
-import type { CorrectionDraft } from "@/components/correction-editor/types";
+import type { CorrectionDraft, UpdateDraft } from "@/components/correction-editor/types";
 import type { ReanswerQuestionResult } from "@/lib/ai/types";
 import type { Notebook, UserProfile } from "@/types/api";
 
@@ -34,10 +35,12 @@ interface CorrectionEditorProps {
     imagePreview?: string | null;
     initialSubjectId?: string;
     aiTimeout?: number;
+    /** 配图工具区：按当前草稿渲染在预览区配图下方；未传时校对页行为不变 */
+    figureTools?: (data: CorrectionDraft, update: UpdateDraft) => ReactNode;
 }
 
 /** AI 识别后的校对页：左侧编辑，右侧预览，确认后保存到错题本 */
-export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, initialSubjectId, aiTimeout }: CorrectionEditorProps) {
+export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, initialSubjectId, aiTimeout, figureTools }: CorrectionEditorProps) {
     const { timeZone } = useTimeZone();
     const { t, language } = useLanguage();
     // 「按原样入库」路径用占位空格通过 ParsedQuestionSchema 的 min(1) 校验，此处还原为空串，
@@ -59,6 +62,8 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
         if ('gradeSemester' in fields) gradeEdited.current = true;
         setData(prev => ({ ...prev, ...fields }));
     };
+    // 配图工具在渲染期接收更新函数；不读取 gradeEdited ref，避免渲染期访问 ref
+    const updateFigure = (fields: Partial<CorrectionDraft>) => setData(prev => ({ ...prev, ...fields }));
     // 未手工选卷时随星级更新默认值，手工选择后优先保留。
     const { groups: paperGroups } = usePaperGroups();
     const defaultPaperLevelId = (() => {
@@ -241,7 +246,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                 </div>
 
                 {/* 右侧：预览区 */}
-                <PreviewPanel data={data}>
+                <PreviewPanel data={data} figureTools={figureTools?.(data, updateFigure)}>
                     {geogebraEnabled && <GeogebraDraft data={data} onChange={update} />}
                 </PreviewPanel>
             </div>

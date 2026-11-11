@@ -1937,6 +1937,7 @@ export const en = {
             noFigure: "AI found no figure in this question",
             failed: "Failed to generate the figure",
             noImage: "No original image to draw the figure from",
+            remove: "Remove Figure",
         },
         svgAnimation: {
             title: "SVG Animated Explanation",

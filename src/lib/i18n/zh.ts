@@ -1936,6 +1936,7 @@ export const zh = {
             noFigure: "AI 判断本题没有配图",
             failed: "生成配图失败",
             noImage: "没有原题图片，无法生成配图",
+            remove: "去掉配图",
         },
         svgAnimation: {
             title: "SVG 动画讲解",

@@ -11,6 +11,8 @@ interface PreviewPanelProps {
     data: CorrectionDraft;
     /** 显示在题目预览之后（GeoGebra 演示） */
     children?: ReactNode;
+    /** 配图工具区，显示在题目配图下方 */
+    figureTools?: ReactNode;
 }
 
 function PreviewCard({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
@@ -25,7 +27,7 @@ function PreviewCard({ title, children, className }: { title: string; children: 
 }
 
 /** 校对页右侧：题目、答案、解析与错因分析的渲染预览 */
-export function PreviewPanel({ data, children }: PreviewPanelProps) {
+export function PreviewPanel({ data, children, figureTools }: PreviewPanelProps) {
     const { t } = useLanguage();
     const statusLabels = {
         wrong_attempt: t.editor.mistakeStatuses?.wrongAttempt || "Wrong attempt",
@@ -38,6 +40,7 @@ export function PreviewPanel({ data, children }: PreviewPanelProps) {
             <PreviewCard title={t.editor.preview?.question || "Question Preview"}>
                 <MarkdownRenderer content={data.questionText} />
                 <QuestionFigure svg={data.figureSvg} />
+                {figureTools}
             </PreviewCard>
 
             {children}

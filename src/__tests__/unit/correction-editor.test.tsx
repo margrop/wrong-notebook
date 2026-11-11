@@ -144,4 +144,25 @@ describe('校对页的默认卷别与手工覆盖', () => {
         await act(async () => {}); // 等待 setData 生效
         expect(paperSelect().value).toBe('group-other');
     });
+
+    it('传入配图工具后可去掉配图，保存时生效', async () => {
+        await act(async () => root.render(
+            <LanguageProvider><CorrectionEditor
+                initialData={{
+                    questionText: '求和', answerText: '4', analysis: '解析', subject: '数学', knowledgePoints: [], requiresImage: false,
+                    wrongAnswerText: '', mistakeAnalysis: '', mistakeStatus: 'unknown', hasFigure: true, figureSvg: '<svg/>',
+                }}
+                initialSubjectId="math"
+                onSave={onSave}
+                onCancel={() => undefined}
+                figureTools={(_, update) => (
+                    <button onClick={() => update({ hasFigure: false, figureSvg: null })}>{translations.zh.figure.remove}</button>
+                )}
+            /></LanguageProvider>,
+        ));
+
+        await clickButton(translations.zh.figure.remove);
+        await clickButton(translations.zh.editor.save);
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ hasFigure: false, figureSvg: null }));
+    });
 });

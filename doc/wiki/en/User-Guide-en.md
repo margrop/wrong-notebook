@@ -110,6 +110,8 @@ Once the upload finishes, recognition continues on the server. The page shows a 
 
 Drafts awaiting review and failed tasks are kept until you handle or discard them; saved tasks are kept for 7 days. Each task card lists the actual time spent reading, converting, cropping, compressing, receiving, recognizing and saving.
 
+The review page can regenerate or remove the figure: frame the figure area in the original image so the AI redraws only that area; regenerate even when no figure was detected, and the reviewed figure is what gets saved.
+
 ### Excel / CSV question templates
 
 If you already have a question bank in Excel (.xlsx) or CSV format, you can import it directly: the app recognizes the header row and reads question text, answers, analysis and other fields from the columns. There is no need to paste questions one by one, and questions that already include answers and analysis are imported without calling the AI.

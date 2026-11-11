@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Shapes } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImageCropper } from "@/components/image-cropper";
@@ -14,21 +14,43 @@ import type { ImageRegion } from "@/lib/image-crop";
 import { ImageDecodeError, prepareImage, renderRegion } from "@/lib/image-pipeline";
 import type { PreparedImage } from "@/lib/image-pipeline";
 
-interface RegenerateFigureButtonProps {
-    errorItemId: string;
+type FigureResult = { hasFigure: boolean; figureSvg: string | null };
+
+interface RegenerateFigureCommonProps {
     /** 当前题目原图；提供时先框选配图区域再交给 AI */
     originalImageUrl?: string | null;
     /** 生成完成后回调新的配图（无配图时为 null） */
-    onDone: (figure: { hasFigure: boolean; figureSvg: string | null }) => void;
+    onDone: (figure: FigureResult) => void;
 }
 
+/**
+ * 错题详情页按错题编号拼接默认接口与 target；其他页面传入 endpoint、target 与 reload。
+ */
+export type RegenerateFigureButtonProps = RegenerateFigureCommonProps & (
+    | { errorItemId: string; endpoint?: string; target?: string; reload?: () => Promise<FigureResult> }
+    | { errorItemId?: undefined; endpoint: string; target: string; reload: () => Promise<FigureResult> }
+);
+
 /** 用原题图片（可框选配图区域）让 AI 重新绘制 SVG 配图 */
-export function RegenerateFigureButton({ errorItemId, originalImageUrl, onDone }: RegenerateFigureButtonProps) {
+export function RegenerateFigureButton({
+    errorItemId,
+    endpoint: endpointProp,
+    target: targetProp,
+    reload: reloadProp,
+    originalImageUrl,
+    onDone,
+}: RegenerateFigureButtonProps) {
     const { t } = useLanguage();
     const [running, setRunning] = useState(false);
     const [preparing, setPreparing] = useState(false);
     const [prepared, setPrepared] = useState<PreparedImage | null>(null);
-    const target = `error-item:${errorItemId}:figure`;
+    const endpoint = endpointProp ?? `/api/error-items/${errorItemId}/figure`;
+    const target = targetProp ?? `error-item:${errorItemId}:figure`;
+    const defaultReload = useCallback(async () => {
+        const item = await apiClient.get<FigureResult>(`/api/error-items/${errorItemId}`);
+        return { hasFigure: item.hasFigure, figureSvg: item.figureSvg };
+    }, [errorItemId]);
+    const reloadFigure = reloadProp ?? defaultReload;
     const { running: taskRunning, refresh } = useRunningTask(target);
     // 任务从进行中变为结束后刷新数据（结果已由服务端写入数据库，onDone 触发父组件重新加载）
     const wasRunning = useRef(false);
@@ -39,19 +61,18 @@ export function RegenerateFigureButton({ errorItemId, originalImageUrl, onDone }
         }
         if (wasRunning.current) {
             wasRunning.current = false;
-            // 任务结束后重新加载该错题数据，使服务端已保存的配图显示出来
-            apiClient.get<{ hasFigure: boolean; figureSvg: string | null }>(`/api/error-items/${errorItemId}`)
-                .then((item) => onDone({ hasFigure: item.hasFigure, figureSvg: item.figureSvg }))
+            reloadFigure()
+                .then(onDone)
                 .catch((error) => frontendLogger.warn("[RegenerateFigure]", "Failed to reload figure", { error }));
         }
-    }, [taskRunning, errorItemId, onDone]);
+    }, [taskRunning, reloadFigure, onDone]);
     useEffect(() => () => prepared?.dispose(), [prepared]);
 
     const regenerate = async (imageBase64?: string) => {
         setRunning(true);
         try {
-            const figure = await apiClient.post<{ hasFigure: boolean; figureSvg: string | null }>(
-                `/api/error-items/${errorItemId}/figure`,
+            const figure = await apiClient.post<FigureResult>(
+                endpoint,
                 imageBase64 ? { imageBase64 } : {},
                 { recoverable: true },
             );

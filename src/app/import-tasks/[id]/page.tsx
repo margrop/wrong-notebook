@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ScanText } from "lucide-react";
 import { CorrectionEditor } from "@/components/correction-editor";
 import { ImportTaskCard } from "@/components/import-tasks/import-task-card";
+import { ReviewFigureTools } from "@/components/import-tasks/review-figure-tools";
 import { QuestionSaveError } from "@/components/question-save-error";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -86,6 +87,11 @@ export default function ImportTaskPage() {
 
     // 批次中的题：校对完成或返回时回到本批题目
     const backHref = task.batchId ? `/import-batches/${task.batchId}` : "/import-tasks";
+    // 后台重绘配图结束后重新读取任务结果，更新编辑器中的配图
+    const reloadFigure = async () => {
+        const detail = await fetchImportTask(id);
+        return { hasFigure: detail.result?.hasFigure === true, figureSvg: detail.result?.figureSvg ?? null };
+    };
     const save = async (data: ReviewedQuestion) => {
         const subjectId = task.targetSubjectId ?? data.subjectId ?? null;
         const saved = await saver.run(() => confirmImportTask(task.id, { ...data, subjectId }), subjectId, !task.batchId);
@@ -104,6 +110,16 @@ export default function ImportTaskPage() {
                     onSave={save}
                     onCancel={() => router.push(backHref)}
                     initialSubjectId={task.targetSubjectId || task.subjectId || matchedNotebook?.id}
+                    figureTools={(draft, update) => (
+                        <ReviewFigureTools
+                            originalImageUrl={image?.data ?? null}
+                            endpoint={`/api/import-tasks/${id}/figure`}
+                            target={`import-task:${id}:figure`}
+                            reload={reloadFigure}
+                            hasFigure={Boolean(draft.hasFigure || draft.figureSvg)}
+                            onChange={(figure) => update(figure)}
+                        />
+                    )}
                 />
             ) : (
                 <ImportTaskCard
