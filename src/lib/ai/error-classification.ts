@@ -56,10 +56,11 @@ export function parseErrorCode(error: unknown): string {
         msgLower.includes('balance') || msgLower.includes('余额') || msgLower.includes('积分') || msgLower.includes('credit')) {
         return 'AI_QUOTA_EXCEEDED';
     }
-    // 网络/连接错误
+    // 网络/连接错误：undici 在 HTTP/2 连接中断时抛 TypeError「terminated」，另有 socket hang up 等
     if (msgLower.includes('fetch failed') || msgLower.includes('network') || msgLower.includes('connect') ||
         msgLower.includes('enotfound') || msgLower.includes('econnrefused') || msgLower.includes('etimedout') ||
-        msgLower.includes('econnreset')) {
+        msgLower.includes('econnreset') || msgLower.includes('terminated') || msgLower.includes('socket hang up') ||
+        msgLower.includes('other side closed') || msgLower.includes('epipe')) {
         return 'AI_CONNECTION_FAILED';
     }
     // 超时 (包括 408)
@@ -71,8 +72,10 @@ export function parseErrorCode(error: unknown): string {
         msgLower.includes('无可用') || msgLower.includes('overloaded') || msgLower.includes('unavailable')) {
         return 'AI_SERVICE_UNAVAILABLE';
     }
-    // AI 响应格式错误
-    if (msgLower.includes('invalid json') || msgLower.includes('parse') || msgLower.includes('json') || msgLower.includes('missing critical xml')) {
+    // AI 响应格式错误：标签缺失、空正文与 JSON 解析失败都按返回异常处理
+    if (msgLower.includes('invalid json') || msgLower.includes('parse') || msgLower.includes('json') ||
+        msgLower.includes('missing critical xml') || msgLower.includes('invalid ai response') ||
+        msgLower.includes('empty response')) {
         return 'AI_RESPONSE_ERROR';
     }
 

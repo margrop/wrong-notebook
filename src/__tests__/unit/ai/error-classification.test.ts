@@ -104,6 +104,15 @@ describe('parseErrorCode', () => {
         it('匹配 econnreset', () => {
             expect(parseErrorCode(new Error('ECONNRESET'))).toBe('AI_CONNECTION_FAILED');
         });
+        it('匹配 undici 连接中断 terminated', () => {
+            expect(parseErrorCode(new TypeError('terminated'))).toBe('AI_CONNECTION_FAILED');
+        });
+        it('匹配 socket hang up', () => {
+            expect(parseErrorCode(new Error('socket hang up'))).toBe('AI_CONNECTION_FAILED');
+        });
+        it('匹配 other side closed', () => {
+            expect(parseErrorCode(new Error('other side closed'))).toBe('AI_CONNECTION_FAILED');
+        });
     });
 
     describe('AI_TIMEOUT_ERROR', () => {
@@ -148,6 +157,12 @@ describe('parseErrorCode', () => {
         });
         it('匹配 missing critical xml', () => {
             expect(parseErrorCode(new Error('missing critical xml tag'))).toBe('AI_RESPONSE_ERROR');
+        });
+        it('匹配空正文', () => {
+            expect(parseErrorCode(new Error('Empty response from AI'))).toBe('AI_RESPONSE_ERROR');
+        });
+        it('匹配标签缺失的完整错误', () => {
+            expect(parseErrorCode(new Error('Invalid AI response: Missing critical XML tags (<question_text>, <answer_text>, or <analysis>)'))).toBe('AI_RESPONSE_ERROR');
         });
     });
 

@@ -10,7 +10,7 @@ import { AI_OUTPUT_TRUNCATED, withModelOutputLimit } from './truncation';
 import type { FigureResult } from './schema';
 import { parseFigure } from './schema';
 import { extractTag } from './response-parser';
-import { isAIErrorCode } from './error-classification';
+import { isAIErrorCode, parseErrorCode } from './error-classification';
 
 const logger = createLogger('ai:openai');
 
@@ -238,45 +238,12 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
 
     protected handleError(error: unknown): void {
         logger.error({ error }, 'OpenAI error');
-        if (error instanceof Error) {
-            // 已经归类的错误码原样透传，避免再次归类时丢失（如 AI_AUTH_ERROR 被当成未知错误）
-            if (error.message === AI_OUTPUT_TRUNCATED || isAIErrorCode(error.message)) {
-                throw error;
-            }
-            const msg = error.message.toLowerCase();
-            if (msg.includes('fetch failed') || msg.includes('network') || msg.includes('connect')) {
-                throw new Error("AI_CONNECTION_FAILED", { cause: error });
-            }
-            // 超时错误 (包括 408 Request Timeout)
-            if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('aborted') || msg.includes('408')) {
-                throw new Error("AI_TIMEOUT_ERROR", { cause: error });
-            }
-            // 配额/频率限制/余额不足错误：402 与余额、积分相关文案同样按额度不足处理
-            if (msg.includes('quota') || msg.includes('额度') || msg.includes('402') || msg.includes('insufficient') ||
-                msg.includes('balance') || msg.includes('余额') || msg.includes('积分') || msg.includes('credit') ||
-                msg.includes('rate limit') || msg.includes('429') || msg.includes('too many')) {
-                throw new Error("AI_QUOTA_EXCEEDED", { cause: error });
-            }
-            // 权限/403 错误
-            if (msg.includes('403') || msg.includes('forbidden') || msg.includes('permission')) {
-                throw new Error("AI_PERMISSION_DENIED", { cause: error });
-            }
-            // 资源不存在/404 错误
-            if (msg.includes('404') || msg.includes('not found') || msg.includes('does not exist')) {
-                throw new Error("AI_NOT_FOUND", { cause: error });
-            }
-            // 服务器错误 (500/502/503/504)
-            if (msg.includes('500') || msg.includes('502') || msg.includes('503') || msg.includes('504') ||
-                msg.includes('无可用') || msg.includes('overloaded') || msg.includes('unavailable')) {
-                throw new Error("AI_SERVICE_UNAVAILABLE", { cause: error });
-            }
-            if (msg.includes('invalid json') || msg.includes('parse')) {
-                throw new Error("AI_RESPONSE_ERROR", { cause: error });
-            }
-            if (msg.includes('api key') || msg.includes('unauthorized') || msg.includes('401')) {
-                throw new Error("AI_AUTH_ERROR", { cause: error });
-            }
+        // 已经归类的错误码原样透传，避免再次归类时丢失（如 AI_AUTH_ERROR 被当成未知错误）
+        if (error instanceof Error && (error.message === AI_OUTPUT_TRUNCATED || isAIErrorCode(error.message))) {
+            throw error;
         }
-        throw new Error("AI_UNKNOWN_ERROR", { cause: error });
+        // 与各渠道共用同一套归类规则：网络中断、空正文、标签缺失等不再落到未知错误
+        const code = parseErrorCode(error);
+        throw new Error(code, { cause: error });
     }
 }

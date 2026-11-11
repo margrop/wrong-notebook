@@ -283,6 +283,11 @@ describe('OpenAI Provider 错误处理', () => {
             expect(() => asPrivateProvider(provider).handleError(networkError)).toThrow('AI_CONNECTION_FAILED');
         });
 
+        it('应该将 undici 连接中断转换为 AI_CONNECTION_FAILED', () => {
+            const terminated = new TypeError('terminated');
+            expect(() => asPrivateProvider(provider).handleError(terminated)).toThrow('AI_CONNECTION_FAILED');
+        });
+
         it('应该将认证错误转换为 AI_AUTH_ERROR', () => {
             const authError = new Error('Unauthorized: Invalid API key');
             expect(() => asPrivateProvider(provider).handleError(authError)).toThrow('AI_AUTH_ERROR');
@@ -291,6 +296,16 @@ describe('OpenAI Provider 错误处理', () => {
         it('应该将 JSON 解析错误转换为 AI_RESPONSE_ERROR', () => {
             const parseError = new Error('Invalid JSON format');
             expect(() => asPrivateProvider(provider).handleError(parseError)).toThrow('AI_RESPONSE_ERROR');
+        });
+
+        it('应该将标签缺失转换为 AI_RESPONSE_ERROR', () => {
+            const missingTags = new Error('Invalid AI response: Missing critical XML tags (<question_text>, <answer_text>, or <analysis>)');
+            expect(() => asPrivateProvider(provider).handleError(missingTags)).toThrow('AI_RESPONSE_ERROR');
+        });
+
+        it('应该将空正文转换为 AI_RESPONSE_ERROR', () => {
+            const empty = new Error('Empty response from AI');
+            expect(() => asPrivateProvider(provider).handleError(empty)).toThrow('AI_RESPONSE_ERROR');
         });
 
         it('未知错误应该转换为 AI_UNKNOWN_ERROR', () => {
@@ -477,7 +492,7 @@ describe('OpenAI Provider 修正题目文字', () => {
         mockCompletionCreate.mockResolvedValue({ choices: null });
         const provider = new OpenAIProvider({ apiKey: 'test-key', model: 'gpt-4o' });
 
-        await expect(provider.fixQuestionText([{ id: 'q1', text: '100公项' }])).rejects.toThrow('AI_UNKNOWN_ERROR');
+        await expect(provider.fixQuestionText([{ id: 'q1', text: '100公项' }])).rejects.toThrow('AI_RESPONSE_ERROR');
         expect(mockCompletionCreate.mock.calls.at(-1)?.[0].messages).toBeDefined();
     });
 });
