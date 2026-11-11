@@ -189,6 +189,7 @@ Practice statistics show total practice, accuracy (correct / attempted) and acti
 - **📈 Anonymous telemetry and administrator agreement**: the administrator accepts the [agreement](doc/EULA.en.md) during initialization (on fnOS, in the installer wizard). The instance then sends a batch of anonymous usage statistics and error fingerprints to the Wrong Notebook collection service about every 6 hours, without user or instance identifiers, IP addresses, question content, AI conversations or error messages. Instances upgraded from older versions do not forward by default; administrators see a banner where they can review the agreement and turn it on. Under "Settings → User Management → Privacy & telemetry" an administrator can turn forwarding off, enable local recording (kept on this server for troubleshooting), point to a self-hosted collection service and see what the instance collected; `TELEMETRY_DISABLED=true` forces everything off. When the agreement changes, administrators must accept again and forwarding pauses meanwhile; ordinary users are not affected. See [Privacy](doc/PRIVACY.en.md) and the [design](doc/TELEMETRY_DESIGN.md).
 - **🐞 Debug logs**: when something goes wrong, an admin turns on debug mode under "Settings → User Management", reproduces the problem, then exports the debug log (JSON) and sends it to the author. Debug mode records every server log, including `debug` level, plus frontend errors; API keys, passwords and tokens are removed on export. The log lives in memory only, debug mode turns off after 24 hours, and a restart clears it.
 - **🔌 Openclaw integration**: an external Openclaw agent can upload question images in bulk via `POST /api/openclaw/batch-upload`; see [Environment variables](#-environment-variables).
+- **🧩 MCP server**: external agents can read and write notebooks, questions, knowledge tags and review data through the MCP Streamable HTTP endpoint `POST /api/mcp`. Set `MCP_API_KEY` and `MCP_USER_EMAIL` to enable it; tools and client setup are in [MCP Server](doc/wiki/en/MCP-Server-en.md).
 
 ## 🚀 Quick Start
 
@@ -538,6 +539,13 @@ The most common variables are below; see the collapsed table and [`.env.example`
 | `OPENCLAW_TIMEOUT` | Timeout (ms) | `30000` | |
 | `OPENCLAW_AUTH_MODE` | Auth mode | `credentials` | `credentials` (username and password) or `apikey` |
 | `OPENCLAW_INTEGRATION_API_KEY` | This app's API key | None | Only for `apikey` mode, used by Openclaw to call this app. Generate with `openssl rand -hex 32` |
+
+**MCP server** (optional)
+
+| Variable | Description | Default | Notes |
+| :--- | :--- | :--- | :--- |
+| `MCP_API_KEY` | MCP integration key | None | External agents send it as `Authorization: Bearer` or `x-api-key`. Generate with `openssl rand -hex 32` |
+| `MCP_USER_EMAIL` | MCP target account | None | Fixes the notebook data to this account; use an email (a username also works), and the account must be enabled |
 
 When adding environment variables, update `.env.example` as well.
 

@@ -18,6 +18,7 @@ Smart Wrong Notebook（智能错题本）把拍照或文字录入的错题整理
 | 调整偏好、应用时区和用户权限 | [设置与用户管理](Settings-and-Users) |
 | 导出个人数据或备份整站 | [数据备份与恢复](Backup-and-Restore) |
 | 从外部 Openclaw agent 批量导题 | [Openclaw 集成](Openclaw-Integration) |
+| 让外部 agent 通过 MCP 读写错题、标签与复习数据 | [MCP 服务](MCP-Server) |
 | 了解代码结构、测试和贡献要求 | [开发与贡献](Development) |
 | 首次安装后如何登录，排查识别、公式或截图问题 | [常见问题](FAQ) |
 
@@ -30,7 +31,7 @@ Smart Wrong Notebook（智能错题本）把拍照或文字录入的错题整理
 - 题库文件导入（JSON / Word / Excel / CSV / PDF，可「按原样入库」不调用 AI）与选中错题导出（JSON / Excel / Word）。
 - 举一反三与 AI 判题、今日复习、错题组卷、作答历史、掌握概率、学习统计和打印导出。
 - 共享真题库：从 [共享题库仓库](https://github.com/margrop/wrong-notebook-question-bank) 下载小学/初中/高中题库包，导入默认不进入错题；举一反三可按知识点从题库选题。
-- 多用户隔离、每日 AI 次数限制、管理员设置、个人偏好与 Openclaw 批量导入。
+- 多用户隔离、每日 AI 次数限制、管理员设置、个人偏好、Openclaw 批量导入与 MCP 服务。
 - 全新安装通过一次性初始化链接（飞牛OS 为安装向导）设置管理员，不预置固定密码；随后由安装向导引导配置 AI、创建错题本。
 
 ## 推荐使用流程

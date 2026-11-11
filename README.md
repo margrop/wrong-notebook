@@ -189,6 +189,7 @@
 - **📈 匿名遥测与使用协议**：管理员在初始化时同意[使用协议](doc/EULA.md)（飞牛OS 在安装向导中勾选），实例默认每 6 小时向错题本收集服务发送一批匿名的功能使用统计和错误指纹，不含用户或实例标识、IP、题目内容、AI 对话或错误原文；存量实例升级后默认不外发，管理员登录时可从提示横幅查看协议后开启。「设置 → 用户管理 → 隐私与遥测」可关闭外发、开启本地记录（只保存在本机，供排查问题）、改为自建收集服务，并查看本实例收集了什么；设置 `TELEMETRY_DISABLED=true` 强制全部关闭。协议升级后管理员需重新同意，期间暂停外发，普通用户不受影响。详见[隐私说明](doc/PRIVACY.md)与[设计](doc/TELEMETRY_DESIGN.md)。
 - **🐞 调试日志**：遇到问题时，管理员在「设置 → 用户管理」中打开调试模式，复现问题后导出调试日志（JSON）发给作者。调试模式下记录包括 debug 级别在内的全部服务端日志和前端错误，导出时自动去除 API Key、密码和令牌；日志只保存在内存中，24 小时后自动关闭，服务重启后清空。
 - **🔌 Openclaw 集成**：外部 Openclaw agent 可通过 `POST /api/openclaw/batch-upload` 批量上传题目图片，配置见[环境变量](#-环境变量)。
+- **🧩 MCP 服务**：外部 agent 可通过 MCP Streamable HTTP 端点 `POST /api/mcp` 读写错题本、错题、知识点与复习数据；配置 `MCP_API_KEY` 与 `MCP_USER_EMAIL` 后启用，工具与接入方式见 [MCP 服务](doc/wiki/MCP-Server.md)。
 
 ## 🚀 快速开始
 
@@ -536,6 +537,13 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 | `OPENCLAW_TIMEOUT` | 超时（毫秒） | `30000` | |
 | `OPENCLAW_AUTH_MODE` | 认证方式 | `credentials` | `credentials`（用户名密码）或 `apikey` |
 | `OPENCLAW_INTEGRATION_API_KEY` | 本系统 API 密钥 | 无 | 仅 `apikey` 模式需要，供 Openclaw 调用本系统，可用 `openssl rand -hex 32` 生成 |
+
+**MCP 服务**（可选）
+
+| 环境变量 | 描述 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `MCP_API_KEY` | MCP 集成密钥 | 无 | 外部 agent 通过 `Authorization: Bearer` 或 `x-api-key` 提交；可用 `openssl rand -hex 32` 生成 |
+| `MCP_USER_EMAIL` | MCP 目标账号 | 无 | 固定该账号的错题数据；填邮箱（也可填用户名），账号须启用 |
 
 新增环境变量时需同步更新 `.env.example`。
 

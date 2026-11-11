@@ -17,7 +17,9 @@ export type QuestionSaveOrigin =
     /** 识别导入任务（拍照/文字识别后的自动或人工确认入库，src/lib/import/import-tasks.ts） */
     | 'import-task'
     /** Openclaw 批量上传（src/app/api/openclaw/batch-upload/route.ts） */
-    | 'openclaw';
+    | 'openclaw'
+    /** MCP 工具 add_question（src/app/api/mcp/route.ts） */
+    | 'mcp';
 
 /** 题目保存事件：钩子在同一事务内收到写入结果与原始输入 */
 export interface QuestionSaveEvent {

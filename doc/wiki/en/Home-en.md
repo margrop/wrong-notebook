@@ -18,6 +18,7 @@ This Wiki covers [margrop/wrong-notebook](https://github.com/margrop/wrong-noteb
 | Preferences, the app time zone and user permissions | [Settings and Users](Settings-and-Users-en) |
 | Export personal data or back up the whole site | [Backup and Restore](Backup-and-Restore-en) |
 | Batch-import questions from an external Openclaw agent | [Openclaw Integration](Openclaw-Integration-en) |
+| Let external agents read and write questions, tags and review data via MCP | [MCP Server](MCP-Server-en) |
 | Code structure, tests and contribution rules | [Development](Development-en) |
 | Sign in after a fresh install; troubleshoot recognition, formulas or screenshots | [FAQ](FAQ-en) |
 
@@ -30,7 +31,7 @@ This Wiki covers [margrop/wrong-notebook](https://github.com/margrop/wrong-noteb
 - Question bank file import (JSON / Word / Excel / CSV / PDF, with an as-is mode that skips AI calls) and exporting selected questions as JSON, Excel or Word.
 - Similar-question practice with AI grading, daily review, exam papers built from mistakes, answer history, mastery probability, statistics and print export.
 - Shared question banks: download primary, junior-high and senior-high packages from the [shared bank repository](https://github.com/margrop/wrong-notebook-question-bank); imported questions stay in the bank by default, and practice can pick by knowledge point.
-- Per-user data isolation, daily AI limits, admin settings, personal preferences and Openclaw batch import.
+- Per-user data isolation, daily AI limits, admin settings, personal preferences, Openclaw batch import and an MCP server.
 - Fresh installs set up the admin with a one-time setup link (the install wizard on fnOS) instead of a fixed default password, then the setup wizard helps configure AI and create a notebook.
 
 ## Recommended workflow

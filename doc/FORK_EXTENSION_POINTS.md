@@ -169,7 +169,7 @@ registerQuestionSaveHook(myHook);
 - 任何钩子抛错都会使整笔事务回滚（与 `afterWrite` 一致），并记录 `logger.error`。
 - 重复题（`duplicate: true`）同样触发钩子，此时 `errorItemId` 指向原有题目，未新建错题。
 
-`origin` 字段区分入库路径：`manual`（单题保存 API）、`import-task`（识别导入任务）、`openclaw`（Openclaw 批量上传）。
+`origin` 字段区分入库路径：`manual`（单题保存 API）、`import-task`（识别导入任务）、`openclaw`（Openclaw 批量上传）、`mcp`（MCP 工具 `add_question`）。
 
 注意：
 
