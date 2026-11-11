@@ -506,8 +506,10 @@ async function buildQnap() {
     const builtFile = path.join(stage, 'build', built[0]);
     const expectedName = `wrongnotebook_${qnapVersion(version)}${image ? `_${image.qnap}` : ''}.qpkg`;
     verifyQpkg(builtFile, expectedName, qnapVersion(version));
-    if (image && fs.statSync(builtFile).size < fs.statSync(image.file).size) {
-        throw new Error(`QPKG 比内置镜像还小，镜像归档没有进入安装包：${builtFile}`);
+    // qbuild 会把数据再压缩一遍，QPKG 可能比镜像归档略小；明显偏小才说明归档没有进入安装包
+    //（如构建机缺少 rsync 时 qbuild 不报错，只生成几十 KB 的空包）
+    if (image && fs.statSync(builtFile).size < fs.statSync(image.file).size * 0.9) {
+        throw new Error(`QPKG 远小于内置镜像，镜像归档没有进入安装包：${builtFile}`);
     }
     const out = path.join(DIST, `WrongNotebook-QNAP-${version}${image ? `-${image.arch}` : ''}.qpkg`);
     fs.renameSync(builtFile, out);
