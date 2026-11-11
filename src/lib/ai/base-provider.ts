@@ -32,6 +32,14 @@ const logger = createLogger('ai:base');
  */
 export const AI_CALL_DEADLINE_MS = 10 * 60 * 1000;
 
+/** Vercel 上的总时限：函数最长运行 300 秒（vercel.json 的 maxDuration），须在函数被强制结束前超时，才能返回明确的超时错误 */
+export const VERCEL_AI_CALL_DEADLINE_MS = 280 * 1000;
+
+/** 当前部署环境下单次 AI 调用的总时限 */
+export function aiCallDeadlineMs(): number {
+    return process.env.VERCEL ? VERCEL_AI_CALL_DEADLINE_MS : AI_CALL_DEADLINE_MS;
+}
+
 /** 一次补全请求：system 为系统提示词，user 为用户提示词，image 为可选图片 */
 export interface CompletionImage {
     base64: string;
@@ -112,13 +120,14 @@ export abstract class BaseAIProvider implements AIService {
 
     /** 在总时限内完成补全；到期时中止请求（含 SDK 内部重试），按 AI_TIMEOUT_ERROR 失败 */
     private async completeBeforeDeadline(request: CompletionRequest): Promise<CompletionResult> {
+        const deadlineMs = aiCallDeadlineMs();
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(new Error('AI_TIMEOUT_ERROR')), AI_CALL_DEADLINE_MS);
+        const timer = setTimeout(() => controller.abort(new Error('AI_TIMEOUT_ERROR')), deadlineMs);
         try {
             return await this.complete({ ...request, signal: controller.signal });
         } catch (error) {
             if (!controller.signal.aborted) throw error;
-            logger.warn({ provider: this.providerName, task: request.task, deadlineMs: AI_CALL_DEADLINE_MS }, 'AI request exceeded deadline');
+            logger.warn({ provider: this.providerName, task: request.task, deadlineMs }, 'AI request exceeded deadline');
             throw new Error('AI_TIMEOUT_ERROR', { cause: error });
         } finally {
             clearTimeout(timer);

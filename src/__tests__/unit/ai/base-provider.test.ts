@@ -20,7 +20,7 @@ vi.mock('@/lib/ai/tag-service', () => ({
     prefetchSubjectTags: vi.fn(() => Promise.resolve({})),
 }));
 
-import { AI_CALL_DEADLINE_MS, BaseAIProvider } from '@/lib/ai/base-provider';
+import { AI_CALL_DEADLINE_MS, VERCEL_AI_CALL_DEADLINE_MS, aiCallDeadlineMs, BaseAIProvider } from '@/lib/ai/base-provider';
 import type { CompletionRequest } from '@/lib/ai/base-provider';
 import type { CompletionEvent, CompletionResult } from '@/lib/ai/completion';
 
@@ -331,6 +331,20 @@ describe('BaseAIProvider 调用总时限', () => {
         const error = await result;
         expect(error).toBeInstanceOf(Error);
         expect((error as Error).message).toBe('AI_TIMEOUT_ERROR');
+    });
+
+    it('Vercel 上在函数被强制结束（300 秒）前超时', async () => {
+        vi.stubEnv('VERCEL', '1');
+        try {
+            expect(aiCallDeadlineMs()).toBe(VERCEL_AI_CALL_DEADLINE_MS);
+            expect(VERCEL_AI_CALL_DEADLINE_MS).toBeLessThan(300_000);
+            const provider = hangingProvider();
+            const result = provider.splitQuestions({ kind: 'text', lines: ['1. 题目'], language: 'zh' }).catch((error: unknown) => error);
+            await vi.advanceTimersByTimeAsync(VERCEL_AI_CALL_DEADLINE_MS);
+            expect(((await result) as Error).message).toBe('AI_TIMEOUT_ERROR');
+        } finally {
+            vi.unstubAllEnvs();
+        }
     });
 
     it('未超时的服务商错误照常归类，不被当成超时', async () => {
