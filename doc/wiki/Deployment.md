@@ -114,7 +114,7 @@ curl --fail http://localhost:3000/api/health
 
 DSM 7.2 及以上使用 Container Manager；旧版 DSM 的 Docker 套件操作类似。建议数据目录为 `/volume1/docker/wrong-notebook`，其他存储卷路径相应替换。
 
-**套件安装（推荐）**：先安装 Container Manager，再在套件中心 →「手动安装」选择 `WrongNotebook-Synology-<版本>.spk`。需要 DSM 7.2.1 及以上。套件在 Container Manager 中创建项目 `wrong-notebook`，拉取对应版本镜像（网络较慢时安装会停留一段时间），把主机端口 `39300` 映射到容器 `3000`，数据放在套件数据目录 `/volumeN/@appdata/wrongnotebook`；从 DSM 主菜单的「错题本」图标或 `http://NAS地址:39300` 进入应用，首次启动按页面提示设置管理员。升级套件会按新镜像重建容器并保留数据，卸载套件保留数据目录。
+**套件安装（推荐）**：先安装 Container Manager，再在套件中心 →「手动安装」选择 `WrongNotebook-Synology-<版本>-x86_64.spk`（Intel / AMD 机型）或 `-arm64.spk`（64 位 ARM 机型）。需要 DSM 7.2.1 及以上。套件在 Container Manager 中创建项目 `wrong-notebook`，加载套件内置的同版本镜像（安装时无需联网拉取），把主机端口 `39300` 映射到容器 `3000`，数据放在套件数据目录 `/volumeN/@appdata/wrongnotebook`；从 DSM 主菜单的「错题本」图标或 `http://NAS地址:39300` 进入应用，首次启动按页面提示设置管理员。升级套件会按新镜像重建容器并保留数据，卸载套件保留数据目录。
 
 以下是手动容器方式：
 
@@ -146,7 +146,7 @@ DSM 7.2 及以上使用 Container Manager；旧版 DSM 的 Docker 套件操作�
 
 使用 Container Station。建议数据目录为 `/share/Container/wrong-notebook`；Container Station 的默认共享文件夹是 `Container`，自定义存储位置时相应替换。
 
-**套件安装（推荐）**：先安装 Container Station，再在 App Center →「手动安装」选择 `WrongNotebook-QNAP-<版本>.qpkg`。套件自动拉取对应版本镜像、生成 `NEXTAUTH_SECRET`、把主机端口 `39300` 映射到容器 `3000`，数据放在 `/share/Container/wrong-notebook/{data,config}`；App Center 的打开链接进入应用，首次启动按页面提示设置管理员。升级套件会按新镜像重建容器并保留数据，卸载套件保留数据目录。
+**套件安装（推荐）**：先安装 Container Station，再在 App Center →「手动安装」选择 `WrongNotebook-QNAP-<版本>-x86_64.qpkg`（Intel / AMD 机型）或 `-arm64.qpkg`（64 位 ARM 机型）。套件加载内置的同版本镜像（无需联网拉取）、生成 `NEXTAUTH_SECRET`、把主机端口 `39300` 映射到容器 `3000`，数据放在 `/share/Container/wrong-notebook/{data,config}`；App Center 的打开链接进入应用，首次启动按页面提示设置管理员。升级套件会按新镜像重建容器并保留数据，卸载套件保留数据目录。
 
 以下是手动容器方式：
 

@@ -205,8 +205,8 @@ Download the package for your platform from the [download page](https://wrong-no
 | macOS | `WrongNotebook-Mac-<version>-arm64.dmg` (Apple silicon), `WrongNotebook-Mac-<version>-x64.dmg` (Intel) |
 | Linux | `WrongNotebook-Linux-<version>-<arch>.AppImage`, `.deb` |
 | fnOS | `WrongNotebook-FnOS-<version>-x86.fpk`, `WrongNotebook-FnOS-<version>-arm.fpk` |
-| Synology DSM | `WrongNotebook-Synology-<version>.spk` (manual install in Package Center; Docker package, requires Container Manager) |
-| QNAP QTS | `WrongNotebook-QNAP-<version>.qpkg` (manual install in App Center; Docker package, requires Container Station) |
+| Synology DSM | `WrongNotebook-Synology-<version>-x86_64.spk` / `-arm64.spk` (manual install in Package Center; Docker package with the image bundled, requires Container Manager) |
+| QNAP QTS | `WrongNotebook-QNAP-<version>-x86_64.qpkg` / `-arm64.qpkg` (manual install in App Center; Docker package with the image bundled, requires Container Station) |
 | Android phone / tablet (standalone) | `WrongNotebook-Android-Phone-<version>.apk` (portrait), `WrongNotebook-Android-Tablet-<version>.apk` (rotates between portrait and landscape) |
 | Android phone / tablet (client) | `WrongNotebook-Android-Client-Phone-<version>.apk`, `WrongNotebook-Android-Client-Tablet-<version>.apk` |
 
@@ -301,7 +301,7 @@ Unraid creates the host directories if they do not exist. After the first start,
 
 DSM 7.2 or later uses **Container Manager** (older versions use the Docker package). The suggested data directory is `/volume1/docker/wrong-notebook/{data,config}`; create it first in File Station or over SSH, and replace the path if your storage volume differs.
 
-**Package install (recommended)**: install Container Manager first, then choose `WrongNotebook-Synology-<version>.spk` under Package Center → **Manual Install**. DSM 7.2.1 or later is required. The package creates the `wrong-notebook` project in Container Manager, pulls the matching image (installation can take a while on a slow network), maps host port `39300` to container `3000`, and stores data in the package data directory `/volumeN/@appdata/wrongnotebook`; open the app from the **Wrong Notebook** icon in the DSM main menu or at `http://<NAS address>:39300`, and the first start shows the admin setup page. Upgrading the package recreates the container from the new image and keeps data; uninstalling keeps the data directory.
+**Package install (recommended)**: install Container Manager first, then choose `WrongNotebook-Synology-<version>-x86_64.spk` (Intel / AMD models) or `-arm64.spk` (64-bit ARM models) under Package Center → **Manual Install**. DSM 7.2.1 or later is required. The package creates the `wrong-notebook` project in Container Manager, loads the bundled image of the same version (no image download during installation), maps host port `39300` to container `3000`, and stores data in the package data directory `/volumeN/@appdata/wrongnotebook`; open the app from the **Wrong Notebook** icon in the DSM main menu or at `http://<NAS address>:39300`, and the first start shows the admin setup page. Upgrading the package recreates the container from the new image and keeps data; uninstalling keeps the data directory.
 
 Manual container method:
 
@@ -315,7 +315,7 @@ Manual container method:
 
 Use **Container Station**. The suggested data directory is `/share/Container/wrong-notebook/{data,config}`; Container Station's default shared folder is `Container`, so replace the path if you store data elsewhere.
 
-**Package install (recommended)**: install Container Station first, then choose `WrongNotebook-QNAP-<version>.qpkg` under App Center → **Manual Install**. The package pulls the matching image, generates `NEXTAUTH_SECRET`, maps host port `39300` to container `3000`, and stores data at `/share/Container/wrong-notebook/{data,config}`; the App Center open link opens the app, and the first start shows the admin setup page. Upgrading the package recreates the container from the new image and keeps data; uninstalling keeps the data directory.
+**Package install (recommended)**: install Container Station first, then choose `WrongNotebook-QNAP-<version>-x86_64.qpkg` (Intel / AMD models) or `-arm64.qpkg` (64-bit ARM models) under App Center → **Manual Install**. The package loads the bundled image of the same version (no image download needed), generates `NEXTAUTH_SECRET`, maps host port `39300` to container `3000`, and stores data at `/share/Container/wrong-notebook/{data,config}`; the App Center open link opens the app, and the first start shows the admin setup page. Upgrading the package recreates the container from the new image and keeps data; uninstalling keeps the data directory.
 
 Manual container method:
 

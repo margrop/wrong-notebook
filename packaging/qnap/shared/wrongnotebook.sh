@@ -20,6 +20,8 @@ WN_DATA_DIR="${DATA_ROOT}/data"
 WN_CONFIG_DIR="${DATA_ROOT}/config"
 WN_HOST_PORT=39300
 WN_IMAGE_TAG="$(cat "${QPKG_DIR}/image-tag" 2>/dev/null || echo 0.0.0)"
+# 内置镜像的套件把归档放在安装目录；在线套件没有该文件，启动时联网拉取
+WN_IMAGE_ARCHIVE="${QPKG_DIR}/image.tar.gz"
 
 . "${QPKG_DIR}/docker-container.sh"
 

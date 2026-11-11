@@ -13,10 +13,11 @@ dist-scripts
 data
 certs
 
-# 安装包构建配置与产物（保留单元测试所需的 packaging/runtime、群晖套件定义与安卓 bridge）
+# 安装包构建配置与产物（保留单元测试所需的 packaging/runtime、群晖套件定义、NAS 容器控制脚本与安卓 bridge）
 packaging/*
 !packaging/runtime
 !packaging/synology
+!packaging/docker
 !packaging/android/app/src/main/assets/bridge.js
 
 # 版本控制与开发配置

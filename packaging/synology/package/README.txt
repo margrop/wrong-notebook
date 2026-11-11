@@ -1,7 +1,8 @@
 错题本（群晖套件）
 ====================
 
-本套件只管理 Docker 容器，服务端运行在 ghcr.io/margrop/wrong-notebook 镜像中。
+本套件只管理 Docker 容器，服务端运行在 ghcr.io/margrop/wrong-notebook 镜像中；
+发布的套件内置该镜像，安装时无需联网拉取。
 需要 DSM 7.2.1 及以上，安装前请先在套件中心安装 Container Manager。
 
 - 容器：Container Manager「项目」中的 wrong-notebook，随套件启停

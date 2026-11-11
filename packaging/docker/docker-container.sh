@@ -1,6 +1,7 @@
 #!/bin/sh
 # 威联通 QPKG 的 Docker 容器控制（群晖套件改由 Container Manager 的 docker-project 资源管理容器）。
-# 调用方先设置 WN_IMAGE_TAG、WN_DATA_DIR、WN_CONFIG_DIR，再 source 本文件。
+# 调用方先设置 WN_IMAGE_TAG、WN_DATA_DIR、WN_CONFIG_DIR，再 source 本文件；
+# 套件内置镜像时另设 WN_IMAGE_ARCHIVE（docker save 导出的归档）。
 set -eu
 
 WN_CONTAINER_NAME="${WN_CONTAINER_NAME:-wrong-notebook}"
@@ -53,8 +54,33 @@ wn_generate_secret() {
     chmod 600 "${WN_CONFIG_DIR}/nextauth-secret"
 }
 
-wn_pull_image() {
+wn_has_image() {
+    wn_docker image inspect "${WN_IMAGE}" >/dev/null 2>&1
+}
+
+# 准备镜像：本地已有时直接使用（重启和断网时不依赖镜像仓库）；
+# 否则先加载套件内置的归档，没有归档或加载后仍缺少该版本时才联网拉取。
+wn_ensure_image() {
+    if wn_has_image; then
+        return 0
+    fi
+    if [ -n "${WN_IMAGE_ARCHIVE:-}" ] && [ -s "${WN_IMAGE_ARCHIVE}" ]; then
+        wn_docker load -i "${WN_IMAGE_ARCHIVE}" >/dev/null || echo "加载内置镜像失败，改为联网拉取" >&2
+        if wn_has_image; then
+            return 0
+        fi
+    fi
     wn_docker pull --quiet "${WN_IMAGE}" >/dev/null
+}
+
+# 升级后清理本套件其他版本的镜像，避免每次升级多占一份空间；仍被使用的镜像删除会失败，忽略即可
+wn_prune_old_images() {
+    repo="${WN_IMAGE%:*}"
+    for old in $(wn_docker images --format '{{.Repository}}:{{.Tag}}' "${repo}" 2>/dev/null); do
+        if [ "${old}" != "${WN_IMAGE}" ]; then
+            wn_docker rmi "${old}" >/dev/null 2>&1 || true
+        fi
+    done
 }
 
 wn_wait_health() {
@@ -77,7 +103,7 @@ wn_wait_health() {
 wn_start_container() {
     wn_ensure_dirs
     wn_generate_secret
-    wn_pull_image
+    wn_ensure_image
     wn_docker rm -f "${WN_CONTAINER_NAME}" >/dev/null 2>&1 || true
     wn_docker run -d \
         --name "${WN_CONTAINER_NAME}" \
@@ -89,6 +115,7 @@ wn_start_container() {
         -e AUTH_TRUST_HOST=true \
         -e NEXTAUTH_SECRET="$(cat "${WN_CONFIG_DIR}/nextauth-secret")" \
         "${WN_IMAGE}" >/dev/null
+    wn_prune_old_images
     wn_wait_health
 }
 

@@ -7,7 +7,8 @@
  *   node scripts/package/build.mjs desktop [electron-builder 参数...]
  *                                                          打包 Windows / macOS / Linux 桌面安装包
  *   node scripts/package/build.mjs fnos --arch x86|arm     打包飞牛OS fpk（需要 fnpack）
- *   node scripts/package/build.mjs synology                打包群晖 SPK（Docker 套件，无需 bundle）
+ *   node scripts/package/build.mjs synology                打包群晖 SPK（Docker 套件，无需 bundle；安装时在线拉取镜像）
+ *   node scripts/package/build.mjs synology --arch x86_64 --image <镜像.tar.gz>   内置镜像的群晖 SPK（arch 取 x86_64 或 arm64，qnap 同）
  *   node scripts/package/build.mjs qnap                    打包威联通 QPKG（Docker 套件，需要 QDK qbuild）
  *   node scripts/package/build.mjs android [--mode standalone|client] [--flavor phone|tablet]
  *                                                          打包安卓 APK（需要 Android SDK 和 Gradle）：单机版内置服务端，
@@ -39,7 +40,7 @@ const version = String(flags.version || process.env.PACKAGE_VERSION || rootPkg.v
 function parseFlags(args) {
     const out = { _: [] };
     for (let i = 0; i < args.length; i++) {
-        const m = /^--(version|arch|flavor|mode)(?:=(.*))?$/.exec(args[i]);
+        const m = /^--(version|arch|flavor|mode|image)(?:=(.*))?$/.exec(args[i]);
         if (m) out[m[1]] = m[2] ?? args[++i];
         else if (args[i] === '--skip-build') out.skipBuild = true;
         else out._.push(args[i]);
@@ -366,6 +367,36 @@ function qnapVersion(value) {
     return short.length <= 10 ? short : short.slice(0, 10);
 }
 
+/**
+ * NAS 套件内置的镜像归档：`docker save` 格式并经 gzip 压缩，其中的镜像名须为
+ * ghcr.io/margrop/wrong-notebook:<版本>。内置后套件按 CPU 架构分别出包，安装时不再联网拉取。
+ * 未传 --image 时返回 null，生成安装时在线拉取镜像的 noarch 套件。
+ */
+const NAS_IMAGE_ARCHS = {
+    // 群晖 INFO 的 arch 要写平台名；同时带上家族名，便于新平台识别
+    x86_64: {
+        synology: 'x86_64 apollolake avoton braswell broadwell broadwellnk broadwellnkv2 broadwellntb broadwellntbap bromolow cedarview coffeelake denverton epyc7002 geminilake geminilakenk grantley icelaked kvmx64 purley r1000 r1000nk skylaked v1000 v1000nk',
+        qnap: 'x86_64',
+    },
+    arm64: {
+        synology: 'armv8 aarch64 rtd1296 rtd1619 rtd1619b armada37xx',
+        qnap: 'arm_64',
+    },
+};
+
+function bundledImage() {
+    if (!flags.image) return null;
+    const arch = flags.arch;
+    if (!NAS_IMAGE_ARCHS[arch]) throw new Error(`内置镜像时需用 --arch 指定 ${Object.keys(NAS_IMAGE_ARCHS).join(' 或 ')}`);
+    const file = path.resolve(flags.image);
+    const head = Buffer.alloc(2);
+    const fd = fs.openSync(file, 'r');
+    fs.readSync(fd, head, 0, 2, 0);
+    fs.closeSync(fd);
+    if (head[0] !== 0x1f || head[1] !== 0x8b) throw new Error(`${flags.image} 不是 gzip 压缩的镜像归档`);
+    return { arch, file, ...NAS_IMAGE_ARCHS[arch] };
+}
+
 /** qbuild 出错时仍可能返回 0；用尾部标记、体积和文件名确认不是残缺归档 */
 function verifyQpkg(file, expectedName, expectedVersion) {
     if (path.basename(file) !== expectedName) throw new Error(`qbuild 生成的包名不符：${path.basename(file)}`);
@@ -407,6 +438,16 @@ async function buildSynology() {
     fs.writeFileSync(composeFile, fs.readFileSync(composeFile, 'utf8').replace('__IMAGE_TAG__', version));
     for (const file of fs.readdirSync(path.join(stage, 'scripts'))) fs.chmodSync(path.join(stage, 'scripts', file), 0o755);
 
+    // 内置镜像：docker-project 在创建项目前加载 target 下的归档，compose 找到本地镜像后不再拉取
+    const image = bundledImage();
+    if (image) {
+        fs.copyFileSync(image.file, path.join(stage, 'package', 'image.tar.gz'));
+        const resourceFile = path.join(stage, 'conf', 'resource');
+        const resource = readJson(resourceFile);
+        resource['docker-project'] = { 'preload-image': 'image.tar.gz', ...resource['docker-project'] };
+        writeJson(resourceFile, resource);
+    }
+
     // 套件图标由 packaging/synology 预置（64×64、256×256），避免构建时引入图像处理依赖
 
     // COPYFILE_DISABLE：在 macOS 上构建时不把扩展属性写成 ._ 文件
@@ -416,9 +457,10 @@ async function buildSynology() {
     const infoFile = path.join(stage, 'INFO');
     fs.writeFileSync(infoFile, fs.readFileSync(infoFile, 'utf8')
         .replace(/^version=.*$/m, `version="${synologyVersion(version)}"`)
+        .replace(/^arch=.*$/m, `arch="${image ? image.synology : 'noarch'}"`)
         .replace(/^checksum=.*$/m, `checksum="${checksum}"`));
 
-    const out = path.join(DIST, `WrongNotebook-Synology-${version}.spk`);
+    const out = path.join(DIST, `WrongNotebook-Synology-${version}${image ? `-${image.arch}` : ''}.spk`);
     const entries = ['INFO', 'package.tgz', 'scripts', 'conf', 'PACKAGE_ICON.PNG', 'PACKAGE_ICON_256.PNG'];
     run('tar', ['-cf', out, ...entries], { cwd: stage, ...tarEnv });
     verifySpk(out, ['INFO', 'package.tgz', 'scripts/start-stop-status', 'conf/privilege', 'conf/resource', 'PACKAGE_ICON.PNG', 'PACKAGE_ICON_256.PNG']);
@@ -440,6 +482,13 @@ async function buildQnap() {
     fs.chmodSync(path.join(stage, 'shared', 'wrongnotebook.sh'), 0o755);
     fs.chmodSync(path.join(stage, 'package_routines'), 0o755);
 
+    // 内置镜像：放进架构目录，qbuild 只为该架构出包，安装后归档位于 QPKG 安装目录
+    const image = bundledImage();
+    if (image) {
+        fs.mkdirSync(path.join(stage, image.qnap), { recursive: true });
+        fs.copyFileSync(image.file, path.join(stage, image.qnap, 'image.tar.gz'));
+    }
+
     // QPKG 图标由 packaging/qnap/icons 预置（64×64、灰度 64×64、80×80 GIF）
 
     const cfgFile = path.join(stage, 'qpkg.cfg');
@@ -455,9 +504,12 @@ async function buildQnap() {
     const built = fs.readdirSync(path.join(stage, 'build')).filter((file) => file.endsWith('.qpkg'));
     if (built.length !== 1) throw new Error(`qbuild 应生成 1 个 qpkg，实际 ${built.length} 个`);
     const builtFile = path.join(stage, 'build', built[0]);
-    const expectedName = `wrongnotebook_${qnapVersion(version)}.qpkg`;
+    const expectedName = `wrongnotebook_${qnapVersion(version)}${image ? `_${image.qnap}` : ''}.qpkg`;
     verifyQpkg(builtFile, expectedName, qnapVersion(version));
-    const out = path.join(DIST, `WrongNotebook-QNAP-${version}.qpkg`);
+    if (image && fs.statSync(builtFile).size < fs.statSync(image.file).size) {
+        throw new Error(`QPKG 比内置镜像还小，镜像归档没有进入安装包：${builtFile}`);
+    }
+    const out = path.join(DIST, `WrongNotebook-QNAP-${version}${image ? `-${image.arch}` : ''}.qpkg`);
     fs.renameSync(builtFile, out);
     log(`威联通套件已生成：${path.relative(ROOT, out)}`);
 }

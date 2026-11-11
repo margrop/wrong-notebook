@@ -9,8 +9,8 @@
 | macOS | `WrongNotebook-Mac-<版本>-arm64.dmg`（Apple 芯片）/ `-x64.dmg`（Intel），另有同名 `.zip` | 本地自签名（ad-hoc），未经 Apple 公证；首次打开需到「系统设置 → 隐私与安全性」点击「仍要打开」 |
 | Linux | `WrongNotebook-Linux-<版本>-<架构>.AppImage` / `.deb` | x86_64 与 arm64 |
 | 飞牛OS | `WrongNotebook-FnOS-<版本>-x86.fpk` / `-arm.fpk` | 在应用中心手动安装，依赖应用中心的 Node.js v24 |
-| 群晖 DSM | `WrongNotebook-Synology-<版本>.spk` | 套件中心手动安装；Docker 套件，需 Container Manager |
-| 威联通 QTS | `WrongNotebook-QNAP-<版本>.qpkg` | App Center 手动安装；Docker 套件，需 Container Station |
+| 群晖 DSM | `WrongNotebook-Synology-<版本>-x86_64.spk` / `-arm64.spk` | 套件中心手动安装；内置镜像的 Docker 套件，需 Container Manager |
+| 威联通 QTS | `WrongNotebook-QNAP-<版本>-x86_64.qpkg` / `-arm64.qpkg` | App Center 手动安装；内置镜像的 Docker 套件，需 Container Station |
 | 安卓手机 | `WrongNotebook-Android-Phone-<版本>.apk` | 单机版，内置服务端，无需部署服务器；锁定竖屏 |
 | 安卓平板 | `WrongNotebook-Android-Tablet-<版本>.apk` | 单机版，内置服务端，无需部署服务器；横竖屏自动旋转 |
 | 安卓手机 / 平板（客户端） | `WrongNotebook-Android-Client-Phone-<版本>.apk` / `-Client-Tablet-<版本>.apk` | 客户端版，连接已部署的服务器 |
@@ -59,8 +59,8 @@ wrong-notebook --port 3000 --host 0.0.0.0 --data-dir ~/.wrong-notebook
 ### 群晖 DSM
 
 1. 先在套件中心安装 **Container Manager**（20.10.23-1432 及以上）。
-2. 套件中心 →「手动安装」，选择 `WrongNotebook-Synology-<版本>.spk`；需要 DSM 7.2.1 及以上，套件为 noarch，不依赖 NAS 的 Node.js。
-3. 套件在 Container Manager 中创建项目 `wrong-notebook`，拉取 `ghcr.io/margrop/wrong-notebook:<版本>` 并映射主机端口 `39300` → 容器 `3000`。安装时要等镜像拉取完成，网络较慢时会停留一段时间。
+2. 套件中心 →「手动安装」，按 NAS 的处理器选择 `WrongNotebook-Synology-<版本>-x86_64.spk`（Intel / AMD）或 `-arm64.spk`（64 位 ARM）；需要 DSM 7.2.1 及以上，不依赖 NAS 的 Node.js。
+3. 套件在 Container Manager 中创建项目 `wrong-notebook`，加载内置的 `ghcr.io/margrop/wrong-notebook:<版本>` 镜像并映射主机端口 `39300` → 容器 `3000`；安装时无需联网拉取镜像。
 4. 从 DSM 主菜单的「错题本」图标或 `http://<NAS>:39300` 进入应用，首次启动按页面提示设置管理员。升级套件会按新镜像重建容器并保留数据；卸载套件会移除容器和镜像，保留数据目录，重装后可继续使用。
 
 数据在套件数据目录 `/volumeN/@appdata/wrongnotebook`（数据库、`config/` 和自动生成的会话密钥 `.nextauth_secret`）。该目录在 File Station 中不可见，备份请用应用内的数据导出，或通过 SSH 复制。
@@ -75,8 +75,8 @@ wrong-notebook --port 3000 --host 0.0.0.0 --data-dir ~/.wrong-notebook
 ### 威联通 QTS
 
 1. 先在 App Center 安装 **Container Station**。
-2. App Center →「手动安装」，选择 `WrongNotebook-QNAP-<版本>.qpkg`；套件为 noarch，不依赖 NAS 的 Node.js。
-3. 套件脚本检查 Docker、拉取同版本镜像、生成 `NEXTAUTH_SECRET`、映射主机端口 `39300` → 容器 `3000`，数据放在 `/share/Container/wrong-notebook/{data,config}`。
+2. App Center →「手动安装」，按 NAS 的处理器选择 `WrongNotebook-QNAP-<版本>-x86_64.qpkg`（Intel / AMD）或 `-arm64.qpkg`（64 位 ARM）；不依赖 NAS 的 Node.js。
+3. 套件脚本检查 Docker、加载内置的同版本镜像（本地已有该版本时直接使用，归档不可用时才联网拉取）、生成 `NEXTAUTH_SECRET`、映射主机端口 `39300` → 容器 `3000`，数据放在 `/share/Container/wrong-notebook/{data,config}`。
 4. App Center 的打开链接进入应用，首次启动按页面提示设置管理员。升级套件会按新镜像重建容器并保留数据；卸载套件保留数据目录，重装后可继续使用。
 
 套件只管理容器，不内置 Node.js；需保持 Container Station 运行。
@@ -128,7 +128,7 @@ App 切到后台后系统可能结束服务端进程，回到前台时会自动�
 
 ## 本地构建
 
-需要 Node.js 22.15 及以上。Prisma 引擎与构建机平台一致，桌面版和飞牛OS 包须在目标平台（及架构）上构建；群晖/威联通套件为 noarch Docker 套件，可在任意 Linux 构建。
+需要 Node.js 22.15 及以上。Prisma 引擎与构建机平台一致，桌面版和飞牛OS 包须在目标平台（及架构）上构建；群晖/威联通套件为 Docker 套件，可在任意 Linux 构建。
 
 ```bash
 npm ci
@@ -136,13 +136,14 @@ node scripts/package/build.mjs bundle                 # 构建通用服务端包
 node scripts/package/build.mjs npm                    # dist/wrong-notebook-<版本>.tgz
 node scripts/package/build.mjs desktop --mac --arm64  # 参数原样传给 electron-builder
 node scripts/package/build.mjs fnos --arch x86        # 需要 PATH 中有 fnpack
-node scripts/package/build.mjs synology                # 群晖 SPK，无需 bundle
+node scripts/package/build.mjs synology                # 群晖 SPK（noarch，安装时在线拉取镜像），无需 bundle
+node scripts/package/build.mjs synology --arch x86_64 --image image.tar.gz  # 内置镜像的群晖 SPK，qnap 同
 node scripts/package/build.mjs qnap                    # 威联通 QPKG，需要 PATH 中有 QDK qbuild
 bash scripts/package/build-android-prisma-engines.sh dist/android-prisma-engines  # 安卓单机版需要的 Prisma 引擎
 node scripts/package/build.mjs android                # 单机版和客户端版 APK，可加 --mode standalone|client、--flavor phone|tablet
 ```
 
-群晖 SPK 和威联通 QPKG 是 noarch Docker 套件，不打包 Node.js 或 Prisma 引擎；构建时只生成 compose 项目（群晖）或容器控制脚本（威联通）、`INFO`/`qpkg.cfg` 和图标。`qnap` 需要 QDK 2.5.3：`/usr/share/QDK/bin` 加入 PATH，`qbuild` 生成自解压 `.qpkg`。
+群晖 SPK 和威联通 QPKG 是 Docker 套件，不打包 Node.js 或 Prisma 引擎；构建时只生成 compose 项目（群晖）或容器控制脚本（威联通）、`INFO`/`qpkg.cfg` 和图标。发版时 Packages 工作流等同一标签的镜像推送到 ghcr.io 后，用 skopeo 按架构导出为 `docker save` 格式的归档（`--image`，gzip 压缩，镜像名须为 `ghcr.io/margrop/wrong-notebook:<版本>`），内置进套件并按 `--arch x86_64` / `arm64` 分别出包（每个约 120 MB）：群晖经 `docker-project` 的 `preload-image` 加载，威联通把归档放进 QDK 的架构目录，启动时 `docker load`。不传 `--image` 时生成安装时在线拉取镜像的 noarch 套件，用于本地调试。`qnap` 需要 QDK 2.5.3：`/usr/share/QDK/bin` 加入 PATH，`qbuild` 生成自解压 `.qpkg`。
 
 桌面版使用 Electron 45（内置 Node.js 24）和 electron-builder 26，服务端由 Electron 自带的 Node 运行。electron-builder 26 复制 `extraResources` 时总会跳过来源目录根层的 `node_modules`，因此 `packaging/desktop/package.json` 把 `server/node_modules` 单独列为一项；打包后 `build.mjs` 会检查 Prisma Client 等关键文件是否进入安装包。
 

@@ -205,8 +205,8 @@
 | macOS | `WrongNotebook-Mac-<版本>-arm64.dmg`（Apple 芯片）、`WrongNotebook-Mac-<版本>-x64.dmg`（Intel） |
 | Linux | `WrongNotebook-Linux-<版本>-<架构>.AppImage`、`.deb` |
 | 飞牛OS | `WrongNotebook-FnOS-<版本>-x86.fpk`、`WrongNotebook-FnOS-<版本>-arm.fpk` |
-| 群晖 DSM | `WrongNotebook-Synology-<版本>.spk`（套件中心手动安装，Docker 套件，需 Container Manager） |
-| 威联通 QTS | `WrongNotebook-QNAP-<版本>.qpkg`（App Center 手动安装，Docker 套件，需 Container Station） |
+| 群晖 DSM | `WrongNotebook-Synology-<版本>-x86_64.spk` / `-arm64.spk`（套件中心手动安装，内置镜像的 Docker 套件，需 Container Manager） |
+| 威联通 QTS | `WrongNotebook-QNAP-<版本>-x86_64.qpkg` / `-arm64.qpkg`（App Center 手动安装，内置镜像的 Docker 套件，需 Container Station） |
 | 安卓手机 / 平板（单机版） | `WrongNotebook-Android-Phone-<版本>.apk`（竖屏）、`WrongNotebook-Android-Tablet-<版本>.apk`（横竖屏自动旋转） |
 | 安卓手机 / 平板（客户端） | `WrongNotebook-Android-Client-Phone-<版本>.apk`、`WrongNotebook-Android-Client-Tablet-<版本>.apk` |
 
@@ -299,7 +299,7 @@ wrong-notebook --port 3000
 
 DSM 7.2 及以上使用 **Container Manager**（旧版为 Docker 套件）。建议数据目录为 `/volume1/docker/wrong-notebook/{data,config}`；先在 File Station 或 SSH 中创建，其他存储卷路径相应替换。
 
-**套件安装（推荐）**：先安装 Container Manager，然后在套件中心 →「手动安装」选择 `WrongNotebook-Synology-<版本>.spk`。需要 DSM 7.2.1 及以上。套件在 Container Manager 中创建项目 `wrong-notebook`，拉取对应版本镜像（网络较慢时安装会停留一段时间），把主机端口 `39300` 映射到容器 `3000`，数据放在套件数据目录 `/volumeN/@appdata/wrongnotebook`；从 DSM 主菜单的「错题本」图标或 `http://NAS地址:39300` 进入应用，首次启动按页面提示设置管理员。升级套件会按新镜像重建容器并保留数据，卸载套件保留数据目录。
+**套件安装（推荐）**：先安装 Container Manager，然后在套件中心 →「手动安装」选择 `WrongNotebook-Synology-<版本>-x86_64.spk`（Intel / AMD 机型）或 `-arm64.spk`（64 位 ARM 机型）。需要 DSM 7.2.1 及以上。套件在 Container Manager 中创建项目 `wrong-notebook`，加载套件内置的同版本镜像（安装时无需联网拉取），把主机端口 `39300` 映射到容器 `3000`，数据放在套件数据目录 `/volumeN/@appdata/wrongnotebook`；从 DSM 主菜单的「错题本」图标或 `http://NAS地址:39300` 进入应用，首次启动按页面提示设置管理员。升级套件会按新镜像重建容器并保留数据，卸载套件保留数据目录。
 
 手动容器方式：
 
@@ -313,7 +313,7 @@ DSM 7.2 及以上使用 **Container Manager**（旧版为 Docker 套件）。建
 
 使用 **Container Station**。建议数据目录为 `/share/Container/wrong-notebook/{data,config}`；Container Station 的默认共享文件夹是 `Container`，自定义存储位置时相应替换。
 
-**套件安装（推荐）**：先安装 Container Station，然后在 App Center →「手动安装」选择 `WrongNotebook-QNAP-<版本>.qpkg`。套件自动拉取对应版本镜像、生成 `NEXTAUTH_SECRET`、把主机端口 `39300` 映射到容器 `3000`，数据放在 `/share/Container/wrong-notebook/{data,config}`；App Center 的打开链接进入应用，首次启动按页面提示设置管理员。升级套件会按新镜像重建容器并保留数据，卸载套件保留数据目录。
+**套件安装（推荐）**：先安装 Container Station，然后在 App Center →「手动安装」选择 `WrongNotebook-QNAP-<版本>-x86_64.qpkg`（Intel / AMD 机型）或 `-arm64.qpkg`（64 位 ARM 机型）。套件加载内置的同版本镜像（无需联网拉取）、生成 `NEXTAUTH_SECRET`、把主机端口 `39300` 映射到容器 `3000`，数据放在 `/share/Container/wrong-notebook/{data,config}`；App Center 的打开链接进入应用，首次启动按页面提示设置管理员。升级套件会按新镜像重建容器并保留数据，卸载套件保留数据目录。
 
 手动容器方式：
 

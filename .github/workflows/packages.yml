@@ -1,7 +1,8 @@
 name: Packages
 
 # 全平台安装包：npm、Windows、macOS、Linux、飞牛OS、群晖、威联通、安卓（单机版、客户端版，各分手机版、平板版）
-# Prisma 引擎与构建机平台绑定，因此原生平台在对应架构的 Runner 上分别构建；群晖/威联通为 noarch Docker 套件
+# Prisma 引擎与构建机平台绑定，因此原生平台在对应架构的 Runner 上分别构建；
+# 群晖/威联通为 Docker 套件，发版时内置同版本镜像并按 x86_64 / arm64 分别出包，其余情况生成在线拉取镜像的 noarch 套件
 on:
   push:
     tags:
@@ -353,10 +354,19 @@ jobs:
           if-no-files-found: error
 
   synology:
-    name: Synology SPK
+    name: Synology SPK (${{ matrix.arch }})
     if: github.server_url == 'https://github.com'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # 发版时要等 CI 工作流推送镜像
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            docker_arch: amd64
+          - arch: arm64
+            docker_arch: arm64
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -374,20 +384,51 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
+      # 镜像由 CI 工作流在同一标签上构建，测试通过后才推送；等它出现后导出为 docker save 格式，
+      # 与用户从 ghcr.io 拉到的是同一份镜像
+      - name: Export Docker image
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          image="ghcr.io/margrop/wrong-notebook:${PACKAGE_VERSION}"
+          platform=(--override-os linux --override-arch "${{ matrix.docker_arch }}")
+          for attempt in $(seq 1 150); do
+            if skopeo inspect "${platform[@]}" "docker://${image}" > /dev/null 2>&1; then
+              break
+            fi
+            if [ "$attempt" = 150 ]; then
+              echo "等待镜像 ${image} 超时" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          skopeo copy "${platform[@]}" "docker://${image}" "docker-archive:${RUNNER_TEMP}/image.tar:${image}"
+          gzip "${RUNNER_TEMP}/image.tar"
+          echo "IMAGE_ARGS=--arch ${{ matrix.arch }} --image ${RUNNER_TEMP}/image.tar.gz" >> "$GITHUB_ENV"
+
       - name: Build SPK
-        run: node scripts/package/build.mjs synology
+        run: node scripts/package/build.mjs synology $IMAGE_ARGS
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: package-synology
+          name: package-synology-${{ matrix.arch }}
           path: dist/WrongNotebook-Synology-*.spk
           if-no-files-found: error
 
   qnap:
-    name: QNAP QPKG
+    name: QNAP QPKG (${{ matrix.arch }})
     if: github.server_url == 'https://github.com'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # 发版时要等 CI 工作流推送镜像
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            docker_arch: amd64
+          - arch: arm64
+            docker_arch: arm64
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -414,14 +455,36 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
+      # 镜像由 CI 工作流在同一标签上构建，测试通过后才推送；等它出现后导出为 docker save 格式，
+      # 与用户从 ghcr.io 拉到的是同一份镜像
+      - name: Export Docker image
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          image="ghcr.io/margrop/wrong-notebook:${PACKAGE_VERSION}"
+          platform=(--override-os linux --override-arch "${{ matrix.docker_arch }}")
+          for attempt in $(seq 1 150); do
+            if skopeo inspect "${platform[@]}" "docker://${image}" > /dev/null 2>&1; then
+              break
+            fi
+            if [ "$attempt" = 150 ]; then
+              echo "等待镜像 ${image} 超时" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          skopeo copy "${platform[@]}" "docker://${image}" "docker-archive:${RUNNER_TEMP}/image.tar:${image}"
+          gzip "${RUNNER_TEMP}/image.tar"
+          echo "IMAGE_ARGS=--arch ${{ matrix.arch }} --image ${RUNNER_TEMP}/image.tar.gz" >> "$GITHUB_ENV"
+
       - name: Build QPKG
         run: |
           export PATH="$PATH:/usr/share/QDK/bin"
-          node scripts/package/build.mjs qnap
+          node scripts/package/build.mjs qnap $IMAGE_ARGS
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: package-qnap
+          name: package-qnap-${{ matrix.arch }}
           path: dist/WrongNotebook-QNAP-*.qpkg
           if-no-files-found: error
 
