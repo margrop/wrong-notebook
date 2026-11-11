@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageLoading } from "@/components/ui/page-loading";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuestionNo } from "@/contexts/QuestionNumberingContext";
 import { apiClient } from "@/lib/api-client";
 import { confirmDialog, toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
@@ -35,7 +36,8 @@ export default function ErrorDetailPage() {
     const router = useRouter();
     const { t, language } = useLanguage();
     const [item, setItem] = useState<ErrorItemDetail | null>(null);
-    usePageTitle(t.detail.title, item?.subject?.name, item?.shortId);
+    const questionNoOf = useQuestionNo();
+    usePageTitle(t.detail.title, item?.subject?.name, item ? questionNoOf(item) : null);
     const [loading, setLoading] = useState(true);
     // 放大查看的图片地址，为空时不显示查看器
     const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
@@ -144,7 +146,7 @@ export default function ErrorDetailPage() {
                             </Button>
                         </Link>
                         <h1 className="text-2xl font-bold tracking-tight">{t.detail.title}</h1>
-                        <ShortIdBadge shortId={item.shortId} />
+                        <ShortIdBadge shortId={item.shortId} seqNo={item.seqNo} />
                         <DifficultyStars size="md" value={item.difficultyStars} onChange={handleDifficultyChange} disabled={savingDifficulty} />
                     </div>
 

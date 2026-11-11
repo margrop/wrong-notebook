@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { locateByShortId } from "@/lib/short-id/short-id-client";
 import { isShortId } from "@/lib/short-id/short-id-format";
+import { parseSeqNoQuery } from "@/lib/seq-no/seq-no-format";
 
-/** 输入短 ID 直接跳转到题目详情 */
+/** 输入题目编号（6 位 ID 或流水号 #1000）直接跳转到题目详情 */
 export function ShortIdLocator() {
     const { t } = useLanguage();
     const router = useRouter();
@@ -19,14 +20,16 @@ export function ShortIdLocator() {
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        const shortId = value.trim();
-        if (!isShortId(shortId)) {
+        const input = value.trim();
+        const seqNo = parseSeqNoQuery(input);
+        if (!isShortId(input) && seqNo === null) {
             setError(t.shortId.invalid);
             return;
         }
         setLoading(true);
         setError(null);
-        const id = await locateByShortId(shortId);
+        // 流水号去掉 # 后查询；服务端先按流水号、再按 6 位 ID 查找
+        const id = await locateByShortId(seqNo !== null ? String(seqNo) : input);
         setLoading(false);
         if (id) {
             router.push(`/error-items/${id}`);
@@ -42,7 +45,7 @@ export function ShortIdLocator() {
                     value={value}
                     onChange={(e) => { setValue(e.target.value); setError(null); }}
                     placeholder={t.shortId.locatePlaceholder}
-                    maxLength={6}
+                    maxLength={12}
                     className="font-mono sm:max-w-xs"
                     aria-label={t.shortId.locateTitle}
                 />

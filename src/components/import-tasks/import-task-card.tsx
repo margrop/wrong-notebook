@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuestionNo } from "@/contexts/QuestionNumberingContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { formatDateTime } from "@/lib/date-time";
 import { formatDuration, listTimingStages } from "@/lib/import/import-task-format";
@@ -35,6 +36,7 @@ const STATUS_ICON = {
 /** 识别任务卡片：状态文字、题干摘要、各阶段用时与可用操作 */
 export function ImportTaskCard({ task, now, onReview, onViewItem, onRetry, onDiscard }: ImportTaskCardProps) {
     const { t } = useLanguage();
+    const questionNo = useQuestionNo()({ shortId: task.errorItemShortId, seqNo: task.errorItemSeqNo });
     const { timeZone } = useTimeZone();
     const Icon = STATUS_ICON[task.status];
     const active = task.status === "analyzing" || task.status === "saving";
@@ -73,7 +75,7 @@ export function ImportTaskCard({ task, now, onReview, onViewItem, onRetry, onDis
                         <p className="text-xs text-green-700 dark:text-green-300">
                             {task.duplicate
                                 ? t.importTasks.duplicateSaved
-                                : t.importTasks.savedTo.replace("{notebook}", task.notebookName || "-").replace("{id}", task.errorItemShortId || "-")}
+                                : t.importTasks.savedTo.replace("{notebook}", task.notebookName || "-").replace("{id}", questionNo || "-")}
                         </p>
                     )}
                     {errorText && <p className="text-xs text-destructive">{errorText}</p>}

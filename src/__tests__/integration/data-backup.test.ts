@@ -192,9 +192,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 14 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
+    it('导出文件使用第 15 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(14);
+        expect(backup.version).toBe(15);
         expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
@@ -424,6 +424,33 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         await importBackup(backup);
         const items = await database.errorItem.findMany({ where: { userId: 'user-1' } });
         expect(items.map((item) => item.answerSpacePx)).toEqual([null, null]);
+    });
+
+    it('流水号随备份往返：空闲时保留原编号，已被占用或旧版文件没有时按计数器分配新编号', async () => {
+        await database.errorItem.update({ where: { id: 'item-1' }, data: { seqNo: 1000 } });
+        await database.errorItem.update({ where: { id: 'item-2' }, data: { seqNo: 1001 } });
+        await database.user.update({ where: { id: 'user-1' }, data: { errorItemSeq: 1001 } });
+        const backup = await exportBackup();
+        expect(backup.errorItems.map((item: { seqNo: number }) => item.seqNo).sort()).toEqual([1000, 1001]);
+
+        // 换机还原：编号空闲，原样保留，计数器推进到最大编号
+        await clearUserData();
+        await database.user.update({ where: { id: 'user-1' }, data: { errorItemSeq: 999 } });
+        await importBackup(backup);
+        const restored = await database.errorItem.findMany({ where: { userId: 'user-1' }, orderBy: { seqNo: 'asc' } });
+        expect(restored.map((item) => [item.shortId, item.seqNo])).toEqual([['AbC234', 1000], ['XyZ789', 1001]]);
+        expect((await database.user.findUniqueOrThrow({ where: { id: 'user-1' } })).errorItemSeq).toBe(1001);
+
+        // 编号已被其他题占用、旧版文件没有编号：按计数器继续往后编
+        await clearUserData();
+        await database.user.update({ where: { id: 'user-1' }, data: { errorItemSeq: 1001 } });
+        await database.errorItem.create({ data: { id: 'occupied', userId: 'user-1', originalImageUrl: '', questionText: '另一道题', seqNo: 1000 } });
+        const mixed = structuredClone(backup);
+        delete mixed.errorItems.find((item: { id: string }) => item.id === 'item-2').seqNo;
+        await importBackup(mixed);
+        const items = await database.errorItem.findMany({ where: { userId: 'user-1', id: { not: 'occupied' } } });
+        expect(new Set(items.map((item) => item.seqNo))).toEqual(new Set([1002, 1003]));
+        expect((await database.user.findUniqueOrThrow({ where: { id: 'user-1' } })).errorItemSeq).toBe(1003);
     });
 
     it('旧版备份（version 2，无 tagSet 字段）导入时按 default tagSet 处理', async () => {
@@ -761,7 +788,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(response.status).toBe(200);
         const compressed = Buffer.from(await response.arrayBuffer());
         expect([compressed[0], compressed[1]]).toEqual([0x1f, 0x8b]);
-        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(14);
+        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(15);
 
         await clearUserData();
         const imported = await IMPORT(new Request('http://localhost/api/import', {

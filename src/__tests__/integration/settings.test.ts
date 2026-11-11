@@ -87,7 +87,7 @@ describe('/api/settings', () => {
 
             expect(response.status).toBe(200);
             expect(data.aiProvider).toBe('gemini');
-            expect(Object.keys(data).filter((key) => !['aiProvider', 'timeouts', 'timeZone'].includes(key))).toEqual([]);
+            expect(Object.keys(data).filter((key) => !['aiProvider', 'timeouts', 'timeZone', 'questionNumbering'].includes(key))).toEqual([]);
             expect(data.timeZone).toBe('Asia/Shanghai');
             expect(JSON.stringify(data)).not.toContain('sk-test-key');
             expect(JSON.stringify(data)).not.toContain('AIza-test-key');
@@ -158,6 +158,17 @@ describe('/api/settings', () => {
         it.each(['invalid/zone', '', null, 8])('拒绝无效时区 %s 且不写配置', async (timeZone) => {
             const response = await POST(new Request('http://localhost/api/settings', { method: 'POST', body: JSON.stringify({ timeZone }) }));
             expect(response.status).toBe(400);
+            expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
+        });
+
+        it('管理员可切换题目编号显示方式，拒绝无效取值', async () => {
+            const saved = await POST(new Request('http://localhost/api/settings', { method: 'POST', body: JSON.stringify({ questionNumbering: 'seqNo' }) }));
+            expect(saved.status).toBe(200);
+            expect(mocks.mockUpdateAppConfig).toHaveBeenCalledWith({ questionNumbering: 'seqNo' });
+
+            mocks.mockUpdateAppConfig.mockClear();
+            const invalid = await POST(new Request('http://localhost/api/settings', { method: 'POST', body: JSON.stringify({ questionNumbering: 'serial' }) }));
+            expect(invalid.status).toBe(400);
             expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
         });
 

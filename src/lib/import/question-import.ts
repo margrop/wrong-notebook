@@ -8,6 +8,7 @@ import type { AnalyzeResponse, UserProfile } from "@/types/api";
 export interface ImportedQuestion {
     id: string;
     shortId: string | null;
+    seqNo?: number | null;
     subjectId: string | null;
     notebookName: string | null;
     duplicate?: boolean;
@@ -16,6 +17,7 @@ export interface ImportedQuestion {
 interface CreatedErrorItem {
     id: string;
     shortId?: string | null;
+    seqNo?: number | null;
     subjectId?: string | null;
     subject?: { id: string; name: string } | null;
     duplicate?: boolean;
@@ -58,6 +60,7 @@ export async function saveParsedQuestion(
     return {
         id: created.id,
         shortId: created.shortId ?? null,
+        seqNo: created.seqNo ?? null,
         subjectId: created.subjectId ?? null,
         notebookName: created.subject?.name ?? null,
         duplicate: created.duplicate,

@@ -3,6 +3,8 @@ import "server-only";
 import fs from 'fs';
 import path from 'path';
 import { createLogger } from '../logger';
+import { DEFAULT_QUESTION_NUMBERING, isQuestionNumbering } from "../seq-no/seq-no-format";
+import type { QuestionNumbering } from "../seq-no/seq-no-format";
 import { DEFAULT_TIME_ZONE, isValidTimeZone } from '../date-time';
 import type { AppConfig } from './types';
 import { DEFAULT_CONFIG, mergeRoutingConfig, mergeTelemetryConfig, mergeTtsConfig, mergeVendorConfigs } from './defaults';
@@ -126,4 +128,10 @@ export function updateAppConfig(newConfig: Partial<AppConfig>) {
 
 export function getAppTimeZone(): string {
     return getAppConfig().timeZone || DEFAULT_TIME_ZONE;
+}
+
+/** 题目编号显示方式；配置缺失或非法时按默认（6 位随机 ID） */
+export function getQuestionNumbering(): QuestionNumbering {
+    const value = getAppConfig().questionNumbering;
+    return isQuestionNumbering(value) ? value : DEFAULT_QUESTION_NUMBERING;
 }

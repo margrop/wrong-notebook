@@ -11,7 +11,7 @@ import { z } from "zod";
  */
 
 /** 当前备份文件版本号 */
-export const BACKUP_VERSION = 14;
+export const BACKUP_VERSION = 15;
 
 /** 备份文件中的用户对象 */
 export interface BackupUser {
@@ -89,6 +89,8 @@ export interface BackupErrorItem {
     id: string;
     /** 旧版导出文件没有 */
     shortId?: string | null;
+    /** 用户内的错题流水号；第 15 版起导出，旧版导出文件没有 */
+    seqNo?: number | null;
     userId: string;
     subjectId: string | null;
     originalImageUrl: string;

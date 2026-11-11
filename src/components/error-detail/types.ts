@@ -9,6 +9,7 @@ export interface KnowledgeTag {
 export interface ErrorItemDetail {
     id: string;
     shortId?: string | null;
+    seqNo?: number | null;
     questionText: string;
     answerText: string;
     analysis: string;

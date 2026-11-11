@@ -1,4 +1,5 @@
 import type { PaginatedResponse, PrintableErrorItem } from '@/types/api';
+import { formatSeqNo } from "@/lib/seq-no/seq-no-format";
 
 type PrintSelectableItem = {
     id: string;
@@ -63,12 +64,12 @@ export function chunk<T>(items: readonly T[], size: number): T[][] {
 
 /** 打印题目列表的搜索：匹配题目文字、题目编号或知识点，忽略大小写与首尾空格 */
 export function matchesPrintSearch(
-    item: Pick<PrintableErrorItem, 'questionText' | 'shortId' | 'tags' | 'knowledgePoints'>,
+    item: Pick<PrintableErrorItem, 'questionText' | 'shortId' | 'seqNo' | 'tags' | 'knowledgePoints'>,
     query: string,
 ): boolean {
     const keyword = query.trim().toLowerCase();
     if (!keyword) return true;
-    const fields = [item.questionText ?? '', item.shortId ?? '', ...getPrintableItemTagNames(item)];
+    const fields = [item.questionText ?? '', item.shortId ?? '', formatSeqNo(item.seqNo) ?? '', ...getPrintableItemTagNames(item)];
     return fields.some((field) => field.toLowerCase().includes(keyword));
 }
 

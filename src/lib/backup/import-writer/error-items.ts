@@ -2,6 +2,7 @@
  * 导入步骤：卷别分组（paperGroups）预导入与错题（error items）写入。
  */
 import { generateUniqueShortId, isShortId } from "@/lib/short-id/short-id";
+import { resolveImportedSeqNo } from "@/lib/seq-no/seq-no";
 import { findDuplicateQuestion, recordDuplicateQuestion } from "@/lib/question/question-deduplication";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
 import type { NormalizedErrorItem } from "@/lib/backup/import-parser";
@@ -144,6 +145,8 @@ export async function importErrorItems(ctx: ImportContext): Promise<void> {
         const created = await tx.errorItem.create({
             data: {
                 shortId: keepShortId ? raw.shortId! : await generateUniqueShortId(tx),
+                // 尽量保留备份中的流水号，已被占用（或旧版备份没有）时按顺序分配新编号
+                seqNo: await resolveImportedSeqNo(tx, targetUserId, raw.seqNo),
                 userId: targetUserId,
                 subjectId: newSubjectId || undefined,
                 originalImageUrl: raw.originalImageUrl || '',

@@ -6,6 +6,7 @@ import { RegionThumbnail } from "@/components/import-batch/region-thumbnail";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuestionNo } from "@/contexts/QuestionNumberingContext";
 import type { ImportBatchDetail } from "@/lib/import/import-batch-types";
 import type { ImportTaskSummary } from "@/lib/import/import-task-types";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ function StatusLine({ task }: { task: ImportTaskSummary }) {
 /** 开始解析后的统一进度与逐题结果：成功、重复、待校对、失败；只重试失败的题 */
 export function BatchProgress({ batch, image, busy, onRetryFailed, onRetryOne, onConfirmAll }: BatchProgressProps) {
     const { t } = useLanguage();
+    const questionNoOf = useQuestionNo();
     const { counts } = batch;
     const finished = counts.total - counts.active;
     const estimate = counts.total ? Math.round((batch.tasks.reduce((sum, task) => sum + STAGE_ESTIMATE[task.status], 0) / counts.total) * 100) : 0;
@@ -89,7 +91,7 @@ export function BatchProgress({ batch, image, busy, onRetryFailed, onRetryOne, o
                                 </div>
                                 <p className="line-clamp-2 break-words text-muted-foreground">{task.excerpt || entry?.item.text}</p>
                                 {task.status === "saved" && task.errorItemId && !task.duplicate && task.notebookName && (
-                                    <p className="text-xs text-muted-foreground">{t.importTasks.savedTo.replace("{notebook}", task.notebookName).replace("{id}", task.errorItemShortId || "-")}</p>
+                                    <p className="text-xs text-muted-foreground">{t.importTasks.savedTo.replace("{notebook}", task.notebookName).replace("{id}", questionNoOf({ shortId: task.errorItemShortId, seqNo: task.errorItemSeqNo }) || "-")}</p>
                                 )}
                                 {error && task.status === "failed" && <p className="text-xs text-destructive">{error}</p>}
                                 <div className="flex flex-wrap gap-2 pt-1">

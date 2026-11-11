@@ -154,7 +154,7 @@ When editing the question text, use the **Pinyin** tool below the box: it opens 
 
 | Information or action | Notes |
 | --- | --- |
-| 6-character question ID | Copy it and locate the question by ID in a notebook; shown as the source ID in printouts |
+| Question number | The 6-character ID by default; admins can switch to serial numbers such as #1000. Copy it and locate the question by either number in a notebook; shown as the source number in printouts |
 | 1–5 star difficulty | Rated by the AI with reference to competition-math difficulty; can be changed manually |
 | Grade/semester | Click **Edit grade/semester** to change and save it; review also offers a selector, and loading the profile preserves manual edits |
 | Paper level | When not set, 1–3 stars default to the "Paper A" group and 4–5 stars to the "Paper B" group; a manual choice takes priority. Customize groups in **Settings → General → Paper Groups**: rename defaults, add custom groups (e.g. Unit Test, Midterm, Final), deactivate or delete custom groups |

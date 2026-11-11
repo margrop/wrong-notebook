@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/providers";
-import { getAppTimeZone } from "@/lib/config";
+import { getAppTimeZone, getQuestionNumbering } from "@/lib/config";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 export const dynamic = 'force-dynamic';
@@ -63,7 +63,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning={true}
       >
-        <Providers timeZone={getAppTimeZone()}>
+        <Providers timeZone={getAppTimeZone()} questionNumbering={getQuestionNumbering()}>
           {children}
         </Providers>
       </body>

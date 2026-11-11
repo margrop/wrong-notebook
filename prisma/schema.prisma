@@ -34,6 +34,7 @@ model User {
   enableSvgAnimation Boolean @default(true) // 是否显示 SVG 动画讲解
   themePreference String @default("system") // 界面主题：system 跟随系统、light 浅色、dark 深色
   aiDataConsentAt DateTime? // 同意将题目等数据发送给第三方 AI 服务商的时间；为空表示尚未同意，AI 功能不可用
+  errorItemSeq Int @default(999) // 已分配的最大错题流水号，新错题取 +1（第一题为 1000）；删除错题不回收
 
   errorItems ErrorItem[]
   subjects   Subject[]
@@ -172,6 +173,7 @@ model PaperGroup {
 model ErrorItem {
   id             String   @id @default(cuid())
   shortId        String?  @unique // 6 位 base58 短 ID，创建后不变
+  seqNo          Int?     // 用户内的错题流水号（从 1000 起），显示为 #1000，创建后不变
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   subjectId      String?
@@ -231,6 +233,7 @@ model ErrorItem {
   // 列表、统计都按用户取错题并按时间排序；SQLite 不会自动给外键建索引
   @@index([userId, createdAt])
   @@index([subjectId])
+  @@unique([userId, seqNo])
 }
 
 model ReviewSchedule {

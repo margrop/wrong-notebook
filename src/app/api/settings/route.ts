@@ -11,6 +11,7 @@ import { isValidTimeZone } from "@/lib/date-time";
 import { VENDOR_PROVIDER_IDS } from "@/lib/ai/vendor-presets";
 import { AI_PROVIDER_IDS } from "@/lib/ai/routing";
 import { CLOUD_TTS_PROVIDERS, TTS_MODES } from "@/lib/tts/constants";
+import { isQuestionNumbering } from "@/lib/seq-no/seq-no-format";
 
 const logger = createLogger('api:settings');
 
@@ -48,7 +49,7 @@ export const GET = withUser(async (_req: Request, { session }: AuthenticatedCont
     // 协议与遥测设置由专用接口读写，不随通用设置返回，避免保存时用旧值覆盖
     const { eula, telemetry, ...config } = getAppConfig();
     if (session.user.role !== 'admin') {
-        return NextResponse.json({ aiProvider: config.aiProvider, timeouts: config.timeouts, timeZone: config.timeZone });
+        return NextResponse.json({ aiProvider: config.aiProvider, timeouts: config.timeouts, timeZone: config.timeZone, questionNumbering: config.questionNumbering });
     }
     return NextResponse.json(config);
 });
@@ -62,6 +63,9 @@ async function handlePost(req: Request) {
         if (body.timeZone !== undefined) {
             if (!isValidTimeZone(body.timeZone)) return badRequest('INVALID_TIME_ZONE');
             body.timeZone = body.timeZone.trim();
+        }
+        if (body.questionNumbering !== undefined && !isQuestionNumbering(body.questionNumbering)) {
+            return badRequest('INVALID_QUESTION_NUMBERING');
         }
         if (body.aiDailyLimit !== undefined && !(Number.isInteger(body.aiDailyLimit) && body.aiDailyLimit >= 0)) {
             return badRequest('INVALID_AI_DAILY_LIMIT');

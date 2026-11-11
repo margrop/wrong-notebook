@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CheckCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuestionNo } from "@/contexts/QuestionNumberingContext";
 import type { ImportedQuestion } from "@/lib/import/question-import";
 
 interface ImportResultBannerProps {
@@ -14,9 +15,10 @@ interface ImportResultBannerProps {
 /** 免确认导入成功后的提示条 */
 export function ImportResultBanner({ imported, onDismiss }: ImportResultBannerProps) {
     const { t } = useLanguage();
+    const questionNo = useQuestionNo()(imported);
     const message = (imported.duplicate ? t.importFlow.duplicate : t.importFlow.imported)
         .replace("{notebook}", imported.notebookName || "-")
-        .replace("{id}", imported.shortId || "-");
+        .replace("{id}", questionNo || "-");
 
     return (
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/40 p-3 text-sm text-green-800 dark:text-green-200" role="status">

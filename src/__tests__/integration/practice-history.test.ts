@@ -150,4 +150,24 @@ describe('GET /api/error-items/short/:shortId', () => {
         expect(foreign.status).toBe(404);
         expect(invalid.status).toBe(404);
     });
+
+    it('按流水号定位自己的题目，只在当前用户范围内查找', async () => {
+        mocks.errorItem.findUnique.mockResolvedValue({ id: 'item-9', userId: 'user-1', subjectId: null, shortId: 'aB3xYz' });
+
+        const response = await SHORT_GET(new Request('http://localhost'), { params: Promise.resolve({ shortId: '1000' }) });
+
+        expect(response.status).toBe(200);
+        expect(mocks.errorItem.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { userId_seqNo: { userId: 'user-1', seqNo: 1000 } } }));
+    });
+
+    it('纯数字的 6 位 ID 没有对应流水号时再按 ID 查找', async () => {
+        mocks.errorItem.findUnique
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce({ id: 'item-7', userId: 'user-1', subjectId: null, shortId: '123456' });
+
+        const response = await SHORT_GET(new Request('http://localhost'), { params: Promise.resolve({ shortId: '123456' }) });
+
+        expect(response.status).toBe(200);
+        expect(mocks.errorItem.findUnique).toHaveBeenLastCalledWith(expect.objectContaining({ where: { shortId: '123456' } }));
+    });
 });

@@ -3,6 +3,7 @@ import { getAppTimeZone } from "@/lib/config";
 import { shiftCalendarDate } from "@/lib/date-time";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/lib/constants/pagination";
 import { isShortId } from "@/lib/short-id/short-id";
+import { parseSeqNoQuery } from "@/lib/seq-no/seq-no-format";
 import { isMasteryStatus, masteryStatusWhere } from "@/lib/mastery-status";
 import type { MasteryStatus } from "@/lib/mastery-status";
 import type { TimeFilter, QuestionTypeFilterValue } from "@/lib/error-list/error-list-filters";
@@ -99,6 +100,7 @@ export async function buildErrorListWhere(
                 { mistakeAnalysis: { contains: params.query } },
                 { knowledgePoints: { contains: params.query } },
                 ...(isShortId(params.query.trim()) ? [{ shortId: params.query.trim() }] : []),
+                ...(parseSeqNoQuery(params.query) !== null ? [{ seqNo: parseSeqNoQuery(params.query) }] : []),
             ]
         });
     }

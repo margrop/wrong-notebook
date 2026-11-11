@@ -7,6 +7,7 @@ import { AnswerSpaceControl } from "@/components/print-preview/answer-space-cont
 import { PrintQuestionText } from "@/components/print-preview/print-question-text";
 import { QuestionFigure } from "@/components/question-figure";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuestionNo } from "@/contexts/QuestionNumberingContext";
 import { resolveQuestionAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import { getPrintableItemTagNames } from "@/lib/print/print-preview";
 import type { PrintableErrorItem } from "@/types/api";
@@ -43,6 +44,7 @@ export const PrintableQuestion = memo(function PrintableQuestion({
     onRemove,
 }: PrintableQuestionProps) {
     const { t } = useLanguage();
+    const questionNo = useQuestionNo()(item);
     const tags = getPrintableItemTagNames(item);
     const answerSpacePx = reserveAnswerSpace
         ? resolveQuestionAnswerSpacePx(options.answerSpace ?? "auto", item.questionText || "", customAnswerSpacePx)
@@ -56,9 +58,9 @@ export const PrintableQuestion = memo(function PrintableQuestion({
                     {t.printPreview?.questionNumber?.replace('{num}', String(index + 1)) || `Question ${index + 1}`}
                 </span>
                 {/* 题目编号：做完后按编号定位原题、录入结果 */}
-                {item.shortId && (
+                {questionNo && (
                     <span className="font-mono text-sm text-muted-foreground whitespace-nowrap">
-                        {t.printPreview.source.replace('{id}', item.shortId)}
+                        {t.printPreview.source.replace('{id}', questionNo)}
                     </span>
                 )}
                 {item.subject && <span className="text-sm text-muted-foreground">{item.subject.name}</span>}

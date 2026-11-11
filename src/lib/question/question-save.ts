@@ -14,6 +14,7 @@ import { createLogger } from "@/lib/logger";
 import { resolveOrCreateTags, inferTagScope } from "@/lib/tags/tag-resolver";
 import { normalizeMistakeStatusForSave } from "@/lib/question/mistake-status";
 import { generateUniqueShortId } from "@/lib/short-id/short-id";
+import { allocateSeqNo } from "@/lib/seq-no/seq-no";
 import { resolveNotebookForSubject } from "@/lib/notebook-resolver";
 import { scheduleMasteryEvaluation } from "@/lib/mastery";
 import type { QuestionSaveOrigin } from "@/lib/question/question-save-hooks";
@@ -197,6 +198,7 @@ async function saveQuestionInner(user: User, body: ImportQuestionInput, options:
             const errorItem = await tx.errorItem.create({
                 data: {
                     shortId: await generateUniqueShortId(tx),
+                    seqNo: await allocateSeqNo(tx, user.id),
                     userId: user.id,
                     subjectId: subjectId || undefined,
                     originalImageUrl,

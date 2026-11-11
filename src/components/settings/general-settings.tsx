@@ -10,8 +10,10 @@ import { ImportPreferenceSetting } from "@/components/settings/import-preference
 import { MasteryThresholdSetting } from "@/components/settings/mastery-threshold-setting";
 import { QuestionGradeSetting } from "@/components/settings/question-grade-setting";
 import { SvgAnimationPreferenceSetting } from "@/components/settings/svg-animation-preference-setting";
+import { QuestionNumberingSetting } from "@/components/settings/question-numbering-setting";
 import { TimeZoneSetting } from "@/components/settings/time-zone-setting";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuestionNumbering } from "@/contexts/QuestionNumberingContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import type { AppConfig } from "@/types/api";
 
@@ -31,6 +33,7 @@ interface GeneralSettingsProps {
 export function GeneralSettings({ config, setConfig, isAdmin, disabled }: GeneralSettingsProps) {
     const { t, language, setLanguage } = useLanguage();
     const { timeZone } = useTimeZone();
+    const { numbering } = useQuestionNumbering();
     const setTimeoutSeconds = (seconds: number) => setConfig(prev => ({ ...prev, timeouts: { ...prev.timeouts, analyze: seconds * 1000 } }));
 
     return (
@@ -49,6 +52,8 @@ export function GeneralSettings({ config, setConfig, isAdmin, disabled }: Genera
             </div>
 
             <TimeZoneSetting value={config.timeZone ?? timeZone} onChange={(value) => setConfig((current) => ({ ...current, timeZone: value }))} disabled={!isAdmin || disabled} />
+
+            <QuestionNumberingSetting value={config.questionNumbering ?? numbering} onChange={(value) => setConfig((current) => ({ ...current, questionNumbering: value }))} disabled={!isAdmin || disabled} />
 
             {/* AI 超时是全局配置，只有管理员可以修改 */}
             {isAdmin && (

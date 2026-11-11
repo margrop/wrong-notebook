@@ -51,7 +51,7 @@ const parsed = { questionText: '1 + 1 = ?', answerText: '2', analysis: '加法',
 const IMAGE = 'data:image/jpeg;base64,AAAA';
 const task = (patch: object = {}) => ({
     id: 'task-1', status: 'analyzing', mode: 'auto', subjectId: null, targetSubjectId: null, excerpt: null, error: null,
-    errorItemId: null, errorItemShortId: null, notebookName: null, duplicate: false, hasResult: false, unread: false,
+    errorItemId: null, errorItemShortId: null, errorItemSeqNo: null, notebookName: null, duplicate: false, hasResult: false, unread: false,
     attempts: 1, timings: {}, createdAt: '2026-11-03T00:00:00.000Z', finishedAt: null, result: null, imageData: IMAGE, paperLevel: null,
     ...patch,
 });

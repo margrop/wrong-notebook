@@ -129,11 +129,19 @@ describe('真实 Prisma 数据库迁移', () => {
         openDatabase();
         seedLegacyData();
         if (hasScale) database!.exec('UPDATE "ErrorItem" SET figureScale=65');
-        interface LegacyRow { [key: string]: unknown; userId?: string; paperLevel?: string; id?: string; }
+        interface LegacyRow { [key: string]: unknown; userId?: string; paperLevel?: string; id?: string; createdAt?: unknown; }
         const beforeItems = rows('ErrorItem').map((row) => ({ ...(row as LegacyRow), questionType: (row as LegacyRow).questionType ?? null }));
+        // 流水号按用户、创建时间（同时间按 id）从 1000 起补齐；用户计数器为已分配的最大编号
+        const expectedSeqNo = new Map<string, number>();
+        const seqCounts = new Map<string, number>();
+        for (const item of [...beforeItems].sort((left, right) => String(left.createdAt).localeCompare(String(right.createdAt)) || String(left.id).localeCompare(String(right.id)))) {
+            const count = (seqCounts.get(String(item.userId)) ?? 0) + 1;
+            seqCounts.set(String(item.userId), count);
+            expectedSeqNo.set(String(item.id), 999 + count);
+        }
         const beforeRelated = relatedTables.map((table) => rows(table).map((row) => {
             // 新增的 AI 数据授权列：旧用户升级后为空，需重新授权；识别默认改为先人工核对，旧用户一并升级
-            if (table === 'User') return { ...row, aiDataConsentAt: row.aiDataConsentAt ?? null, confirmBeforeImport: 1 };
+            if (table === 'User') return { ...row, aiDataConsentAt: row.aiDataConsentAt ?? null, confirmBeforeImport: 1, errorItemSeq: 999 + (seqCounts.get(String(row.id)) ?? 0) };
             if (table === 'Subject' || table === 'KnowledgeTag') return { ...row, tagSet: row.tagSet ?? 'default' };
             if (table === 'ExamQuestion') return { ...row, figureScale: row.figureScale ?? 100, figureAlign: row.figureAlign ?? 'center', answerSpacePx: null, score: null, questionType: null };
             if (table === 'ExamPaper') return { ...row, mode: row.mode ?? 'generate', groupByType: row.groupByType ?? 0 };
@@ -150,12 +158,16 @@ describe('真实 Prisma 数据库迁移', () => {
             const group = groups.find((entry) => entry.userId === item.userId && entry.key === item.paperLevel);
             expect(rows('ErrorItem').find((entry) => entry.id === item.id)).toEqual({
                 ...item, paperLevel: group?.id ?? null, figureScale: hasScale ? 65 : 100, figureAlign: 'center', answerSpacePx: null,
+                seqNo: expectedSeqNo.get(String(item.id)),
             });
         }
         expect(relatedTables.map(rows)).toEqual(beforeRelated);
         expect(() => database!.exec('UPDATE "ErrorItem" SET paperLevel=\'missing-group\' WHERE id=\'item-a\''))
             .toThrow(/FOREIGN KEY/);
         expect(() => database!.exec('UPDATE "ErrorItem" SET shortId=\'ShortA\' WHERE id=\'item-b\''))
+            .toThrow(/UNIQUE/);
+        // 同一用户的流水号唯一
+        expect(() => database!.exec('UPDATE "ErrorItem" SET seqNo=1000 WHERE id=\'item-b\''))
             .toThrow(/UNIQUE/);
         const group = groups.find((entry) => entry.userId === 'user-1' && entry.key === 'a')!;
         database!.prepare('DELETE FROM "PaperGroup" WHERE id=?').run(group.id);
@@ -174,7 +186,7 @@ describe('真实 Prisma 数据库迁移', () => {
                 VALUES ('existing-item', 'existing-user', 'original', 'custom-group', 175, '2026-10-01');
         `);
         interface LegacyRow { [key: string]: unknown; questionType?: unknown; }
-        const beforeItems = rows('ErrorItem').map((item) => ({ ...(item as LegacyRow), figureAlign: 'center', answerSpacePx: null, questionType: (item as LegacyRow).questionType ?? null }));
+        const beforeItems = rows('ErrorItem').map((item) => ({ ...(item as LegacyRow), figureAlign: 'center', answerSpacePx: null, questionType: (item as LegacyRow).questionType ?? null, seqNo: 1000 }));
         const beforeGroups = rows('PaperGroup');
         closeDatabase();
 

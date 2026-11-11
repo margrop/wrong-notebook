@@ -1,4 +1,5 @@
 import { DEFAULT_TIME_ZONE } from '../date-time';
+import { DEFAULT_QUESTION_NUMBERING } from "../seq-no/seq-no-format";
 import { parseConcurrencyLimit } from '../ai-concurrency-limit';
 import { VENDOR_PROVIDER_IDS, VENDOR_PRESETS } from '../ai/vendor-presets';
 import { CLOUD_TTS_PROVIDERS, isTtsMode } from '../tts/constants';
@@ -20,6 +21,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     aiDailyLimit: parseDailyLimit(process.env.AI_DAILY_LIMIT),
     aiConcurrencyLimit: parseConcurrencyLimit(process.env.AI_CONCURRENCY_LIMIT),
     timeZone: DEFAULT_TIME_ZONE,
+    questionNumbering: DEFAULT_QUESTION_NUMBERING,
     openai: {
         instances: process.env.OPENAI_API_KEY ? [{
             id: 'env-default',

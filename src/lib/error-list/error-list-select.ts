@@ -5,6 +5,7 @@ import { PRACTICE_RECORD_COUNT } from '@/lib/mastery-status';
 export const ERROR_ITEM_LIST_SELECT = {
     id: true,
     shortId: true,
+    seqNo: true,
     questionText: true,
     mistakeStatus: true,
     knowledgePoints: true,

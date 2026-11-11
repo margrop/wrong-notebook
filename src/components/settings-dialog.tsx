@@ -31,10 +31,12 @@ import { PromptSettings } from "@/components/settings/prompt-settings";
 import { TelemetrySettings } from "@/components/settings/telemetry/telemetry-settings";
 import { TtsSettings } from "@/components/settings/tts-settings";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuestionNumbering } from "@/contexts/QuestionNumberingContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { apiClient } from "@/lib/api-client";
 import { validateAiConfig } from "@/lib/ai-config-validation";
 import { DEFAULT_TIME_ZONE } from "@/lib/date-time";
+import { DEFAULT_QUESTION_NUMBERING, isQuestionNumbering } from "@/lib/seq-no/seq-no-format";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { trackEvent } from "@/lib/telemetry/client";
@@ -58,6 +60,7 @@ function SettingsTab({ value, icon, label }: SettingsTabProps) {
 
 export function SettingsDialog() {
     const { setTimeZone } = useTimeZone();
+    const { setNumbering } = useQuestionNumbering();
     const { data: session } = useSession();
     const isAdmin = session?.user?.role === 'admin';
     const userId = session?.user?.id ?? '';
@@ -100,6 +103,7 @@ export function SettingsDialog() {
             const updated = await apiClient.post<AppConfig>("/api/settings", config);
             setConfig(updated);
             setTimeZone(updated.timeZone || DEFAULT_TIME_ZONE);
+            setNumbering(isQuestionNumbering(updated.questionNumbering) ? updated.questionNumbering : DEFAULT_QUESTION_NUMBERING);
             toast.success(t.settings?.messages?.saved || "Settings saved");
             trackEvent("settings_changed", { section });
             // 保存成功后滚动到顶部，方便关闭对话框

@@ -6,6 +6,7 @@ import { CheckCircle, Loader2, RotateCcw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuestionNo } from "@/contexts/QuestionNumberingContext";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { createImportTask, fetchImportTask, markImportTaskRead, retryImportTask } from "@/lib/import/import-task-client";
 import type { ImportTaskDetail } from "@/lib/import/import-task-types";
@@ -66,6 +67,7 @@ async function runWithConcurrency(indexes: number[], limit: number, run: (index:
  */
 export function BatchImportPanel({ images, subjectId, source, onClose }: BatchImportPanelProps) {
     const { t, language } = useLanguage();
+    const questionNoOf = useQuestionNo();
     const [items, setItems] = useState<BatchItem[]>(() => images.map(() => ({ status: "pending" })));
     const startedRef = useRef(false);
     const taskIds = useRef<Array<string | undefined>>([]);
@@ -123,7 +125,7 @@ export function BatchImportPanel({ images, subjectId, source, onClose }: BatchIm
             markImportTaskRead(taskId).catch(() => undefined);
             updateItem(index, {
                 status: "success",
-                imported: { id: task.errorItemId, shortId: task.errorItemShortId, subjectId: subjectId ?? null, notebookName: task.notebookName, duplicate: task.duplicate },
+                imported: { id: task.errorItemId, shortId: task.errorItemShortId, seqNo: task.errorItemSeqNo, subjectId: subjectId ?? null, notebookName: task.notebookName, duplicate: task.duplicate },
             });
         } catch (error) {
             fail(index, error);
@@ -181,7 +183,7 @@ export function BatchImportPanel({ images, subjectId, source, onClose }: BatchIm
                                 <StatusLine item={item} />
                                 {item.status === "success" && item.imported && (
                                     <Link href={`/error-items/${item.imported.id}`} className="block truncate text-xs text-primary hover:underline">
-                                        {item.imported.notebookName} · {item.imported.shortId}
+                                        {item.imported.notebookName} · {questionNoOf(item.imported)}
                                     </Link>
                                 )}
                                 {item.status === "failed" && (

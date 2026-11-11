@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuestionNo } from "@/contexts/QuestionNumberingContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { formatDateTime } from "@/lib/date-time";
 import { getItemTags } from "@/lib/tags/item-tags";
@@ -32,6 +33,7 @@ interface ErrorItemCardProps {
 /** 错题列表中的一张卡片：复习状态、摘要、作答状态、星级和知识点 */
 export function ErrorItemCard({ item, selectMode, selected, onToggleSelect, selectedTag, onTagClick }: ErrorItemCardProps) {
     const { t, language } = useLanguage();
+    const questionNo = useQuestionNo()(item);
     const { timeZone } = useTimeZone();
     const [tagsExpanded, setTagsExpanded] = useState(false);
     const tags = getItemTags(item);
@@ -48,7 +50,7 @@ export function ErrorItemCard({ item, selectMode, selected, onToggleSelect, sele
                 >
                     <Checkbox
                         checked={selected}
-                        aria-label={t.questionSimilarity.selectQuestion.replace("{id}", item.shortId || item.id)}
+                        aria-label={t.questionSimilarity.selectQuestion.replace("{id}", questionNo || item.id)}
                         className="h-5 w-5 border-2 bg-background shadow-sm"
                     />
                 </div>
@@ -63,7 +65,7 @@ export function ErrorItemCard({ item, selectMode, selected, onToggleSelect, sele
                                 {typeof item.masteryProbability === "number" && (
                                     <span title={t.mastery.probability}>{Math.round(item.masteryProbability * 100)}%</span>
                                 )}
-                                {item.shortId && <span className="font-mono">{item.shortId}</span>}
+                                {questionNo && <span className="font-mono">{questionNo}</span>}
                                 {formatDateTime(item.createdAt, "MM/dd", timeZone)}
                             </span>
                         </div>

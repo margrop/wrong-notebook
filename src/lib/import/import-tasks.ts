@@ -139,8 +139,8 @@ function mergeTimings(raw: string | null, patch: ImportTaskTimings): string {
     });
 }
 
-export type TaskWithItem = ImportTask & { errorItem: { shortId: string | null; subject: { name: string } | null } | null };
-export const withItem = { errorItem: { select: { shortId: true, subject: { select: { name: true } } } } } satisfies Prisma.ImportTaskInclude;
+export type TaskWithItem = ImportTask & { errorItem: { shortId: string | null; seqNo: number | null; subject: { name: string } | null } | null };
+export const withItem = { errorItem: { select: { shortId: true, seqNo: true, subject: { select: { name: true } } } } } satisfies Prisma.ImportTaskInclude;
 /** 列表轮询只读取元数据，不加载题目图片 */
 export const summarySelect = {
     id: true, status: true, mode: true, subjectId: true, targetSubjectId: true, result: true, error: true, batchId: true, batchItemKey: true,
@@ -164,6 +164,7 @@ export function toSummary(task: SummaryRow): ImportTaskSummary {
         error: task.error,
         errorItemId: task.errorItemId,
         errorItemShortId: task.errorItem?.shortId ?? null,
+        errorItemSeqNo: task.errorItem?.seqNo ?? null,
         notebookName: task.errorItem?.subject?.name ?? null,
         duplicate: task.duplicate,
         hasResult: result !== null,

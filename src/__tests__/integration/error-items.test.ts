@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     mockPrismaUser: {
         findUnique: vi.fn(),
         findFirst: vi.fn(),
+        update: vi.fn(),
     },
     mockPrismaErrorItem: {
         create: vi.fn(),
@@ -96,6 +97,8 @@ describe('/api/error-items', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mocks.mockPrismaUser.findUnique.mockResolvedValue(mockUser);
+        // 流水号计数器自增后返回新编号
+        mocks.mockPrismaUser.update.mockResolvedValue({ errorItemSeq: 1000 });
         vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
 
         // Default: subject not found (handle null case)
@@ -178,6 +181,22 @@ describe('/api/error-items', () => {
             expect(data.shortId).toMatch(/^[1-9A-HJ-NP-Za-km-z]{6}$/);
         });
 
+        it('创建时在同一事务内按用户计数器分配流水号', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(null);
+            mocks.mockPrismaUser.update.mockResolvedValue({ errorItemSeq: 1007 });
+            mocks.mockPrismaErrorItem.create.mockImplementation(async (args: { data: Record<string, unknown> }) => ({ id: 'e1', ...args.data }));
+
+            const response = await post(baseData);
+            const data = await response.json();
+
+            expect(response.status).toBe(201);
+            expect(data.seqNo).toBe(1007);
+            expect(mocks.mockPrismaUser.update).toHaveBeenCalledWith(expect.objectContaining({
+                where: { id: 'user-123' },
+                data: { errorItemSeq: { increment: 1 } },
+            }));
+        });
+
         it('未指定错题本时按学科名包含匹配已有错题本', async () => {
             mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(null);
             mocks.mockPrismaSubject.findMany.mockResolvedValue([{ id: 'nb-math', name: '初二数学' }]);
@@ -224,6 +243,18 @@ describe('/api/error-items', () => {
 
             const where = mocks.mockPrismaErrorItem.findMany.mock.calls[0][0].where;
             expect(where.AND[0].OR).toContainEqual({ shortId: 'aB3xYz' });
+        });
+
+        it('查询词为流水号（#1000 或 1000）时按流水号精确匹配', async () => {
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
+            mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
+
+            for (const query of ['#1000', '1000']) {
+                mocks.mockPrismaErrorItem.findMany.mockClear();
+                await GET_LIST(new Request('http://localhost/api/error-items/list?query=' + encodeURIComponent(query)));
+                const where = mocks.mockPrismaErrorItem.findMany.mock.calls[0][0].where;
+                expect(where.AND[0].OR).toContainEqual({ seqNo: 1000 });
+            }
         });
 
         it('普通查询词不按短 ID 匹配', async () => {

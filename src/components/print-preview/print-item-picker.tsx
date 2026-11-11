@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuestionNo } from "@/contexts/QuestionNumberingContext";
 import { applyPrintSelection, matchesPrintSearch } from "@/lib/print/print-preview";
 import type { PrintableErrorItem } from "@/types/api";
 
@@ -24,6 +25,7 @@ interface PrintItemPickerProps {
 /** 勾选要打印的题目：可搜索，全选、清空、反选作用于当前搜索结果 */
 export function PrintItemPicker({ items, selectedIds, selectedCount, printNumbers, onToggle, onSelectionChange }: PrintItemPickerProps) {
     const { t } = useLanguage();
+    const questionNoOf = useQuestionNo();
     const [expanded, setExpanded] = useState(items.length <= COLLAPSE_THRESHOLD);
     const [query, setQuery] = useState("");
     const filtered = useMemo(() => items.filter((item) => matchesPrintSearch(item, query)), [items, query]);
@@ -90,7 +92,7 @@ export function PrintItemPicker({ items, selectedIds, selectedCount, printNumber
                                                 {t.common.colon}
                                             </span>
                                         )}
-                                        {item.shortId && <span className="font-mono text-muted-foreground">{item.shortId} </span>}
+                                        {questionNoOf(item) && <span className="font-mono text-muted-foreground">{questionNoOf(item)} </span>}
                                         {item.questionText}
                                     </span>
                                 </label>

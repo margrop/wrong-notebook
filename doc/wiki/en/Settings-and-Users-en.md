@@ -27,6 +27,12 @@ Choose a rule under **Settings → General** and click **Save grade rule**. Regu
 - Image recognition and text solving return the grade in the same AI request. Direct entry and external results missing a grade use one short additional request, counted toward the daily AI limit. Duplicates do not trigger it; an attempted but uncertain result is not requested again.
 - Affects new questions only. Existing questions and grades restored from backups stay as they were. Your rule and fixed value are included in your JSON backup.
 
+## Question number display
+
+Every question has two numbers: the 6-character ID generated when it is created (such as `oYMCZa`), and a serial number that counts up from `#1000` for each user. When upgrading to a version with serial numbers, existing questions are numbered automatically in the order they were added; numbers of deleted questions are not reused, and new questions continue from the last number.
+
+Admins choose which number is shown in lists, details, printouts and import results in "Settings → General → Question number display". The 6-character ID is the default, and the setting can be switched at any time without changing any data. It is stored in the `questionNumbering` field of `config/app-config.json` (`shortId` or `seqNo`). Whichever is shown, notebook search and locate-by-number accept both the 6-character ID and the serial number (with or without `#`); question links, the MCP interface and source records in exam papers keep using the 6-character ID. Serial numbers are exported with JSON backups; on restore a number is kept if it is free, otherwise the next number is assigned.
+
 ## App time zone
 
 The app uses Beijing time, `Asia/Shanghai`, by default. Admins enter a valid IANA time zone name in "Settings → General → App time zone" and save, for example `UTC`, `Europe/London` or `America/New_York`.
