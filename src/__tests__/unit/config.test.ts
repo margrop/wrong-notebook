@@ -92,6 +92,21 @@ describe('config module', () => {
             expect(getAppConfig().aiConcurrencyLimit).toBe(expected);
         });
 
+        it.each([
+            ['true', true],
+            ['false', false],
+            ['1', false],
+            [undefined, false],
+        ])('FIGURE_REVIEW=%s 时默认配图比对校正为 %s', async (value, expected) => {
+            if (value === undefined) delete process.env.FIGURE_REVIEW;
+            else process.env.FIGURE_REVIEW = value;
+            mockNoConfigFile();
+
+            const { getAppConfig } = await import('@/lib/config');
+
+            expect(getAppConfig().figureReview).toBe(expected);
+        });
+
         it('配置文件中保存的注册开关优先于环境变量', async () => {
             process.env.ALLOW_REGISTRATION = 'false';
             vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ allowRegistration: true }));

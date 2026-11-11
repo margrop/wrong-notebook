@@ -478,6 +478,7 @@ The most common variables are below; see the collapsed table and [`.env.example`
 | `ALLOW_REGISTRATION` | Whether sign-ups are open, `false` by default |
 | `AI_DAILY_LIMIT` | Daily AI actions per regular user, `0` (unlimited) by default |
 | `AI_CONCURRENCY_LIMIT` | Concurrent AI calls per model, `5` by default; further calls queue |
+| `FIGURE_REVIEW` | AI figure self-check switch, `false` by default; adds one AI call after redrawing |
 
 <details>
 <summary><strong>Full list of environment variables</strong></summary>
@@ -497,6 +498,7 @@ The most common variables are below; see the collapsed table and [`.env.example`
 | `ALLOW_REGISTRATION` | Allow sign-ups | `false` | When `true`, registration is open by default; the switch saved by an admin under **Settings → User Management** takes precedence |
 | `AI_DAILY_LIMIT` | Daily AI limit per user | `0` (unlimited) | AI actions each regular user can start per day; admins are not limited. The value saved under **Settings → User Management** takes precedence |
 | `AI_CONCURRENCY_LIMIT` | AI concurrency per model | `5` | How many AI calls the same provider, address and model may run at once (1–100). Further calls wait in a queue, avoiding 429 errors from the provider. The value saved under **Settings → User Management** takes precedence |
+| `FIGURE_REVIEW` | AI figure self-check | `false` | When `true`, after redrawing a figure the original and result are sent side by side to AI for comparison and correction; adds one AI call with images per figure and takes longer. The switch saved by an admin under **Settings → General** takes precedence |
 | `TTS_MODE` | How animation narration is voiced | `browser` | `browser` uses the browser's voice; `minimax`, `qwen`, `glm`, `stepfun`, `volcengine`, `volcengine-agent` or `openai` uses a cloud voice with that channel's API key (Doubao Speech uses `VOLCENGINE_TTS_API_KEY`; OpenAI uses the active OpenAI configuration). The value saved under **Settings → AI → Voice narration** takes precedence |
 
 **AI** (settings saved in the web UI take precedence over environment variables)

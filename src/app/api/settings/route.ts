@@ -67,6 +67,9 @@ async function handlePost(req: Request) {
         if (body.questionNumbering !== undefined && !isQuestionNumbering(body.questionNumbering)) {
             return badRequest('INVALID_QUESTION_NUMBERING');
         }
+        if (body.figureReview !== undefined && typeof body.figureReview !== 'boolean') {
+            return badRequest('INVALID_FIGURE_REVIEW');
+        }
         if (body.aiDailyLimit !== undefined && !(Number.isInteger(body.aiDailyLimit) && body.aiDailyLimit >= 0)) {
             return badRequest('INVALID_AI_DAILY_LIMIT');
         }

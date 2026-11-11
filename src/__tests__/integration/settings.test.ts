@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     mockGetAppConfig: vi.fn(() => ({
         aiProvider: 'gemini',
         allowRegistration: true,
+        figureReview: false,
         timeZone: 'Asia/Shanghai',
         openai: {
             instances: [{
@@ -89,6 +90,7 @@ describe('/api/settings', () => {
             expect(data.aiProvider).toBe('gemini');
             expect(Object.keys(data).filter((key) => !['aiProvider', 'timeouts', 'timeZone', 'questionNumbering'].includes(key))).toEqual([]);
             expect(data.timeZone).toBe('Asia/Shanghai');
+            expect(data.figureReview).toBeUndefined();
             expect(JSON.stringify(data)).not.toContain('sk-test-key');
             expect(JSON.stringify(data)).not.toContain('AIza-test-key');
         });
@@ -169,6 +171,32 @@ describe('/api/settings', () => {
             mocks.mockUpdateAppConfig.mockClear();
             const invalid = await POST(new Request('http://localhost/api/settings', { method: 'POST', body: JSON.stringify({ questionNumbering: 'serial' }) }));
             expect(invalid.status).toBe(400);
+            expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
+        });
+
+        it('管理员可开启配图比对校正并读回', async () => {
+            const saved = await POST(new Request('http://localhost/api/settings', { method: 'POST', body: JSON.stringify({ figureReview: true }) }));
+            expect(saved.status).toBe(200);
+            expect(mocks.mockUpdateAppConfig).toHaveBeenCalledWith({ figureReview: true });
+
+            mocks.mockGetAppConfig.mockReturnValueOnce({ ...mocks.mockGetAppConfig(), figureReview: true });
+            const response = await GET();
+            const data = await response.json();
+            expect(response.status).toBe(200);
+            expect(data.figureReview).toBe(true);
+        });
+
+        it.each(['true', 1, null, 'yes'])('拒绝非布尔值的配图比对校正 %s 且不写配置', async (figureReview) => {
+            const response = await POST(new Request('http://localhost/api/settings', { method: 'POST', body: JSON.stringify({ figureReview }) }));
+            expect(response.status).toBe(400);
+            expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
+        });
+
+        it('普通用户不能修改配图比对校正', async () => {
+            mockGetServerSession.mockResolvedValue(userSession);
+            mockUserFindUnique.mockResolvedValue(userDbUser);
+            const response = await POST(new Request('http://localhost/api/settings', { method: 'POST', body: JSON.stringify({ figureReview: true }) }));
+            expect(response.status).toBe(403);
             expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
         });
 

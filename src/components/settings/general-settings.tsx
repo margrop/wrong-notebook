@@ -11,6 +11,7 @@ import { MasteryThresholdSetting } from "@/components/settings/mastery-threshold
 import { QuestionGradeSetting } from "@/components/settings/question-grade-setting";
 import { SvgAnimationPreferenceSetting } from "@/components/settings/svg-animation-preference-setting";
 import { QuestionNumberingSetting } from "@/components/settings/question-numbering-setting";
+import { FigureReviewSetting } from "@/components/settings/figure-review-setting";
 import { TimeZoneSetting } from "@/components/settings/time-zone-setting";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuestionNumbering } from "@/contexts/QuestionNumberingContext";
@@ -55,6 +56,7 @@ export function GeneralSettings({ config, setConfig, isAdmin, disabled }: Genera
 
             <QuestionNumberingSetting value={config.questionNumbering ?? numbering} onChange={(value) => setConfig((current) => ({ ...current, questionNumbering: value }))} disabled={!isAdmin || disabled} />
 
+            <FigureReviewSetting value={config.figureReview === true} onChange={(value) => setConfig((current) => ({ ...current, figureReview: value }))} disabled={!isAdmin || disabled} />
             {/* AI 超时是全局配置，只有管理员可以修改 */}
             {isAdmin && (
                 <div className="space-y-2 pt-4 border-t">

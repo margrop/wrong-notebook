@@ -845,6 +845,8 @@ export const en = {
                     shortId: "6-character ID (e.g. oYMCZa)",
                     seqNo: "Serial number (e.g. #1000)",
                 },
+                figureReviewLabel: "AI figure self-check",
+                figureReviewDesc: "After redrawing a figure, send the original and the redrawn result side by side to AI for comparison, correcting differences in arrow directions, connections and labels. Adds one AI call per figure and takes longer; off by default.",
                 invalidTimeZone: "Enter a valid IANA time zone, such as Asia/Shanghai.",
                 timeoutLabel: "AI Analysis Timeout (Seconds)",
                 timeoutDesc: "Increase this value if you experience frequent timeouts during AI analysis.",

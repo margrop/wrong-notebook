@@ -845,6 +845,8 @@ export const zh = {
                     shortId: "6 位 ID（如 oYMCZa）",
                     seqNo: "流水号（如 #1000）",
                 },
+                figureReviewLabel: "AI 配图比对校正",
+                figureReviewDesc: "重绘配图后把原图与重绘结果并排交给 AI 比对，修正箭头方向、连线和标注等差异。每张配图多一次 AI 调用，耗时更长，默认关闭。",
                 invalidTimeZone: "请输入有效的 IANA 时区，例如 Asia/Shanghai。",
                 timeoutLabel: "AI 分析超时时间 (秒)",
                 timeoutDesc: "如果 AI 分析频繁超时，请增加此值。",

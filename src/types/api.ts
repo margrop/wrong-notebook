@@ -189,6 +189,8 @@ export interface AppConfig extends VendorConfigs {
     timeZone?: string;
     /** 题目编号显示方式：shortId 为 6 位随机 ID（默认），seqNo 为用户内的流水号 #123 */
     questionNumbering?: QuestionNumbering;
+    /** AI 配图比对校正：重绘配图后把原图与结果并排交给 AI 比对并修正差异；默认关闭 */
+    figureReview?: boolean;
     /** 管理员完成（或跳过）安装向导的时间，ISO 字符串；未设置时新安装会自动进入向导 */
     setupCompletedAt?: string;
     openai?: {
