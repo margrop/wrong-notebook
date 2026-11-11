@@ -35,7 +35,7 @@ Admins choose which number is shown in lists, details, printouts and import resu
 
 ## AI figure self-check
 
-After AI redraws a question figure, an admin can enable a comparison pass under "Settings → General → AI figure self-check": the original and the redrawn result are sent side by side to AI, which finds differences in arrow directions, connections and labels and returns a corrected SVG. This adds one AI call with images per figure and takes longer, so it is off by default. The setting is stored in the `figureReview` field of `config/app-config.json`; the `FIGURE_REVIEW=true` environment variable can set the default for new instances, and the value saved in the web UI takes precedence. Regular users can only see the global setting and cannot change it.
+After AI redraws a question figure, an admin can enable a comparison pass under "Settings → General → AI figure self-check": the original and the redrawn result are sent side by side to AI, which finds differences in arrow directions, connections and labels and returns a corrected SVG. This adds one AI call with images per figure and takes longer, so it is off by default. Results depend on how well the model reads images: in testing, MiniMax caught missing arrows and obvious misplacements but still judged arrow directions unreliably and occasionally moved correct elements, so try it on a few questions first. The setting is stored in the `figureReview` field of `config/app-config.json`; the `FIGURE_REVIEW=true` environment variable can set the default for new instances, and the value saved in the web UI takes precedence. Regular users can only see the global setting and cannot change it.
 
 ## App time zone
 

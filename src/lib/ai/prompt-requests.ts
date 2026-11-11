@@ -4,7 +4,7 @@ import {
     createPromptRequest, promptDataReference as ref,
     generateAnalyzePrompt, generateSimilarQuestionPrompt, generateReanswerPrompt,
     generateGeogebraPrompt, generateMasteryPrompt, generateGradingPrompt,
-    generateTagSuggestPrompt, generateFigurePrompt, generateFigureFixPrompt, generateSvgAnimationPrompt,
+    generateTagSuggestPrompt, generateFigurePrompt, generateFigureFixPrompt, generateFigureReviewPrompt, generateSvgAnimationPrompt,
     generateSvgNarrationPrompt, generateLatexFixPrompt, generateGradeRecognitionPrompt, generateQuestionSplitPrompt,
     generateTextFixPrompt,
     SVG_ANIMATION_REQUEST, SVG_NARRATION_REQUEST,
@@ -139,6 +139,13 @@ export function generateFigureRequest(questionText?: string | null, canvas?: Fig
 
 export function generateFigureFixRequest(figureSvg: string, xmlError: string): PromptRequest {
     return createPromptRequest(generateFigureFixPrompt(ref('figureSvg'), ref('xmlError')), { figureSvg, xmlError });
+}
+
+/** 比对校正请求；画布尺寸无效时返回 null，此时无法对应坐标，不做比对 */
+export function generateFigureReviewRequest(questionText: string | null | undefined, figureSvg: string, canvas: FigureCanvas): PromptRequest | null {
+    const safe = safeCanvas(canvas);
+    if (!safe) return null;
+    return createPromptRequest(generateFigureReviewPrompt(ref('questionText'), ref('figureSvg'), safe), { questionText: questionText?.trim() || '', figureSvg });
 }
 
 export function generateGeogebraRequest(questionText: string, answerText: string, analysis: string, previousErrors?: string): PromptRequest {

@@ -87,3 +87,36 @@ export function generateFigureFixPrompt(figureSvg: string, xmlError: string): st
 ${FIGURE_SVG_RULES}
 </figure_svg>`;
 }
+
+/**
+ * 比对校正提示词：图片左半为原配图、右半为 SVG 渲染结果，让模型找出差异并输出修正后的 SVG
+ */
+export function generateFigureReviewPrompt(questionText: string, figureSvg: string, canvas: FigureCanvas): string {
+  const { width, height } = canvas;
+  return `【角色与核心任务 (ROLE AND CORE TASK)】
+你是一位试题插图校对老师。用户图片由左右两半并排组成，中间以灰色竖条分隔：左半是题目原图中的配图，右半是按 SVG 源码（${figureSvg}）渲染出的重绘结果。两半尺寸相同（各宽 ${width} 像素、高 ${height} 像素），坐标一一对应：SVG 中的点 (x, y) 画在右半的 (x, y) 处，左半同一位置就是原图的对应位置。请逐项比对，找出重绘与原图不一致的地方并修正 SVG。
+
+【题目文字（供参考，用于核对图中标注）】
+${questionText}
+
+【比对要点】
+- 箭头：数量、起止位置与指向是否与原图一致；
+- 线条：是否连通、端点位置、实线或虚线，有无缺失或多余；
+- 主体结构：外框、容器、坐标轴等的位置与比例；
+- 文字标注：内容与位置。右半中的文字可能因服务器缺少字体显示为方框或空白，文字内容以 SVG 源码为准，只核对位置。
+
+【输出格式】
+按顺序只输出以下两个标签，不要输出其他内容：
+
+<figure_differences>
+先逐个对照箭头：按「左半：位置、指向 / 右半：位置、指向」列出原图中的每个箭头和重绘中对应的箭头，指向不同的标为不一致；
+再逐条列出其他不一致之处，写清位置和应如何修改。没有任何不一致时最后写「无」。
+</figure_differences>
+
+<figure_svg>
+有不一致时，在原 SVG 基础上修改后输出完整 SVG，viewBox 保持 "0 0 ${width} ${height}" 不变，没有出错的部分保持原样：
+${FIGURE_SVG_RULES}
+${FIGURE_ACCURACY_RULES}
+完全一致时留空。
+</figure_svg>`;
+}

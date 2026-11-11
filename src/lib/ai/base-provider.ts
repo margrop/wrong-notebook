@@ -4,7 +4,7 @@ import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, ReanswerQu
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
 import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
 import type { TextFixInput, TextFixResult } from './text-fix';
-import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateReanswerRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateFigureFixRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest, generateTextFixRequest } from './prompt-requests';
+import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateReanswerRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateFigureFixRequest, generateFigureReviewRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest, generateTextFixRequest } from './prompt-requests';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
@@ -17,7 +17,8 @@ import { sanitizeFigureSvg } from '../figure-svg';
 import { findSvgXmlError, repairSvgEntities } from './figure-validate';
 import { parseFigureBox } from './figure-box';
 import type { FigureBox } from './figure-box';
-import { prepareFigureImage } from './figure-image';
+import { prepareFigureImage, renderFigureComparison } from './figure-image';
+import type { PreparedFigureImage } from './figure-image';
 import { parseErrorCode } from './error-classification';
 import { normalizeMistakeStatusForSave } from '@/lib/question/mistake-status';
 import { parseRecognizedGrade } from '@/lib/question/question-grade';
@@ -401,7 +402,38 @@ export abstract class BaseAIProvider implements AIService {
         });
         logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
         const figure = parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
-        return figure.figureSvg ? { ...figure, figureSvg: await this.ensureValidFigureSvg(figure.figureSvg, options.deadlineAt) } : figure;
+        if (!figure.figureSvg) return figure;
+        const figureSvg = await this.ensureValidFigureSvg(figure.figureSvg, options.deadlineAt);
+        if (!figureSvg || getAppConfig().figureReview !== true) return { ...figure, figureSvg };
+        return { ...figure, figureSvg: await this.reviewFigure(image, figureSvg, questionText, options.deadlineAt) };
+    }
+
+    /**
+     * 比对校正（系统设置开启时）：把原配图与 SVG 渲染结果并排交给模型，找出差异并修正。
+     * 无法渲染对比图、剩余时间不足、调用失败或修正结果无效时保留原 SVG。
+     */
+    private async reviewFigure(image: PreparedFigureImage, figureSvg: string, questionText: string | null | undefined, deadlineAt: number | undefined): Promise<string> {
+        if (!image.width || !image.height) return figureSvg;
+        if (deadlineAt !== undefined && deadlineAt - Date.now() < MIN_FIGURE_REDRAW_MS) return figureSvg;
+        const prompt = generateFigureReviewRequest(questionText, figureSvg, { width: image.width, height: image.height, cropped: image.cropped });
+        const comparison = prompt ? await renderFigureComparison(image, figureSvg) : null;
+        if (!prompt || !comparison) return figureSvg;
+
+        try {
+            const text = await this.run({ task: 'figure', system: prompt.system, user: prompt.user, image: { base64: comparison, mimeType: 'image/png' }, deadlineAt });
+            const differences = extractTag(text, "figure_differences")?.trim() || '';
+            const revised = sanitizeFigureSvg(extractTag(text, "figure_svg"));
+            if (!revised) {
+                logger.info({ provider: this.providerName, differences }, 'Figure self-check kept the SVG');
+                return figureSvg;
+            }
+            const valid = await this.ensureValidFigureSvg(revised, deadlineAt);
+            logger.info({ provider: this.providerName, differences, revised: !!valid }, 'Figure self-check revised the SVG');
+            return valid ?? figureSvg;
+        } catch (error) {
+            logger.warn({ provider: this.providerName, error }, 'Figure self-check failed, keeping the SVG');
+            return figureSvg;
+        }
     }
 
     /**

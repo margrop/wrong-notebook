@@ -69,3 +69,38 @@ export async function prepareFigureImage(base64: string, mimeType: string, box: 
         return original;
     }
 }
+
+/** 对比图中两半之间的间隔与分隔条 */
+const COMPARISON_GAP = 24;
+const DIVIDER_WIDTH = 4;
+
+/**
+ * 把原配图与 SVG 渲染结果左右并排拼成一张 PNG（中间灰色竖条分隔，两半尺寸相同、坐标一一对应），
+ * 供模型比对差异。图片尺寸未知、sharp 不可用或 SVG 无法渲染时返回 null。
+ */
+export async function renderFigureComparison(image: PreparedFigureImage, svg: string): Promise<string | null> {
+    const { width, height } = image;
+    if (!width || !height) return null;
+    const sharp = await loadSharp();
+    if (!sharp) return null;
+
+    try {
+        const rendered = await sharp(Buffer.from(svg))
+            .resize(width, height, { fit: "contain", background: "#ffffff" })
+            .flatten({ background: "#ffffff" })
+            .png()
+            .toBuffer();
+        const comparison = await sharp({ create: { width: width * 2 + COMPARISON_GAP, height, channels: 3, background: "#ffffff" } })
+            .composite([
+                { input: Buffer.from(image.base64, "base64"), left: 0, top: 0 },
+                { input: { create: { width: DIVIDER_WIDTH, height, channels: 3, background: "#9ca3af" } }, left: width + (COMPARISON_GAP - DIVIDER_WIDTH) / 2, top: 0 },
+                { input: rendered, left: width + COMPARISON_GAP, top: 0 },
+            ])
+            .png()
+            .toBuffer();
+        return comparison.toString("base64");
+    } catch (error) {
+        logger.warn({ error }, "Failed to render figure comparison");
+        return null;
+    }
+}

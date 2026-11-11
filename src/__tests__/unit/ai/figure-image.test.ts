@@ -5,7 +5,7 @@ vi.mock('@/lib/logger', () => ({
     createLogger: vi.fn(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
 }));
 
-import { prepareFigureImage } from '@/lib/ai/figure-image';
+import { prepareFigureImage, renderFigureComparison } from '@/lib/ai/figure-image';
 
 async function pageImage(width: number, height: number): Promise<string> {
     const buffer = await sharp({ create: { width, height, channels: 3, background: '#ffffff' } }).png().toBuffer();
@@ -35,5 +35,27 @@ describe('prepareFigureImage', () => {
     it('无法解码时原样返回整张图', async () => {
         const image = await prepareFigureImage('bm90IGFuIGltYWdl', 'image/jpeg', { x1: 0, y1: 0, x2: 500, y2: 500 });
         expect(image).toEqual({ base64: 'bm90IGFuIGltYWdl', mimeType: 'image/jpeg', width: null, height: null, cropped: false });
+    });
+});
+
+describe('renderFigureComparison', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"><rect x="10" y="10" width="100" height="50" fill="#000"/></svg>';
+
+    it('原图与渲染结果左右并排，中间留 24 像素分隔', async () => {
+        const image = await prepareFigureImage(await pageImage(800, 400), 'image/png', null);
+        const comparison = await renderFigureComparison(image, svg);
+        const meta = await sharp(Buffer.from(comparison!, 'base64')).metadata();
+        expect([meta.width, meta.height]).toEqual([800 * 2 + 24, 400]);
+        // 右半按 SVG 坐标放大 2 倍：(20,20)~(220,120) 为黑色矩形，左半同一位置仍是白色原图
+        const { data, info } = await sharp(Buffer.from(comparison!, 'base64')).raw().toBuffer({ resolveWithObject: true });
+        const pixel = (x: number, y: number) => data[(y * info.width + x) * info.channels];
+        expect(pixel(824 + 100, 60)).toBeLessThan(50);
+        expect(pixel(100, 60)).toBe(255);
+    });
+
+    it('图片尺寸未知或 SVG 无法渲染时返回 null', async () => {
+        expect(await renderFigureComparison({ base64: 'QUJD', mimeType: 'image/png', width: null, height: null, cropped: false }, svg)).toBeNull();
+        const image = await prepareFigureImage(await pageImage(800, 400), 'image/png', null);
+        expect(await renderFigureComparison(image, '<svg><g></svg>')).toBeNull();
     });
 });

@@ -10,8 +10,9 @@ vi.mock('@/lib/logger', () => ({
     createLogger: vi.fn(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), box: vi.fn(), divider: vi.fn() })),
 }));
 
+const appConfig = vi.hoisted(() => ({ aiProvider: 'test', prompts: {}, figureReview: false }));
 vi.mock('@/lib/config', () => ({
-    getAppConfig: vi.fn(() => ({ aiProvider: 'test', prompts: {} })),
+    getAppConfig: vi.fn(() => appConfig),
 }));
 
 vi.mock('@/lib/ai/tag-service', () => ({
@@ -23,6 +24,7 @@ vi.mock('@/lib/ai/tag-service', () => ({
 // 配图图片处理默认原样返回；需要裁剪结果的用例单独设置
 const figureImage = vi.hoisted(() => ({
     prepareFigureImage: vi.fn((base64: string, mimeType: string) => Promise.resolve<PreparedFigureImage>({ base64, mimeType, width: null, height: null, cropped: false })),
+    renderFigureComparison: vi.fn(() => Promise.resolve<string | null>('Q01Q')),
 }));
 vi.mock('@/lib/ai/figure-image', () => figureImage);
 
@@ -294,6 +296,62 @@ describe('BaseAIProvider', () => {
             expect(fixRequest.task).toBe('figure');
             expect(fixRequest.image).toBeUndefined();
             expect(JSON.parse(fixRequest.user).data.xmlError).toBeTruthy();
+        });
+
+        describe('比对校正', () => {
+            const canvasImage: PreparedFigureImage = { base64: 'Q1JPUA==', mimeType: 'image/png', width: 800, height: 468, cropped: true };
+            const drawn = `<svg ${NS} viewBox="0 0 800 468"><line x1="0" y1="0" x2="10" y2="0"/></svg>`;
+            const revised = `<svg ${NS} viewBox="0 0 800 468"><line x1="10" y1="0" x2="0" y2="0"/></svg>`;
+
+            beforeEach(() => {
+                appConfig.figureReview = true;
+                figureImage.prepareFigureImage.mockResolvedValueOnce(canvasImage);
+            });
+            afterEach(() => {
+                appConfig.figureReview = false;
+            });
+
+            it('开启后把并排对比图交给模型，采用修正后的 SVG', async () => {
+                provider.completeText
+                    .mockResolvedValueOnce(`<has_figure>true</has_figure><figure_svg>${drawn}</figure_svg>`)
+                    .mockResolvedValueOnce(`<figure_differences>箭头方向相反</figure_differences><figure_svg>${revised}</figure_svg>`);
+                const figure = await provider.generateFigureSvg('QUJD', 'image/jpeg', '如图');
+
+                expect(figureImage.renderFigureComparison).toHaveBeenCalledWith(canvasImage, drawn);
+                const reviewRequest = provider.completeText.mock.calls[1][0];
+                expect(reviewRequest).toMatchObject({ task: 'figure', image: { base64: 'Q01Q', mimeType: 'image/png' } });
+                expect(reviewRequest.system).toContain('各宽 800 像素、高 468 像素');
+                expect(JSON.parse(reviewRequest.user).data.figureSvg).toBe(drawn);
+                expect(figure.figureSvg).toBe(revised);
+            });
+
+            it('模型认为一致（不输出 SVG）或调用失败时保留原 SVG', async () => {
+                provider.completeText
+                    .mockResolvedValueOnce(`<has_figure>true</has_figure><figure_svg>${drawn}</figure_svg>`)
+                    .mockResolvedValueOnce('<figure_differences>无</figure_differences><figure_svg></figure_svg>');
+                expect((await provider.generateFigureSvg('QUJD', 'image/jpeg')).figureSvg).toBe(drawn);
+
+                figureImage.prepareFigureImage.mockResolvedValueOnce(canvasImage);
+                provider.completeText
+                    .mockResolvedValueOnce(`<has_figure>true</has_figure><figure_svg>${drawn}</figure_svg>`)
+                    .mockRejectedValueOnce(new Error('AI_TIMEOUT_ERROR'));
+                expect((await provider.generateFigureSvg('QUJD', 'image/jpeg')).figureSvg).toBe(drawn);
+            });
+
+            it('无法渲染对比图时不调用模型比对', async () => {
+                figureImage.renderFigureComparison.mockResolvedValueOnce(null);
+                provider.completeText.mockResolvedValueOnce(`<has_figure>true</has_figure><figure_svg>${drawn}</figure_svg>`);
+                expect((await provider.generateFigureSvg('QUJD', 'image/jpeg')).figureSvg).toBe(drawn);
+                expect(provider.completeText).toHaveBeenCalledTimes(1);
+            });
+
+            it('关闭时不比对', async () => {
+                appConfig.figureReview = false;
+                provider.completeText.mockResolvedValueOnce(`<has_figure>true</has_figure><figure_svg>${drawn}</figure_svg>`);
+                await provider.generateFigureSvg('QUJD', 'image/jpeg');
+                expect(figureImage.renderFigureComparison).not.toHaveBeenCalled();
+                expect(provider.completeText).toHaveBeenCalledTimes(1);
+            });
         });
 
         it('修正后仍不合法或修正调用失败时丢弃配图，保留有配图的判断', async () => {

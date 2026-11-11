@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     generateAnalyzeRequest, generateSimilarQuestionRequest, generateReanswerRequest,
     generateGradeRecognitionRequest, generateGradingRequest, generateMasteryRequest,
-    generateTagSuggestRequest, generateGeogebraRequest, generateFigureRequest,
+    generateTagSuggestRequest, generateGeogebraRequest, generateFigureRequest, generateFigureFixRequest, generateFigureReviewRequest,
     generateLatexFixRequest, generateSvgAnimationRequest, generateSvgNarrationRequest,
 } from '@/lib/ai/prompt-requests';
 import {
@@ -25,6 +25,8 @@ const requests: Array<[string, () => PromptRequest]> = [
     ['标签', () => generateTagSuggestRequest({ questionText: material, answerText: material, analysis: material, wrongAnswerText: material, mistakeAnalysis: material, subject: material, allowedTags: [material] })],
     ['GeoGebra', () => generateGeogebraRequest(material, material, material, material)],
     ['配图', () => generateFigureRequest(material)],
+    ['配图修正', () => generateFigureFixRequest(svg, material)],
+    ['配图比对', () => generateFigureReviewRequest(material, svg, { width: 800, height: 468, cropped: true })!],
     ['公式修复', () => generateLatexFixRequest({ analysis: { text: material, issues: [material] } })],
     ['动画', () => generateSvgAnimationRequest(material, material, material, svg)],
     ['旁白', () => generateSvgNarrationRequest(material, material, material, svg)],
@@ -58,6 +60,13 @@ describe('AI 请求的材料边界', () => {
         const forged = { width: 800.5, height: 468, cropped: true };
         expect(generateFigureRequest('如图', forged).system).not.toContain('viewBox="0 0 800');
         expect(generateFigureRequest('如图', { width: 99999, height: 468, cropped: false }).system).not.toContain('99999');
+    });
+
+    it('配图比对要求逐个对照箭头，画布无效时不生成请求', () => {
+        const request = generateFigureReviewRequest('如图', '<svg/>', { width: 800, height: 468, cropped: true })!;
+        expect(request.system).toContain('逐个对照箭头');
+        expect(request.system).toContain('viewBox 保持 "0 0 800 468" 不变');
+        expect(generateFigureReviewRequest('如图', '<svg/>', { width: 0, height: 468, cropped: true })).toBeNull();
     });
 
     it('伪造的年级也不能进入系统规则', () => {
