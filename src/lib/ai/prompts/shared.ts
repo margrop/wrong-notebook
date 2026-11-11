@@ -222,6 +222,7 @@ export const FIGURE_SVG_RULES = `- 输出一个完整的 <svg> 元素，包含 x
 - 白色背景、黑色线条（stroke="#000"，线宽 1.5~2），需要区分的区域可用浅灰填充；不要使用彩色装饰。
 - 按原图比例和相对位置绘制，保留原题印刷标注：顶点字母、数字、长度、角度、单位、箭头和虚线等，文字用 <text>（font-size 14~18）；必须过滤掉人在图上手写的草稿、演算、思考批注、圈画和涂改痕迹。
 - 只使用基本图形元素：line、polyline、polygon、rect、circle、ellipse、path、text、g、defs、marker。
+- 必须是合法 XML：同一元素的属性不能重复；<line> 只画一条线段，折线用 <polyline points="...">。
 - 严禁使用 <image>、<script>、<foreignObject>、外部链接、外部字体或事件属性。`;
 
 /**
