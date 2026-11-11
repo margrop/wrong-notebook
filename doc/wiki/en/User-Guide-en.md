@@ -52,7 +52,7 @@ The **Import question file** entry on the home page imports existing question ba
 - **Templates**: Excel / CSV templates (with sample data and column descriptions) can be downloaded from the import page; column names accept Chinese and English.
 - **Not yet supported**: image formats browsers cannot render (TIFF, etc.) are skipped with a warning; legacy .doc binary files must first be saved as .docx in Word before importing.
 
-The JSON question exchange format is documented in the [question exchange format spec](../QUESTION_FORMAT.en.md).
+The JSON question exchange format is documented in the [question exchange format spec](https://github.com/margrop/wrong-notebook/blob/main/doc/QUESTION_FORMAT.en.md).
 
 #### Word (.docx) content
 
@@ -182,7 +182,7 @@ Generated animations and GeoGebra demos can be deleted after confirmation. Check
 
 ## Filters and batch actions
 
-Filter by mastery status, knowledge point, question type, time, grade and semester, or paper level, then act on the results in bulk or print them. Question types support multi-select, including "Not set" (questions without a question type). The multi-select bar's **Move to Notebook** moves the selected error items to another notebook under the same account, keeping their knowledge-point tags; **Export** offers three formats for selected error items (see [Question Exchange Format](../QUESTION_FORMAT.md)): **JSON** has the most complete fields and suits backups or migration; **Excel** columns match the question bank import template so it can be re-imported directly; **Word** is designed for printing as an exam paper, with answers and analysis collected in an "参考答案" section at the end, and formulas exported as LaTeX text. All three formats contain only question content, without practice records or other data; for a full backup use **Settings → Data Management → Export Data**. Before deleting, confirm the filters and selection; [back up your data](Backup-and-Restore-en) when it must be kept long term.
+Filter by mastery status, knowledge point, question type, time, grade and semester, or paper level, then act on the results in bulk or print them. Question types support multi-select, including "Not set" (questions without a question type). The multi-select bar's **Move to Notebook** moves the selected error items to another notebook under the same account, keeping their knowledge-point tags; **Export** offers three formats for selected error items (see [Question Exchange Format](https://github.com/margrop/wrong-notebook/blob/main/doc/QUESTION_FORMAT.en.md)): **JSON** has the most complete fields and suits backups or migration; **Excel** columns match the question bank import template so it can be re-imported directly; **Word** is designed for printing as an exam paper, with answers and analysis collected in an "参考答案" section at the end, and formulas exported as LaTeX text. All three formats contain only question content, without practice records or other data; for a full backup use **Settings → Data Management → Export Data**. Before deleting, confirm the filters and selection; [back up your data](Backup-and-Restore-en) when it must be kept long term.
 
 ## Markdown and formulas
 

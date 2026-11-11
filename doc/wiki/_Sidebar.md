@@ -9,6 +9,7 @@
 - [设置与用户管理](Settings-and-Users)
 - [数据备份与恢复](Backup-and-Restore)
 - [Openclaw 集成](Openclaw-Integration)
+- [MCP 服务](MCP-Server)
 - [开发与贡献](Development)
 - [常见问题](FAQ)
 
@@ -23,6 +24,7 @@
 - [Settings and Users](Settings-and-Users-en)
 - [Backup and Restore](Backup-and-Restore-en)
 - [Openclaw Integration](Openclaw-Integration-en)
+- [MCP Server](MCP-Server-en)
 - [Development](Development-en)
 - [FAQ](FAQ-en)
 
