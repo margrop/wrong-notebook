@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { MarkdownEditor } from "@/components/markdown-editor";
+import { PinyinToolbar } from "@/components/pinyin-toolbar";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { RegenerateFigureButton } from "@/components/regenerate-figure-button";
 import { ReplaceQuestionImageButton } from "@/components/replace-question-image-button";
@@ -36,6 +37,7 @@ export function QuestionCard({ item, educationStage, saveFields, onUpdate, reloa
         save: (questionText) => saveFields({ questionText }),
         logLabel: 'question',
     });
+    const questionTextRef = useRef<HTMLTextAreaElement>(null);
 
     return (
         <Card>
@@ -43,7 +45,8 @@ export function QuestionCard({ item, educationStage, saveFields, onUpdate, reloa
             <CardContent className="space-y-4">
                 {question.editing ? (
                     <div className="space-y-3">
-                        <MarkdownEditor value={question.value} onChange={question.setValue} placeholder="Enter question text..." rows={8} className="w-full font-mono text-sm" />
+                        <MarkdownEditor value={question.value} onChange={question.setValue} textareaRef={questionTextRef} placeholder="Enter question text..." rows={8} className="w-full font-mono text-sm" />
+                        <PinyinToolbar value={question.value} onChange={question.setValue} textareaRef={questionTextRef} subject={item.subject?.name} />
                         <SaveCancelButtons onSave={question.submit} onCancel={question.cancel} />
                     </div>
                 ) : <>

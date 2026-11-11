@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Save, Loader2, Eye, Edit3, PenLine, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { PinyinToolbar } from "@/components/pinyin-toolbar";
 import { TagInput } from "@/components/tag-input";
 import { NotebookSelector } from "@/components/notebook-selector";
 import { PaperGroupSelect } from "@/components/paper-group-select";
@@ -45,6 +46,7 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
     const [mistakeAnalysis, setMistakeAnalysis] = useState("");
     const [mistakeStatus, setMistakeStatus] = useState<MistakeStatus>("unknown");
     const [knowledgePoints, setKnowledgePoints] = useState<string[]>([]);
+    const questionTextRef = useRef<HTMLTextAreaElement>(null);
     const [subjectId, setSubjectId] = useState(defaultNotebookId || "");
     const [gradeSemester, setGradeSemester] = useState("");
     const [paperLevel, setPaperLevel] = useState("");
@@ -218,7 +220,9 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
                                 <MarkdownRenderer content={field.value} />
                             </div>
                         ) : (
+                            <>
                             <Textarea
+                                ref={field.key === "question" ? questionTextRef : undefined}
                                 value={field.value}
                                 onChange={(e) => field.setter(e.target.value)}
                                 onKeyDown={handleKeyDown}
@@ -226,6 +230,15 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
                                 className={`${field.minHeight} font-mono text-sm resize-y`}
                                 disabled={isSaving}
                             />
+                            {field.key === "question" && (
+                                <PinyinToolbar
+                                    value={field.value}
+                                    onChange={field.setter}
+                                    textareaRef={questionTextRef}
+                                    subject={inferSubjectFromName(defaultNotebookName || null)}
+                                />
+                            )}
+                            </>
                         )}
                     </div>
                 ))}

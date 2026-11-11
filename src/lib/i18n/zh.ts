@@ -2059,6 +2059,16 @@ export const zh = {
             empty: "暂无内容",
             doubleClickToEdit: "双击切换到源代码编辑",
         },
+
+        pinyinToolbar: {
+            title: "拼音",
+            expand: "展开拼音工具",
+            collapse: "收起拼音工具",
+            toneHint: "点击带调元音插入到光标处",
+            insertTone: "插入 {tone}",
+            convert: "数字转声调",
+            convertHint: "把 ma3 这类数字声调转换成 mǎ；5 或 0 表示轻声",
+        },
         directEntry: {
             title: "直接录入错题内容（支持 Markdown + LaTeX）",
             reset: "重置",

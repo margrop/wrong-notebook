@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, Ref } from "react";
 import { Code2, Eye } from "lucide-react";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,13 +13,15 @@ type EditorMode = "source" | "preview";
 interface MarkdownEditorProps extends Omit<ComponentProps<"textarea">, "value" | "onChange"> {
     value: string;
     onChange: (value: string) => void;
+    /** 外部拼音工具等需要按光标位置插入内容时传入 */
+    textareaRef?: Ref<HTMLTextAreaElement>;
 }
 
 /**
  * 支持 Markdown 与 LaTeX 的编辑框：可在「源代码」和「预览」之间切换，
  * 预览与题目页面使用同一个渲染器，所见即最终显示效果。
  */
-export function MarkdownEditor({ value, onChange, className, ...textareaProps }: MarkdownEditorProps) {
+export function MarkdownEditor({ value, onChange, className, textareaRef, ...textareaProps }: MarkdownEditorProps) {
     const { t } = useLanguage();
     const [mode, setMode] = useState<EditorMode>("source");
     const panelId = useId();
@@ -54,7 +56,7 @@ export function MarkdownEditor({ value, onChange, className, ...textareaProps }:
             </div>
             <div id={panelId} role="tabpanel">
                 {mode === "source" ? (
-                    <Textarea value={value} onChange={(e) => onChange(e.target.value)} className={className} {...textareaProps} />
+                    <Textarea ref={textareaRef} value={value} onChange={(e) => onChange(e.target.value)} className={className} {...textareaProps} />
                 ) : (
                     <div
                         className="min-h-24 cursor-text rounded-md border bg-muted/20 px-3 py-2"

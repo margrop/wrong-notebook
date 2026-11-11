@@ -150,6 +150,8 @@ Notebooks also offer a two-question similarity comparison to help decide whether
 
 Each question shows its text, answer, analysis, knowledge points, difficulty, semester and paper level, plus the original photo.
 
+When editing the question text, use the **Pinyin** tool below the box: it opens by default for Chinese notebooks. Click a tone-marked vowel button (ā á ǎ à etc.) to insert it at the cursor, or click **Convert number tones** to turn writing such as ma3 into mǎ. It is also available for other subjects and collapsed by default. The tool appears on the review page, batch split preview, direct entry and question details question editors.
+
 | Information or action | Notes |
 | --- | --- |
 | 6-character question ID | Copy it and locate the question by ID in a notebook; shown as the source ID in printouts |

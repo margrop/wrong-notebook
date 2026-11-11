@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronUp, Copy, Crop, 
 import { DraftItemFields } from "@/components/import-batch/draft-item-fields";
 import { RegionThumbnail } from "@/components/import-batch/region-thumbnail";
 import { TextFixPanel } from "@/components/import-batch/text-fix-panel";
+import { PinyinToolbar } from "@/components/pinyin-toolbar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -180,6 +181,11 @@ export function DraftItemCard({ item, index, total, source, expanded, onToggleEx
                                 value={item.text}
                                 onChange={(event) => onEdit((draft) => updateItem(draft, item.key, { text: event.target.value }), `text-${item.key}`)}
                                 className="min-h-28 font-mono text-sm"
+                            />
+                            <PinyinToolbar
+                                value={item.text}
+                                onChange={(text) => onEdit((draft) => updateItem(draft, item.key, { text }), `text-${item.key}`)}
+                                textareaRef={textRef}
                             />
                             <p className="text-xs text-muted-foreground">{t.importBatch.splitHint}</p>
                             {item.image && (

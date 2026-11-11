@@ -2060,6 +2060,16 @@ export const en = {
             empty: "Nothing to preview",
             doubleClickToEdit: "Double-click to edit the source",
         },
+
+        pinyinToolbar: {
+            title: "Pinyin",
+            expand: "Expand pinyin tools",
+            collapse: "Collapse pinyin tools",
+            toneHint: "Click a tone-marked vowel to insert it at the cursor",
+            insertTone: "Insert {tone}",
+            convert: "Convert number tones",
+            convertHint: "Convert number tones such as ma3 to mǎ; 5 or 0 means neutral tone",
+        },
         directEntry: {
             title: "Enter the question directly (Markdown + LaTeX supported)",
             reset: "Reset",
