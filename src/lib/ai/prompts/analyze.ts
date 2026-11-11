@@ -12,7 +12,7 @@ import {
     DRAFT_FILTER_RULES,
     DIFFICULTY_STARS_RULES,
     QUESTION_TYPE_RULES,
-    FIGURE_SVG_RULES,
+    FIGURE_BOX_RULES,
     LATEX_RULES,
     getMathTagsForGrade,
     replaceVariables,
@@ -45,11 +45,9 @@ export const DEFAULT_ANALYZE_TEMPLATE = `【角色与核心任务 (ROLE AND CORE
 判断题目本身是否带有配图（几何图形、函数图像、示意图、统计图、实验装置图、电路图等；不含学生的作答痕迹和纯文字表格）。有配图填 true，否则填 false。
 </has_figure>
 
-<figure_svg>
-如果 has_figure 为 true，用 SVG 重新绘制题目配图：
-${FIGURE_SVG_RULES}
-如果 has_figure 为 false，请留空。
-</figure_svg>
+<figure_box>
+${FIGURE_BOX_RULES}
+</figure_box>
 
 <wrong_answer_text>
 如果图片中包含学生针对本题提交的正式错误答案或正式解题步骤，请按原样摘录；必须过滤掉空白处或题干旁的草稿、竖式演算、试算数字、涂改痕迹、审题圈画以及人的思考过程批注。如果图片中只有草稿/思考痕迹或没有看到正式错误解答，请留空。
@@ -345,6 +343,6 @@ ${politicsTagsString}`;
     generateOutputContract('analyze'), DRAFT_FILTER_RULES, generateChineseTranscriptionRules(subject, referenceText, true), langInstruction, LATEX_RULES,
     generateGradeInstruction(gradeSemester), generateGradeRecognitionInstruction(gradeSemester),
     tagsSection, DIFFICULTY_STARS_RULES, QUESTION_TYPE_RULES,
-    '有配图时必须输出 figure_svg；无配图时留空。' + FIGURE_SVG_RULES,
+    '有配图时必须输出 figure_box（配图稍后会单独重绘，这里不要输出 SVG）；无配图时留空。\n' + FIGURE_BOX_RULES,
   ].filter(Boolean).join('\n\n');
 }

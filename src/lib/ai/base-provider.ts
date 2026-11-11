@@ -15,6 +15,9 @@ import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
 import { sanitizeFigureSvg } from '../figure-svg';
 import { findSvgXmlError, repairSvgEntities } from './figure-validate';
+import { parseFigureBox } from './figure-box';
+import type { FigureBox } from './figure-box';
+import { prepareFigureImage } from './figure-image';
 import { parseErrorCode } from './error-classification';
 import { normalizeMistakeStatusForSave } from '@/lib/question/mistake-status';
 import { parseRecognizedGrade } from '@/lib/question/question-grade';
@@ -73,6 +76,24 @@ export interface CompletionRequest {
     extraUserText?: string;
     /** 总时限到期时中止请求；由 run 设置，各提供商透传给 SDK */
     signal?: AbortSignal;
+    /** 同一业务流程的截止时刻（毫秒时间戳）；多次调用共用 Vercel 函数时长时，本次调用不得超过它 */
+    deadlineAt?: number;
+}
+
+/** 配图重绘的参数 */
+interface FigureOptions {
+    /** 识别时给出的配图位置；有值时先裁剪出该区域再重绘 */
+    box?: FigureBox | null;
+    /** 整个流程的截止时刻（毫秒时间戳）；undefined 表示每次调用各自计时 */
+    deadlineAt?: number;
+}
+
+/** 识别后剩余时间少于此值时不再单独重绘配图（Vercel 函数时长有限），用户可在校对页重新生成 */
+export const MIN_FIGURE_REDRAW_MS = 45 * 1000;
+
+/** Vercel 上多次 AI 调用共用一次函数时长，返回流程的截止时刻；其他部署环境每次调用各自计时，返回 undefined */
+function flowDeadline(startedAt: number): number | undefined {
+    return process.env.VERCEL ? startedAt + VERCEL_AI_CALL_DEADLINE_MS : undefined;
 }
 
 /**
@@ -122,7 +143,10 @@ export abstract class BaseAIProvider implements AIService {
 
     /** 在总时限内完成补全；到期时中止请求（含 SDK 内部重试），按 AI_TIMEOUT_ERROR 失败 */
     private async completeBeforeDeadline(request: CompletionRequest): Promise<CompletionResult> {
-        const deadlineMs = aiCallDeadlineMs();
+        const deadlineMs = request.deadlineAt === undefined
+            ? aiCallDeadlineMs()
+            : Math.min(aiCallDeadlineMs(), request.deadlineAt - Date.now());
+        if (deadlineMs <= 0) throw new Error('AI_TIMEOUT_ERROR');
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(new Error('AI_TIMEOUT_ERROR')), deadlineMs);
         try {
@@ -176,12 +200,13 @@ export abstract class BaseAIProvider implements AIService {
         });
         logger.box('📝 Full System Prompt', systemPrompt.system);
 
+        const startedAt = Date.now();
         try {
             const text = await this.run({ task: 'analyze', system: systemPrompt.system, user: systemPrompt.user, image: { base64: imageBase64, mimeType } });
             logger.box('🤖 AI Raw Response', text);
             const parsedResult = normalizeAiQuestionTags(parseQuestionResponse(text), tagOptions);
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
-            return parsedResult;
+            return await this.redrawAnalyzedFigure(parsedResult, imageBase64, mimeType, parseFigureBox(extractTag(text, "figure_box")), startedAt);
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during AI analysis');
             this.handleError(error);
@@ -324,15 +349,34 @@ export abstract class BaseAIProvider implements AIService {
         }
     }
 
-    async generateFigureSvg(imageBase64: string, mimeType: string, questionText?: string | null): Promise<FigureResult> {
-        const prompt = generateFigureRequest(questionText);
-        logger.info({ provider: this.providerName, imageSize: imageBase64.length }, 'Figure SVG Request');
-
+    /**
+     * 识别完成后单独重绘配图：识别只给出配图位置，这里裁剪出配图区域后专门画 SVG。
+     * 重绘失败或剩余时间不足时不影响识别结果，配图留空（识别回复中若仍带 SVG，校验后沿用），用户可在校对页重新生成。
+     */
+    private async redrawAnalyzedFigure(parsed: ParsedQuestion, imageBase64: string, mimeType: string, box: FigureBox | null, startedAt: number): Promise<ParsedQuestion> {
+        if (!parsed.hasFigure) return parsed;
+        const deadlineAt = flowDeadline(startedAt);
+        const fallback = async () => ({
+            ...parsed,
+            figureSvg: parsed.figureSvg ? await this.ensureValidFigureSvg(parsed.figureSvg, deadlineAt) : null,
+        });
+        if (deadlineAt !== undefined && deadlineAt - Date.now() < MIN_FIGURE_REDRAW_MS) {
+            logger.warn({ provider: this.providerName, remainingMs: deadlineAt - Date.now() }, 'Not enough time left to redraw figure after analysis');
+            return fallback();
+        }
         try {
-            const text = await this.run({ task: 'figure', system: prompt.system, user: prompt.user, image: { base64: imageBase64, mimeType }, extraUserText: '请重新绘制图中题目的配图。' });
-            logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
-            const figure = parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
-            return figure.figureSvg ? { ...figure, figureSvg: await this.ensureValidFigureSvg(figure.figureSvg) } : figure;
+            const figure = await this.drawFigure(imageBase64, mimeType, parsed.questionText, { box, deadlineAt });
+            if (figure.figureSvg) return { ...parsed, figureSvg: figure.figureSvg };
+            logger.warn({ provider: this.providerName, hasBox: !!box }, 'Figure redraw returned no valid SVG');
+        } catch (error) {
+            logger.warn({ provider: this.providerName, error }, 'Figure redraw after analysis failed');
+        }
+        return fallback();
+    }
+
+    async generateFigureSvg(imageBase64: string, mimeType: string, questionText?: string | null): Promise<FigureResult> {
+        try {
+            return await this.drawFigure(imageBase64, mimeType, questionText, { deadlineAt: flowDeadline(Date.now()) });
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during figure SVG generation');
             this.handleError(error);
@@ -340,11 +384,31 @@ export abstract class BaseAIProvider implements AIService {
         }
     }
 
+    /** 重绘配图：准备图片（按位置裁剪、统一尺寸）→ 画 SVG → 校验 XML */
+    private async drawFigure(imageBase64: string, mimeType: string, questionText: string | null | undefined, options: FigureOptions): Promise<FigureResult> {
+        const image = await prepareFigureImage(imageBase64, mimeType, options.box ?? null);
+        const canvas = image.width && image.height ? { width: image.width, height: image.height, cropped: image.cropped } : null;
+        const prompt = generateFigureRequest(questionText, canvas);
+        logger.info({ provider: this.providerName, imageSize: image.base64.length, canvas }, 'Figure SVG Request');
+
+        const text = await this.run({
+            task: 'figure',
+            system: prompt.system,
+            user: prompt.user,
+            image: { base64: image.base64, mimeType: image.mimeType },
+            extraUserText: '请重新绘制图中题目的配图。',
+            deadlineAt: options.deadlineAt,
+        });
+        logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
+        const figure = parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
+        return figure.figureSvg ? { ...figure, figureSvg: await this.ensureValidFigureSvg(figure.figureSvg, options.deadlineAt) } : figure;
+    }
+
     /**
      * 保证配图是合法 XML：先本地修复实体，仍不合法时把解析错误交给模型修正一次。
      * 修不好时返回 null，不保存浏览器显示不出来的配图；修正调用失败不影响已有结果。
      */
-    protected async ensureValidFigureSvg(svg: string): Promise<string | null> {
+    protected async ensureValidFigureSvg(svg: string, deadlineAt?: number): Promise<string | null> {
         const repaired = repairSvgEntities(svg);
         const xmlError = findSvgXmlError(repaired);
         if (!xmlError) return repaired;
@@ -352,7 +416,7 @@ export abstract class BaseAIProvider implements AIService {
 
         try {
             const prompt = generateFigureFixRequest(repaired, xmlError);
-            const text = await this.run({ task: 'figure', system: prompt.system, user: prompt.user });
+            const text = await this.run({ task: 'figure', system: prompt.system, user: prompt.user, deadlineAt });
             const fixed = sanitizeFigureSvg(extractTag(text, "figure_svg"));
             const result = fixed ? repairSvgEntities(fixed) : null;
             const remaining = result ? findSvgXmlError(result) : 'no svg';

@@ -20,8 +20,15 @@ vi.mock('@/lib/ai/tag-service', () => ({
     prefetchSubjectTags: vi.fn(() => Promise.resolve({})),
 }));
 
-import { AI_CALL_DEADLINE_MS, VERCEL_AI_CALL_DEADLINE_MS, aiCallDeadlineMs, BaseAIProvider } from '@/lib/ai/base-provider';
+// 配图图片处理默认原样返回；需要裁剪结果的用例单独设置
+const figureImage = vi.hoisted(() => ({
+    prepareFigureImage: vi.fn((base64: string, mimeType: string) => Promise.resolve<PreparedFigureImage>({ base64, mimeType, width: null, height: null, cropped: false })),
+}));
+vi.mock('@/lib/ai/figure-image', () => figureImage);
+
+import { AI_CALL_DEADLINE_MS, MIN_FIGURE_REDRAW_MS, VERCEL_AI_CALL_DEADLINE_MS, aiCallDeadlineMs, BaseAIProvider } from '@/lib/ai/base-provider';
 import type { CompletionRequest } from '@/lib/ai/base-provider';
+import type { PreparedFigureImage } from '@/lib/ai/figure-image';
 import type { CompletionEvent, CompletionResult } from '@/lib/ai/completion';
 
 class TestProvider extends BaseAIProvider {
@@ -111,6 +118,67 @@ describe('BaseAIProvider', () => {
         it('空响应时抛错', async () => {
             provider.completeText.mockResolvedValue('');
             await expect(provider.analyzeImage('QUJD')).rejects.toThrow();
+        });
+
+        describe('识别后单独重绘配图', () => {
+            const NS = 'xmlns="http://www.w3.org/2000/svg"';
+            const analyzed = '<question_text>如图</question_text><answer_text>A</answer_text><analysis>解析</analysis><subject>化学</subject><knowledge_points>原电池</knowledge_points><requires_image>true</requires_image><has_figure>true</has_figure><figure_box>300,250,700,750</figure_box>';
+            const drawn = `<svg ${NS} viewBox="0 0 800 468"><rect width="10" height="10"/></svg>`;
+
+            afterEach(() => {
+                vi.unstubAllEnvs();
+            });
+
+            it('按识别给出的位置裁剪后用 figure 任务重绘，结果写入识别结果', async () => {
+                figureImage.prepareFigureImage.mockResolvedValueOnce({ base64: 'Q1JPUA==', mimeType: 'image/png', width: 800, height: 468, cropped: true });
+                provider.completeText
+                    .mockResolvedValueOnce(analyzed)
+                    .mockResolvedValueOnce(`<has_figure>true</has_figure><figure_outline>外框</figure_outline><figure_svg>${drawn}</figure_svg>`);
+
+                const result = await provider.analyzeImage('QUJD', 'image/jpeg');
+
+                expect(figureImage.prepareFigureImage).toHaveBeenCalledWith('QUJD', 'image/jpeg', { x1: 300, y1: 250, x2: 700, y2: 750 });
+                const figureRequest = provider.completeText.mock.calls[1][0];
+                expect(figureRequest).toMatchObject({ task: 'figure', image: { base64: 'Q1JPUA==', mimeType: 'image/png' } });
+                expect(figureRequest.system).toContain('viewBox="0 0 800 468"');
+                expect(JSON.parse(figureRequest.user).data.questionText).toBe('如图');
+                expect(result).toMatchObject({ hasFigure: true, figureSvg: drawn, questionText: '如图' });
+            });
+
+            it('无配图时不额外调用模型', async () => {
+                await provider.analyzeImage('QUJD');
+                expect(provider.completeText).toHaveBeenCalledTimes(1);
+            });
+
+            it('重绘失败不影响识别结果，配图留空', async () => {
+                provider.completeText.mockResolvedValueOnce(analyzed).mockRejectedValueOnce(new Error('AI_SERVICE_UNAVAILABLE'));
+                const result = await provider.analyzeImage('QUJD');
+                expect(result).toMatchObject({ hasFigure: true, figureSvg: null, answerText: 'A' });
+            });
+
+            it('识别回复仍带 SVG（旧自定义模板）且重绘没有结果时沿用该 SVG', async () => {
+                const legacy = `<svg ${NS}><circle r="3"/></svg>`;
+                provider.completeText
+                    .mockResolvedValueOnce(`${analyzed}<figure_svg>${legacy}</figure_svg>`)
+                    .mockResolvedValueOnce('<has_figure>true</has_figure><figure_svg></figure_svg>');
+                const result = await provider.analyzeImage('QUJD');
+                expect(result.figureSvg).toBe(legacy);
+            });
+
+            it('Vercel 上识别后剩余时间不足时跳过重绘', async () => {
+                vi.stubEnv('VERCEL', '1');
+                vi.useFakeTimers({ toFake: ['Date'] });
+                const start = Date.now();
+                // 识别本身耗时到只剩不足重绘所需的时间
+                provider.completeText.mockImplementationOnce(async () => {
+                    vi.setSystemTime(start + VERCEL_AI_CALL_DEADLINE_MS - MIN_FIGURE_REDRAW_MS + 1000);
+                    return analyzed;
+                });
+                const result = await provider.analyzeImage('QUJD');
+                vi.useRealTimers();
+                expect(provider.completeText).toHaveBeenCalledTimes(1);
+                expect(result).toMatchObject({ hasFigure: true, figureSvg: null });
+            });
         });
 
         it('异常经 handleError 后抛出', async () => {

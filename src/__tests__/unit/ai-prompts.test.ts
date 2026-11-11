@@ -41,12 +41,13 @@ describe('AI Prompts', () => {
     });
 
     describe('generateAnalyzePrompt', () => {
-        it('要求判断是否有配图并用 SVG 重绘', () => {
+        it('要求判断是否有配图并给出配图位置，不在识别时画 SVG', () => {
             const prompt = generateAnalyzePrompt('zh', 7, '数学');
             expect(prompt).toContain('<has_figure>');
-            expect(prompt).toContain('<figure_svg>');
+            expect(prompt).toContain('<figure_box>');
+            expect(prompt).toContain('归一化到 0~1000');
+            expect(prompt).not.toContain('<figure_svg>');
             expect(prompt).toContain('14 个 XML 标签');
-            expect(prompt).toContain('严禁使用 <image>、<script>');
         });
 
         it('单独重绘配图的提示词带上题干用于核对标注', () => {
