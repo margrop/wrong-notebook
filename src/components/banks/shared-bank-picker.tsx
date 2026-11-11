@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Download, Loader2, RefreshCw } from "lucide-react";
+import { Check, Download, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -9,6 +9,7 @@ import { apiClient } from "@/lib/api-client";
 import { toast } from "@/lib/feedback";
 import { getApiErrorMessage } from "@/lib/error-message";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { bankErrorCodeFromMessage } from "@/lib/question-bank/errors";
 import { bankPackageUrl, parseBankFile, parseBankIndex } from "@/lib/question-bank/format";
 import { DEFAULT_BANK_INDEX_URL } from "@/lib/question-bank/types";
 import type { BankIndexPackage } from "@/lib/question-bank/types";
@@ -22,12 +23,15 @@ const STAGE_KEYS: Record<string, "primary" | "juniorHigh" | "seniorHigh" | "univ
 };
 
 interface SharedBankPickerProps {
+    /** 已导入的题库名称；同名题库的按钮显示为「已导入」 */
+    existingNames: string[];
     onImported: () => void;
 }
 
 /** 从共享题库仓库读取索引并逐包导入；只进入真题库，不写入错题 */
-export function SharedBankPicker({ onImported }: SharedBankPickerProps) {
+export function SharedBankPicker({ existingNames, onImported }: SharedBankPickerProps) {
     const { t } = useLanguage();
+    const importedNames = new Set(existingNames.map((name) => name.trim()));
     const [packages, setPackages] = useState<BankIndexPackage[]>([]);
     const [loading, setLoading] = useState(true);
     const [failed, setFailed] = useState(false);
@@ -73,7 +77,9 @@ export function SharedBankPicker({ onImported }: SharedBankPickerProps) {
                 .replace("{count}", String(result.bank.questionCount)));
             onImported();
         } catch (err) {
-            const message = getApiErrorMessage(err) || (t.banks.importFailed || "Bank import failed: {message}")
+            const rawMessage = getApiErrorMessage(err);
+            const code = bankErrorCodeFromMessage(rawMessage);
+            const message = (code ? t.errors[code] : rawMessage) || (t.banks.importFailed || "Bank import failed: {message}")
                 .replace("{message}", err instanceof Error ? err.message : String(err));
             toast.error(message);
         } finally {
@@ -103,39 +109,48 @@ export function SharedBankPicker({ onImported }: SharedBankPickerProps) {
                     <p className="text-sm text-muted-foreground">{t.banks.sharedEmpty}</p>
                 ) : (
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {packages.map((item) => (
-                            <div key={item.id} className="rounded-lg border border-border p-3">
-                                <div className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0">
-                                        <p className="truncate font-medium">{item.title}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {t.banks.stageNames[STAGE_KEYS[item.stage] ?? "primary"]}
-                                            {" · "}
-                                            {t.tags.subjects[item.subject as keyof typeof t.tags.subjects] ?? item.subject}
-                                            {" · "}
-                                            {item.count} {t.banks.questions}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {item.tagged ? t.banks.tagged : t.banks.untagged} · {item.license}
-                                        </p>
+                        {packages.map((item) => {
+                            const imported = importedNames.has(item.title.trim());
+                            return (
+                                <div key={item.id} className="rounded-lg border border-border p-3">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <p className="truncate font-medium">{item.title}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {t.banks.stageNames[STAGE_KEYS[item.stage] ?? "primary"]}
+                                                {" · "}
+                                                {t.tags.subjects[item.subject as keyof typeof t.tags.subjects] ?? item.subject}
+                                                {" · "}
+                                                {item.count} {t.banks.questions}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {item.tagged ? t.banks.tagged : t.banks.untagged} · {item.license}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleImport(item)}
+                                            disabled={imported || importingId !== null}
+                                        >
+                                            {imported ? (
+                                                <Check className="h-4 w-4" />
+                                            ) : importingId === item.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Download className="h-4 w-4" />
+                                            )}
+                                            <span className="ml-1">
+                                                {imported
+                                                    ? t.banks.alreadyImported
+                                                    : importingId === item.id ? t.banks.sharedImporting : t.banks.sharedImport}
+                                            </span>
+                                        </Button>
                                     </div>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleImport(item)}
-                                        disabled={importingId !== null}
-                                    >
-                                        {importingId === item.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <Download className="h-4 w-4" />
-                                        )}
-                                        <span className="ml-1">{importingId === item.id ? t.banks.sharedImporting : t.banks.sharedImport}</span>
-                                    </Button>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </CardContent>

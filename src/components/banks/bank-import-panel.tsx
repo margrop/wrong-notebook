@@ -9,6 +9,7 @@ import { apiClient } from "@/lib/api-client";
 import { toast } from "@/lib/feedback";
 import { getApiErrorMessage } from "@/lib/error-message";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { bankErrorCodeFromMessage } from "@/lib/question-bank/errors";
 import { parseBankFile } from "@/lib/question-bank/format";
 import { MAX_BANK_QUESTIONS } from "@/lib/question-bank/types";
 import type { ParsedBankFile } from "@/lib/question-bank/types";
@@ -93,7 +94,9 @@ export function BankImportPanel({ notebooks, onImported }: BankImportPanelProps)
             onImported();
         } catch (err) {
             frontendLogger.error('[Banks]', 'Failed to import bank', { error: err });
-            const message = getApiErrorMessage(err) || (t.banks.importFailed || "Bank import failed: {message}")
+            const rawMessage = getApiErrorMessage(err);
+            const code = bankErrorCodeFromMessage(rawMessage);
+            const message = (code ? t.errors[code] : rawMessage) || (t.banks.importFailed || "Bank import failed: {message}")
                 .replace("{message}", err instanceof Error ? err.message : String(err));
             setError(message);
             toast.error(message);

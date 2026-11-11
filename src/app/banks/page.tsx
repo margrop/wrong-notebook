@@ -57,7 +57,7 @@ export default function BanksPage() {
                 <PageHeader title={t.banks.title} description={t.banks.subtitle} />
 
                 <BankImportPanel notebooks={notebooks} onImported={fetchBanks} />
-                <SharedBankPicker onImported={fetchBanks} />
+                <SharedBankPicker existingNames={banks.map((bank) => bank.name)} onImported={fetchBanks} />
 
                 <section className="space-y-3">
                     <h2 className="text-lg font-semibold">{t.banks.title}</h2>
