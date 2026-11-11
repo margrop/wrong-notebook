@@ -71,3 +71,19 @@ export function generateFigurePrompt(questionText?: string | null, canvas?: Figu
     canvas_instruction: canvasInstruction(canvas),
   }).trim();
 }
+
+/**
+ * 修正不合法 SVG 的提示词：只修语法，不改图形内容
+ */
+export function generateFigureFixPrompt(figureSvg: string, xmlError: string): string {
+  return `【任务】
+你上一次输出的题目配图 SVG（${figureSvg}）不是合法 XML，浏览器无法显示。XML 解析错误（${xmlError}）给出了出错的行列号。
+请只修正语法错误（如重复属性、未闭合或交错的标签、未转义的 & 与 <、未声明的命名空间前缀），不要改动图形内容和坐标。
+
+【输出格式】
+只输出以下标签，不要输出其他内容：
+<figure_svg>
+修正后的完整 SVG：
+${FIGURE_SVG_RULES}
+</figure_svg>`;
+}

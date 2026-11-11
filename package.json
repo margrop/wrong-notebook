@@ -59,6 +59,7 @@
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
+    "saxes": "^6.0.0",
     "server-only": "^0.0.1",
     "strip-markdown": "^6.0.0",
     "undici": "^7.16.0",

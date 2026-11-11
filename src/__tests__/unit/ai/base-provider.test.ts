@@ -204,6 +204,37 @@ describe('BaseAIProvider', () => {
                 extraUserText: '请重新绘制图中题目的配图。',
             }));
         });
+
+        const NS = 'xmlns="http://www.w3.org/2000/svg"';
+        const invalid = `<has_figure>true</has_figure><figure_svg><svg ${NS}><g><rect width="1" height="1"/></svg></figure_svg>`;
+        const fixedSvg = `<svg ${NS}><g><rect width="1" height="1"/></g></svg>`;
+
+        it('合法配图不再额外调用模型，裸 & 在本地修复', async () => {
+            provider.completeText.mockResolvedValueOnce(`<has_figure>true</has_figure><figure_svg><svg ${NS}><text>A & B</text></svg></figure_svg>`);
+            const figure = await provider.generateFigureSvg('QUJD', 'image/jpeg');
+            expect(figure.figureSvg).toContain('A &amp; B');
+            expect(provider.completeText).toHaveBeenCalledTimes(1);
+        });
+
+        it('配图不是合法 XML 时把解析错误交给模型修正一次', async () => {
+            provider.completeText
+                .mockResolvedValueOnce(invalid)
+                .mockResolvedValueOnce(`<figure_svg>${fixedSvg}</figure_svg>`);
+            const figure = await provider.generateFigureSvg('QUJD', 'image/jpeg');
+            expect(figure).toEqual({ hasFigure: true, figureSvg: fixedSvg });
+            const fixRequest = provider.completeText.mock.calls[1][0];
+            expect(fixRequest.task).toBe('figure');
+            expect(fixRequest.image).toBeUndefined();
+            expect(JSON.parse(fixRequest.user).data.xmlError).toBeTruthy();
+        });
+
+        it('修正后仍不合法或修正调用失败时丢弃配图，保留有配图的判断', async () => {
+            provider.completeText.mockResolvedValueOnce(invalid).mockResolvedValueOnce(invalid);
+            expect(await provider.generateFigureSvg('QUJD', 'image/jpeg')).toEqual({ hasFigure: true, figureSvg: null });
+
+            provider.completeText.mockResolvedValueOnce(invalid).mockRejectedValueOnce(new Error('AI_TIMEOUT_ERROR'));
+            expect(await provider.generateFigureSvg('QUJD', 'image/jpeg')).toEqual({ hasFigure: true, figureSvg: null });
+        });
     });
 
     describe('fixLatex', () => {

@@ -4,7 +4,7 @@ import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, ReanswerQu
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
 import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
 import type { TextFixInput, TextFixResult } from './text-fix';
-import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateReanswerRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest, generateTextFixRequest } from './prompt-requests';
+import { generateGradeRecognitionRequest, generateAnalyzeRequest, generateSimilarQuestionRequest, generateReanswerRequest, generateGeogebraRequest, generateMasteryRequest, generateGradingRequest, generateTagSuggestRequest, generateFigureRequest, generateFigureFixRequest, generateSvgAnimationRequest, generateSvgNarrationRequest, generateLatexFixRequest, generateQuestionSplitRequest, generateTextFixRequest } from './prompt-requests';
 import { parseNarration, sanitizeSvgAnimation } from '../svg-animation';
 import type { NarrationSegment } from '../svg-animation';
 import { parseLatexFix } from './latex-fix';
@@ -13,6 +13,8 @@ import { parseGradeRecognition, parseMasteryEvaluation, parseAnswerGrading, norm
 import { extractTag, parseQuestionResponse, splitKnowledgePoints } from './response-parser';
 import { prefetchSubjectTags } from './tag-service';
 import { createLogger } from '../logger';
+import { sanitizeFigureSvg } from '../figure-svg';
+import { findSvgXmlError, repairSvgEntities } from './figure-validate';
 import { parseErrorCode } from './error-classification';
 import { normalizeMistakeStatusForSave } from '@/lib/question/mistake-status';
 import { parseRecognizedGrade } from '@/lib/question/question-grade';
@@ -329,12 +331,37 @@ export abstract class BaseAIProvider implements AIService {
         try {
             const text = await this.run({ task: 'figure', system: prompt.system, user: prompt.user, image: { base64: imageBase64, mimeType }, extraUserText: '请重新绘制图中题目的配图。' });
             logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
-            return parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
+            const figure = parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
+            return figure.figureSvg ? { ...figure, figureSvg: await this.ensureValidFigureSvg(figure.figureSvg) } : figure;
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during figure SVG generation');
             this.handleError(error);
             throw error;
         }
+    }
+
+    /**
+     * 保证配图是合法 XML：先本地修复实体，仍不合法时把解析错误交给模型修正一次。
+     * 修不好时返回 null，不保存浏览器显示不出来的配图；修正调用失败不影响已有结果。
+     */
+    protected async ensureValidFigureSvg(svg: string): Promise<string | null> {
+        const repaired = repairSvgEntities(svg);
+        const xmlError = findSvgXmlError(repaired);
+        if (!xmlError) return repaired;
+        logger.warn({ provider: this.providerName, xmlError }, 'Figure SVG is not well-formed XML, asking AI to fix');
+
+        try {
+            const prompt = generateFigureFixRequest(repaired, xmlError);
+            const text = await this.run({ task: 'figure', system: prompt.system, user: prompt.user });
+            const fixed = sanitizeFigureSvg(extractTag(text, "figure_svg"));
+            const result = fixed ? repairSvgEntities(fixed) : null;
+            const remaining = result ? findSvgXmlError(result) : 'no svg';
+            if (result && !remaining) return result;
+            logger.warn({ provider: this.providerName, xmlError: remaining }, 'Figure SVG still invalid after AI fix, dropping it');
+        } catch (error) {
+            logger.warn({ provider: this.providerName, error }, 'Figure SVG fix request failed, dropping invalid figure');
+        }
+        return null;
     }
 
     async fixLatex(input: LatexFixInput): Promise<LatexFixResult> {

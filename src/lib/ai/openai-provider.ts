@@ -7,9 +7,6 @@ import { compactUsage, readRequestId } from './completion';
 import { BaseAIProvider } from './base-provider';
 import { createLogger } from '../logger';
 import { AI_OUTPUT_TRUNCATED, withModelOutputLimit } from './truncation';
-import type { FigureResult } from './schema';
-import { parseFigure } from './schema';
-import { extractTag } from './response-parser';
 import { isAIErrorCode, parseErrorCode } from './error-classification';
 
 const logger = createLogger('ai:openai');
@@ -211,30 +208,6 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
             model: response.model || undefined,
             requestId,
         };
-    }
-
-    /**
-     * 单独重绘配图：与基类不同，不附加额外文字，且图片放在文字前。
-     */
-    async generateFigureSvg(imageBase64: string, mimeType: string, questionText?: string | null): Promise<FigureResult> {
-        const { generateFigureRequest } = await import('./prompt-requests');
-        const prompt = generateFigureRequest(questionText);
-        logger.info({ provider: this.providerName, model: this.model, imageSize: imageBase64.length }, 'Figure SVG Request');
-
-        try {
-            const text = await this.run({
-                task: 'figure',
-                system: prompt.system,
-                user: prompt.user,
-                image: { base64: imageBase64, mimeType },
-            });
-            logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
-            return parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
-        } catch (error) {
-            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during figure SVG generation');
-            this.handleError(error);
-            throw error;
-        }
     }
 
     protected handleError(error: unknown): void {

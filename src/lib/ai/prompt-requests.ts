@@ -4,7 +4,7 @@ import {
     createPromptRequest, promptDataReference as ref,
     generateAnalyzePrompt, generateSimilarQuestionPrompt, generateReanswerPrompt,
     generateGeogebraPrompt, generateMasteryPrompt, generateGradingPrompt,
-    generateTagSuggestPrompt, generateFigurePrompt, generateSvgAnimationPrompt,
+    generateTagSuggestPrompt, generateFigurePrompt, generateFigureFixPrompt, generateSvgAnimationPrompt,
     generateSvgNarrationPrompt, generateLatexFixPrompt, generateGradeRecognitionPrompt, generateQuestionSplitPrompt,
     generateTextFixPrompt,
     SVG_ANIMATION_REQUEST, SVG_NARRATION_REQUEST,
@@ -135,6 +135,10 @@ function safeCanvas(canvas?: FigureCanvas | null): FigureCanvas | null {
 
 export function generateFigureRequest(questionText?: string | null, canvas?: FigureCanvas | null): PromptRequest {
     return createPromptRequest(generateFigurePrompt(ref('questionText'), safeCanvas(canvas)), { questionText });
+}
+
+export function generateFigureFixRequest(figureSvg: string, xmlError: string): PromptRequest {
+    return createPromptRequest(generateFigureFixPrompt(ref('figureSvg'), ref('xmlError')), { figureSvg, xmlError });
 }
 
 export function generateGeogebraRequest(questionText: string, answerText: string, analysis: string, previousErrors?: string): PromptRequest {
