@@ -7,8 +7,8 @@ export const generatePracticeSchema = z.object({
     errorItemId: z.string().trim().min(1),
     language: z.enum(["zh", "en"]).optional(),
     difficulty: z.enum(DIFFICULTIES).optional(),
-    // ai 按错题生成变式题；bank 按知识点从已导入的真题库选题
-    source: z.enum(["ai", "bank"]).optional(),
+    // ai 按错题生成变式题；bank 按知识点从已导入的真题库选题；bankVariant 先选题库题目，再据此生成变式题
+    source: z.enum(["ai", "bank", "bankVariant"]).optional(),
     bankId: z.string().trim().min(1).optional(),
 });
 

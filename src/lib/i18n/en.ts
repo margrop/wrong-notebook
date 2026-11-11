@@ -610,6 +610,7 @@ export const en = {
             sourceLabel: "Question source",
             sourceAi: "Generate with AI",
             sourceBank: "Pick from question bank",
+            sourceBankVariant: "Variant from bank",
             lastGeneratedAt: "Generated at {time}. Click Regenerate for a new question.",
             // practiceProblem: "Practice Problem", // Moved to app
             // yourAnswer: "Your Answer", // Moved to app

@@ -610,6 +610,7 @@ export const zh = {
             sourceLabel: "出题来源",
             sourceAi: "AI 生成",
             sourceBank: "从真题库选题",
+            sourceBankVariant: "真题库变式",
             lastGeneratedAt: "生成于 {time}，点击「重新生成」可换一道新题。",
             // practiceProblem: "练习题", // Moved to app
             // yourAnswer: "你的答案", // Moved to app

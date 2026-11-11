@@ -119,6 +119,19 @@ describe('usePracticeSession', () => {
         expect(session.source).toBe('bank');
     });
 
+    it('选择真题库变式时按 bankVariant 来源请求', async () => {
+        mocks.post.mockResolvedValueOnce(generated);
+        await render();
+
+        await act(async () => session.setSource('bankVariant'));
+        await act(async () => session.generateQuestion());
+
+        expect(mocks.post).toHaveBeenCalledWith('/api/practice/generate',
+            { errorItemId: 'item-1', language: expect.any(String), difficulty: 'medium', source: 'bankVariant' },
+            { timeout: 60000, recoverable: true });
+        expect(session.source).toBe('bankVariant');
+    });
+
     it('生成失败时按错误码显示对应提示', async () => {
         mocks.post.mockRejectedValueOnce({ data: { message: 'AI_AUTH_ERROR: invalid key' } });
         await render();

@@ -87,31 +87,61 @@ async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
             return taskAlreadyRunning(findRunningTask(user.id, target) ?? { id: '', kind: 'practice', startedAt: '', target });
         }
 
+        const selectionInput = {
+            userId: user.id,
+            errorItem: {
+                id: errorItemWithSubject.id,
+                questionText: errorItemWithSubject.questionText,
+                subject: errorItemWithSubject.subject
+                    ? {
+                        name: errorItemWithSubject.subject.name,
+                        stage: errorItemWithSubject.subject.stage,
+                        subjectKey: errorItemWithSubject.subject.subjectKey,
+                    }
+                    : null,
+            },
+            tagNames: tags,
+            difficulty: difficulty ?? 'medium',
+            bankId: bankId ?? null,
+        };
+
         let practiceQuestion;
         if (source === 'bank') {
             // 真题库选题不调用 AI、不消耗额度
-            const selected = await runReservedTask(handle, () => selectBankQuestion({
-                userId: user.id,
-                errorItem: {
-                    id: errorItemWithSubject.id,
-                    questionText: errorItemWithSubject.questionText,
-                    subject: errorItemWithSubject.subject
-                        ? {
-                            name: errorItemWithSubject.subject.name,
-                            stage: errorItemWithSubject.subject.stage,
-                            subjectKey: errorItemWithSubject.subject.subjectKey,
-                        }
-                        : null,
-                },
-                tagNames: tags,
-                difficulty: difficulty ?? 'medium',
-                bankId: bankId ?? null,
-            }));
+            const selected = await runReservedTask(handle, () => selectBankQuestion(selectionInput));
             if (!selected) {
                 handle.cancel();
                 return badRequest('BANK_NO_MATCH');
             }
             practiceQuestion = selected.question;
+        } else if (source === 'bankVariant') {
+            // 先按知识点选题库题目，再让 AI 以该题为原题生成变式题：选题失败时不扣额度
+            const outcome = await runReservedTask(handle, async () => {
+                const selected = await selectBankQuestion(selectionInput);
+                if (!selected) {
+                    handle.cancel();
+                    return { kind: 'no-match' as const };
+                }
+                const limited = await serializeWrite(() => consumeAiQuota(user, 'practice'));
+                if (limited) {
+                    handle.cancel();
+                    return { kind: 'limited' as const, limited };
+                }
+                const aiService = await getAIService({ userId: user.id, kind: 'practice' });
+                const similarQuestion = await aiService.generateSimilarQuestion(
+                    selected.question.questionText,
+                    selected.question.knowledgePoints.length > 0 ? selected.question.knowledgePoints : tags,
+                    language,
+                    difficulty || 'medium',
+                    selected.question.gradeSemester,
+                    selected.question.figureSvg
+                );
+                similarQuestion.subject = selected.question.subject;
+                return { kind: 'ok' as const, question: similarQuestion };
+            });
+            if (outcome.kind === 'no-match') return badRequest('BANK_NO_MATCH');
+            if (outcome.kind === 'limited') return outcome.limited;
+            practiceQuestion = outcome.question;
         } else {
             const limited = await serializeWrite(() => consumeAiQuota(user, 'practice'));
             if (limited) {
@@ -146,7 +176,7 @@ async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
             subject: practiceQuestion.subject,
             figureSvg: practiceQuestion.figureSvg ?? null,
             difficulty: DIFFICULTIES.find(d => d === difficulty) ?? 'medium',
-            source: source === 'bank' ? 'bank' : 'ai',
+            source: source === 'bank' ? 'bank' : source === 'bankVariant' ? 'bankVariant' : 'ai',
             generatedAt: new Date().toISOString(),
         };
         try {

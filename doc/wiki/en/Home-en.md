@@ -30,7 +30,7 @@ This Wiki covers [margrop/wrong-notebook](https://github.com/margrop/wrong-noteb
 - Markdown, LaTeX, SVG figures, SVG animated explanations with voice narration and optional GeoGebra interactive demos.
 - Question bank file import (JSON / Word / Excel / CSV / PDF, with an as-is mode that skips AI calls) and exporting selected questions as JSON, Excel or Word.
 - Similar-question practice with AI grading, daily review, exam papers built from mistakes, answer history, mastery probability, statistics and print export.
-- Shared question banks: download primary, junior-high and senior-high packages from the [shared bank repository](https://github.com/margrop/wrong-notebook-question-bank); imported questions stay in the bank by default, and practice can pick by knowledge point.
+- Shared question banks: download primary, junior-high and senior-high packages from the [shared bank repository](https://github.com/margrop/wrong-notebook-question-bank); imported questions stay in the bank by default, and practice can pick by knowledge point or generate a variant seeded by a bank question.
 - Per-user data isolation, daily AI limits, admin settings, personal preferences, Openclaw batch import and an MCP server.
 - Fresh installs set up the admin with a one-time setup link (the install wizard on fnOS) instead of a fixed default password, then the setup wizard helps configure AI and create a notebook.
 

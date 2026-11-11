@@ -13,7 +13,14 @@ const mocks = vi.hoisted(() => ({
     mockPrismaPracticeRecord: {
         create: vi.fn(),
         findUnique: vi.fn(),
+        findMany: vi.fn(),
         delete: vi.fn(),
+    },
+    mockPrismaQuestionBank: {
+        findMany: vi.fn(),
+    },
+    mockPrismaBankQuestion: {
+        findMany: vi.fn(),
     },
     mockPrismaUser: {
         findUnique: vi.fn(),
@@ -44,6 +51,8 @@ vi.mock('@/lib/prisma', () => ({
     prisma: {
         errorItem: mocks.mockPrismaErrorItem,
         practiceRecord: mocks.mockPrismaPracticeRecord,
+        questionBank: mocks.mockPrismaQuestionBank,
+        bankQuestion: mocks.mockPrismaBankQuestion,
         user: mocks.mockPrismaUser,
     },
 }));
@@ -75,6 +84,8 @@ vi.mock('@/lib/mastery', async (importOriginal) => ({
     scheduleMasteryEvaluation: mocks.scheduleMasteryEvaluation,
 }));
 
+
+import { NextResponse } from 'next/server';
 // Import after mocks
 import { GET as GENERATE_GET, POST as GENERATE_POST } from '@/app/api/practice/generate/route';
 import { POST as RECORD_POST } from '@/app/api/practice/record/route';
@@ -178,6 +189,81 @@ describe('/api/practice', () => {
             expect(data.subject).toBe('数学');
             expect(data.difficulty).toBe('medium');
             expect(typeof data.generatedAt).toBe('string');
+        });
+
+        it('真题库变式：先选题库题目，再以该题为原题生成变式并记录来源', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
+            mocks.mockPrismaQuestionBank.findMany.mockResolvedValue([{ id: 'bank-1', name: '小学数学题库' }]);
+            mocks.mockPrismaBankQuestion.findMany.mockResolvedValue([{
+                id: 'q1', bankId: 'bank-1', text: '3 的后面一个数是几？', material: null, optionsJson: null,
+                answer: '4', analysis: '从 1 往后数。', knowledgePoints: '["数的认识"]', difficultyStars: 3,
+                questionType: 'fill_blank', grade: 1, semester: '上', figureSvg: null, subjectKey: 'math', source: 'test',
+            }]);
+            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([]);
+            mocks.mockAIService.generateSimilarQuestion.mockResolvedValue({
+                questionText: '4 的后面一个数是几？', answerText: '5', analysis: '从 2 往后数。',
+                knowledgePoints: ['数的认识'], subject: '数学',
+            });
+
+            const response = await GENERATE_POST(new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({ errorItemId: 'error-item-1', language: 'zh', difficulty: 'medium', source: 'bankVariant' }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.source).toBe('bankVariant');
+            expect(data.questionText).toBe('4 的后面一个数是几？');
+            expect(data.subject).toBe('数学');
+            expect(mocks.consumeAiQuota).toHaveBeenCalledWith(mocks.mockUser, 'practice');
+            expect(mocks.mockAIService.generateSimilarQuestion).toHaveBeenCalledWith(
+                '3 的后面一个数是几？', ['数的认识'], 'zh', 'medium', '一年级上', null,
+            );
+            const saved = JSON.parse(mocks.mockPrismaErrorItem.update.mock.calls[0][0].data.lastPractice);
+            expect(saved.source).toBe('bankVariant');
+            expect(saved.questionText).toBe('4 的后面一个数是几？');
+        });
+
+        it('真题库变式：题库没有匹配题目时返回 400，不扣额度也不调用 AI', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
+            mocks.mockPrismaQuestionBank.findMany.mockResolvedValue([{ id: 'bank-1', name: '小学数学题库' }]);
+            mocks.mockPrismaBankQuestion.findMany.mockResolvedValue([]);
+            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([]);
+
+            const response = await GENERATE_POST(new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({ errorItemId: 'error-item-1', source: 'bankVariant' }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect(response.status).toBe(400);
+            expect((await response.json()).message).toBe('BANK_NO_MATCH');
+            expect(mocks.consumeAiQuota).not.toHaveBeenCalled();
+            expect(mocks.mockAIService.generateSimilarQuestion).not.toHaveBeenCalled();
+        });
+
+        it('真题库变式：AI 额度不足时只选题库题目，不调用 AI', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
+            mocks.mockPrismaQuestionBank.findMany.mockResolvedValue([{ id: 'bank-1', name: '小学数学题库' }]);
+            mocks.mockPrismaBankQuestion.findMany.mockResolvedValue([{
+                id: 'q1', bankId: 'bank-1', text: '3 的后面一个数是几？', material: null, optionsJson: null,
+                answer: '4', analysis: '从 1 往后数。', knowledgePoints: '["数的认识"]', difficultyStars: 3,
+                questionType: 'fill_blank', grade: 1, semester: '上', figureSvg: null, subjectKey: 'math', source: 'test',
+            }]);
+            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([]);
+            mocks.consumeAiQuota.mockResolvedValueOnce(
+                new NextResponse(JSON.stringify({ message: 'AI_QUOTA_EXCEEDED' }), { status: 429 }),
+            );
+
+            const response = await GENERATE_POST(new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({ errorItemId: 'error-item-1', source: 'bankVariant' }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect(response.status).toBe(429);
+            expect(mocks.mockAIService.generateSimilarQuestion).not.toHaveBeenCalled();
         });
 
         it('应该暂存最近一次生成的题目与解答', async () => {

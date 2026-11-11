@@ -13,6 +13,7 @@ import type { LastPractice } from "@/lib/last-practice";
 import type { AppConfig, PracticeResult } from "@/types/api";
 
 export type PracticeDifficulty = "easy" | "medium" | "hard" | "harder";
+export type PracticeSource = 'ai' | 'bank' | 'bankVariant';
 
 const DEFAULT_TIMEOUT = 180000;
 
@@ -44,8 +45,8 @@ export function usePracticeSession(errorItemId: string | null) {
     const [gradeReason, setGradeReason] = useState<string | null>(null);
     const [gradeFailed, setGradeFailed] = useState(false);
     const [difficulty, setDifficulty] = useState<PracticeDifficulty>("medium");
-    // 出题来源：ai 按错题生成变式题，bank 从真题库按知识点选题
-    const [source, setSource] = useState<'ai' | 'bank'>('ai');
+    // 出题来源：ai 按错题生成变式题，bank 从真题库按知识点选题，bankVariant 先选题库题目再生成变式题
+    const [source, setSource] = useState<PracticeSource>('ai');
     // 生成当前题目时使用的难度（下拉框改动后不影响已生成题目的记录）
     const [generatedDifficulty, setGeneratedDifficulty] = useState<string>("medium");
     // 每生成一道新题递增，用于重置结果卡片

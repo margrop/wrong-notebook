@@ -1,16 +1,17 @@
 "use client";
 
-import { LibraryBig, Sparkles } from "lucide-react";
+import { LibraryBig, Sparkles, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
+import type { PracticeSource } from "@/lib/hooks/use-practice-session";
 
 interface PracticeSourcePickerProps {
-    value: "ai" | "bank";
-    onChange: (value: "ai" | "bank") => void;
+    value: PracticeSource;
+    onChange: (value: PracticeSource) => void;
     disabled?: boolean;
 }
 
-/** 举一反三出题来源：AI 生成变式题，或从真题库按知识点选题 */
+/** 举一反三出题来源：AI 生成变式题、从真题库按知识点选题，或基于真题库题目生成变式题 */
 export function PracticeSourcePicker({ value, onChange, disabled }: PracticeSourcePickerProps) {
     const { t } = useLanguage();
     return (
@@ -34,6 +35,16 @@ export function PracticeSourcePicker({ value, onChange, disabled }: PracticeSour
             >
                 <LibraryBig className="mr-2 h-4 w-4" />
                 {t.practice.sourceBank}
+            </Button>
+            <Button
+                type="button"
+                size="sm"
+                variant={value === "bankVariant" ? "default" : "outline"}
+                onClick={() => onChange("bankVariant")}
+                disabled={disabled}
+            >
+                <WandSparkles className="mr-2 h-4 w-4" />
+                {t.practice.sourceBankVariant}
             </Button>
         </div>
     );
