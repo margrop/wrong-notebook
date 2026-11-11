@@ -6,6 +6,8 @@ import { openSettings } from './support/flows';
 import { FIGURE } from './support/mock-ai.mjs';
 import { acceptConfirmDialog } from './helpers';
 
+import { BACKUP_VERSION } from '../src/lib/backup/format';
+
 test('[E2E-M07] 其他账号备份合并到当前账号并在同邮箱空账号恢复备份', async ({ page, browser, scenario }) => {
     const secondBook = await scenario.db.subject.create({ data: { name: '第二套体系', userId: scenario.user.id, stage: 'junior_high', subjectKey: 'math', tagSet: 'e2e-secondary' } });
     const leafIds: string[] = [];
@@ -34,7 +36,7 @@ test('[E2E-M07] 其他账号备份合并到当前账号并在同邮箱空账号�
     // 网页导出为 gzip 压缩的 .json；旧版纯 JSON 也能读取
     const contents = (raw[0] === 0x1f && raw[1] === 0x8b ? gunzipSync(raw) : raw).toString('utf8');
     const backup = JSON.parse(contents) as { version: number; user: Record<string, unknown>; errorItems: unknown[]; extensions?: unknown };
-    expect(backup.version).toBe(13);
+    expect(backup.version).toBe(BACKUP_VERSION);
     expect(backup.extensions).toEqual({});
     expect(backup.errorItems).toHaveLength(2);
     expect(backup.user).not.toHaveProperty('password');
