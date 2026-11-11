@@ -65,7 +65,7 @@ const REFERENCE_TEXT_INSTRUCTION_ZH = `【参考文字（REFERENCE TEXT）】
 
 export function generateAnalyzeRequest(language: 'zh' | 'en', grade?: GradeLevel | null, subject?: string | null, options: PromptOptions = {}, gradeSemester?: string | null, referenceText?: string | null): PromptRequest {
     const trimmed = referenceText?.trim() ? referenceText.trim().slice(0, MAX_REFERENCE_TEXT_LENGTH) : null;
-    const system = generateAnalyzePrompt(language, grade, safeSubject(subject), referenceOptions(options), safeGrade(gradeSemester));
+    const system = generateAnalyzePrompt(language, grade, safeSubject(subject), referenceOptions(options), safeGrade(gradeSemester), trimmed);
     const request = createPromptRequest(
         system,
         { subject, gradeSemester, tagOptions: inputOptions(options), ...(trimmed ? { referenceText: trimmed } : {}) },
@@ -169,7 +169,7 @@ export function generateQuestionSplitRequest(input: QuestionSplitInput): PromptR
 /** 修正题目文字：题目放在 data.questions，系统规则中不含任何题目文字 */
 export function generateTextFixRequest(input: TextFixInput): PromptRequest {
     return createPromptRequest(
-        generateTextFixPrompt(),
+        generateTextFixPrompt(input.map(({ text }) => text).join('\n')),
         { questions: input.map(({ id, text }) => ({ id, text })) },
         '请按系统规则逐题整理 data.questions 中的题目文字，只输出 JSON。',
     );

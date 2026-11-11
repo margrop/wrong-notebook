@@ -233,6 +233,32 @@ export const DRAFT_FILTER_RULES = `【过滤草稿与思考过程规则】
 - wrong_answer_text 和 mistake_analysis 只记录和分析学生针对本题写出的正式错误答案或正式解题步骤，必须过滤掉空白处或题干旁的零散草稿、竖式演算、试算涂改和人的思考批注；若图片中仅有草稿或思考痕迹而无正式错误作答，wrong_answer_text 和 mistake_analysis 必须留空。`;
 
 /**
+ * 语文题干转写规则：拼音声调、看拼音写词语的空位、注音汉字顺序
+ * （图片识别、图片分题、文字修正共用，避免同一规则复制多份）
+ */
+export const CHINESE_TRANSCRIPTION_RULES = `【语文题干转写规则】
+- 拼音必须带声调符号原样转写（ā á ǎ à ō ó ǒ ò ē é ě è ī í ǐ ì ū ú ǔ ù ǖ ǘ ǚ ǜ ü）：不得丢掉声调、不得用数字声调（如 ma3），也不得把拼音改写成汉字。
+- 「看拼音写词语」等题型必须保留拼音与括号/方框的对应关系：每个空用「（  ）」原样保留，不要把多个空合并，也不要把拼音或答案填进空里。
+- 填空题的下划线、括号、田字格位置按原样保留为空，不要把答案填进题干。
+- 带拼音注音的汉字（如「zhāo（朝）」）保持原有顺序，不要把注音与汉字调换、拆开或省略。`;
+
+/**
+ * 学科为语文、学科未知（图片识别由 AI 判断）或题干含拼音时输出语文转写规则，其他情况返回空串。
+ * includeUnknownSubject：图片识别未指定错题本时无法提前知道学科，由调用方明确要求附带规则；
+ * 文字修正等已知文本场景保持默认 false，只在检测到拼音时附带。
+ */
+export function generateChineseTranscriptionRules(
+  subject?: string | null,
+  sampleText?: string | null,
+  includeUnknownSubject = false,
+): string {
+  if (subject === '语文' || (includeUnknownSubject && !subject) || (sampleText && /[āáǎàōóǒòēéěèīíǐìūúǔùǖǘǚǜü]|拼音/.test(sampleText))) {
+    return CHINESE_TRANSCRIPTION_RULES;
+  }
+  return '';
+}
+
+/**
  * LaTeX 书写规则：页面用 KaTeX 渲染，只支持其中的命令（识别、举一反三、重新解题、修复公式共用）
  */
 export const LATEX_RULES = String.raw`- 行内公式用 $...$，独立公式用 $$...$$；不要用 \(...\) 或 \[...\]，每个 $ 必须成对出现。

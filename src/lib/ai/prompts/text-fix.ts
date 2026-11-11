@@ -2,6 +2,8 @@
  * 文字修正提示词模板与生成函数
  */
 
+import { generateChineseTranscriptionRules } from './shared';
+
 /** 修正文字输出协议的标题，同时用于日志与测试中区分修正请求 */
 export const TEXT_FIX_CONTRACT_TITLE = '【文字修正输出协议】';
 
@@ -27,7 +29,8 @@ ${TEXT_FIX_CONTRACT_TITLE}
 - 每道输入的题都要输出一项，id 与输入一致；uncertain 没有时为空数组。
 - 公式保持原来的写法，题目文字保持原文语言，不要翻译。`;
 
-/** 修正题目文字的提示词：删去草稿、修正 OCR 错字，数字和算式保持原样 */
-export function generateTextFixPrompt(): string {
-  return DEFAULT_TEXT_FIX_TEMPLATE;
+/** 修正题目文字的提示词：删去草稿、修正 OCR 错字，数字和算式保持原样；题干含拼音时附加语文转写规则 */
+export function generateTextFixPrompt(sampleText?: string | null): string {
+  const chineseRules = generateChineseTranscriptionRules(null, sampleText);
+  return chineseRules ? `${DEFAULT_TEXT_FIX_TEMPLATE}\n\n${chineseRules}` : DEFAULT_TEXT_FIX_TEMPLATE;
 }

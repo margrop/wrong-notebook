@@ -4,6 +4,7 @@
 
 import type { GradeLevel } from '../types';
 import {
+    generateChineseTranscriptionRules,
     generateFieldLanguageInstruction,
     generateGradeInstruction,
     generateGradeRecognitionInstruction,
@@ -150,14 +151,18 @@ ${LATEX_RULES}
  * Generates the analyze image prompt
  * @param language - Target language for analysis ('zh' or 'en')
  * @param grade - Optional grade level (7-9:初中, 10-12:高中) for cumulative tag filtering
+ * @param subject - 学科；语文时附带拼音与填空转写规则
  * @param options - Optional customizations
+ * @param gradeSemester - 固定年级学期
+ * @param referenceText - 题库文件文字层；含拼音时附带转写规则
  */
 export function generateAnalyzePrompt(
   language: 'zh' | 'en',
   grade?: GradeLevel | null,
   subject?: string | null,
   options?: PromptOptions,
-  gradeSemester?: string | null
+  gradeSemester?: string | null,
+  referenceText?: string | null
 ): string {
   const langInstruction = generateFieldLanguageInstruction(language);
 
@@ -336,7 +341,8 @@ ${politicsTagsString}`;
     provider_hints: options?.providerHints || ''
   }).trim() + '\n\n' + [
     '请完整识别用户图片中的题目、独立求解，并仅根据可见的正式作答分析错因，过滤掉草稿与人的思考过程。',
-    generateOutputContract('analyze'), DRAFT_FILTER_RULES, langInstruction, LATEX_RULES,
+    // 未指定错题本时 subject 为 null，学科由 AI 判断，无法提前知道是否语文，统一附带规则
+    generateOutputContract('analyze'), DRAFT_FILTER_RULES, generateChineseTranscriptionRules(subject, referenceText, true), langInstruction, LATEX_RULES,
     generateGradeInstruction(gradeSemester), generateGradeRecognitionInstruction(gradeSemester),
     tagsSection, DIFFICULTY_STARS_RULES, QUESTION_TYPE_RULES,
     '有配图时必须输出 figure_svg；无配图时留空。' + FIGURE_SVG_RULES,
