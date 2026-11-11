@@ -57,7 +57,7 @@ export function createMcpServer(user: User): McpServer {
         "create_notebook",
         {
             title: "Create notebook",
-            description: "Create a wrong-notebook for a school stage and subject. stage: primary/junior_high/senior_high/university; subjectKey: math/english/chinese/science/physics/chemistry/biology/history/geography/politics (science only for primary). Returns JSON.",
+            description: "Create a wrong-notebook for a school stage and subject. stage: primary/junior_high/senior_high/university. Primary allows math/english/chinese/science; other stages allow math/english/chinese/science/physics/chemistry/biology/history/geography/politics. Returns JSON.",
             inputSchema: {
                 name: z.string().trim().min(1).describe("Notebook display name, unique per user"),
                 stage: z.enum(NOTEBOOK_STAGES),
