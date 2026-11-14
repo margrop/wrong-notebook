@@ -8,6 +8,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ prisma: undefined as PrismaClient | undefined }));
@@ -48,11 +49,11 @@ beforeEach(async () => {
 
 afterAll(async () => {
     await database?.$disconnect();
-    if (directory) rmSync(directory, { recursive: true, force: true });
+    if (directory) rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 /** 建一条任务记录；日期字段都按 now 计算 */
-function task(id: string, overrides: Partial<Parameters<typeof database.importTask.create>[0]['data']> = {}) {
+function task(id: string, overrides: Partial<Prisma.ImportTaskUncheckedCreateInput> = {}): Prisma.ImportTaskUncheckedCreateInput {
     return { id, userId: 'user-1', mode: 'auto', status: 'saved', imageData: '', ...overrides };
 }
 
