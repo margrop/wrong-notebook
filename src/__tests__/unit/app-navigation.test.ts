@@ -32,7 +32,7 @@ describe("app-navigation", () => {
         expect(findActiveNavKey("/notebooks")).toBe("notebooks");
         expect(findActiveNavKey("/notebooks/abc")).toBe("notebooks");
         expect(findActiveNavKey("/error-items/x")).toBe("notebooks");
-        expect(findActiveNavKey("/practice/y")).toBe("notebooks");
+        expect(findActiveNavKey("/practice/y")).toBe("practice");
         expect(findActiveNavKey("/review")).toBe("review");
         expect(findActiveNavKey("/review/today")).toBe("review");
         expect(findActiveNavKey("/stats")).toBe("stats");
