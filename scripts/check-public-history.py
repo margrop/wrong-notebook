@@ -27,6 +27,7 @@ EXAMPLE_ADDRESSES = {
         "src/__tests__/integration/initialize.test.ts", "src/__tests__/integration/admin-telemetry-route.test.ts",
         "packaging/android/app/src/main/res/values/strings.xml",
         "packaging/android/app/src/main/res/values-zh/strings.xml",
+        "doc/wiki/AI-Configuration.md", "doc/wiki/en/AI-Configuration-en.md",
     },
 }
 IPV4 = re.compile(rb"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
