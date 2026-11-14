@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { badRequest, validationError, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
-import { DEFAULT_EXAM_PICK_RULE, EXAM_DIFFICULTIES, EXAM_MODES, EXAM_PICK_RULES, EXAM_SCOPES, MAX_EXAM_QUESTIONS, createExamPaperFromSources } from "@/lib/exam/exam";
+import { DEFAULT_EXAM_PICK_RULE, EXAM_DIFFICULTIES, EXAM_LAST_RESULTS, EXAM_MODES, EXAM_PICK_RULES, EXAM_SCOPES, MAX_EXAM_QUESTIONS, createExamPaperFromSources } from "@/lib/exam/exam";
 import type { CreateExamPaperFromSourcesArgs } from "@/lib/exam/exam";
 import { splitParallelSources } from "@/lib/exam/exam-parallel";
 import { DEFAULT_EXAM_SOURCE, getExamSourceProvider } from "@/lib/exam/exam-sources";
@@ -26,6 +26,8 @@ const createSchema = z.object({
     scope: z.enum(EXAM_SCOPES),
     count: z.number().int().min(1).max(MAX_EXAM_QUESTIONS),
     pickRule: z.enum(EXAM_PICK_RULES).default(DEFAULT_EXAM_PICK_RULE),
+    lastResult: z.enum(EXAM_LAST_RESULTS).default('any'),
+    balanceByTag: z.boolean().default(false),
     difficulty: z.enum(EXAM_DIFFICULTIES).optional(),
     mode: z.enum(EXAM_MODES).default('generate'),
     title: z.string().trim().max(100).optional(),
@@ -92,7 +94,7 @@ async function createExam(req: Request, { user }: AuthenticatedContext): Promise
         if (!parsed.success) {
             return validationError("Invalid exam options", parsed.error.issues);
         }
-        const { subjectIds, tagNames, paperLevelIds, questionTypes, scope, count, pickRule, difficulty, mode, language } = parsed.data;
+        const { subjectIds, tagNames, paperLevelIds, questionTypes, scope, count, pickRule, difficulty, mode, language, lastResult, balanceByTag } = parsed.data;
         const parallel = parsed.data.parallel;
         const source = parsed.data.source ?? DEFAULT_EXAM_SOURCE;
         const provider = getExamSourceProvider(source);
@@ -130,6 +132,8 @@ async function createExam(req: Request, { user }: AuthenticatedContext): Promise
             pickRule,
             requireQuestionText: mode === 'original',
             source,
+            lastResult,
+            balanceByTag,
         });
         if (sources.length === 0) {
             return badRequest("NO_SOURCE_ITEMS");

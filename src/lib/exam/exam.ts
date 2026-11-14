@@ -21,6 +21,9 @@ export type ExamMode = typeof EXAM_MODES[number];
 /** 抽题规则：优先练习较少的题目（默认）/ 完全随机 */
 export const EXAM_PICK_RULES = ['least_practiced', 'random'] as const;
 export type ExamPickRule = typeof EXAM_PICK_RULES[number];
+/** 按上次作答结果筛选：any 不限 / correct 上次答对 / wrong 上次答错（未作答不算任一） */
+export const EXAM_LAST_RESULTS = ['any', 'correct', 'wrong'] as const;
+export type ExamLastResult = typeof EXAM_LAST_RESULTS[number];
 export const DEFAULT_EXAM_PICK_RULE: ExamPickRule = 'least_practiced';
 export const MAX_EXAM_QUESTIONS = 50;
 
@@ -36,6 +39,10 @@ export interface ExamSelection {
     scope: ExamScope;
     count: number;
     pickRule?: ExamPickRule;
+    /** 只抽上次答对或答错的题；未作答的题不参与 */
+    lastResult?: ExamLastResult;
+    /** 按所选知识点均衡分配题数，避免单一标签占满整卷 */
+    balanceByTag?: boolean;
     /** 原题直出模式要求题目必须有题干文字 */
     requireQuestionText?: boolean;
     /** 选题来源 key，缺省为默认错题本来源（见 exam-sources.ts 的 DEFAULT_EXAM_SOURCE） */
@@ -112,6 +119,31 @@ export function pickLeastPracticed<T extends { practiceCount: number; inExam?: b
         .slice(0, count);
 }
 
+/** 按所选知识点轮流分配题数；某一知识点题量不足时用其他候选题补齐 */
+export function pickBalancedByTag<T extends { id: string; tags: { name: string }[]; knowledgePoints: string | null; practiceCount: number; inExam?: boolean }>(items: T[], tagNames: string[], count: number, pickRule: ExamPickRule = DEFAULT_EXAM_PICK_RULE): T[] {
+    const picked: T[] = [];
+    const pickedIds = new Set<string>();
+    const base = Math.floor(count / tagNames.length);
+    const extra = count % tagNames.length;
+    tagNames.forEach((tag, index) => {
+        const limit = base + (index < extra ? 1 : 0);
+        const bucket = items.filter((item) => !pickedIds.has(item.id) && parseTagNames(item).includes(tag));
+        const chosen = pickRule === 'random' ? sampleItems(bucket, limit) : pickLeastPracticed(bucket, limit);
+        for (const item of chosen) {
+            picked.push(item);
+            pickedIds.add(item.id);
+        }
+    });
+    if (picked.length < count) {
+        const remaining = items.filter((item) => !pickedIds.has(item.id));
+        const fill = pickRule === 'random'
+            ? sampleItems(remaining, count - picked.length)
+            : pickLeastPracticed(remaining, count - picked.length);
+        picked.push(...fill);
+    }
+    return picked;
+}
+
 /** 按抽题规则选取原题，练习次数为该题的全部举一反三记录数，同次数优先选未出现在已有试卷中的题 */
 export async function selectSourceItems(userId: string, selection: ExamSelection) {
     const where = buildSourceWhere(userId, selection, await getMasteryThreshold(userId));
@@ -120,19 +152,45 @@ export async function selectSourceItems(userId: string, selection: ExamSelection
     }
     const candidates = await prisma.errorItem.findMany({
         where,
-        // 只有原题直出需要判断题干，其他模式不读取题干全文；题型用于创建试卷题目时快照；难度星级用于 A/B 卷均衡分配
-        select: { id: true, shortId: true, questionType: true, difficultyStars: true, questionText: selection.requireQuestionText === true, _count: { select: { practiceRecords: true, examQuestions: true } } },
+        // 只有原题直出需要判断题干；最近一次作答用于结果筛选；标签用于按知识点均衡抽题
+        select: {
+            id: true,
+            shortId: true,
+            questionType: true,
+            difficultyStars: true,
+            questionText: selection.requireQuestionText === true,
+            knowledgePoints: true,
+            tags: { select: { name: true } },
+            practiceRecords: { select: { result: true, isCorrect: true }, orderBy: { createdAt: 'desc' }, take: 1 },
+            _count: { select: { practiceRecords: true, examQuestions: true } },
+        },
     });
-    let items = candidates.map(({ _count, ...item }) => ({
+    let items = candidates.map(({ _count, practiceRecords, tags, ...item }) => ({
         ...item,
+        tags: tags ?? [],
         practiceCount: _count.practiceRecords,
         inExam: (_count.examQuestions ?? 0) > 0,
+        lastAttempt: practiceRecords?.[0] ?? null,
     }));
     // 原题直出模式排除没有题干文字（空或纯空白）的题目
     if (selection.requireQuestionText) {
         items = items.filter((item) => !!item.questionText?.trim());
     }
-    return (selection.pickRule ?? DEFAULT_EXAM_PICK_RULE) === 'random'
+    const lastResult = selection.lastResult ?? 'any';
+    if (lastResult !== 'any') {
+        items = items.filter((item) => {
+            if (!item.lastAttempt) return false;
+            const correct = item.lastAttempt.result === 'correct' || item.lastAttempt.isCorrect === true;
+            const wrong = item.lastAttempt.result === 'wrong' || item.lastAttempt.isCorrect === false;
+            return lastResult === 'correct' ? correct : wrong;
+        });
+    }
+    const pickRule = selection.pickRule ?? DEFAULT_EXAM_PICK_RULE;
+    const tagNames = selection.tagNames ?? [];
+    if (selection.balanceByTag === true && tagNames.length > 0) {
+        return pickBalancedByTag(items, tagNames, selection.count, pickRule);
+    }
+    return pickRule === 'random'
         ? sampleItems(items, selection.count)
         : pickLeastPracticed(items, selection.count);
 }

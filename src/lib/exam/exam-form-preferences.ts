@@ -7,6 +7,8 @@ export const EXAM_FORM_SCOPES: readonly ExamScope[] = ["unmastered", "mastered",
 export const EXAM_FORM_PICK_RULES: readonly ExamPickRule[] = ["least_practiced", "random"];
 export const EXAM_FORM_MODES: readonly ExamMode[] = ["generate", "original"];
 export const EXAM_FORM_DIFFICULTIES = ["easy", "medium", "hard", "harder"] as const;
+export const EXAM_FORM_LAST_RESULTS = ["any", "correct", "wrong"] as const;
+export type ExamFormLastResult = typeof EXAM_FORM_LAST_RESULTS[number];
 export type ExamFormDifficulty = typeof EXAM_FORM_DIFFICULTIES[number];
 export const EXAM_FORM_MAX_COUNT = 50;
 
@@ -16,6 +18,8 @@ export interface ExamFormPreferences {
     pickRule: ExamPickRule;
     count: number;
     difficulty: ExamFormDifficulty;
+    lastResult: ExamFormLastResult;
+    balanceByTag: boolean;
 }
 
 export const DEFAULT_EXAM_FORM_PREFERENCES: ExamFormPreferences = {
@@ -24,6 +28,8 @@ export const DEFAULT_EXAM_FORM_PREFERENCES: ExamFormPreferences = {
     pickRule: "least_practiced",
     count: 10,
     difficulty: "medium",
+    lastResult: "any",
+    balanceByTag: false,
 };
 
 function pick<T extends string>(options: readonly T[], value: unknown, fallback: T): T {
@@ -53,6 +59,8 @@ export function parseExamFormPreferences(raw: string | null): ExamFormPreference
         pickRule: pick(EXAM_FORM_PICK_RULES, stored.pickRule, defaults.pickRule),
         count: typeof stored.count === "number" && Number.isFinite(stored.count) ? clampExamCount(stored.count) : defaults.count,
         difficulty: pick(EXAM_FORM_DIFFICULTIES, stored.difficulty, defaults.difficulty),
+        lastResult: pick(EXAM_FORM_LAST_RESULTS, stored.lastResult, defaults.lastResult),
+        balanceByTag: typeof stored.balanceByTag === "boolean" ? stored.balanceByTag : defaults.balanceByTag,
     };
 }
 

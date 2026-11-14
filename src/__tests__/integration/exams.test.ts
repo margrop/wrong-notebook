@@ -3,6 +3,7 @@
  */
 import { NextResponse } from 'next/server';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { ExamSelection } from '@/lib/exam/exam';
 
 const mocks = vi.hoisted(() => {
     const tx = {
@@ -269,11 +270,11 @@ describe('/api/exams', () => {
         it('注册测试 provider 后组卷使用它选出的题，注销后不再可用', async () => {
             const { registerExamSourceProvider, unregisterExamSourceProvider } = await import('@/lib/exam/exam-sources');
             const selected = [
-                { id: 'e9', shortId: 'ZZZZZZ', questionText: '题9', questionType: 'calculation', practiceCount: 0, inExam: false, difficultyStars: null },
+                { id: 'e9', shortId: 'ZZZZZZ', questionText: '题9', questionType: 'calculation', practiceCount: 0, inExam: false, difficultyStars: null, knowledgePoints: null, tags: [], lastAttempt: { result: null, isCorrect: null } },
             ];
             registerExamSourceProvider({
                 key: 'test-bank',
-                select: async (userId: string, selection: { count: number }) => {
+                select: async (userId: string, selection: ExamSelection) => {
                     expect(userId).toBe('user-1');
                     expect(selection.count).toBe(1);
                     return selected;

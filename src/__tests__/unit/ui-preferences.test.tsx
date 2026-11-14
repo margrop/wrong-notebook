@@ -79,7 +79,7 @@ describe('parseExamFormPreferences', () => {
     });
 
     it('保存后能完整还原', () => {
-        const preferences = { mode: 'original', scope: 'all', pickRule: 'random', count: 25, difficulty: 'harder' } as const;
+        const preferences = { mode: 'original', scope: 'all', pickRule: 'random', count: 25, difficulty: 'harder', lastResult: 'wrong', balanceByTag: true } as const;
         expect(parseExamFormPreferences(serializeExamFormPreferences(preferences))).toEqual(preferences);
     });
 

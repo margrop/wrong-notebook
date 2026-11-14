@@ -18,6 +18,7 @@ import {
     EXAM_FORM_DIFFICULTIES as DIFFICULTIES,
     EXAM_FORM_MAX_COUNT,
     EXAM_FORM_PICK_RULES as PICK_RULES,
+    EXAM_FORM_LAST_RESULTS as LAST_RESULTS,
     EXAM_FORM_PREFERENCES_STORAGE_KEY,
     EXAM_FORM_SCOPES as SCOPES,
     parseExamFormPreferences,
@@ -41,8 +42,13 @@ interface CreateExamResponse {
     error?: string;
 }
 
+interface ExamCreateFormProps {
+    /** 创建成功后关闭外层抽屉 */
+    onClose?: () => void;
+}
+
 /** 新建试卷：选择错题本、范围、题量与难度 */
-export function ExamCreateForm() {
+export function ExamCreateForm({ onClose }: ExamCreateFormProps) {
     const { t, language } = useLanguage();
     const router = useRouter();
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
@@ -52,7 +58,7 @@ export function ExamCreateForm() {
     const [questionTypes, setQuestionTypes] = useState<string[]>([]);
     // 出题方式、范围、题数、难度、抽题规则记住上次的选择
     const [preferences, savePreferences] = useStoredValue(EXAM_FORM_PREFERENCES_STORAGE_KEY, parseExamFormPreferences, serializeExamFormPreferences);
-    const { scope, pickRule, count, difficulty, mode } = preferences;
+    const { scope, pickRule, count, difficulty, mode, lastResult, balanceByTag } = preferences;
     const updatePreferences = (patch: Partial<ExamFormPreferences>) => savePreferences({ ...preferences, ...patch });
     const [title, setTitle] = useState("");
     const [parallel, setParallel] = useState(false);
@@ -102,6 +108,8 @@ export function ExamCreateForm() {
                 scope,
                 pickRule,
                 count,
+                lastResult,
+                balanceByTag,
                 difficulty: mode === "original" ? undefined : difficulty,
                 mode,
                 title: title.trim() || undefined,
@@ -118,6 +126,7 @@ export function ExamCreateForm() {
                 // 第二卷 AI 额度不足
                 setNotice(t.exam.parallelQuotaExceeded);
             }
+            onClose?.();
             router.push(`/exams/${paper.id}`);
         } catch (err) {
             const message = (err as { data?: { message?: string } })?.data?.message;
@@ -279,6 +288,35 @@ export function ExamCreateForm() {
                             ))}
                         </div>
                         <p className="text-xs text-muted-foreground">{t.exam.pickRuleHints[pickRule]}</p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>{t.exam.lastResult}</Label>
+                        <div className="grid grid-cols-3 gap-1 rounded-md bg-muted p-1 sm:max-w-sm">
+                            {LAST_RESULTS.map((value) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => updatePreferences({ lastResult: value })}
+                                    className={`rounded px-2 py-1.5 text-sm transition-colors ${lastResult === value ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}
+                                >
+                                    {t.exam.lastResults[value]}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{t.exam.lastResultHint}</p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-4">
+                            <Label htmlFor="exam-balance-tags">{t.exam.balanceByTag}</Label>
+                            <Switch
+                                id="exam-balance-tags"
+                                checked={balanceByTag}
+                                onCheckedChange={(value) => updatePreferences({ balanceByTag: value })}
+                            />
+                        </div>
+                        <p className="text-xs text-muted-foreground">{t.exam.balanceByTagHint}</p>
                     </div>
 
                     <div className="space-y-2">

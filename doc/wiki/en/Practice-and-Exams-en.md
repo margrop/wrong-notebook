@@ -50,13 +50,14 @@ The **Review** page in the navigation lists questions due today, and the home pa
 
 ## Generate an exam paper
 
-1. Open the exam entry and choose the scope: notebooks, knowledge points, question types, mastery and so on, plus the mode (Similar Questions / Original). Question types are optional (leave empty for no restriction); you can also select one or more types to only pick questions of those types, including "Not set" (questions without a question type).
-2. The system picks questions from that scope (by default **Least practiced first**: questions with fewer practice records come first; for ties, questions that have never appeared in an existing exam paper come first, then random; **Fully random** is also available).
-3. **Similar Questions** (default): the AI generates a variant for each question. Check the progress in background tasks; when it finishes, open the paper and check the questions, figures and answers. You can choose the difficulty (Easy / Medium / Hard / Challenge).
-4. **Original**: uses the original question text, answer, analysis and figure directly. No AI is called and no AI quota is consumed; the paper is ready to print immediately. No difficulty selection needed.
-5. Print or export it, and afterwards record the result for each question.
+1. Open the exam entry and choose in the right-side drawer: question count (default 10, set from 1 to 50), the scope (notebooks, knowledge points, question types, mastery) and the mode (Similar Questions / Original). Question types are optional (leave empty for no restriction); you can also select one or more types to only pick questions of those types, including "Not set" (questions without a question type).
+2. **Last answer result** narrows the pool to questions answered correctly or incorrectly the last time (never-attempted questions match neither). **Balance by knowledge point** distributes the count across the selected tags in turn; when a tag has fewer candidates, the remaining slots are filled from other candidates.
+3. The system picks questions from that scope (by default **Least practiced first**: questions with fewer practice records come first; for ties, questions that have never appeared in an existing exam paper come first, then random; **Fully random** is also available).
+4. **Similar Questions** (default): the AI generates a variant for each question. Check the progress in background tasks; when it finishes, open the paper and check the questions, figures and answers. You can choose the difficulty (Easy / Medium / Hard / Challenge).
+5. **Original**: uses the original question text, answer, analysis and figure directly. No AI is called and no AI quota is consumed; the paper is ready to print immediately. No difficulty selection needed.
+6. Print or export it, and afterwards record the result for each question.
 
-The exam form remembers the mode, mastery scope, question count, difficulty and pick rule you used last time in this browser; notebooks, knowledge points, question types and the title are chosen again each time.
+The exam drawer remembers the mode, mastery scope, question count, difficulty, pick rule, last-result filter and balance switch you used last time in this browser; notebooks, knowledge points, question types and the title are chosen again each time.
 
 When creating an exam, turn on **Generate A/B papers simultaneously**. The system picks up to 2× the question count of non-overlapping questions under the same conditions and splits them into two parallel papers, balanced by question type and difficulty: Paper A and Paper B have no overlapping questions, with similar type distributions and difficulty levels—suitable for class quizzes or comparison practice. Titles automatically get the suffixes "(Paper A)" and "(Paper B)". In Similar Questions mode, each paper generates separately and consumes its own AI quota. When there are not enough source questions, Paper B is still created as long as it gets at least one question (it may have fewer questions than Paper A) and a warning is shown; if Paper B would get zero questions, only Paper A is created.
 

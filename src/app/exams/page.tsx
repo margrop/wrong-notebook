@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageLoading } from "@/components/ui/page-loading";
-import { ExamCreateForm } from "@/components/exam/exam-create-form";
+import { ExamCreateDrawer } from "@/components/exam/exam-create-drawer";
 import { ExamStatusBadge } from "@/components/exam/exam-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -50,7 +50,7 @@ export default function ExamsPage() {
                     )}
                 />
 
-                {showForm && <ExamCreateForm />}
+                <ExamCreateDrawer open={showForm} onOpenChange={setShowForm} />
 
                 <section className="space-y-3">
                     <h2 className="text-lg font-semibold">{t.exam.list}</h2>
