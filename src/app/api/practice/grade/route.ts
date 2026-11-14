@@ -14,7 +14,8 @@ import { trackPracticeGrading } from "@/lib/telemetry/events";
 const logger = createLogger('api:practice:grade');
 
 const gradeSchema = z.object({
-    errorItemId: z.string().min(1),
+    errorItemId: z.string().min(1).optional(),
+    practiceQuestionId: z.string().min(1).optional(),
     userAnswer: z.string().trim().min(1).max(5000),
     language: z.enum(['zh', 'en']).optional(),
 });
@@ -30,13 +31,25 @@ async function handlePost(req: Request, { user }: AuthenticatedContext) {
         if (!parsed.success) {
             return validationError("Invalid grading request", parsed.error.issues);
         }
-        const { errorItemId, userAnswer, language } = parsed.data;
+        const { errorItemId, practiceQuestionId, userAnswer, language } = parsed.data;
 
-        const item = await prisma.errorItem.findUnique({
-            where: { id: errorItemId },
-            select: { userId: true, lastPractice: true },
-        });
-        const practice = item && item.userId === user.id ? parseLastPractice(item.lastPractice) : null;
+        // 历史题直接读取已保存的题目与答案；旧流程仍读取错题的最近一次生成结果
+        let practice: { questionText: string; answerText: string; analysis: string } | null = null;
+        if (practiceQuestionId) {
+            const stored = await prisma.practiceQuestion.findUnique({
+                where: { id: practiceQuestionId },
+                select: { userId: true, questionText: true, answerText: true, analysis: true },
+            });
+            practice = stored && stored.userId === user.id
+                ? { questionText: stored.questionText, answerText: stored.answerText, analysis: stored.analysis }
+                : null;
+        } else if (errorItemId) {
+            const item = await prisma.errorItem.findUnique({
+                where: { id: errorItemId },
+                select: { userId: true, lastPractice: true },
+            });
+            practice = item && item.userId === user.id ? parseLastPractice(item.lastPractice) : null;
+        }
         if (!practice) {
             return notFound("Practice question not found");
         }

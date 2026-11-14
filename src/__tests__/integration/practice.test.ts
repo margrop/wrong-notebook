@@ -10,6 +10,12 @@ const mocks = vi.hoisted(() => ({
         findUnique: vi.fn(),
         update: vi.fn(),
     },
+    mockPrismaPracticeQuestion: {
+        create: vi.fn(),
+        findUnique: vi.fn(),
+        findMany: vi.fn(),
+        count: vi.fn(),
+    },
     mockPrismaPracticeRecord: {
         create: vi.fn(),
         findUnique: vi.fn(),
@@ -54,6 +60,7 @@ vi.mock('@/lib/prisma', () => ({
         questionBank: mocks.mockPrismaQuestionBank,
         bankQuestion: mocks.mockPrismaBankQuestion,
         user: mocks.mockPrismaUser,
+        practiceQuestion: mocks.mockPrismaPracticeQuestion,
     },
 }));
 
@@ -66,7 +73,13 @@ vi.mock('@/lib/ai', () => ({
 vi.mock('@/lib/ai-quota', () => ({ consumeAiQuota: mocks.consumeAiQuota }));
 
 // Mock db write queue
-vi.mock('@/lib/db-write-queue', () => ({ serializeWrite: (fn: () => Promise<unknown>) => fn() }));
+vi.mock('@/lib/db-write-queue', () => ({
+    serializeWrite: (fn: () => Promise<unknown>) => fn(),
+    runSerializedTransaction: (fn: (tx: unknown) => Promise<unknown>) => fn({
+        practiceQuestion: mocks.mockPrismaPracticeQuestion,
+        errorItem: mocks.mockPrismaErrorItem,
+    }),
+}));
 
 // Mock next-auth
 vi.mock('next-auth', () => ({
@@ -100,6 +113,7 @@ describe('/api/practice', () => {
         vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
         mocks.mockPrismaUser.findUnique.mockResolvedValue(mocks.mockUser);
         mocks.consumeAiQuota.mockResolvedValue(null);
+        mocks.mockPrismaPracticeQuestion.create.mockResolvedValue({ id: 'pq-1' });
         resetBackgroundTasksForTest();
     });
 
@@ -298,8 +312,14 @@ describe('/api/practice', () => {
                 difficulty: 'hard',
             });
             expect(typeof saved.generatedAt).toBe('string');
-        });
 
+            expect(mocks.mockPrismaPracticeQuestion.create).toHaveBeenCalledWith({
+                data: expect.objectContaining({
+                    userId: 'user-123', errorItemId: 'error-item-1', questionText: '求解 3x = 9', difficulty: 'hard', source: 'ai',
+                }),
+            });
+            expect(await response.json()).toMatchObject({ practiceQuestionId: 'pq-1', saved: true });
+        });
         it('暂存失败时仍应返回生成的题目', async () => {
             mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
             mocks.mockPrismaErrorItem.update.mockRejectedValueOnce(new Error('db busy'));
@@ -315,7 +335,7 @@ describe('/api/practice', () => {
             const response = await GENERATE_POST(request);
 
             expect(response.status).toBe(200);
-            expect((await response.json()).questionText).toBe('题目');
+            expect(await response.json()).toMatchObject({ questionText: '题目', saved: false });
         });
 
         it('应该支持不同难度级别', async () => {

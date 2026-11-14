@@ -7,7 +7,7 @@ import { badRequest, notFound, internalError, taskAlreadyRunning } from "@/lib/a
 import { generatePracticeSchema } from "@/lib/schemas/practice";
 import { createLogger } from "@/lib/logger";
 import { describeQuestion, findRunningTask, reserveBackgroundTask, runReservedTask } from "@/lib/background-tasks";
-import { serializeWrite } from "@/lib/db-write-queue";
+import { runSerializedTransaction, serializeWrite } from "@/lib/db-write-queue";
 import { parseLastPractice, serializeLastPractice } from "@/lib/last-practice";
 import type { LastPractice } from "@/lib/last-practice";
 import { consumeAiQuota } from "@/lib/ai-quota";
@@ -179,16 +179,45 @@ async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
             source: source === 'bank' ? 'bank' : source === 'bankVariant' ? 'bankVariant' : 'ai',
             generatedAt: new Date().toISOString(),
         };
+        // 每次生成都新增一条历史题，并同步暂存字段供旧版页面直接显示；写入失败时明确返回 saved: false
+        let practiceQuestionId: string | null = null;
+        let saved = false;
         try {
-            await prisma.errorItem.update({
-                where: { id: errorItemId },
-                data: { lastPractice: serializeLastPractice(lastPractice) }
+            const created = await runSerializedTransaction(async (tx) => {
+                const question = await tx.practiceQuestion.create({
+                    data: {
+                        userId: user.id,
+                        errorItemId,
+                        subject: lastPractice.subject ?? null,
+                        difficulty: lastPractice.difficulty,
+                        source: lastPractice.source ?? 'ai',
+                        questionText: lastPractice.questionText,
+                        answerText: lastPractice.answerText,
+                        analysis: lastPractice.analysis,
+                        figureSvg: lastPractice.figureSvg ?? null,
+                        generatedAt: new Date(lastPractice.generatedAt),
+                    },
+                });
+                await tx.errorItem.update({
+                    where: { id: errorItemId },
+                    data: { lastPractice: serializeLastPractice(lastPractice) },
+                });
+                return question;
             });
+            practiceQuestionId = created.id;
+            saved = true;
         } catch (error) {
-            logger.warn({ error }, 'Failed to cache last practice question');
+            logger.warn({ error, errorItemId }, 'Failed to persist generated practice question');
         }
 
-        return NextResponse.json({ ...practiceQuestion, difficulty: lastPractice.difficulty, source: lastPractice.source, generatedAt: lastPractice.generatedAt });
+        return NextResponse.json({
+            ...practiceQuestion,
+            difficulty: lastPractice.difficulty,
+            source: lastPractice.source,
+            generatedAt: lastPractice.generatedAt,
+            practiceQuestionId,
+            saved,
+        });
     } catch (error) {
         logger.error({ error }, 'Error generating practice');
         const errorMessage = error instanceof Error ? error.message : "Failed to generate practice question";

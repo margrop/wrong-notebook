@@ -39,6 +39,7 @@ model User {
   errorItems ErrorItem[]
   subjects   Subject[]
   practiceRecords PracticeRecord[]
+  practiceQuestions PracticeQuestion[]
   customTags KnowledgeTag[] // User's custom tags
   examPapers ExamPaper[]
   aiUsages   AiUsage[]
@@ -227,6 +228,7 @@ model ErrorItem {
 
   reviewSchedules ReviewSchedule[]
   practiceRecords PracticeRecord[]
+  practiceQuestions PracticeQuestion[]
   examQuestions   ExamQuestion[]
   importTasks     ImportTask[]
   
@@ -274,12 +276,41 @@ model PracticeRecord {
   // 试卷题目可多次录入结果，每次一条记录
   examQuestionId String?
   examQuestion   ExamQuestion? @relation(fields: [examQuestionId], references: [id], onDelete: SetNull)
+  // 智能练习历史题：作答记录引用生成题，题目删除后记录仍保留
+  practiceQuestionId String?
+  practiceQuestion   PracticeQuestion? @relation(fields: [practiceQuestionId], references: [id], onDelete: SetNull)
   
   createdAt DateTime @default(now())
 
   @@index([errorItemId, createdAt])
   @@index([examQuestionId])
   @@index([userId, createdAt])
+  @@index([practiceQuestionId])
+}
+
+/// 一次成功生成的智能练习题目：重新生成新增一条，作答记录引用该题
+model PracticeQuestion {
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  errorItemId String?
+  errorItem   ErrorItem? @relation(fields: [errorItemId], references: [id], onDelete: SetNull)
+
+  subject      String?
+  difficulty   String? // easy | medium | hard | harder
+  source       String @default("ai") // ai | bank | bankVariant
+  questionText String
+  answerText   String
+  analysis     String
+  figureSvg    String?
+
+  generatedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  attempts PracticeRecord[]
+
+  @@index([userId, createdAt])
+  @@index([errorItemId, createdAt])
 }
 
 // 随机错题试卷

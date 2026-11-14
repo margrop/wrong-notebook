@@ -147,7 +147,7 @@ export function usePracticeSession(errorItemId: string | null) {
         setShowAnswer(false);
         try {
             frontendLogger.info('[Practice]', 'Generating question', { timeout });
-            const data = await apiClient.post<ParsedQuestion & { generatedAt?: string }>("/api/practice/generate", {
+            const data = await apiClient.post<ParsedQuestion & { generatedAt?: string; practiceQuestionId?: string | null; saved?: boolean }>("/api/practice/generate", {
                 errorItemId,
                 language,
                 difficulty,
@@ -157,6 +157,7 @@ export function usePracticeSession(errorItemId: string | null) {
             setGeneratedDifficulty(difficulty);
             setGeneratedAt(data.generatedAt ?? null);
             setQuestionVersion(v => v + 1);
+            if (data.saved === false) toast.error(t.practice.errors?.saveFailed || t.mastery.resultSaveFailed);
         } catch (err) {
             if (err instanceof ApiError && err.status === 409 && (err.data as { code?: string })?.code === "TASK_ALREADY_RUNNING") {
                 toast.info(t.errors.TASK_ALREADY_RUNNING);

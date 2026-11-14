@@ -11,6 +11,7 @@ import { importQuestionBanks } from "./banks";
 import { importPaperGroups, importErrorItems } from "./error-items";
 import { importReviewSchedules, importExamPapers } from "./exams";
 import { importPracticeRecords, syncMasteryThreshold } from "./practice";
+import { importPracticeQuestions } from "./practice-questions";
 import { importRegisteredExtensions } from "./misc";
 
 export { createImportContext } from "./types";
@@ -32,6 +33,8 @@ export async function importBackupData(options: ImportWriterOptions): Promise<Im
     await importErrorItems(ctx);
     // 4.1 真题库与题目（独立于错题本）
     await importQuestionBanks(ctx);
+    // 4.2 智能练习生成题（练习记录会引用）
+    await importPracticeQuestions(ctx);
     // 5-6. 复习计划与试卷
     await importReviewSchedules(ctx);
     await importExamPapers(ctx);

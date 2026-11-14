@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BarChart3, BookOpen, CalendarCheck, FileText, LibraryBig, PlusCircle } from "lucide-react";
+import { BarChart3, BookOpen, CalendarCheck, FileText, LibraryBig, PlusCircle, Sparkles } from "lucide-react";
 import type { translations } from "@/lib/translations";
 
 /** 导航项 key：对应 translations 中 t.nav 的翻译 key */
@@ -22,8 +22,9 @@ export const NAV_ITEMS: NavItem[] = [
         key: "notebooks",
         href: "/notebooks",
         icon: BookOpen,
-        match: (p) => p.startsWith("/notebooks") || p.startsWith("/error-items") || p.startsWith("/practice"),
+        match: (p) => p.startsWith("/notebooks") || p.startsWith("/error-items"),
     },
+    { key: "practice", href: "/practice", icon: Sparkles, match: (p) => p.startsWith("/practice") },
     { key: "review", href: "/review", icon: CalendarCheck, match: (p) => p.startsWith("/review") },
     { key: "stats", href: "/stats", icon: BarChart3, match: (p) => p.startsWith("/stats") || p.startsWith("/tags") },
     { key: "exams", href: "/exams", icon: FileText, match: (p) => p.startsWith("/exams") },

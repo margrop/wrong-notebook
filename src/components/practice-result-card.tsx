@@ -12,15 +12,20 @@ import { frontendLogger } from "@/lib/frontend-logger";
 import type { PracticeResult } from "@/types/api";
 
 interface PracticeResultCardProps {
-    errorItemId: string;
+    /** 原错题；历史题的原题已删除时为空 */
+    errorItemId?: string;
+    /** 独立生成题 ID；历史题重复作答时带上，作答记录引用该题 */
+    practiceQuestionId?: string;
     /** 根据用户答案自动判题得到的建议结果 */
     suggested: PracticeResult | null;
     question: { questionText: string; answerText: string; analysis: string; subject?: string; figureSvg?: string | null };
     difficulty: string;
+    /** 保存成功后刷新历史题的作答记录 */
+    onSaved?: () => void;
 }
 
 /** 举一反三结束后由用户确认结果并保存 */
-export function PracticeResultCard({ errorItemId, suggested, question, difficulty }: PracticeResultCardProps) {
+export function PracticeResultCard({ errorItemId, practiceQuestionId, suggested, question, difficulty, onSaved }: PracticeResultCardProps) {
     const { t } = useLanguage();
     const [result, setResult] = useState<PracticeResult | null>(suggested);
     const [saving, setSaving] = useState(false);
@@ -33,7 +38,8 @@ export function PracticeResultCard({ errorItemId, suggested, question, difficult
         setError(null);
         try {
             await apiClient.post("/api/practice/record", {
-                errorItemId,
+                ...(errorItemId ? { errorItemId } : {}),
+                ...(practiceQuestionId ? { practiceQuestionId } : {}),
                 result,
                 difficulty,
                 subject: question.subject || null,
@@ -43,6 +49,7 @@ export function PracticeResultCard({ errorItemId, suggested, question, difficult
                 figureSvg: question.figureSvg ?? null,
             });
             setSaved(true);
+            onSaved?.();
         } catch (err) {
             frontendLogger.error('[Practice]', 'Failed to save practice result', {
                 error: err instanceof Error ? err.message : String(err),
@@ -69,7 +76,7 @@ export function PracticeResultCard({ errorItemId, suggested, question, difficult
                             <CheckCircle className="h-4 w-4" />
                             {t.mastery.resultSaved}
                         </span>
-                        <Link href={`/error-items/${errorItemId}`} className="text-primary hover:underline sm:ml-auto">
+                        <Link href={errorItemId ? `/error-items/${errorItemId}` : "/practice"} className="text-primary hover:underline sm:ml-auto">
                             {t.mastery.viewQuestion}
                         </Link>
                     </div>

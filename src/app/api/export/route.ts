@@ -82,6 +82,10 @@ export async function GET(req: Request) {
             where: userFilter,
         });
 
+        const practiceQuestions = await prisma.practiceQuestion.findMany({
+            where: userFilter,
+        });
+
         const examPapers = await prisma.examPaper.findMany({
             where: userFilter,
             include: {
@@ -144,6 +148,7 @@ export async function GET(req: Request) {
             })),
             reviewSchedules,
             practiceRecords,
+            practiceQuestions,
             examPapers: examPapers.map((paper) => ({
                 ...paper,
                 questions: paper.questions.map((question) => ({
@@ -171,6 +176,7 @@ export async function GET(req: Request) {
             errorItemsCount: errorItems.length,
             reviewSchedulesCount: reviewSchedules.length,
             practiceRecordsCount: practiceRecords.length,
+            practiceQuestionsCount: practiceQuestions.length,
             examPapersCount: examPapers.length,
             importTasksCount: importTasks.length,
             importBatchesCount: importBatches.length,

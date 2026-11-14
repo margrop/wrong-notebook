@@ -17,6 +17,8 @@ Answers are checked when you submit. If your answer matches the reference answer
 
 Each question keeps the most recently generated variant and its solution. Reopening practice shows that question and when it was generated without calling the AI again; click "Regenerate" for a new one, which replaces the saved variant.
 
+Every generated variant is saved as an independent practice-history question. The **Practice** page (a separate navigation entry) lists all generated variants and filters them by notebook, knowledge point, difficulty and attempt status. Opening one lets you answer it directly and repeat the same question without calling AI again. Answer records reference that history question, making accuracy and attempt counts measurable; history questions survive deletion of the original mistake. If generation succeeds but saving fails, the page shows a warning; refresh or generate again.
+
 ## Mastery
 
 Mastery probability is estimated from the actual answer history linked to the original question, including similar-question practice, exam answers and repeated imports.

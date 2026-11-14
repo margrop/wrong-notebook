@@ -7,7 +7,7 @@ import type { ImportContext } from "./types";
 
 /** 7. 导入 practice records */
 export async function importPracticeRecords(ctx: ImportContext): Promise<void> {
-    const { tx, user, importAll, normalized, stats, masteryIds, evaluatedIds, errorItemIdMap, errorItemOwnerMap, examQuestionIdMap, examQuestionOwnerMap } = ctx;
+    const { tx, user, importAll, normalized, stats, masteryIds, evaluatedIds, errorItemIdMap, errorItemOwnerMap, examQuestionIdMap, examQuestionOwnerMap, practiceQuestionIdMap, practiceQuestionOwnerMap } = ctx;
     for (const record of normalized.practiceRecords) {
         const { raw } = record;
         const targetUserId = importAll ? raw.userId : user.id;
@@ -15,14 +15,17 @@ export async function importPracticeRecords(ctx: ImportContext): Promise<void> {
             ? errorItemIdMap.get(raw.errorItemId) : undefined;
         const examQuestionId = raw.examQuestionId && examQuestionOwnerMap.get(raw.examQuestionId) === targetUserId
             ? examQuestionIdMap.get(raw.examQuestionId) : undefined;
+        const practiceQuestionId = raw.practiceQuestionId && practiceQuestionOwnerMap.get(raw.practiceQuestionId) === targetUserId
+            ? practiceQuestionIdMap.get(raw.practiceQuestionId) : undefined;
         await tx.practiceRecord.create({
             data: {
                 userId: targetUserId,
                 subject: raw.subject,
                 difficulty: raw.difficulty,
                 isCorrect: raw.isCorrect,
-                ...(errorItemId ? {
-                    errorItemId,
+                ...(errorItemId ? { errorItemId } : {}),
+                ...(practiceQuestionId ? { practiceQuestionId } : {}),
+                ...((errorItemId || practiceQuestionId) ? {
                     result: record.result,
                     questionText: raw.questionText,
                     answerText: raw.answerText,

@@ -13,6 +13,7 @@ const logger = createLogger('api:practice:record');
 
 const recordSchema = z.object({
     errorItemId: z.string().min(1).optional(),
+    practiceQuestionId: z.string().min(1).optional(),
     result: z.enum(PRACTICE_RESULTS as [string, ...string[]]).optional(),
     isCorrect: z.boolean().nullable().optional(),
     subject: z.string().max(50).nullable().optional(),
@@ -33,7 +34,11 @@ async function handlePost(req: Request, { user }: AuthenticatedContext) {
         if (!parsed.success) {
             return validationError("Invalid practice record", parsed.error.issues);
         }
-        const { errorItemId, difficulty, questionText, answerText, analysis, mistakeAnalysis } = parsed.data;
+        let errorItemId = parsed.data.errorItemId;
+        const practiceQuestionId = parsed.data.practiceQuestionId;
+        let { difficulty, questionText, answerText, analysis } = parsed.data;
+        const mistakeAnalysis = parsed.data.mistakeAnalysis;
+        let questionFigureSvg: string | null = null;
         let subject = parsed.data.subject;
         const source = parsed.data.source ?? 'practice';
         const figureSvg = sanitizeFigureSvg(parsed.data.figureSvg);
@@ -42,6 +47,27 @@ async function handlePost(req: Request, { user }: AuthenticatedContext) {
             ?? (parsed.data.isCorrect === true ? 'correct' : parsed.data.isCorrect === false ? 'wrong' : undefined);
 
         const userId = user.id;
+
+        // 历史题作答：校验题目归属，并从题目补齐原题、学科与难度
+        if (practiceQuestionId) {
+            const question = await prisma.practiceQuestion.findUnique({
+                where: { id: practiceQuestionId },
+                select: { userId: true, errorItemId: true, subject: true, difficulty: true, questionText: true, answerText: true, analysis: true, figureSvg: true },
+            });
+            if (!question || question.userId !== userId) {
+                return notFound("Practice question not found");
+            }
+            if (errorItemId && question.errorItemId && errorItemId !== question.errorItemId) {
+                return validationError("Practice question does not belong to this item", [{ code: 'mismatch', path: ['practiceQuestionId'], message: 'Mismatched error item' }]);
+            }
+            errorItemId ??= question.errorItemId ?? undefined;
+            subject ??= question.subject;
+            difficulty ??= question.difficulty;
+            questionText ??= question.questionText;
+            answerText ??= question.answerText;
+            analysis ??= question.analysis;
+            questionFigureSvg = sanitizeFigureSvg(question.figureSvg);
+        }
 
         // 关联原题时校验归属，防止写入他人的错题
         if (errorItemId) {
@@ -63,14 +89,15 @@ async function handlePost(req: Request, { user }: AuthenticatedContext) {
                 subject,
                 difficulty,
                 isCorrect,
-                ...(errorItemId ? {
-                    errorItemId,
+                ...(practiceQuestionId ? { practiceQuestionId } : {}),
+                ...(errorItemId ? { errorItemId } : {}),
+                ...((errorItemId || practiceQuestionId) ? {
                     result,
                     questionText,
                     answerText,
                     analysis,
                     mistakeAnalysis,
-                    figureSvg,
+                    figureSvg: figureSvg ?? questionFigureSvg,
                     source,
                 } : {}),
                 ...(parsed.data.takenAt ? { createdAt: new Date(parsed.data.takenAt) } : {}),

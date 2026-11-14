@@ -13,6 +13,7 @@ export interface ImportStats {
     examPapersCreated: number;
     preferencesRestored: boolean;
     practiceRecordsCreated: number;
+    practiceQuestionsCreated: number;
     tagsLinked: number;
     duplicateErrorItems: number;
     ttsSpeechesImported: number;
@@ -54,6 +55,8 @@ export interface ImportContext {
     examPaperIdMap: Map<string, string>;
     examQuestionIdMap: Map<string, string>;
     examQuestionOwnerMap: Map<string, string>;
+    practiceQuestionIdMap: Map<string, string>;
+    practiceQuestionOwnerMap: Map<string, string>;
 }
 
 export interface ImportWriterOptions {
@@ -85,6 +88,7 @@ export function createImportContext({ tx, user, importAll, normalized }: ImportW
             examPapersCreated: 0,
             preferencesRestored: false,
             practiceRecordsCreated: 0,
+            practiceQuestionsCreated: 0,
             tagsLinked: 0,
             duplicateErrorItems: 0,
             ttsSpeechesImported: 0,
@@ -109,5 +113,7 @@ export function createImportContext({ tx, user, importAll, normalized }: ImportW
         examPaperIdMap: new Map<string, string>(),
         examQuestionIdMap: new Map<string, string>(),
         examQuestionOwnerMap: new Map<string, string>(),
+        practiceQuestionIdMap: new Map<string, string>(),
+        practiceQuestionOwnerMap: new Map<string, string>(),
     };
 }

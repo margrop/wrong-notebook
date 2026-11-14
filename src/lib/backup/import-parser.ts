@@ -10,6 +10,7 @@ import type {
     ImportedBackupErrorItem,
     ImportedBackupExamPaper,
     ImportedBackupPracticeRecord,
+    ImportedBackupPracticeQuestion,
     ImportedBackupReviewSchedule,
 } from "@/lib/backup/format";
 import { parseLastPractice } from "@/lib/last-practice";
@@ -128,6 +129,14 @@ export interface NormalizedPracticeRecord {
     source: string;
 }
 
+/** 规范化的智能练习生成题 */
+export interface NormalizedPracticeQuestion {
+    raw: ImportedBackupPracticeQuestion;
+    generatedAt: Date | undefined;
+    createdAt: Date | undefined;
+    figureSvg: string | null;
+}
+
 /** 规范化后的导入数据：import-writer 直接据此写库 */
 export interface NormalizedImportData {
     data: ImportData;
@@ -140,6 +149,7 @@ export interface NormalizedImportData {
     errorItems: NormalizedErrorItem[];
     reviewSchedules: NormalizedReviewSchedule[];
     practiceRecords: NormalizedPracticeRecord[];
+    practiceQuestions: NormalizedPracticeQuestion[];
     examPapers: NormalizedExamPaper[];
     paperGroups: NonNullable<ImportData['paperGroups']>;
     questionBanks: NonNullable<ImportData['questionBanks']>;
@@ -202,6 +212,15 @@ function normalizePracticeRecord(record: ImportedBackupPracticeRecord): Normaliz
     };
 }
 
+function normalizePracticeQuestion(question: ImportedBackupPracticeQuestion): NormalizedPracticeQuestion {
+    return {
+        raw: question,
+        generatedAt: safeParseDate(question.generatedAt),
+        createdAt: safeParseDate(question.createdAt),
+        figureSvg: sanitizeFigureSvg(question.figureSvg),
+    };
+}
+
 /** 解析用户偏好设置：逐项校验，不合法的单项跳过 */
 export function parsePreferences(source: ImportData['user']): Prisma.UserUpdateInput {
     const preferences: Prisma.UserUpdateInput = {};
@@ -233,6 +252,7 @@ export function normalizeBackupForImport(body: ImportData, belongsToCurrentUser:
             completedAt: safeParseDate(schedule.completedAt),
         })),
         practiceRecords: (body.practiceRecords ?? []).map(normalizePracticeRecord),
+        practiceQuestions: (body.practiceQuestions ?? []).map(normalizePracticeQuestion),
         examPapers: (body.examPapers ?? []).map(normalizeExamPaper),
         paperGroups: body.paperGroups ?? [],
         questionBanks: body.questionBanks ?? [],

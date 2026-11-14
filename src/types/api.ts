@@ -429,6 +429,55 @@ export interface PracticeHistoryResponse {
     records: PracticeHistoryRecord[];
 }
 
+/** 智能练习历史题（独立生成题实体） */
+export interface PracticeQuestionSummary {
+    id: string;
+    questionText: string;
+    difficulty: string | null;
+    source: string;
+    generatedAt: string;
+    createdAt: string;
+    errorItem: {
+        id: string;
+        shortId: string | null;
+        seqNo: number | null;
+        questionText: string | null;
+        subject: { id: string; name: string } | null;
+    } | null;
+    attemptCount: number;
+    lastAttempt: { id: string; result: string | null; isCorrect: boolean | null; createdAt: string } | null;
+}
+
+export interface PracticeQuestionListResponse {
+    page: number;
+    pageSize: number;
+    total: number;
+    hasMore: boolean;
+    items: PracticeQuestionSummary[];
+}
+
+export interface PracticeQuestionAttempt {
+    id: string;
+    result: string | null;
+    isCorrect: boolean | null;
+    createdAt: string;
+}
+
+export interface PracticeQuestionDetail {
+    id: string;
+    subject: string | null;
+    difficulty: string | null;
+    source: string;
+    questionText: string;
+    answerText: string;
+    analysis: string;
+    figureSvg: string | null;
+    generatedAt: string;
+    createdAt: string;
+    errorItem: PracticeQuestionSummary["errorItem"];
+    attempts: PracticeQuestionAttempt[];
+}
+
 // ============ 错题试卷 ============
 
 export type ExamScope = 'unmastered' | 'mastered' | 'all';

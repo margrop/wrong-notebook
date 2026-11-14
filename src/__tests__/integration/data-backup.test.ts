@@ -68,6 +68,7 @@ async function clearUserData() {
     await database.knowledgeTag.deleteMany({ where: { userId: 'user-1' } });
     await database.knowledgeTag.deleteMany({ where: { isSystem: true } });
     await database.practiceRecord.deleteMany({ where: { userId: 'user-1' } });
+    await database.practiceQuestion.deleteMany({ where: { userId: 'user-1' } });
     await database.importTask.deleteMany({ where: { userId: 'user-1' } });
     await database.importBatch.deleteMany({ where: { userId: 'user-1' } });
     await database.reviewSchedule.deleteMany();
@@ -94,6 +95,7 @@ beforeEach(async () => {
     // 清理所有可能残留的数据（包括系统标签），确保每个测试从干净状态开始
     await database.reviewSchedule.deleteMany();
     await database.practiceRecord.deleteMany();
+    await database.practiceQuestion.deleteMany();
     await database.examPaper.deleteMany();
     await database.questionBank.deleteMany();
     await database.errorItem.deleteMany();
@@ -133,11 +135,19 @@ beforeEach(async () => {
         },
     });
     await database.reviewSchedule.create({ data: { errorItemId: 'item-1', scheduledFor: new Date('2026-11-01T00:00:00Z') } });
+    await database.practiceQuestion.create({
+        data: {
+            id: 'pq-1', userId: 'user-1', errorItemId: 'item-1', subject: '数学', difficulty: 'medium', source: 'ai',
+            questionText: '新题', answerText: '答案', analysis: '解析', figureSvg: figure,
+            generatedAt: new Date('2026-10-20T00:00:00Z'), createdAt: new Date('2026-10-20T00:00:00Z'),
+        },
+    });
     await database.practiceRecord.create({
         data: {
             userId: 'user-1', errorItemId: 'item-1', subject: 'math', difficulty: 'medium', isCorrect: true, result: 'correct',
             questionText: '变式题', answerText: 'x = 4', analysis: '同理', figureSvg: figure, source: 'practice',
             createdAt: new Date('2026-10-20T00:00:00Z'),
+            practiceQuestionId: 'pq-1',
         },
     });
 });
@@ -192,9 +202,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 15 版格式，包含 tagSet 字段、空的 extensions 与试卷 mode', async () => {
+    it('导出文件使用第 16 版格式，包含 tagSet、练习生成题与空的 extensions', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(15);
+        expect(backup.version).toBe(16);
         expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
@@ -215,6 +225,12 @@ describe('数据导出后再导入（真实 SQLite）', () => {
                 expect.objectContaining({ id: 'tag-1', tagSet: 'default' }),
                 expect.objectContaining({ id: 'tag-2', tagSet: 'cn-math-taxonomy' }),
             ])
+        );
+        expect(backup.practiceQuestions).toEqual(
+            expect.arrayContaining([expect.objectContaining({ id: 'pq-1', questionText: '新题', figureSvg: figure })])
+        );
+        expect(backup.practiceRecords).toEqual(
+            expect.arrayContaining([expect.objectContaining({ practiceQuestionId: 'pq-1' })])
         );
     });
 
@@ -352,7 +368,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         const backup = await exportBackup();
         await clearUserData();
         const { stats } = await importBackup(backup);
-        expect(stats).toMatchObject({ errorItemsCreated: 2, practiceRecordsCreated: 1, reviewSchedulesCreated: 1, tagsLinked: 4 });
+        expect(stats).toMatchObject({ errorItemsCreated: 2, practiceRecordsCreated: 1, practiceQuestionsCreated: 1, reviewSchedulesCreated: 1, tagsLinked: 4 });
 
         const item = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1', shortId: 'AbC234' }, include: { tags: true, subject: true, paperGroup: true } });
         expect(item).toMatchObject({
@@ -373,8 +389,12 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(cnmTag?.tagSet).toBe('cn-math-taxonomy');
         expect(cnmTag?.id).not.toBe('sys-default');
 
+        expect(await database.practiceQuestion.findFirstOrThrow({ where: { userId: 'user-1' } })).toMatchObject({
+            questionText: '新题', answerText: '答案', analysis: '解析', figureSvg: figure, source: 'ai', difficulty: 'medium',
+        });
         const record = await database.practiceRecord.findFirstOrThrow({ where: { errorItemId: item.id } });
         expect(record).toMatchObject({ result: 'correct', questionText: '变式题', figureSvg: figure, source: 'practice' });
+        expect(record.practiceQuestionId).toBeTruthy();
         // 已带掌握概率导入，不重复评估
         expect(mocks.scheduleMasteryEvaluation).not.toHaveBeenCalled();
     });
@@ -788,7 +808,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(response.status).toBe(200);
         const compressed = Buffer.from(await response.arrayBuffer());
         expect([compressed[0], compressed[1]]).toEqual([0x1f, 0x8b]);
-        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(15);
+        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(16);
 
         await clearUserData();
         const imported = await IMPORT(new Request('http://localhost/api/import', {

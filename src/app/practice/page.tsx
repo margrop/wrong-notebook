@@ -17,6 +17,9 @@ import { PracticeFeedback } from "@/components/practice/practice-feedback";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
 import { usePracticeSession } from "@/lib/hooks/use-practice-session";
+import { PageHeader } from "@/components/ui/page-header";
+import { PracticeHistory } from "@/components/practice/practice-history";
+import { PracticeQuestionDetailView } from "@/components/practice/practice-question-detail";
 
 export const dynamic = 'force-dynamic';
 
@@ -163,6 +166,31 @@ function PracticeContent() {
     );
 }
 
+function PracticeRoot() {
+    const searchParams = useSearchParams();
+    const { t } = useLanguage();
+    const questionId = searchParams.get("questionId");
+    const errorItemId = searchParams.get("id");
+
+    usePageTitle(errorItemId ? t.practice.title : t.practice.history?.title || t.practice.title);
+
+    if (questionId) {
+        return (
+            <div className="mx-auto max-w-3xl space-y-6">
+                <PracticeQuestionDetailView questionId={questionId} />
+            </div>
+        );
+    }
+    if (errorItemId) return <PracticeContent />;
+
+    return (
+        <div className="mx-auto max-w-6xl space-y-6">
+            <PageHeader title={t.practice.history?.title || t.practice.title} description={t.practice.history?.subtitle || t.practice.subtitle} />
+            <PracticeHistory />
+        </div>
+    );
+}
+
 export default function PracticePage() {
     return (
         <main className="min-h-screen px-4 py-6 md:px-8 md:py-8">
@@ -171,7 +199,7 @@ export default function PracticePage() {
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
             }>
-                <PracticeContent />
+                <PracticeRoot />
             </Suspense>
         </main>
     );
