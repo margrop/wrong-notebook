@@ -110,7 +110,7 @@ Once the upload finishes, recognition continues on the server. The page shows a 
 | Saving / Saved | Saved tasks offer **View question**; duplicates are recorded in the existing question's practice history |
 | Failed | Shows the reason and offers **Retry**. If a recognition result already exists, only the save is retried without calling the AI again. Tasks interrupted by a server restart also show as failed |
 
-Drafts awaiting review and failed tasks are kept until you handle or discard them; saved tasks are kept for 7 days. Each task card lists the actual time spent reading, converting, cropping, compressing, receiving, recognizing and saving.
+Drafts awaiting review and failed tasks are kept until you handle or discard them; saved tasks are kept for 7 days and are purged automatically shortly after server start and every 6 hours, without needing the recognition page to be open. Saved questions inside a multi-question batch follow their own import time. Each task card lists the actual time spent reading, converting, cropping, compressing, receiving, recognizing and saving.
 
 The review page can regenerate or remove the figure: frame the figure area in the original image so the AI redraws only that area; regenerate even when no figure was detected, and the reviewed figure is what gets saved.
 
