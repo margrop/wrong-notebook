@@ -26,6 +26,7 @@ AI 设置、连接测试、模型列表与提示词设置只向管理员开放�
 | 火山引擎 Agent Plan | Agent Plan 专属 API Key | 默认 `https://ark.cn-beijing.volces.com/api/plan/v3`；代码默认 `doubao-seed-evolving`（也可填 `ark-code-latest`，使用方舟控制台「开通管理」中选择的模型）；套餐含豆包语音合成 |
 | 火山引擎 Coding Plan | 火山方舟 API Key | 默认 `https://ark.cn-beijing.volces.com/api/coding/v3`（改成 `/api/v3` 不计入套餐、按量计费）；代码默认 `doubao-seed-evolving`（也可填 `ark-code-latest`，使用方舟控制台「开通管理」中选择的模型）；套餐不含语音合成 |
 | 火山引擎（免费试用） | 火山方舟 API Key | 默认 `https://ark.cn-beijing.volces.com/api/v3`；使用新用户的[免费推理额度](https://www.volcengine.com/docs/82379/1399514)，开启「安心体验模式」后用完自动暂停，不产生费用 |
+| Ollama（本地） | API Key 填 `ollama`（本地服务要求非空但忽略内容），需支持图片输入的模型 | 默认 `http://localhost:11434/v1`；代码默认 `qwen3-vl:8b`。Docker 部署时填宿主机地址，并让 Ollama 监听局域网 |
 | Anthropic 或兼容接口 | API Key、模型 | 默认 `https://api.anthropic.com`；代码默认 `claude-sonnet-5-5` |
 | Azure OpenAI | API Key、Endpoint、部署名称 | API 版本默认 `2024-02-15-preview`；模型字段用于显示 |
 | OpenAI 或兼容接口 | API Key、模型 | 默认 `https://api.openai.com/v1`；代码默认 `gpt-6.1-sol` |
@@ -34,6 +35,8 @@ AI 设置、连接测试、模型列表与提示词设置只向管理员开放�
 默认名称来自当前代码，不代表你的账户已开通这些模型。模型可用性、计费和能力以服务商为准。
 
 OpenAI 兼容服务的 Base URL 应包含其要求的 API 路径；Anthropic 兼容服务的 Base URL 不含 `/v1`，应用会拼接 `/v1/messages`。国产大模型官方渠道通过 OpenAI 兼容接口调用，地址和模型留空时使用官方默认值；使用国际站时改填国际站地址。
+
+本地 Ollama 通过 OpenAI 兼容接口接入。先 `ollama pull qwen3-vl:8b` 拉取支持图片输入的模型，再在「设置 → AI 设置」选择 Ollama；Base URL 和模型留空时用默认值。应用在服务端发起调用：Docker 部署时 `localhost` 指向容器，需填宿主机的局域网地址（如 `http://192.168.1.10:11434/v1`），并把 Ollama 的 `OLLAMA_HOST` 设为 `0.0.0.0`。识别准确率取决于所选模型的视觉能力。
 
 ## MiniMax Code OAuth
 
@@ -72,7 +75,7 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 
 ## 环境变量
 
-基础选择使用 `AI_PROVIDER`，默认 `minimax`，可选 `minimax`、`minimax-code`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`volcengine`、`volcengine-agent`、`volcengine-coding`、`volcengine-free`、`anthropic`、`azure`、`openai`、`gemini`。
+基础选择使用 `AI_PROVIDER`，默认 `minimax`，可选 `minimax`、`minimax-code`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`volcengine`、`volcengine-agent`、`volcengine-coding`、`volcengine-free`、`ollama`、`anthropic`、`azure`、`openai`、`gemini`。
 
 | 提供商 | 配置项 |
 | --- | --- |
@@ -87,6 +90,7 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 | 火山引擎 Agent Plan | `VOLCENGINE_AGENT_API_KEY`、`VOLCENGINE_AGENT_BASE_URL`、`VOLCENGINE_AGENT_MODEL` |
 | 火山引擎 Coding Plan | `VOLCENGINE_CODING_API_KEY`、`VOLCENGINE_CODING_BASE_URL`、`VOLCENGINE_CODING_MODEL` |
 | 火山引擎（免费试用） | `VOLCENGINE_FREE_API_KEY`、`VOLCENGINE_FREE_BASE_URL`、`VOLCENGINE_FREE_MODEL` |
+| Ollama（本地） | `OLLAMA_API_KEY`（可填 `ollama`）、`OLLAMA_BASE_URL`、`OLLAMA_MODEL` |
 | 豆包语音（云端语音） | `VOLCENGINE_TTS_API_KEY` |
 | Anthropic | `ANTHROPIC_API_KEY`、`ANTHROPIC_BASE_URL`、`ANTHROPIC_MODEL` |
 | Azure | `AZURE_OPENAI_API_KEY`、`AZURE_OPENAI_ENDPOINT`、`AZURE_OPENAI_DEPLOYMENT`、`AZURE_OPENAI_API_VERSION`、`AZURE_OPENAI_MODEL` |

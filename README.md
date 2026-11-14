@@ -390,7 +390,7 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 
 ### 支持的 AI 提供商
 
-国产大模型官方渠道通过各家的 OpenAI 兼容接口调用，只需填写 API Key，Base URL 和模型留空时使用下表默认值；使用国际站时改填国际站地址。
+国产大模型官方渠道通过各家的 OpenAI 兼容接口调用，只需填写 API Key，Base URL 和模型留空时使用下表默认值；使用国际站时改填国际站地址。本地 Ollama 也通过 OpenAI 兼容接口接入，API Key 填 `ollama`（本地服务要求非空但会忽略内容）。
 
 | 提供商 | 推荐方式 | 默认 Base URL | 默认模型 |
 | :--- | :--- | :--- | :--- |
@@ -405,12 +405,15 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 | 火山引擎 Agent Plan | [Agent Plan](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh) 专属 Key，套餐含豆包语音合成 | `https://ark.cn-beijing.volces.com/api/plan/v3` | `doubao-seed-evolving` |
 | 火山引擎 Coding Plan | [Coding Plan](https://www.volcengine.com/docs/82379/1928261)，方舟 API Key | `https://ark.cn-beijing.volces.com/api/coding/v3`（不要改成 `/api/v3`，否则不计入套餐） | `doubao-seed-evolving` |
 | 火山引擎（免费试用） | 新用户**免费推理额度**，见[下文](#火山引擎免费试用) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-evolving` |
+| Ollama（本地） | 本机运行 [Ollama](https://ollama.com)，需支持图片输入的模型 | `http://localhost:11434/v1`（Docker 部署填宿主机地址） | `qwen3-vl:8b` |
 | Anthropic 及兼容接口 | [Claude Console](https://platform.claude.com/) | `https://api.anthropic.com`（不含 `/v1`） | `claude-sonnet-5-5` |
 | Azure OpenAI | Azure 门户 → OpenAI 资源 → 密钥和终结点 | 填写资源 Endpoint 和部署名称 | 部署名称 |
 | OpenAI 及兼容接口 | [OpenAI Platform](https://platform.openai.com/api-keys)，可添加多个配置并切换 | `https://api.openai.com/v1` | `gpt-6.1-sol` |
 | Google Gemini | [Google AI Studio](https://aistudio.google.com/apikey) | 官方地址 | `gemini-2.5-flash`（推荐 `gemini-3.8-flash`） |
 
 > **兼容接口**：OpenAI 提供商可接入任何 OpenAI API 格式的第三方服务（如硅基流动），Anthropic 提供商可接入兼容 Messages API 的服务；把 Base URL 改为服务商地址，模型填写对应平台的完整模型 ID。推理模型返回的思考内容会被自动忽略。
+
+> **本地 Ollama**：先在 Ollama 中拉取支持图片输入的模型（如 `ollama pull qwen3-vl:8b`），再在「设置 → AI 设置」选择 Ollama，模型留空即用默认值。应用在服务端发起调用，Docker 部署时 `localhost` 指向容器，Base URL 要填宿主机的局域网地址（如 `http://192.168.1.10:11434/v1`）；Ollama 默认只监听本机时，需设置 `OLLAMA_HOST=0.0.0.0` 允许局域网访问。模型越小识别越快，但准确率取决于所选模型的视觉能力。
 
 #### MiniMax Code OAuth
 

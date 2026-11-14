@@ -26,6 +26,7 @@ AI settings, connection tests, model lists and prompt settings are admin-only. T
 | Volcengine Agent Plan | Dedicated Agent Plan API key | Defaults to `https://ark.cn-beijing.volces.com/api/plan/v3`; code default `doubao-seed-evolving` (or enter `ark-code-latest` to use the model chosen under Activation Management in the Ark console); the plan includes Doubao speech synthesis |
 | Volcengine Coding Plan | Volcengine Ark API key | Defaults to `https://ark.cn-beijing.volces.com/api/coding/v3` (changing it to `/api/v3` is billed pay-as-you-go instead of the plan); code default `doubao-seed-evolving` (or enter `ark-code-latest` to use the model chosen under Activation Management in the Ark console); the plan does not include speech synthesis |
 | Volcengine (free trial) | Volcengine Ark API key | Defaults to `https://ark.cn-beijing.volces.com/api/v3`; uses the new-user [free inference quota](https://www.volcengine.com/docs/82379/1399514); with worry-free trial mode on, calls pause when it runs out, so you are never charged |
+| Ollama (local) | API key `ollama` (the local server requires a non-empty value but ignores it); a vision-capable model is required | Defaults to `http://localhost:11434/v1`; code default `qwen3-vl:8b`. Under Docker, use the host address and let Ollama listen on the LAN |
 | Anthropic or compatible | API key, model | Defaults to `https://api.anthropic.com`; code default `claude-sonnet-5-5` |
 | Azure OpenAI | API key, endpoint, deployment name | API version defaults to `2024-02-15-preview`; the model field is for display |
 | OpenAI or compatible | API key, model | Defaults to `https://api.openai.com/v1`; code default `gpt-6.1-sol` |
@@ -34,6 +35,8 @@ AI settings, connection tests, model lists and prompt settings are admin-only. T
 The default names come from the current code and do not mean these models are enabled for your account. Model availability, billing and capabilities are determined by the provider.
 
 For OpenAI-compatible services, the base URL should include the API path they require. For Anthropic-compatible services, the base URL excludes `/v1`; the app appends `/v1/messages`. The official MiniMax, GLM, DeepSeek, Kimi, Qwen, StepFun and Volcengine channels are called through the OpenAI-compatible API; leaving the endpoint and model empty uses the official defaults. Fill in the international endpoint if you use an international site.
+
+Local Ollama connects through the OpenAI-compatible API. Pull a vision-capable model first (`ollama pull qwen3-vl:8b`), then choose Ollama under **Settings → AI Provider**; leaving the base URL and model empty uses the defaults. The app calls it from the server, so under Docker `localhost` points at the container: enter the host's LAN address (for example `http://192.168.1.10:11434/v1`) and set Ollama's `OLLAMA_HOST` to `0.0.0.0`. Recognition accuracy depends on the chosen model's vision ability.
 
 ## MiniMax Code OAuth
 
@@ -72,7 +75,7 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 
 ## Environment variables
 
-`AI_PROVIDER` selects the provider. It defaults to `minimax` and accepts `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-agent`, `volcengine-coding`, `volcengine-free`, `anthropic`, `azure`, `openai` and `gemini`.
+`AI_PROVIDER` selects the provider. It defaults to `minimax` and accepts `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-agent`, `volcengine-coding`, `volcengine-free`, `ollama`, `anthropic`, `azure`, `openai` and `gemini`.
 
 | Provider | Variables |
 | --- | --- |
@@ -87,6 +90,7 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 | Volcengine Agent Plan | `VOLCENGINE_AGENT_API_KEY`, `VOLCENGINE_AGENT_BASE_URL`, `VOLCENGINE_AGENT_MODEL` |
 | Volcengine Coding Plan | `VOLCENGINE_CODING_API_KEY`, `VOLCENGINE_CODING_BASE_URL`, `VOLCENGINE_CODING_MODEL` |
 | Volcengine (free trial) | `VOLCENGINE_FREE_API_KEY`, `VOLCENGINE_FREE_BASE_URL`, `VOLCENGINE_FREE_MODEL` |
+| Ollama (local) | `OLLAMA_API_KEY` (may be `ollama`), `OLLAMA_BASE_URL`, `OLLAMA_MODEL` |
 | Doubao Speech (cloud voice) | `VOLCENGINE_TTS_API_KEY` |
 | Anthropic | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL` |
 | Azure | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION`, `AZURE_OPENAI_MODEL` |

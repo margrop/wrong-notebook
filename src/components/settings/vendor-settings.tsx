@@ -7,7 +7,7 @@ import { ModelSelector } from "@/components/ui/model-selector";
 import { FieldLabel } from "@/components/settings/field-label";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { VENDOR_PRESETS } from "@/lib/ai/vendor-presets";
-import type { VendorConfig, VendorProviderId } from "@/lib/ai/vendor-presets";
+import type { VendorConfig, VendorPreset, VendorProviderId } from "@/lib/ai/vendor-presets";
 
 interface VendorSettingsProps {
     provider: VendorProviderId;
@@ -18,7 +18,7 @@ interface VendorSettingsProps {
 /** MiniMax、GLM 等国产大模型官方渠道的配置表单，地址和模型留空时使用官方默认值 */
 export function VendorSettings({ provider, value, onChange }: VendorSettingsProps) {
     const { t } = useLanguage();
-    const preset = VENDOR_PRESETS[provider];
+    const preset: VendorPreset = VENDOR_PRESETS[provider];
     const update = (key: keyof VendorConfig, next: string) => onChange({ ...value, [key]: next });
     // 默认地址为套餐地址的渠道单独说明按量付费和国际站的地址
     const baseUrlHints: Partial<Record<VendorProviderId, string>> = {
@@ -42,7 +42,7 @@ export function VendorSettings({ provider, value, onChange }: VendorSettingsProp
                 <PasswordInput
                     value={value?.apiKey || ""}
                     onChange={(e) => update("apiKey", e.target.value)}
-                    placeholder="sk-..."
+                    placeholder={preset.defaultApiKey ?? "sk-..."}
                 />
                 <p className="text-xs text-muted-foreground">
                     {t.settings?.ai?.vendorApiKeyHint || "Get an API key from the console:"}{" "}
@@ -56,11 +56,11 @@ export function VendorSettings({ provider, value, onChange }: VendorSettingsProp
                     onChange={(e) => update("baseUrl", e.target.value)}
                     placeholder={preset.baseUrl}
                 />
-                <p className="text-xs text-muted-foreground">{baseUrlHints[provider] ?? t.settings?.ai?.vendorBaseUrlHint}</p>
+                <p className="text-xs text-muted-foreground">{provider === "ollama" ? t.settings?.ai?.ollamaHint : baseUrlHints[provider] ?? t.settings?.ai?.vendorBaseUrlHint}</p>
             </div>
             <ModelSelector
                 provider={provider}
-                apiKey={value?.apiKey}
+                apiKey={value?.apiKey || preset.defaultApiKey}
                 baseUrl={value?.baseUrl}
                 currentModel={value?.model || preset.model}
                 onModelChange={(model) => update("model", model)}

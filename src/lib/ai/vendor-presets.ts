@@ -1,5 +1,5 @@
 /**
- * 国产大模型官方渠道预设：均通过 OpenAI 兼容接口调用，复用 OpenAIProvider。
+ * 内置 OpenAI 兼容渠道预设：国产大模型官方渠道 + 本地 Ollama，均复用 OpenAIProvider。
  * 本文件不依赖 Node 模块，前端设置界面也会引用。
  */
 
@@ -10,6 +10,8 @@ export interface VendorPreset {
     model: string;       // 默认模型（当前最新、支持图片输入）
     envPrefix: string;   // 环境变量前缀：<PREFIX>_API_KEY / _BASE_URL / _MODEL
     consoleUrl: string;  // 获取 API Key 的控制台
+    /** 本地服务不校验 Key 时使用的占位 API Key（如 Ollama 要求非空但忽略内容） */
+    defaultApiKey?: string;
     /** 官方接入文档：国内站与国际站（只有一个入口时只填 cn），以及获取 API Key 的说明和模型列表 */
     docs: { cn: string; intl?: string; apiKey: string; models: string };
 }
@@ -111,6 +113,17 @@ export const VENDOR_PRESETS = {
         consoleUrl: 'https://console.volcengine.com/ark',
         docs: { cn: 'https://www.volcengine.com/docs/82379/1399514', apiKey: 'https://www.volcengine.com/docs/82379/1541594', models: 'https://www.volcengine.com/docs/82379/1330310' },
     },
+    // 本地 Ollama：OpenAI 兼容接口；API Key 必须非空但本地服务不校验，模型需支持图片输入
+    ollama: {
+        name: 'Ollama（本地）',
+        nameEn: 'Ollama (local)',
+        baseUrl: 'http://localhost:11434/v1',
+        model: 'qwen3-vl:8b',
+        envPrefix: 'OLLAMA',
+        consoleUrl: 'https://ollama.com',
+        defaultApiKey: 'ollama',
+        docs: { cn: 'https://docs.ollama.com/api/openai-compatibility', apiKey: 'https://docs.ollama.com/api/openai-compatibility', models: 'https://ollama.com/library' },
+    },
 } as const satisfies Record<string, VendorPreset>;
 
 export type VendorProviderId = keyof typeof VENDOR_PRESETS;
@@ -133,11 +146,16 @@ export function isVendorProvider(provider: unknown): provider is VendorProviderI
     return typeof provider === 'string' && Object.prototype.hasOwnProperty.call(VENDOR_PRESETS, provider);
 }
 
+/** 渠道是否使用内置占位 Key（本地服务等） */
+export function hasDefaultApiKey(provider: VendorProviderId): boolean {
+    return Boolean((VENDOR_PRESETS[provider] as VendorPreset).defaultApiKey);
+}
+
 /** 未填写的地址和模型使用官方默认值 */
 export function resolveVendorConfig(provider: VendorProviderId, config?: VendorConfig): Required<VendorConfig> {
-    const preset = VENDOR_PRESETS[provider];
+    const preset: VendorPreset = VENDOR_PRESETS[provider];
     return {
-        apiKey: config?.apiKey || '',
+        apiKey: config?.apiKey || preset.defaultApiKey || '',
         baseUrl: config?.baseUrl || preset.baseUrl,
         model: config?.model || preset.model,
     };

@@ -34,12 +34,12 @@ vi.mock('@/lib/prisma', () => ({ prisma: { user: { findUnique: mocks.userFindUni
 vi.stubGlobal('fetch', mocks.fetch);
 
 import { getAIService } from '@/lib/ai';
-import { VENDOR_PRESETS, VENDOR_PROVIDER_IDS, getVendorName, isVendorProvider, resolveVendorConfig } from '@/lib/ai/vendor-presets';
+import { VENDOR_PRESETS, VENDOR_PROVIDER_IDS, getVendorName, hasDefaultApiKey, isVendorProvider, resolveVendorConfig } from '@/lib/ai/vendor-presets';
 import type { VendorProviderId } from '@/lib/ai/vendor-presets';
 import { POST as listModels } from '@/app/api/ai/models/route';
 import { POST as testConnection } from '@/app/api/ai/test/route';
 
-// 各渠道的官方 OpenAI 兼容地址与默认模型
+// 各渠道的默认 OpenAI 兼容地址与模型
 const EXPECTED: Record<VendorProviderId, { baseUrl: string; model: string }> = {
     minimax: { baseUrl: 'https://api.minimax.cn/v1', model: 'MiniMax-M3.1-Flash' },
     glm: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.3-flash' },
@@ -51,6 +51,7 @@ const EXPECTED: Record<VendorProviderId, { baseUrl: string; model: string }> = {
     'volcengine-agent': { baseUrl: 'https://ark.cn-beijing.volces.com/api/plan/v3', model: 'doubao-seed-evolving' },
     'volcengine-coding': { baseUrl: 'https://ark.cn-beijing.volces.com/api/coding/v3', model: 'doubao-seed-evolving' },
     'volcengine-free': { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-evolving' },
+    ollama: { baseUrl: 'http://localhost:11434/v1', model: 'qwen3-vl:8b' },
 };
 
 const adminSession = { user: { id: 'admin-1', email: 'admin@localhost', role: 'admin' }, expires: '2099-01-01' };
@@ -107,9 +108,15 @@ describe.each(VENDOR_PROVIDER_IDS)('%s 渠道', (id) => {
         expect(mocks.create.mock.calls[0][0].model).toBe(EXPECTED[id].model);
     });
 
-    it('未填写 API Key 时报认证错误', async () => {
+    it('未填写 API Key：普通渠道报认证错误，本地 Ollama 使用占位 Key', async () => {
         mocks.getAppConfig.mockReturnValue({ aiProvider: id, [id]: {} });
-        await expect(getAIService({ userId: 'u1', kind: 'retag' })).rejects.toThrow('AI_AUTH_ERROR');
+        if (hasDefaultApiKey(id)) {
+            const service = await getAIService({ userId: 'u1', kind: 'retag' });
+            expect(service.constructor.name).toBe('OpenAIProvider');
+            expect(mocks.openaiOptions[0]).toMatchObject({ apiKey: 'ollama' });
+        } else {
+            await expect(getAIService({ userId: 'u1', kind: 'retag' })).rejects.toThrow('AI_AUTH_ERROR');
+        }
     });
 
     it('模型列表默认请求官方地址', async () => {

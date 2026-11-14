@@ -392,7 +392,7 @@ The application always supplies the output contract, field languages, grade scop
 
 ### Supported AI providers
 
-The official Chinese model channels call each vendor's OpenAI-compatible API, so only an API key is required; when the base URL and model are left empty, the defaults below are used. For the international site, change the base URL to its address.
+The official Chinese model channels call each vendor's OpenAI-compatible API, so only an API key is required; when the base URL and model are left empty, the defaults below are used. For the international site, change the base URL to its address. Local Ollama also connects through the OpenAI-compatible API; enter `ollama` as the API key (the local server requires a non-empty value but ignores it).
 
 | Provider | Recommended setup | Default base URL | Default model |
 | :--- | :--- | :--- | :--- |
@@ -407,12 +407,15 @@ The official Chinese model channels call each vendor's OpenAI-compatible API, so
 | Volcengine Agent Plan | Dedicated [Agent Plan](https://ark.volcengine.com/region:cn-beijing/docs/82379/2160841?lang=zh) key; the plan includes Doubao speech synthesis | `https://ark.cn-beijing.volces.com/api/plan/v3` | `doubao-seed-evolving` |
 | Volcengine Coding Plan | [Coding Plan](https://www.volcengine.com/docs/82379/1928261), Ark API key | `https://ark.cn-beijing.volces.com/api/coding/v3` (do not change it to `/api/v3`, which is not counted toward the plan) | `doubao-seed-evolving` |
 | Volcengine (free trial) | **Free inference quota** for new users; see [below](#volcengine-free-trial) | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-evolving` |
+| Ollama (local) | [Ollama](https://ollama.com) running on the local machine, with a vision-capable model | `http://localhost:11434/v1` (for Docker, the host address) | `qwen3-vl:8b` |
 | Anthropic and compatible APIs | [Claude Console](https://platform.claude.com/) | `https://api.anthropic.com` (without `/v1`) | `claude-sonnet-5-5` |
 | Azure OpenAI | Azure portal → OpenAI resource → Keys and Endpoint | Your resource endpoint and deployment name | Deployment name |
 | OpenAI and compatible APIs | [OpenAI Platform](https://platform.openai.com/api-keys); several configurations can be added and switched | `https://api.openai.com/v1` | `gpt-6.1-sol` |
 | Google Gemini | [Google AI Studio](https://aistudio.google.com/apikey) | Official URL | `gemini-2.5-flash` (`gemini-3.8-flash` recommended) |
 
 > **Compatible APIs**: the OpenAI provider works with any third-party service that implements the OpenAI API format (such as SiliconFlow), and the Anthropic provider with services that implement the Messages API. Set the base URL to the service's address and enter the platform's full model ID. Thinking output from reasoning models is ignored.
+
+> **Local Ollama**: pull a vision-capable model first (for example `ollama pull qwen3-vl:8b`), then choose Ollama under **Settings → AI Provider**; leave the model empty to use the default. The app calls it from the server, so under Docker `localhost` points at the container: set the base URL to the host's LAN address (for example `http://192.168.1.10:11434/v1`) and set `OLLAMA_HOST=0.0.0.0` so Ollama listens beyond localhost. Smaller models recognize faster, but accuracy depends on the chosen model's vision ability.
 
 #### MiniMax Code OAuth
 

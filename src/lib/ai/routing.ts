@@ -3,7 +3,7 @@
  * 本文件不依赖 Node 模块，设置界面也会引用。
  */
 import type { AiProviderId, AppConfig } from '../config/types';
-import { getVendorName, isVendorProvider, VENDOR_PROVIDER_IDS } from './vendor-presets';
+import { getVendorName, hasDefaultApiKey, isVendorProvider, VENDOR_PROVIDER_IDS } from './vendor-presets';
 
 /** 全部内置渠道列表，顺序与设置页的下拉一致 */
 export const AI_PROVIDER_IDS = [
@@ -49,6 +49,8 @@ export function isProviderConfigured(config: AppConfig, provider: AiProviderId):
     if (provider === 'azure') {
         return Boolean(config.azure?.apiKey?.trim() && config.azure?.endpoint?.trim() && config.azure?.deploymentName?.trim());
     }
+    // 本地 Ollama 使用内置占位 Key，不需要用户填写
+    if (isVendorProvider(provider) && hasDefaultApiKey(provider)) return true;
     const settings = config[provider as keyof AppConfig] as { apiKey?: string } | undefined;
     return Boolean(settings?.apiKey?.trim());
 }
