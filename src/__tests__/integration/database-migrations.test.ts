@@ -145,6 +145,7 @@ describe('真实 Prisma 数据库迁移', () => {
             if (table === 'Subject' || table === 'KnowledgeTag') return { ...row, tagSet: row.tagSet ?? 'default' };
             if (table === 'ExamQuestion') return { ...row, figureScale: row.figureScale ?? 100, figureAlign: row.figureAlign ?? 'center', answerSpacePx: null, score: null, questionType: null };
             if (table === 'ExamPaper') return { ...row, mode: row.mode ?? 'generate', groupByType: row.groupByType ?? 0 };
+            if (table === 'PracticeRecord') return { ...row, practiceQuestionId: null };
             return row;
         }));
         closeDatabase();
@@ -158,7 +159,7 @@ describe('真实 Prisma 数据库迁移', () => {
             const group = groups.find((entry) => entry.userId === item.userId && entry.key === item.paperLevel);
             expect(rows('ErrorItem').find((entry) => entry.id === item.id)).toEqual({
                 ...item, paperLevel: group?.id ?? null, figureScale: hasScale ? 65 : 100, figureAlign: 'center', answerSpacePx: null,
-                seqNo: expectedSeqNo.get(String(item.id)),
+                figureImage: null, figureSource: 'svg', seqNo: expectedSeqNo.get(String(item.id)),
             });
         }
         expect(relatedTables.map(rows)).toEqual(beforeRelated);
@@ -186,7 +187,7 @@ describe('真实 Prisma 数据库迁移', () => {
                 VALUES ('existing-item', 'existing-user', 'original', 'custom-group', 175, '2026-10-01');
         `);
         interface LegacyRow { [key: string]: unknown; questionType?: unknown; }
-        const beforeItems = rows('ErrorItem').map((item) => ({ ...(item as LegacyRow), figureAlign: 'center', answerSpacePx: null, questionType: (item as LegacyRow).questionType ?? null, seqNo: 1000 }));
+        const beforeItems = rows('ErrorItem').map((item) => ({ ...(item as LegacyRow), figureAlign: 'center', answerSpacePx: null, figureImage: null, figureSource: 'svg', questionType: (item as LegacyRow).questionType ?? null, seqNo: 1000 }));
         const beforeGroups = rows('PaperGroup');
         closeDatabase();
 

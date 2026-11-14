@@ -39,6 +39,7 @@ import type { BackupExtension } from '@/lib/backup-extensions';
 let database: PrismaClient;
 let directory: string;
 const figure = sanitizeFigureSvg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>')!;
+const figureImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const animation = (text: string) => sanitizeSvgAnimation(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text x="1" y="5">${text}<animate attributeName="opacity" from="0" to="1" dur="1s"/></text></svg>`)!;
 const lastPractice = JSON.stringify({ questionText: '新题', answerText: '答案', analysis: '解析', figureSvg: figure, difficulty: 'medium', generatedAt: '2026-10-20T00:00:00.000Z' });
 
@@ -118,6 +119,7 @@ beforeEach(async () => {
             questionText: '求解 x + 2 = 5', answerText: 'x = 3', analysis: '移项', wrongAnswerText: 'x = 7', mistakeAnalysis: '符号错误',
             mistakeStatus: 'wrong_attempt', source: '期中考试', errorType: '计算', userNotes: '注意符号', gradeSemester: '初二上',
             paperLevel: 'group-b', difficultyStars: 3, hasFigure: true, figureSvg: figure, figureScale: 65, figureAlign: 'left', answerSpacePx: 240,
+            figureImage, figureSource: 'image',
             geogebraCommands: 'A=(0,0)\nB=(1,1)', svgAnimation: animation('中文'), svgAnimationEn: animation('English'), lastPractice,
             masteryLevel: 2, masteryProbability: 0.8, masteryReason: '连续答对', masterySource: 'ai', masteryEvaluatedAt: new Date('2026-10-21T00:00:00Z'),
             createdAt: new Date('2026-10-01T00:00:00Z'), updatedAt: new Date('2026-10-21T00:00:00Z'),
@@ -202,9 +204,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 16 版格式，包含 tagSet、练习生成题与空的 extensions', async () => {
+    it('导出文件使用第 17 版格式，包含 tagSet、练习生成题与空的 extensions', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(16);
+        expect(backup.version).toBe(17);
         expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
@@ -409,6 +411,8 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(item.figureScale).toBe(100);
         expect(item.figureAlign).toBe('center');
         expect(item.figureSvg).toBe(figure);
+        expect(item.figureImage).toBe(figureImage);
+        expect(item.figureSource).toBe('image');
     });
 
     it('题型字段随备份往返，旧版文件没有该字段时导入为 null', async () => {
@@ -700,11 +704,14 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             svgAnimationEn: 'not svg',
             lastPractice: '{"questionText":""}',
             masteryProbability: 3,
+            figureImage: 'data:image/png;base64,not-valid-***',
         });
         await importBackup(backup);
         const item = await database.errorItem.findFirstOrThrow({ where: { userId: 'user-1' } });
         expect(item.svgAnimation).not.toContain('script');
         expect(item.svgAnimationEn).toBeNull();
+        expect(item.figureImage).toBeNull();
+        expect(item.figureSource).toBe('svg');
         expect(item.lastPractice).toBeNull();
         expect(item.masteryProbability).toBeNull();
         expect(mocks.scheduleMasteryEvaluation).toHaveBeenCalledWith([item.id]);
@@ -808,7 +815,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(response.status).toBe(200);
         const compressed = Buffer.from(await response.arrayBuffer());
         expect([compressed[0], compressed[1]]).toEqual([0x1f, 0x8b]);
-        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(16);
+        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(17);
 
         await clearUserData();
         const imported = await IMPORT(new Request('http://localhost/api/import', {

@@ -63,11 +63,11 @@ describe('sanitizeFigureSvg', () => {
 
 describe('parseFigure', () => {
     it('有效配图视为有配图；只标记有配图但没画出时保留标记', () => {
-        expect(parseFigure('true', triangle)).toEqual({ hasFigure: true, figureSvg: triangle });
-        expect(parseFigure('false', triangle)).toEqual({ hasFigure: true, figureSvg: triangle });
-        expect(parseFigure(' TRUE ', '')).toEqual({ hasFigure: true, figureSvg: null });
-        expect(parseFigure('false', null)).toEqual({ hasFigure: false, figureSvg: null });
-        expect(parseFigure(null, null)).toEqual({ hasFigure: false, figureSvg: null });
+        expect(parseFigure('true', triangle)).toEqual({ hasFigure: true, figureSvg: triangle, figureImage: null });
+        expect(parseFigure('false', triangle)).toEqual({ hasFigure: true, figureSvg: triangle, figureImage: null });
+        expect(parseFigure(' TRUE ', '')).toEqual({ hasFigure: true, figureSvg: null, figureImage: null });
+        expect(parseFigure('false', null)).toEqual({ hasFigure: false, figureSvg: null, figureImage: null });
+        expect(parseFigure(null, null)).toEqual({ hasFigure: false, figureSvg: null, figureImage: null });
     });
 });
 

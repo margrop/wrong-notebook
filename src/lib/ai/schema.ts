@@ -27,6 +27,7 @@ export const ParsedQuestionSchema = z.object({
     gradeSemester: z.string().max(100).nullable().optional(), // 题目年级学期，AI 无法判断时为空
     hasFigure: z.boolean().optional(), // 题目是否带配图
     figureSvg: z.string().nullable().optional(), // AI 重绘的 SVG 配图（已净化）
+    figureImage: z.string().nullable().optional(), // 识别时裁剪的原配图（PNG data URI），重绘失败或选择原图时显示
     source: z.string().trim().max(200).nullish(), // 用户填写的错题来源（如「期中试卷」），AI 不输出
 });
 
@@ -195,6 +196,7 @@ export function parseTagSuggestion(text: string, allowedTags: string[], allowCus
 export interface FigureResult {
     hasFigure: boolean;
     figureSvg: string | null;
+    figureImage?: string | null;
 }
 
 /**
@@ -203,5 +205,5 @@ export interface FigureResult {
  */
 export function parseFigure(hasFigureRaw: string | null | undefined, figureSvgRaw: string | null | undefined): FigureResult {
     const figureSvg = sanitizeFigureSvg(figureSvgRaw);
-    return { hasFigure: hasFigureRaw?.trim().toLowerCase() === 'true' || figureSvg !== null, figureSvg };
+    return { hasFigure: hasFigureRaw?.trim().toLowerCase() === 'true' || figureSvg !== null, figureSvg, figureImage: null };
 }

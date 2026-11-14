@@ -20,6 +20,7 @@ import { GRADE_RECOGNITION_MODES } from "@/lib/question/question-grade";
 import { GRADE_SEMESTERS } from "@/lib/grade-options";
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { sanitizeFigureSvg } from "@/lib/figure-svg";
+import { sanitizeFigureImage } from "@/lib/figure-image";
 import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import { normalizeCustomAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import { sanitizeSvgAnimation } from "@/lib/svg-animation";
@@ -86,6 +87,8 @@ export interface NormalizedErrorItem {
     masteryLevel: number;
     hasFigure: boolean;
     figureSvg: string | null;
+    figureImage: string | null;
+    figureSource: "svg" | "image";
     figureScale: number;
     figureAlign: ReturnType<typeof normalizeFigureAlign>;
     answerSpacePx: number | null;
@@ -159,14 +162,17 @@ function normalizeErrorItem(item: ImportedBackupErrorItem): NormalizedErrorItem 
     const masteryProbability = safeMasteryProbability(item.masteryProbability);
     const masteryEvaluatedAt = masteryProbability === null ? undefined : safeParseDate(item.masteryEvaluatedAt);
     const figureSvg = sanitizeFigureSvg(item.figureSvg);
+    const figureImage = sanitizeFigureImage(item.figureImage);
     return {
         raw: item,
         masteryProbability,
         masteryEvaluatedAt,
         difficultyStars: parseDifficultyStars(item.difficultyStars),
         masteryLevel: safeMasteryLevel(item.masteryLevel),
-        hasFigure: item.hasFigure === true || figureSvg !== null,
+        hasFigure: item.hasFigure === true || figureSvg !== null || figureImage !== null,
         figureSvg,
+        figureImage,
+        figureSource: item.figureSource === "image" && figureImage ? "image" : "svg",
         figureScale: normalizeFigureScale(item.figureScale),
         figureAlign: normalizeFigureAlign(item.figureAlign),
         answerSpacePx: normalizeCustomAnswerSpacePx(item.answerSpacePx),

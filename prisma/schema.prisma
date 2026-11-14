@@ -212,6 +212,8 @@ model ErrorItem {
   difficultyStars  Int?    // 难度星级 1~5（参考高思导引星级），未评定时为空
   hasFigure        Boolean @default(false) // 识别时判断题目是否有配图
   figureSvg        String? // AI 用 SVG 重绘的题目配图（已净化），显示和打印时使用
+  figureImage       String? // 识别时裁剪的原配图（PNG data URI），化学结构式等复杂图形可直接显示原图
+  figureSource      String  @default("svg") // 配图显示来源：svg（AI 重绘）| image（裁剪原图）
   figureScale      Int     @default(100) // 配图显示与打印比例，10~200%
   figureAlign      String  @default("center") // 配图显示与打印位置：left | center | right
   answerSpacePx    Int?    // 打印时手动设置的题下留白高度（0~600 px），为空时按全局留白档位

@@ -39,7 +39,7 @@ export function PreviewPanel({ data, children, figureTools }: PreviewPanelProps)
         <div className="space-y-6">
             <PreviewCard title={t.editor.preview?.question || "Question Preview"}>
                 <MarkdownRenderer content={data.questionText} />
-                <QuestionFigure svg={data.figureSvg} />
+                <QuestionFigure svg={data.figureSvg} image={data.figureImage} />
                 {figureTools}
             </PreviewCard>
 

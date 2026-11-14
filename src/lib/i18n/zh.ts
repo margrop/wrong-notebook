@@ -1965,6 +1965,10 @@ export const zh = {
             scaleHint: "范围 10%～200%，默认 100%。保存后同时用于本题的显示和文字打印；放大以可用宽度为上限。",
             resetScale: "恢复 100%",
             align: "配图显示位置",
+            source: "配图来源",
+            sourceSvg: "AI 重绘",
+            sourceImage: "原图",
+            sourceHint: "化学结构式等复杂图形建议用「原图」，与识别时裁剪的配图完全一致；简单几何图用 AI 重绘更清晰。",
             aligns: {
                 left: "居左",
                 center: "居中",

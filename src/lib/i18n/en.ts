@@ -1966,6 +1966,10 @@ export const en = {
             scaleHint: "10–200%, default 100%. Save to apply to this question's display and text printouts. Enlarged figures fit the available width.",
             resetScale: "Reset to 100%",
             align: "Figure alignment",
+            source: "Figure source",
+            sourceSvg: "AI redraw",
+            sourceImage: "Original",
+            sourceHint: "For complex drawings such as chemical structures, use Original to show the exact cropped figure; AI redraw is clearer for simple geometry.",
             aligns: {
                 left: "Left",
                 center: "Center",

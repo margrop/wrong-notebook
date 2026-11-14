@@ -11,7 +11,7 @@ import { z } from "zod";
  */
 
 /** 当前备份文件版本号 */
-export const BACKUP_VERSION = 16;
+export const BACKUP_VERSION = 17;
 
 /** 备份文件中的用户对象 */
 export interface BackupUser {
@@ -114,6 +114,10 @@ export interface BackupErrorItem {
     hasFigure?: boolean;
     /** 旧版导出文件没有该字段 */
     figureSvg?: string | null;
+    /** 识别时裁剪的原配图（PNG data URI）；第 17 版起导出 */
+    figureImage?: string | null;
+    /** 配图显示来源；旧版备份缺省为 svg */
+    figureSource?: string;
     /** 旧版备份缺省为 100% */
     figureScale?: number;
     /** 旧版备份缺省为居中 */

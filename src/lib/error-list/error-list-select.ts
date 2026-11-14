@@ -26,6 +26,8 @@ export const ERROR_ITEM_PRINT_SELECT = {
     answerText: true,
     analysis: true,
     figureSvg: true,
+    figureImage: true,
+    figureSource: true,
     figureScale: true,
     figureAlign: true,
     answerSpacePx: true,

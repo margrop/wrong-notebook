@@ -23,6 +23,7 @@ import { getErrorMessage } from "@/lib/error-message";
 import { normalizeQuestionType } from "@/lib/question/question-type";
 import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransaction } from "@/lib/question/question-deduplication";
 import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
+import { MAX_FIGURE_IMAGE_LENGTH, sanitizeFigureImage } from "@/lib/figure-image";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
 import { DEFAULT_FIGURE_ALIGN, DEFAULT_FIGURE_SCALE, FIGURE_ALIGNS, MAX_FIGURE_SCALE, MIN_FIGURE_SCALE } from "@/lib/figure-scale";
 
@@ -48,6 +49,8 @@ export const importSchema = z.object({
     difficultyStars: z.number().int().min(1).max(5).nullish(),
     hasFigure: z.boolean().optional(),
     figureSvg: z.string().max(MAX_FIGURE_SVG_LENGTH).nullish(),
+    figureImage: z.string().max(MAX_FIGURE_IMAGE_LENGTH).nullish(),
+    figureSource: z.enum(["svg", "image"]).optional(),
     figureScale: z.number().int().min(MIN_FIGURE_SCALE).max(MAX_FIGURE_SCALE).default(DEFAULT_FIGURE_SCALE),
     figureAlign: z.enum(FIGURE_ALIGNS).default(DEFAULT_FIGURE_ALIGN),
     geogebraCommands: z.string().nullish(),
@@ -127,7 +130,8 @@ async function saveQuestionInner(user: User, body: ImportQuestionInput, options:
     const questionType = normalizeQuestionType(body.questionType);
     // 配图 SVG 入库前再净化一次，无效时丢弃
     const figureSvg = sanitizeFigureSvg(body.figureSvg);
-    const hasFigure = !!body.hasFigure || figureSvg !== null;
+    const figureImage = sanitizeFigureImage(body.figureImage);
+    const hasFigure = !!body.hasFigure || figureSvg !== null || figureImage !== null;
 
     // 校验传入的 paperLevel 是否有效（不创建分组，分组在事务内按需创建）
     let resolvedPaperLevel: string | null = null;
@@ -214,6 +218,8 @@ async function saveQuestionInner(user: User, body: ImportQuestionInput, options:
                     difficultyStars: difficultyStars ?? null,
                     hasFigure,
                     figureSvg,
+                    figureImage,
+                    figureSource: body.figureSource ?? "svg",
                     figureScale: body.figureScale,
                     figureAlign: body.figureAlign,
                     geogebraCommands: geogebraCommands || null,

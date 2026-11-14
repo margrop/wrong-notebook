@@ -94,7 +94,7 @@ export const PrintableQuestion = memo(function PrintableQuestion({
                 <div className="mb-4">
                     <PrintQuestionText content={item.questionText} />
                     {/* 有 SVG 配图时打印配图，不再打印拍照原图 */}
-                    <QuestionFigure svg={item.figureSvg} scale={item.figureScale} align={item.figureAlign} />
+                    <QuestionFigure svg={item.figureSvg} image={item.figureImage} source={item.figureSource} scale={item.figureScale} align={item.figureAlign} />
                 </div>
             ) : (
                 item.originalImageUrl && (

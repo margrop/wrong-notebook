@@ -55,7 +55,7 @@ export const PUT = withUser(async (req: Request, { user, params }: RouteContext 
             return validationError("Invalid request body", parsed.error.issues);
         }
         const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands, difficultyStars, questionType, source } = parsed.data;
-        const { figureScale, figureAlign } = parsed.data;
+        const { figureScale, figureAlign, figureSource } = parsed.data;
         if (figureScale !== undefined && !isValidFigureScale(figureScale)) {
             return badRequest("figureScale must be an integer from 10 to 200");
         }
@@ -98,6 +98,7 @@ export const PUT = withUser(async (req: Request, { user, params }: RouteContext 
         const updateData: Prisma.ErrorItemUncheckedUpdateInput = {};
         if (figureScale !== undefined) updateData.figureScale = figureScale;
         if (figureAlign !== undefined) updateData.figureAlign = figureAlign;
+        if (figureSource !== undefined) updateData.figureSource = figureSource;
         if (gradeSemester !== undefined) updateData.gradeSemester = gradeSemester;
         if (paperLevel !== undefined) {
             if (paperLevel !== null) {

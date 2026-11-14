@@ -73,8 +73,8 @@ async function handlePost(
             const figure = await ai.generateFigureSvg(imageBase64, mimeType, item.questionText);
             return prisma.errorItem.update({
                 where: { id },
-                data: { hasFigure: figure.hasFigure, figureSvg: figure.figureSvg },
-                select: { hasFigure: true, figureSvg: true },
+                data: { hasFigure: figure.hasFigure, figureSvg: figure.figureSvg, ...(figure.figureImage ? { figureImage: figure.figureImage } : {}) },
+                select: { hasFigure: true, figureSvg: true, figureImage: true },
             });
         });
 

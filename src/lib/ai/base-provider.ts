@@ -357,17 +357,21 @@ export abstract class BaseAIProvider implements AIService {
     private async redrawAnalyzedFigure(parsed: ParsedQuestion, imageBase64: string, mimeType: string, box: FigureBox | null, startedAt: number): Promise<ParsedQuestion> {
         if (!parsed.hasFigure) return parsed;
         const deadlineAt = flowDeadline(startedAt);
-        const fallback = async () => ({
-            ...parsed,
-            figureSvg: parsed.figureSvg ? await this.ensureValidFigureSvg(parsed.figureSvg, deadlineAt) : null,
-        });
+        const fallback = async () => {
+            const image = await prepareFigureImage(imageBase64, mimeType, box);
+            return {
+                ...parsed,
+                figureSvg: parsed.figureSvg ? await this.ensureValidFigureSvg(parsed.figureSvg, deadlineAt) : null,
+                figureImage: image.cropped ? `data:image/png;base64,${image.base64}` : null,
+            };
+        };
         if (deadlineAt !== undefined && deadlineAt - Date.now() < MIN_FIGURE_REDRAW_MS) {
             logger.warn({ provider: this.providerName, remainingMs: deadlineAt - Date.now() }, 'Not enough time left to redraw figure after analysis');
             return fallback();
         }
         try {
             const figure = await this.drawFigure(imageBase64, mimeType, parsed.questionText, { box, deadlineAt });
-            if (figure.figureSvg) return { ...parsed, figureSvg: figure.figureSvg };
+            if (figure.figureSvg) return { ...parsed, figureSvg: figure.figureSvg, figureImage: figure.figureImage };
             logger.warn({ provider: this.providerName, hasBox: !!box }, 'Figure redraw returned no valid SVG');
         } catch (error) {
             logger.warn({ provider: this.providerName, error }, 'Figure redraw after analysis failed');
@@ -388,6 +392,7 @@ export abstract class BaseAIProvider implements AIService {
     /** 重绘配图：准备图片（按位置裁剪、统一尺寸）→ 画 SVG → 校验 XML */
     private async drawFigure(imageBase64: string, mimeType: string, questionText: string | null | undefined, options: FigureOptions): Promise<FigureResult> {
         const image = await prepareFigureImage(imageBase64, mimeType, options.box ?? null);
+        const figureImage = image.cropped ? `data:image/png;base64,${image.base64}` : null;
         const canvas = image.width && image.height ? { width: image.width, height: image.height, cropped: image.cropped } : null;
         const prompt = generateFigureRequest(questionText, canvas);
         logger.info({ provider: this.providerName, imageSize: image.base64.length, canvas }, 'Figure SVG Request');
@@ -402,10 +407,10 @@ export abstract class BaseAIProvider implements AIService {
         });
         logger.debug({ rawResponse: text }, 'Figure SVG AI raw response');
         const figure = parseFigure(extractTag(text, "has_figure"), extractTag(text, "figure_svg"));
-        if (!figure.figureSvg) return figure;
+        if (!figure.figureSvg) return { ...figure, figureImage };
         const figureSvg = await this.ensureValidFigureSvg(figure.figureSvg, options.deadlineAt);
-        if (!figureSvg || getAppConfig().figureReview !== true) return { ...figure, figureSvg };
-        return { ...figure, figureSvg: await this.reviewFigure(image, figureSvg, questionText, options.deadlineAt) };
+        if (!figureSvg || getAppConfig().figureReview !== true) return { ...figure, figureSvg, figureImage };
+        return { ...figure, figureSvg: await this.reviewFigure(image, figureSvg, questionText, options.deadlineAt), figureImage };
     }
 
     /**

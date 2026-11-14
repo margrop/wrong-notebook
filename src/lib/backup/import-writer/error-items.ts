@@ -167,6 +167,8 @@ export async function importErrorItems(ctx: ImportContext): Promise<void> {
                 difficultyStars: item.difficultyStars,
                 hasFigure: item.hasFigure,
                 figureSvg: item.figureSvg,
+                figureImage: item.figureImage,
+                figureSource: item.figureSource,
                 figureScale: item.figureScale,
                 figureAlign: item.figureAlign,
                 answerSpacePx: item.answerSpacePx,

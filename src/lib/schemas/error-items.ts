@@ -26,6 +26,7 @@ export const updateErrorItemSchema = z.object({
         (value) => value === undefined || isValidFigureAlign(value),
         { message: "figureAlign must be left, center, or right" },
     ),
+    figureSource: z.enum(["svg", "image"]).optional(),
 });
 
 /** PATCH /api/error-items/:id/notes 请求体 */
