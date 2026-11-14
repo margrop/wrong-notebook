@@ -25,6 +25,9 @@ describe('parseErrorCode', () => {
         it('匹配 unauthorized', () => {
             expect(parseErrorCode(new Error('Request unauthorized'))).toBe('AI_AUTH_ERROR');
         });
+        it('匹配服务商原文 401 Authentication Fails', () => {
+            expect(parseErrorCode(new Error('401 Authentication Fails, Your api key: ****T6qA is invalid (request_id: cb727c1a)'))).toBe('AI_AUTH_ERROR');
+        });
         it('匹配 api key', () => {
             expect(parseErrorCode(new Error('invalid api key'))).toBe('AI_AUTH_ERROR');
         });

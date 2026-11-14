@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuestionNo } from "@/contexts/QuestionNumberingContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
+import { parseErrorCode } from "@/lib/ai/error-classification";
 import { formatDateTime } from "@/lib/date-time";
 import { formatDuration, listTimingStages } from "@/lib/import/import-task-format";
 import type { ImportTaskSummary } from "@/lib/import/import-task-types";
@@ -41,7 +42,9 @@ export function ImportTaskCard({ task, now, onReview, onViewItem, onRetry, onDis
     const Icon = STATUS_ICON[task.status];
     const active = task.status === "analyzing" || task.status === "saving";
     const errors = t.errors as Record<string, unknown>;
-    const errorText = task.error ? (typeof errors[task.error] === "string" ? errors[task.error] as string : task.error) : null;
+    // 任务里可能保存了服务商原文（如 401 Authentication Fails…），先归类再按错误码翻译
+    const errorCode = task.error ? parseErrorCode(task.error) : null;
+    const errorText = errorCode ? (typeof errors[errorCode] === "string" ? errors[errorCode] as string : task.error) : null;
     const stages = listTimingStages(task.timings);
     const elapsed = active && now ? now - Date.parse(task.createdAt) : null;
 
