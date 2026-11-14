@@ -25,7 +25,8 @@ import { draftItemToParsed } from "@/lib/import/draft-to-parsed";
 import { getErrorMessage } from "@/lib/error-message";
 import { batchPhase, MAX_START_IMAGES_LENGTH } from "@/lib/import/import-batch-types";
 import type { ImportBatchCounts, ImportBatchDetail, ImportBatchSource, ImportBatchSplitter, ImportBatchStatus, ImportBatchSummary } from "@/lib/import/import-batch-types";
-import { IMPORT_TASK_INTERRUPTED_ERROR, SAVED_IMPORT_TASK_RETENTION_DAYS } from "@/lib/import/import-task-types";
+import { IMPORT_TASK_INTERRUPTED_ERROR } from "@/lib/import/import-task-types";
+import { purgeImportTasks } from "@/lib/import/import-cleanup";
 import type { ImportTaskMode, ImportTaskStatus, ImportTaskSummary } from "@/lib/import/import-task-types";
 import {
     bootId, confirmImportTask, isInterrupted, listImportTasks, markFailed, parseResult, quotaKindOf, reconcileInterrupted as reconcileInterruptedTasks, register, retryImportTask,
@@ -221,12 +222,9 @@ async function reconcileInterrupted(userId: string, batchId?: string): Promise<v
     }));
 }
 
-/** 所有题都已入库超过保留期的批次删除（错题不受影响） */
+/** 已保存任务按自身保留期清理，已没有任务的批次一并删除（错题不受影响） */
 async function pruneDone(userId: string): Promise<void> {
-    const cutoff = new Date(Date.now() - SAVED_IMPORT_TASK_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    await serializeWrite(() => prisma.importBatch.deleteMany({
-        where: { userId, status: 'started', startedAt: { lt: cutoff }, tasks: { every: { status: 'saved', finishedAt: { lt: cutoff } } } },
-    }));
+    await purgeImportTasks(new Date(), userId);
 }
 
 async function findOwnBatch(user: Pick<User, 'id'>, id: string, image = false): Promise<BatchWithTasks | null> {

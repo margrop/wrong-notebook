@@ -25,7 +25,8 @@ import { consumeAiQuota, quotaRejectionCode } from "@/lib/ai-quota";
 import { createErrorResponse, ErrorCode, notFound, validationError } from "@/lib/api-errors";
 import { describeQuestion } from "@/lib/background-tasks";
 import { getErrorMessage } from "@/lib/error-message";
-import { CLIENT_TIMING_KEYS, IMPORT_TASK_INTERRUPTED_ERROR, SAVED_IMPORT_TASK_RETENTION_DAYS } from "@/lib/import/import-task-types";
+import { CLIENT_TIMING_KEYS, IMPORT_TASK_INTERRUPTED_ERROR } from "@/lib/import/import-task-types";
+import { purgeImportTasks } from "@/lib/import/import-cleanup";
 import type {
     ImportTaskDetail, ImportTaskListResponse, ImportTaskMode, ImportTaskStatus, ImportTaskSummary, ImportTaskTimings,
 } from "@/lib/import/import-task-types";
@@ -210,10 +211,9 @@ export async function reconcileInterrupted(userId: string, taskId?: string): Pro
     logger.info({ userId, count: interrupted.length }, 'Marked interrupted import tasks as failed');
 }
 
-/** 删除超过保留期的已保存独立任务；批次中的任务随批次一起保留或清理，不单独删除 */
+/** 删除超过保留期的已保存任务；批次内的任务同样按自身保留期清理，不随批次永久保留 */
 async function pruneSaved(userId: string): Promise<void> {
-    const cutoff = new Date(Date.now() - SAVED_IMPORT_TASK_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    await serializeWrite(() => prisma.importTask.deleteMany({ where: { userId, batchId: null, status: 'saved', finishedAt: { lt: cutoff } } }));
+    await purgeImportTasks(new Date(), userId);
 }
 
 async function findOwnTask(user: Pick<User, 'id'>, id: string): Promise<TaskWithItem | null> {

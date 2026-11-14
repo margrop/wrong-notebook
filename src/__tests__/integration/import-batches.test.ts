@@ -689,7 +689,7 @@ describe('分题预览中的 AI 修正文字', () => {
 describe('批次生命周期', () => {
     const DAY = 24 * 60 * 60 * 1000;
 
-    it('批次中 7 天前已保存的题在批次未完成时不被清理，错题不受影响；独立任务按自身保留期清理', async () => {
+    it('批次中超过保留期的已保存题按自身结束时间清理，待校对题与批次保留，错题不受影响；独立任务按自身保留期清理', async () => {
         const item = await database.errorItem.create({ data: { userId: 'user-1', subjectId: 'math', questionText: '很早入库的题', originalImageUrl: '' } });
         const old = new Date(Date.now() - 10 * DAY);
         await database.importBatch.create({ data: { id: 'batch-long-draft', userId: 'user-1', source: 'text', splitter: 'local', status: 'started', mode: 'review', startedAt: old, createdAt: old } });
@@ -699,12 +699,12 @@ describe('批次生命周期', () => {
             { id: 'old-standalone', userId: 'user-1', mode: 'auto', status: 'saved', imageData: '', finishedAt: old, createdAt: old },
         ] });
         const list = await (await LIST()).json();
-        expect(list.batches.find((batch: { id: string }) => batch.id === 'batch-long-draft')).toMatchObject({ counts: { total: 2, saved: 1, review: 1 } });
-        expect(await database.importTask.count({ where: { id: 'old-saved-in-batch' } })).toBe(1);
+        expect(list.batches.find((batch: { id: string }) => batch.id === 'batch-long-draft')).toMatchObject({ counts: { total: 1, saved: 0, review: 1 } });
+        expect(await database.importTask.count({ where: { id: 'old-saved-in-batch' } })).toBe(0);
         expect(await database.importTask.count({ where: { id: 'old-standalone' } })).toBe(0);
         expect(await database.errorItem.count({ where: { id: item.id } })).toBe(1);
 
-        // 全部入库且超过保留期后，批次连同其任务一起清理，错题保留
+        // 最后一道题也入库并超过保留期后，批次连同其任务一起清理，错题保留
         await database.importTask.update({ where: { id: 'pending-in-batch' }, data: { status: 'saved', finishedAt: old } });
         await LIST();
         expect(await database.importBatch.count({ where: { id: 'batch-long-draft' } })).toBe(0);
