@@ -97,8 +97,8 @@ export async function GET(req: Request) {
             where: userFilter,
         });
 
+        // 真题库为全站共享，用户与整站备份都导出全部题库
         const questionBanks = await prisma.questionBank.findMany({
-            where: userFilter,
             include: {
                 questions: { orderBy: { createdAt: 'asc' } },
             },

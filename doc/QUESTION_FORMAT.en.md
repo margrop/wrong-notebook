@@ -8,7 +8,7 @@ This document defines the **Wrong Notebook Question Exchange Format JSON v1**: u
 
 ## Question Bank Package JSON (shared banks)
 
-Banks imported on the **Question Bank** page use a separate format, `wrong-notebook-question-bank` v1. Its format definition, JSON Schema and the first primary, junior-high and senior-high packages live in [margrop/wrong-notebook-question-bank](https://github.com/margrop/wrong-notebook-question-bank). The app reads `index.json` there, downloads each package by `file`, and keeps imported questions in the bank unless you tick the option to add them to a notebook. This format does not replace the Question Exchange Format: the latter exchanges mistake content, while bank packages distribute shared questions and support knowledge-point selection.
+Banks imported on the **Question Bank** page use a separate format, `wrong-notebook-question-bank` v1. Its format definition, JSON Schema and the first primary, junior-high and senior-high packages live in [margrop/wrong-notebook-question-bank](https://github.com/margrop/wrong-notebook-question-bank). The app reads `index.json` there, downloads each package by `file`, and keeps imported questions in the bank unless you tick the option to add them to a notebook. Banks are shared site-wide, so every account uses the same banks. This format does not replace the Question Exchange Format: the latter exchanges mistake content, while bank packages distribute shared questions and support knowledge-point selection.
 
 
 ## Exporting from the Notebook

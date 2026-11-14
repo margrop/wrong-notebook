@@ -88,7 +88,6 @@ async function handlePostInner(req: Request, { user }: AuthenticatedContext) {
         }
 
         const selectionInput = {
-            userId: user.id,
             errorItem: {
                 id: errorItemWithSubject.id,
                 questionText: errorItemWithSubject.questionText,

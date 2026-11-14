@@ -1,5 +1,5 @@
 /**
- * 从真题库按知识点选题（服务端）：
+ * 从全站共享真题库按知识点选题（服务端）：
  * 优先匹配错题的知识点标签，其次按同错题本、同学段、同学科与难度筛选；
  * 排除该错题最近已练习过的题目文本，避免连续重复。
  */
@@ -26,7 +26,6 @@ const DIFFICULTY_STARS: Record<DifficultyLevel, number[]> = {
 const SUBJECT_NAMES = ["数学", "科学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"] as const;
 
 export interface BankSelectionInput {
-    userId: string;
     errorItem: {
         id: string;
         questionText: string | null;
@@ -90,7 +89,6 @@ export async function selectBankQuestion(input: BankSelectionInput): Promise<Ban
 
     const banks = await prisma.questionBank.findMany({
         where: {
-            userId: input.userId,
             ...(input.bankId ? { id: input.bankId } : {}),
         },
         select: { id: true, name: true },

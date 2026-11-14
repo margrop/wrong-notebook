@@ -41,10 +41,10 @@ function toSummary(bank: {
 }
 
 /** GET /api/question-banks/:id：题库详情，题目按关键词、年级、知识点分页 */
-export const GET = withUser(async (req: Request, { user, params }: RouteContext & AuthenticatedContext) => {
+export const GET = withUser(async (req: Request, { params }: RouteContext & AuthenticatedContext) => {
     const { id } = await params;
     try {
-        const bank = await prisma.questionBank.findFirst({ where: { id, userId: user.id } });
+        const bank = await prisma.questionBank.findUnique({ where: { id } });
         if (!bank) return notFound('Bank not found');
 
         const { searchParams } = new URL(req.url);
@@ -100,17 +100,17 @@ export const GET = withUser(async (req: Request, { user, params }: RouteContext 
     }
 });
 
-/** PATCH /api/question-banks/:id：重命名或修改说明 */
-export const PATCH = withUser(async (req: Request, { user, params }: RouteContext & AuthenticatedContext) => {
+/** PATCH /api/question-banks/:id：重命名或修改说明（全站共享，任何账号可管理） */
+export const PATCH = withUser(async (req: Request, { params }: RouteContext & AuthenticatedContext) => {
     const { id } = await params;
     const parsed = updateBankSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return validationError('Invalid bank update', parsed.error.issues);
     try {
-        const bank = await prisma.questionBank.findFirst({ where: { id, userId: user.id } });
+        const bank = await prisma.questionBank.findUnique({ where: { id } });
         if (!bank) return notFound('Bank not found');
         const name = parsed.data.name;
         if (name && name !== bank.name) {
-            const existing = await prisma.questionBank.findFirst({ where: { userId: user.id, name }, select: { id: true } });
+            const existing = await prisma.questionBank.findFirst({ where: { name }, select: { id: true } });
             if (existing) return conflict('BANK_NAME_EXISTS');
         }
         const updated = await prisma.questionBank.update({
@@ -127,11 +127,11 @@ export const PATCH = withUser(async (req: Request, { user, params }: RouteContex
     }
 });
 
-/** DELETE /api/question-banks/:id：删除题库与全部题目（题目已写入的错题不受影响） */
-export const DELETE = withUser(async (_req: Request, { user, params }: RouteContext & AuthenticatedContext) => {
+/** DELETE /api/question-banks/:id：删除题库与全部题目（题目已写入的错题不受影响，影响全部账号） */
+export const DELETE = withUser(async (_req: Request, { params }: RouteContext & AuthenticatedContext) => {
     const { id } = await params;
     try {
-        const bank = await prisma.questionBank.findFirst({ where: { id, userId: user.id }, select: { id: true } });
+        const bank = await prisma.questionBank.findUnique({ where: { id }, select: { id: true } });
         if (!bank) return notFound('Bank not found');
         await prisma.questionBank.delete({ where: { id } });
         return NextResponse.json({ ok: true });

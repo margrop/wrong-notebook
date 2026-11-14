@@ -54,14 +54,14 @@ export type ImportBankOutcome =
     | { ok: true; result: BankImportResult }
     | { ok: false; code: "BANK_NAME_EXISTS" | "BANK_EMPTY"; message: string };
 
-/** 导入题库包；名称重复时拒绝，避免覆盖已有题库 */
+/** 导入题库包到全站共享真题库；名称重复时拒绝，避免覆盖已有题库 */
 export async function importQuestionBank(options: ImportBankOptions): Promise<ImportBankOutcome> {
     const { user, file } = options;
     const name = (options.name?.trim() || file.meta.title).slice(0, 200);
     const description = (options.description?.trim() || file.meta.description || "").slice(0, 1000) || null;
 
-    const existing = await prisma.questionBank.findUnique({
-        where: { userId_name: { userId: user.id, name } },
+    const existing = await prisma.questionBank.findFirst({
+        where: { name },
         select: { id: true },
     });
     if (existing) {
@@ -73,7 +73,6 @@ export async function importQuestionBank(options: ImportBankOptions): Promise<Im
 
     const bank = await prisma.questionBank.create({
         data: {
-            userId: user.id,
             name,
             description,
             stage: file.meta.stage,

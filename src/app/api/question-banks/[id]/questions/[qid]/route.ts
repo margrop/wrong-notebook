@@ -25,13 +25,13 @@ const updateQuestionSchema = z.object({
 });
 
 /** PATCH /api/question-banks/:id/questions/:qid：编辑题库题目 */
-export const PATCH = withUser(async (req: Request, { user, params }: RouteContext & AuthenticatedContext) => {
+export const PATCH = withUser(async (req: Request, { params }: RouteContext & AuthenticatedContext) => {
     const { id, qid } = await params;
     const parsed = updateQuestionSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return validationError('Invalid question update', parsed.error.issues);
     try {
         const question = await prisma.bankQuestion.findFirst({
-            where: { id: qid, bank: { id, userId: user.id } },
+            where: { id: qid, bankId: id },
             select: { id: true },
         });
         if (!question) return notFound('Question not found');
@@ -55,11 +55,11 @@ export const PATCH = withUser(async (req: Request, { user, params }: RouteContex
 });
 
 /** DELETE /api/question-banks/:id/questions/:qid */
-export const DELETE = withUser(async (_req: Request, { user, params }: RouteContext & AuthenticatedContext) => {
+export const DELETE = withUser(async (_req: Request, { params }: RouteContext & AuthenticatedContext) => {
     const { id, qid } = await params;
     try {
         const question = await prisma.bankQuestion.findFirst({
-            where: { id: qid, bank: { id, userId: user.id } },
+            where: { id: qid, bankId: id },
             select: { id: true },
         });
         if (!question) return notFound('Question not found');
@@ -84,7 +84,7 @@ export const POST = withUser(async (req: Request, { user, params }: RouteContext
     const notebookId = typeof body.notebookId === 'string' && body.notebookId.trim() ? body.notebookId.trim() : null;
     try {
         const question = await prisma.bankQuestion.findFirst({
-            where: { id: qid, bank: { id, userId: user.id } },
+            where: { id: qid, bankId: id },
         });
         if (!question) return notFound('Question not found');
         if (notebookId) {

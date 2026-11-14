@@ -11,7 +11,7 @@ import { z } from "zod";
  */
 
 /** 当前备份文件版本号 */
-export const BACKUP_VERSION = 17;
+export const BACKUP_VERSION = 18;
 
 /** 备份文件中的用户对象 */
 export interface BackupUser {
@@ -273,10 +273,9 @@ export interface BackupBankQuestion {
     createdAt: string | Date;
 }
 
-/** 用户导入的真题库（version 14 起导出） */
+/** 全站共享的真题库（version 14 起导出；18 起不再带 userId） */
 export interface BackupQuestionBank {
     id: string;
-    userId: string;
     name: string;
     description: string | null;
     stage: string;
@@ -307,7 +306,7 @@ export interface BackupFile {
     practiceQuestions: BackupPracticeQuestion[];
     examPapers: BackupExamPaper[];
     paperGroups: BackupPaperGroup[];
-    /** 真题库（version 14 起导出） */
+    /** 全站共享的真题库（version 14 起导出） */
     questionBanks: BackupQuestionBank[];
     /** 动画讲解的云端语音 */
     ttsSpeeches: unknown[];
