@@ -1,24 +1,23 @@
 /**
  * 导入步骤：真题库与题库题目（version 14 起）。
- * 题库独立于错题本；按原 ID 去重，名称冲突时追加序号，题目批量写入。
+ * 题库全站共享；按原 ID 去重，名称冲突时追加序号，题目批量写入。
  */
 import { safeParseDate } from "@/lib/backup/import-parser";
 import type { ImportContext } from "./types";
 
 /** 5. 导入真题库与题目 */
 export async function importQuestionBanks(ctx: ImportContext): Promise<void> {
-    const { tx, user, importAll, normalized, stats } = ctx;
+    const { tx, normalized, stats } = ctx;
     for (const bank of normalized.questionBanks) {
-        const targetUserId = importAll ? bank.userId : user.id;
         const existingById = await tx.questionBank.findFirst({
-            where: { id: bank.id, userId: targetUserId },
+            where: { id: bank.id },
             select: { id: true },
         });
         if (existingById) continue;
 
         let name = bank.name;
         const byName = await tx.questionBank.findFirst({
-            where: { name, userId: targetUserId },
+            where: { name },
             select: { id: true },
         });
         if (byName) name = `${bank.name}（导入）`.slice(0, 200);
@@ -26,7 +25,6 @@ export async function importQuestionBanks(ctx: ImportContext): Promise<void> {
         const created = await tx.questionBank.create({
             data: {
                 id: bank.id,
-                userId: targetUserId,
                 name,
                 description: bank.description,
                 stage: bank.stage,

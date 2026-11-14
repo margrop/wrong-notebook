@@ -514,7 +514,7 @@ export const en = {
         },
         banks: {
             title: "Question Bank",
-            subtitle: "Import shared banks, manage questions, and pick by knowledge point in practice",
+            subtitle: "A site-wide shared question bank: import shared banks, manage questions, and pick by knowledge point in practice",
             import: "Import Bank",
             importHint: "Choose a bank package JSON file. Each package holds up to {max} questions.",
             chooseFile: "Choose bank file",
@@ -550,7 +550,7 @@ export const en = {
             licenseLabel: "License",
             sourceLabel: "Source",
             deleteBank: "Delete bank",
-            deleteBankConfirm: "Delete this bank and all its questions? Questions already added to notebooks are kept.",
+            deleteBankConfirm: "Delete this bank and all its questions? The bank is shared site-wide, so no account will see it afterwards; questions already added to notebooks are kept.",
             renameBank: "Rename",
             renameDialog: {
                 title: "Rename Bank",

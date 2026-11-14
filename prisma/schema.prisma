@@ -47,15 +47,12 @@ model User {
   paperGroups PaperGroup[]
   importTasks ImportTask[]
   importBatches ImportBatch[]
-  questionBanks QuestionBank[]
 }
 
-/// 用户导入的真题库：共享题库包或本地题库文件的结构化副本，独立于错题本
+/// 全站共享的真题库：共享题库包或本地题库文件的结构化副本，独立于错题本，所有账号共用
 model QuestionBank {
   id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name          String   // 显示名，同一用户内唯一
+  name          String   // 显示名，全站唯一（由应用层校验）
   description   String?
   stage         String   // primary / junior_high / senior_high / university
   subjectKey    String?  // math / english / ...
@@ -69,8 +66,7 @@ model QuestionBank {
   updatedAt     DateTime @updatedAt
   questions     BankQuestion[]
 
-  @@unique([userId, name])
-  @@index([userId, createdAt])
+  @@index([createdAt])
 }
 
 /// 真题库中的单题；知识点存名称 JSON，按名称与错题标签匹配选题

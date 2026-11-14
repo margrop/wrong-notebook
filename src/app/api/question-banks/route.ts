@@ -35,11 +35,10 @@ function toSummary(bank: {
     };
 }
 
-/** GET /api/question-banks：当前用户的真题库列表 */
-async function handleGet(_req: Request, { user }: AuthenticatedContext) {
+/** GET /api/question-banks：全站共享的真题库列表 */
+async function handleGet() {
     try {
         const banks = await prisma.questionBank.findMany({
-            where: { userId: user.id },
             orderBy: { createdAt: 'desc' },
             select: {
                 id: true, name: true, description: true, stage: true, subjectKey: true, gradeRange: true,

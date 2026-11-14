@@ -26,6 +26,7 @@ vi.mock('@/lib/mastery', async (importOriginal) => ({
 import { GET as EXPORT } from '@/app/api/export/route';
 import { POST as IMPORT } from '@/app/api/import/route';
 import { GET as LIST_BANKS, POST as IMPORT_BANK } from '@/app/api/question-banks/route';
+import { POST as ADD_BANK_QUESTION } from '@/app/api/question-banks/[id]/questions/[qid]/route';
 import { selectBankQuestion } from '@/lib/question-bank/selection';
 import { POST as GENERATE_PRACTICE } from '@/app/api/practice/generate/route';
 import { sanitizeFigureSvg } from '@/lib/figure-svg';
@@ -204,9 +205,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 17 版格式，包含 tagSet、练习生成题与空的 extensions', async () => {
+    it('导出文件使用第 18 版格式，包含 tagSet、练习生成题与空的 extensions', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(17);
+        expect(backup.version).toBe(18);
         expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
@@ -239,7 +240,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
     it('真题库与题目随备份往返，按 ID 去重且不影响错题', async () => {
         await database.questionBank.create({
             data: {
-                id: 'bank-1', userId: 'user-1', name: '小学数学题库', stage: 'primary', subjectKey: 'math',
+                id: 'bank-1', name: '小学数学题库', stage: 'primary', subjectKey: 'math',
                 gradeRange: '[1,2,3,4,5,6]', source: 'cn-math-taxonomy', license: 'CC BY-NC 4.0', questionCount: 2,
                 createdAt: new Date('2026-11-01T00:00:00Z'),
                 questions: {
@@ -265,6 +266,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             id: 'bank-1', name: '小学数学题库', questionCount: 2,
             questions: expect.arrayContaining([expect.objectContaining({ id: 'bank-q-1', text: '3 的后面一个数是几？' })]),
         }));
+        expect(backup.questionBanks[0]).not.toHaveProperty('userId');
 
         await clearUserData();
         const { stats } = await importBackup(backup);
@@ -280,7 +282,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
 
         // 重复导入按原 ID 跳过，不产生重复题库或题目
         await importBackup(backup);
-        expect(await database.questionBank.count({ where: { userId: 'user-1' } })).toBe(1);
+        expect(await database.questionBank.count()).toBe(1);
         expect(await database.bankQuestion.count()).toBe(2);
     });
 
@@ -309,7 +311,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         const itemsBefore = await database.errorItem.count({ where: { userId: 'user-1' } });
         const first = await post({ file });
         expect(first.status).toBe(201);
-        expect(await database.questionBank.count({ where: { userId: 'user-1' } })).toBe(1);
+        expect(await database.questionBank.count()).toBe(1);
         expect(await database.bankQuestion.count()).toBe(2);
         // 默认只进入真题库，不产生错题
         expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBe(itemsBefore);
@@ -319,7 +321,6 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect((await list.json()).banks).toContainEqual(expect.objectContaining({ name: '小学数学题库', questionCount: 2 }));
 
         const selected = await selectBankQuestion({
-            userId: 'user-1',
             errorItem: {
                 id: 'item-1',
                 questionText: '求解 x + 2 = 5',
@@ -352,6 +353,60 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(practiceBody.source).toBe('bank');
         expect(practiceBody.questionText).toBeTruthy();
         expect(duplicateName.status).toBe(409);
+    });
+
+    it('真题库全站共享：一个账号导入后其他账号可见、可选并加入自己的错题本', async () => {
+        const originalSession = mocks.session;
+        const file = {
+            format: 'wrong-notebook-question-bank',
+            version: 1,
+            meta: { id: 'shared-primary-math', title: '共享小学数学', stage: 'primary', subject: 'math', grades: [1], count: 1, tagged: true, source: 'test-source', license: 'MIT' },
+            questions: [{ id: 'q1', grade: 1, semester: '上', questionType: 'fill_blank', difficultyStars: 2,
+                text: '3 的后面一个数是几？', answer: '4', analysis: '从 1 往后数。', knowledgePoints: ['数的认识'] }],
+        };
+        const postBank = () => IMPORT_BANK(new Request('http://localhost/api/question-banks', {
+            method: 'POST',
+            body: JSON.stringify({ file }),
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        await database.user.create({ data: { id: 'user-2', email: 'member@example.com', password: 'test-only' } });
+        try {
+            // 账号 2 导入后题库全站可见
+            mocks.session = { user: { id: 'user-2', email: 'member@example.com', role: 'user' }, expires: '2099-01-01' };
+            expect((await postBank()).status).toBe(201);
+            expect(await database.questionBank.count()).toBe(1);
+
+            mocks.session = originalSession;
+            const list = await LIST_BANKS(new Request('http://localhost/api/question-banks'));
+            expect((await list.json()).banks).toContainEqual(expect.objectContaining({ name: '共享小学数学', questionCount: 1 }));
+
+            const selected = await selectBankQuestion({
+                errorItem: {
+                    id: 'item-1',
+                    questionText: '求解 x + 2 = 5',
+                    subject: { name: '数学', stage: 'primary', subjectKey: 'math' },
+                },
+                tagNames: ['数的认识'],
+                difficulty: 'medium',
+            });
+            expect(selected?.bankName).toBe('共享小学数学');
+
+            // 账号 1 可把共享题库的题目写入自己的错题本
+            await database.subject.create({ data: { id: 'shared-math', name: '共享数学', stage: 'primary', subjectKey: 'math', userId: 'user-1' } });
+            const bankQuestion = await database.bankQuestion.findFirstOrThrow({ where: { externalId: 'q1' } });
+            const added = await ADD_BANK_QUESTION(new Request('http://localhost/api/question-banks', {
+                method: 'POST',
+                body: JSON.stringify({ notebookId: 'shared-math' }),
+                headers: { 'Content-Type': 'application/json' },
+            }), { params: Promise.resolve({ id: bankQuestion.bankId, qid: bankQuestion.id }) });
+            expect(added.status).toBe(200);
+            expect(await database.errorItem.count({ where: { userId: 'user-1', subjectId: 'shared-math' } })).toBe(1);
+
+            // 名称查重全站生效，其他账号不能再导入同名题库
+            expect((await postBank()).status).toBe(409);
+        } finally {
+            mocks.session = originalSession;
+        }
     });
 
     it('遥测记录与协议、遥测设置属于实例数据，不进入备份', async () => {
@@ -815,7 +870,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(response.status).toBe(200);
         const compressed = Buffer.from(await response.arrayBuffer());
         expect([compressed[0], compressed[1]]).toEqual([0x1f, 0x8b]);
-        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(17);
+        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(18);
 
         await clearUserData();
         const imported = await IMPORT(new Request('http://localhost/api/import', {
