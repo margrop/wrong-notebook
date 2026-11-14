@@ -16,6 +16,7 @@
 import "server-only";
 
 import { getServerSession } from "next-auth";
+import { cookies } from "next/headers";
 import type { Session } from "next-auth";
 import type { User } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
@@ -23,6 +24,7 @@ import { prisma } from "@/lib/prisma";
 import { createErrorResponse, ErrorCode, unauthorized, forbidden, internalError } from "@/lib/api-errors";
 import { isEulaPending } from "@/lib/eula/server";
 import { createLogger } from "@/lib/logger";
+import { ADMIN_VIEW_AS_COOKIE } from "@/lib/admin-view-as";
 
 const logger = createLogger("api-handler");
 
@@ -60,11 +62,25 @@ async function resolveUser(): Promise<{ user: User; session: Session } | { error
     if (!session?.user?.email) {
         return { error: unauthorized("Authentication required") };
     }
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) {
+    const adminUser = await prisma.user.findUnique({ where: { email: session.user.email } });
+    if (!adminUser) {
         return { error: unauthorized("Authentication required") };
     }
-    return { user, session };
+
+    // 管理员「以某用户身份查看」：普通接口按目标用户执行，鉴权仍以管理员会话为准
+    if (session.user.role === "admin") {
+        try {
+            const targetId = (await cookies()).get(ADMIN_VIEW_AS_COOKIE)?.value;
+            if (targetId && targetId !== adminUser.id) {
+                const target = await prisma.user.findUnique({ where: { id: targetId } });
+                if (target) return { user: target, session };
+            }
+        } catch {
+            // 非请求上下文（如直接调用路由的测试）没有 cookie 存储，按管理员本人处理
+        }
+    }
+
+    return { user: adminUser, session };
 }
 
 export interface AdminRouteOptions {

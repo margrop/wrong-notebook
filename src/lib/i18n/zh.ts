@@ -1370,6 +1370,13 @@ export const zh = {
                 questionCount: "{count} 题",
                 noQuestionText: "（无题目文本）",
             },
+            viewAs: {
+                banner: "正在以 {name} 的身份查看；练习、作答和打印都记在该账号下。",
+                exit: "退出查看",
+                enter: "查看该用户数据",
+                openItem: "查看",
+                enterFailed: "进入查看模式失败，请重试。",
+            },
         },
         auth: {
             initialize: {

@@ -13,6 +13,7 @@ import { Loader2, ArrowLeft, User, BookOpen, PenTool, Layers, Calendar, Tag, Che
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/lib/feedback";
 import { AdminUserDetail } from "@/types/api";
 
 export default function AdminUserDetailPage() {
@@ -24,6 +25,7 @@ export default function AdminUserDetailPage() {
     const [data, setData] = useState<AdminUserDetail | null>(null)
     usePageTitle(t.admin.dashboard.title, data?.user.name || data?.user.email)
     const [loading, setLoading] = useState(true)
+    const [entering, setEntering] = useState(false)
 
     const userId = params.id as string
 
@@ -38,6 +40,19 @@ export default function AdminUserDetailPage() {
             setLoading(false)
         }
     }, [userId])
+
+    const enterViewAs = async (destination: string) => {
+        setEntering(true)
+        try {
+            await apiClient.post("/api/admin/view-as", { userId })
+            router.push(destination)
+            router.refresh()
+        } catch (error) {
+            frontendLogger.error('[AdminUserDetail]', 'Failed to enter view-as mode', { error })
+            toast.error(t.admin?.viewAs?.enterFailed || "Failed to view as this user")
+            setEntering(false)
+        }
+    }
 
     useEffect(() => {
         if (status === "loading") return
@@ -96,6 +111,10 @@ export default function AdminUserDetailPage() {
                         {data.user.isActive ? (t.admin?.active || "Active") : (t.admin?.disabled || "Disabled")}
                     </Badge>
                 </div>
+                    <Button variant="outline" size="sm" className="ml-auto" disabled={entering} onClick={() => { void enterViewAs("/notebooks") }}>
+                        <Eye className="mr-1 h-4 w-4" />
+                        {t.admin?.viewAs?.enter || "View this user's data"}
+                    </Button>
             </div>
 
             {/* Stats Cards */}
@@ -260,6 +279,9 @@ export default function AdminUserDetailPage() {
                                     <span className="text-xs text-muted-foreground whitespace-nowrap">
                                         {formatDateTime(item.createdAt, 'yyyy-MM-dd', timeZone)}
                                     </span>
+                                    <Button variant="ghost" size="sm" className="h-7 shrink-0 px-2" disabled={entering} onClick={() => { void enterViewAs(`/error-items/${item.id}`) }}>
+                                        {t.admin?.viewAs?.openItem || "View"}
+                                    </Button>
                                 </div>
                             ))}
                         </div>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { LogOut, Shield } from "lucide-react";
+import { AdminViewAsBanner } from "@/components/admin/admin-view-as-banner";
 import { EulaUpgradeDialog } from "@/components/eula/eula-upgrade-dialog";
 import { ImportTasksIndicator } from "@/components/import-tasks/import-tasks-indicator";
 import { SettingsDialog } from "@/components/settings-dialog";
@@ -105,6 +106,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
             </header>
             <TelemetryNoticeBanner enabled={isAdmin && status === "authenticated" && !eulaGate.pending} />
+            <AdminViewAsBanner />
 
             <div className="pb-20 md:pb-0">{children}</div>
             {gate}

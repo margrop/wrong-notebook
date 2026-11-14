@@ -1371,6 +1371,13 @@ export const en = {
                 questionCount: "{count} questions",
                 noQuestionText: "(No question text)",
             },
+            viewAs: {
+                banner: "Viewing as {name}; practice, answers and prints are recorded under this account.",
+                exit: "Exit view",
+                enter: "View this user's data",
+                openItem: "View",
+                enterFailed: "Could not enter view mode. Please try again.",
+            },
         },
         auth: {
             initialize: {
