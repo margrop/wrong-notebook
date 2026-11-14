@@ -51,8 +51,8 @@ export function HiddenFileInputs({ cameraInput, albumInput, fileInput, handlePic
     return (
         <>
             <input ref={cameraInput} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePicked} data-testid="camera-input" />
-            <input ref={albumInput} type="file" accept="image/*" className="hidden" onChange={handlePicked} data-testid="album-input" />
-            <input ref={fileInput} type="file" className="hidden" onChange={handlePicked} data-testid="file-input" />
+            <input ref={albumInput} type="file" accept="image/*" multiple className="hidden" onChange={handlePicked} data-testid="album-input" />
+            <input ref={fileInput} type="file" multiple className="hidden" onChange={handlePicked} data-testid="file-input" />
         </>
     );
 }

@@ -11,14 +11,16 @@ import { PasteButton, ScreenshotButton } from "./upload-zone/paste-screenshot-bu
 interface UploadZoneProps {
     onImageSelect: (file: File) => void;  // 改为传递 File 对象
     isAnalyzing: boolean;
+    /** 一次选择多张图片时交给父组件排队；不传则逐张按第一张处理 */
+    onImagesSelect?: (files: File[]) => void;
     /** 错题来源（选填） */
     source?: string;
     onSourceChange?: (source: string) => void;
 }
 
-export function UploadZone({ onImageSelect, isAnalyzing, source = "", onSourceChange }: UploadZoneProps) {
+export function UploadZone({ onImageSelect, onImagesSelect, isAnalyzing, source = "", onSourceChange }: UploadZoneProps) {
     const { t } = useLanguage();
-    const zone = useUploadZone({ onImageSelect, isAnalyzing });
+    const zone = useUploadZone({ onImageSelect, onImagesSelect, isAnalyzing });
 
     return (
         <div className="space-y-4">

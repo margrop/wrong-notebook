@@ -100,9 +100,11 @@ export function clipboardImageToFile(blob: Blob): File {
 interface UploadZoneProps {
     onImageSelect: (file: File) => void;  // 改为传递 File 对象
     isAnalyzing: boolean;
+    /** 一次选择多张图片时交给父组件排队处理；不传则只处理第一张 */
+    onImagesSelect?: (files: File[]) => void;
 }
 
-export function useUploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
+export function useUploadZone({ onImageSelect, onImagesSelect, isAnalyzing }: UploadZoneProps) {
     const { t } = useLanguage();
     const [isScreenshotting, setIsScreenshotting] = useState(false);
     // 确保只在客户端渲染屏幕截图功能
@@ -117,19 +119,18 @@ export function useUploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
 
     const onDrop = useCallback(
         (acceptedFiles: File[]) => {
-            const file = acceptedFiles[0];
-            if (file) {
-                // 直接传递 File 对象，让父组件处理压缩
-                onImageSelect(file);
-            }
+            const files = acceptedFiles.slice(0, 4);
+            if (files.length === 0) return;
+            if (onImagesSelect) onImagesSelect(files);
+            else onImageSelect(files[0]);
         },
-        [onImageSelect]
+        [onImageSelect, onImagesSelect]
     );
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
         accept: IMAGE_ACCEPT,
-        maxFiles: 1,
+        maxFiles: 4,
         disabled: isAnalyzing,
     });
 
@@ -139,10 +140,12 @@ export function useUploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
     const albumInput = useRef<HTMLInputElement>(null);
     const fileInput = useRef<HTMLInputElement>(null);
     const handlePicked = (event: ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
+        const files = Array.from(event.target.files ?? []);
         // 清空以便再次选择同一文件（如重拍后选同名照片）也能触发
         event.target.value = "";
-        if (file) onImageSelect(file);
+        if (files.length === 0) return;
+        if (onImagesSelect) onImagesSelect(files.slice(0, 4));
+        else if (files[0]) onImageSelect(files[0]);
     };
     const openSource = (key: "camera" | "album" | "file") => {
         if (key === "camera" && hasCamera === false) {

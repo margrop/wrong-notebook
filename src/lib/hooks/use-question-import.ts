@@ -116,6 +116,7 @@ export function useQuestionImport({ logPrefix, analyzeSubjectId, importSubjectId
         refreshPendingTask: pending.refresh,
         dismissPendingTask: () => setPendingTaskId(null),
         selectImage: imageFlow.selectImage,
+        selectImages: imageFlow.selectImages,
         cropRegions: imageFlow.cropRegions,
         submitText: textFlow.submitText,
         saveQuestion, saveReviewed,

@@ -13,6 +13,10 @@ export async function register() {
             const { startTelemetryScheduler } = await import('./lib/telemetry/scheduler');
             startTelemetryScheduler();
 
+            // 识别任务与批次：按保留期定期清理，不依赖用户打开识别任务页
+            const { startImportCleanupScheduler } = await import('./lib/import/import-cleanup');
+            startImportCleanupScheduler();
+
             // 全新安装还没有管理员时，在启动日志中打印一次性初始化链接
             const { announceSetupLink } = await import('./lib/initialization');
             await announceSetupLink();

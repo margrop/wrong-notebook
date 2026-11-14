@@ -112,7 +112,7 @@ export default function AddErrorPage() {
                                         onDiscard={flow.discardParts}
                                     />
                                 )}
-                                <UploadZone onImageSelect={flow.selectImage} isAnalyzing={flow.isBusy} source={photoSource} onSourceChange={setPhotoSource} />
+                                <UploadZone onImageSelect={flow.selectImage} onImagesSelect={flow.selectImages} isAnalyzing={flow.isBusy} source={photoSource} onSourceChange={setPhotoSource} />
                             </>
                         ) : (
                             <TextInputZone

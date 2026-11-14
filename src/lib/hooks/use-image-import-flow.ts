@@ -55,6 +55,7 @@ export function useImageImportFlow(deps: ImageFlowDeps) {
     const [completedStages, setCompletedStages] = useState<ReturnType<typeof buildStageList>>([]);
     const preparedRef = useRef<PreparedImage | null>(null);
 
+    const pendingImagesRef = useRef<File[]>([]);
     // 离开页面时释放解码后的原图与预览图；只在卸载时执行，重新渲染不能释放（裁剪还要用原图）
     useEffect(() => () => preparedRef.current?.dispose(), []);
 
@@ -87,12 +88,24 @@ export function useImageImportFlow(deps: ImageFlowDeps) {
                 sourceType: file.type, sourceBytes: file.size,
             });
             toast.error(message);
+            void drainPendingImages();
         } finally {
             deps.setAnalysisStep('idle');
         }
     };
 
     /** 上传已处理好的图片，创建服务端识别任务；上传完成即关闭遮罩 */
+
+    /** 一次选择多张图片时排队：第一张照常裁剪，上传完成后继续下一张 */
+    const drainPendingImages = async () => {
+        const next = pendingImagesRef.current.shift();
+        if (next) await selectImage(next);
+    };
+    const selectImages = async (files: File[]) => {
+        if (files.length === 0) return;
+        pendingImagesRef.current = files.slice(1);
+        await selectImage(files[0]);
+    };
     const uploadImage = async (image: BatchImage) => {
         const startTime = Date.now();
         setCompletedStages(buildStageList(image.timings, t));
@@ -109,6 +122,7 @@ export function useImageImportFlow(deps: ImageFlowDeps) {
         } finally {
             deps.setAnalysisStep('idle');
             setCompletedStages([]);
+            void drainPendingImages();
         }
     };
 
@@ -208,7 +222,7 @@ export function useImageImportFlow(deps: ImageFlowDeps) {
         parts, setParts,
         completedStages,
         preparedRef,
-        selectImage, cropRegions, addPart,
+        selectImage, selectImages, cropRegions, addPart,
         uploadImage, uploadParts, autoSplitImage,
         finishParts: () => uploadParts(parts),
         discardParts: () => setParts([]),
