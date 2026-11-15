@@ -7,7 +7,9 @@ import type { ImportContext } from "./types";
 
 /** 5. 导入真题库与题目 */
 export async function importQuestionBanks(ctx: ImportContext): Promise<void> {
-    const { tx, normalized, stats } = ctx;
+    const { tx, normalized, stats, importAll } = ctx;
+    // 题库为全站共享，仅在整站导入（all=true，管理员）时还原；个人与合并导入不写题库
+    if (!importAll) return;
     for (const bank of normalized.questionBanks) {
         const existingById = await tx.questionBank.findFirst({
             where: { id: bank.id },

@@ -97,12 +97,14 @@ export async function GET(req: Request) {
             where: userFilter,
         });
 
-        // 真题库为全站共享，用户与整站备份都导出全部题库
-        const questionBanks = await prisma.questionBank.findMany({
-            include: {
-                questions: { orderBy: { createdAt: 'asc' } },
-            },
-        });
+        // 真题库为全站共享：整站备份（all=true）包含全部题库，个人备份不包含
+        const questionBanks = exportAll
+            ? await prisma.questionBank.findMany({
+                include: {
+                    questions: { orderBy: { createdAt: 'asc' } },
+                },
+            })
+            : [];
 
         // 待校对任务与未完成批次不再进入备份（第 13 版）：它们带整页图片，只在原设备继续处理
         const importBatches: unknown[] = [];

@@ -30,7 +30,7 @@
 
 - **🆓 免费账号就能用**：选择「MiniMax Code OAuth」渠道，用 MiniMax Code 账号网页登录即可使用，不需要购买 API Key，应用每天自动签到领取积分（见 [MiniMax Code OAuth](#minimax-code-oauth)）；火山引擎新用户也有[免费推理额度](#火山引擎免费试用)。
 - **📚 复习闭环**：举一反三变式题自动判题、AI 评估掌握概率、艾宾浩斯间隔的今日复习、按错题组卷打印并回填结果。
-- **🗂️ 共享真题库**：新增「真题库」页，可从 [margrop/wrong-notebook-question-bank](https://github.com/margrop/wrong-notebook-question-bank) 下载小学、初中、高中多学科题库包；导入默认只进入真题库、不产生错题，也可勾选同时写入错题本。题库全站共享，所有账号共用同一份题库，题目可分别加入各自的错题本；重命名、删除题库或题目同样全站生效。举一反三可按知识点从真题库选题（不消耗 AI 额度），也可选「真题库变式」：先选出题库题目，再由 AI 以该题为原题生成变式题。
+- **🗂️ 共享真题库**：新增「真题库」页，可从 [margrop/wrong-notebook-question-bank](https://github.com/margrop/wrong-notebook-question-bank) 下载小学、初中、高中多学科题库包；导入默认只进入真题库、不产生错题，也可勾选同时写入错题本。题库全站共享，由管理员导入和管理（重命名、删除题库或题目），所有账号共用同一份题库，题目可分别加入各自的错题本。举一反三可按知识点从真题库选题（不消耗 AI 额度），也可选「真题库变式」：先选出题库题目，再由 AI 以该题为原题生成变式题。
 - **📦 多平台安装**：Docker 镜像（amd64 / arm64）、npm、Windows、macOS、Linux、飞牛OS、群晖/威联通套件、安卓手机与平板（单机版或客户端），也可添加到手机主屏幕（PWA）。
 
 > 本仓库 fork 自 [wttwins/wrong-notebook](https://github.com/wttwins/wrong-notebook)，在其基础上增加了上述及下文列出的大部分功能。

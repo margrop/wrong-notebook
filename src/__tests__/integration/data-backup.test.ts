@@ -27,6 +27,7 @@ import { GET as EXPORT } from '@/app/api/export/route';
 import { POST as IMPORT } from '@/app/api/import/route';
 import { GET as LIST_BANKS, POST as IMPORT_BANK } from '@/app/api/question-banks/route';
 import { POST as ADD_BANK_QUESTION } from '@/app/api/question-banks/[id]/questions/[qid]/route';
+import { DELETE as DELETE_BANK } from '@/app/api/question-banks/[id]/route';
 import { selectBankQuestion } from '@/lib/question-bank/selection';
 import { POST as GENERATE_PRACTICE } from '@/app/api/practice/generate/route';
 import { sanitizeFigureSvg } from '@/lib/figure-svg';
@@ -44,8 +45,8 @@ const figureImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAA
 const animation = (text: string) => sanitizeSvgAnimation(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text x="1" y="5">${text}<animate attributeName="opacity" from="0" to="1" dur="1s"/></text></svg>`)!;
 const lastPractice = JSON.stringify({ questionText: '新题', answerText: '答案', analysis: '解析', figureSvg: figure, difficulty: 'medium', generatedAt: '2026-10-20T00:00:00.000Z' });
 
-async function exportBackup() {
-    const response = await EXPORT(new Request('http://localhost/api/export'));
+async function exportBackup(query = '') {
+    const response = await EXPORT(new Request(`http://localhost/api/export${query}`));
     expect(response.status).toBe(200);
     return response.json();
 }
@@ -94,6 +95,7 @@ beforeAll(() => {
 
 beforeEach(async () => {
     mocks.scheduleMasteryEvaluation.mockClear();
+    mocks.session = { user: { id: 'user-1', email: 'backup-test@example.com', role: 'user' }, expires: '2099-01-01' };
     // 清理所有可能残留的数据（包括系统标签），确保每个测试从干净状态开始
     await database.reviewSchedule.deleteMany();
     await database.practiceRecord.deleteMany();
@@ -238,6 +240,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
     });
 
     it('真题库与题目随备份往返，按 ID 去重且不影响错题', async () => {
+        mocks.session = { user: { id: 'user-1', email: 'backup-test@example.com', role: 'admin' }, expires: '2099-01-01' };
         await database.questionBank.create({
             data: {
                 id: 'bank-1', name: '小学数学题库', stage: 'primary', subjectKey: 'math',
@@ -261,7 +264,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
                 },
             },
         });
-        const backup = await exportBackup();
+        const backup = await exportBackup('?all=true');
         expect(backup.questionBanks).toContainEqual(expect.objectContaining({
             id: 'bank-1', name: '小学数学题库', questionCount: 2,
             questions: expect.arrayContaining([expect.objectContaining({ id: 'bank-q-1', text: '3 的后面一个数是几？' })]),
@@ -269,7 +272,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(backup.questionBanks[0]).not.toHaveProperty('userId');
 
         await clearUserData();
-        const { stats } = await importBackup(backup);
+        const { stats } = await importBackup(backup, '?all=true');
         expect(stats).toMatchObject({ questionBanksCreated: 1, bankQuestionsCreated: 2, errorItemsCreated: 2 });
 
         const restored = await database.questionBank.findFirstOrThrow({ where: { id: 'bank-1' }, include: { questions: true } });
@@ -281,12 +284,13 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(restored.questions.find((question) => question.id === 'bank-q-2')?.optionsJson).toBe('{"A":"1+1=3","B":"2+2=4"}');
 
         // 重复导入按原 ID 跳过，不产生重复题库或题目
-        await importBackup(backup);
+        await importBackup(backup, '?all=true');
         expect(await database.questionBank.count()).toBe(1);
         expect(await database.bankQuestion.count()).toBe(2);
     });
 
     it('真题库导入默认不进错题，可选写入；按知识点从题库选题', async () => {
+        mocks.session = { user: { id: 'user-1', email: 'backup-test@example.com', role: 'admin' }, expires: '2099-01-01' };
         const file = {
             format: 'wrong-notebook-question-bank',
             version: 1,
@@ -371,8 +375,10 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         }));
         await database.user.create({ data: { id: 'user-2', email: 'member@example.com', password: 'test-only' } });
         try {
-            // 账号 2 导入后题库全站可见
+            // 普通账号不能导入题库，管理员导入后题库全站可见
             mocks.session = { user: { id: 'user-2', email: 'member@example.com', role: 'user' }, expires: '2099-01-01' };
+            expect((await postBank()).status).toBe(403);
+            mocks.session = { user: { id: 'user-2', email: 'member@example.com', role: 'admin' }, expires: '2099-01-01' };
             expect((await postBank()).status).toBe(201);
             expect(await database.questionBank.count()).toBe(1);
 
@@ -402,11 +408,52 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             expect(added.status).toBe(200);
             expect(await database.errorItem.count({ where: { userId: 'user-1', subjectId: 'shared-math' } })).toBe(1);
 
-            // 名称查重全站生效，其他账号不能再导入同名题库
+            // 名称查重全站生效；普通账号不能删除题库
+            mocks.session = { user: { id: 'user-1', email: 'backup-test@example.com', role: 'admin' }, expires: '2099-01-01' };
             expect((await postBank()).status).toBe(409);
+            mocks.session = originalSession;
+            expect((await DELETE_BANK(new Request('http://localhost/api/question-banks'), {
+                params: Promise.resolve({ id: bankQuestion.bankId }),
+            })).status).toBe(403);
+            mocks.session = { user: { id: 'user-1', email: 'backup-test@example.com', role: 'admin' }, expires: '2099-01-01' };
+            expect((await DELETE_BANK(new Request('http://localhost/api/question-banks'), {
+                params: Promise.resolve({ id: bankQuestion.bankId }),
+            })).status).toBe(200);
+            expect(await database.questionBank.count()).toBe(0);
         } finally {
             mocks.session = originalSession;
         }
+    });
+
+    it('个人备份不含真题库，普通账号导入不写题库', async () => {
+        await database.questionBank.create({
+            data: {
+                id: 'bank-personal', name: '个人导出题库', stage: 'primary', subjectKey: 'math', questionCount: 1,
+                createdAt: new Date('2026-11-01T00:00:00Z'),
+                questions: {
+                    create: {
+                        id: 'bank-personal-q', stage: 'primary', text: '题目', knowledgePoints: '[]',
+                        createdAt: new Date('2026-11-01T00:00:00Z'),
+                    },
+                },
+            },
+        });
+        const userBackup = await exportBackup();
+        expect(userBackup.questionBanks).toEqual([]);
+
+        // 旧版个人备份可能携带题库：普通账号导入时忽略，避免改动全站题库
+        const body = {
+            ...userBackup,
+            questionBanks: [{
+                id: 'bank-personal', name: '个人导出题库', stage: 'primary', subjectKey: 'math', questionCount: 1,
+                createdAt: '2026-11-01T00:00:00.000Z', updatedAt: '2026-11-01T00:00:00.000Z',
+                questions: [{ id: 'bank-personal-q', stage: 'primary', text: '题目', knowledgePoints: '[]', createdAt: '2026-11-01T00:00:00.000Z' }],
+            }],
+        };
+        await clearUserData();
+        const { stats } = await importBackup(body);
+        expect(stats.questionBanksCreated).toBe(0);
+        expect(await database.questionBank.count()).toBe(0);
     });
 
     it('遥测记录与协议、遥测设置属于实例数据，不进入备份', async () => {

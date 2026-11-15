@@ -21,10 +21,12 @@ interface BankQuestionCardProps {
     question: BankQuestionRow;
     notebooks: Notebook[];
     onChanged: () => void;
+    /** 管理员可删除题库题目；普通账号可加入自己的错题本 */
+    canManage: boolean;
 }
 
 /** 真题库题目卡片：题干、知识点、答案解析，可加入错题本或删除 */
-export function BankQuestionCard({ bankId, question, notebooks, onChanged }: BankQuestionCardProps) {
+export function BankQuestionCard({ bankId, question, notebooks, onChanged, canManage }: BankQuestionCardProps) {
     const { t, language } = useLanguage();
     const [notebookId, setNotebookId] = useState(notebooks[0]?.id ?? "");
     const [busy, setBusy] = useState(false);
@@ -122,10 +124,12 @@ export function BankQuestionCard({ bankId, question, notebooks, onChanged }: Ban
                     {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
                     {t.banks.addQuestionToItems}
                 </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={handleDelete} disabled={busy}>
-                    <Trash2 className="mr-1 h-4 w-4" />
-                    {t.banks.deleteQuestion}
-                </Button>
+                {canManage && (
+                    <Button type="button" size="sm" variant="ghost" onClick={handleDelete} disabled={busy}>
+                        <Trash2 className="mr-1 h-4 w-4" />
+                        {t.banks.deleteQuestion}
+                    </Button>
+                )}
             </div>
         </div>
     );

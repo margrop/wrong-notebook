@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withUser } from "@/lib/api-handler";
+import { withAdmin, withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { prisma } from "@/lib/prisma";
 import { badRequest, conflict, internalError } from "@/lib/api-errors";
@@ -52,7 +52,7 @@ async function handleGet() {
     }
 }
 
-/** POST /api/question-banks：导入题库包，可选同时写入错题本 */
+/** POST /api/question-banks：管理员导入题库包，可选同时写入自己的错题本 */
 async function handlePost(req: Request, { user }: AuthenticatedContext) {
     try {
         const contentLength = req.headers.get('content-length');
@@ -94,4 +94,4 @@ async function handlePost(req: Request, { user }: AuthenticatedContext) {
 }
 
 export const GET = withUser(handleGet);
-export const POST = withRecoverableResponse(withUser(handlePost));
+export const POST = withRecoverableResponse(withAdmin(handlePost));

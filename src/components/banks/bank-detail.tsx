@@ -19,12 +19,14 @@ interface BankDetailProps {
     notebooks: Notebook[];
     onChanged: () => void;
     onDeleted: () => void;
+    /** 管理员可重命名、删除题库与题目；普通账号只可选题和加入错题本 */
+    canManage: boolean;
 }
 
 const PAGE_SIZE = 20;
 
 /** 真题库详情：重命名、删除、按年级/知识点检索题目，单题加入错题或删除 */
-export function BankDetail({ bankId, notebooks, onChanged, onDeleted }: BankDetailProps) {
+export function BankDetail({ bankId, notebooks, onChanged, onDeleted, canManage }: BankDetailProps) {
     const { t } = useLanguage();
     const [detail, setDetail] = useState<QuestionBankDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -118,16 +120,18 @@ export function BankDetail({ bankId, notebooks, onChanged, onDeleted }: BankDeta
                         {detail.source ? ` · ${detail.source}` : ""}
                     </p>
                 </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <Button type="button" size="sm" variant="outline" onClick={() => setRenaming((value) => !value)}>
-                        <Pencil className="mr-1 h-4 w-4" />
-                        {t.banks.renameBank}
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={handleDeleteBank}>
-                        <Trash2 className="mr-1 h-4 w-4" />
-                        {t.banks.deleteBank}
-                    </Button>
-                </div>
+                {canManage && (
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <Button type="button" size="sm" variant="outline" onClick={() => setRenaming((value) => !value)}>
+                            <Pencil className="mr-1 h-4 w-4" />
+                            {t.banks.renameBank}
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={handleDeleteBank}>
+                            <Trash2 className="mr-1 h-4 w-4" />
+                            {t.banks.deleteBank}
+                        </Button>
+                    </div>
+                )}
             </CardHeader>
             <CardContent className="space-y-4">
                 {renaming && (
@@ -195,6 +199,7 @@ export function BankDetail({ bankId, notebooks, onChanged, onDeleted }: BankDeta
                                 key={question.id}
                                 bankId={detail.id}
                                 question={question}
+                                canManage={canManage}
                                 notebooks={notebooks}
                                 onChanged={() => { void fetchPage(1); onChanged(); }}
                             />

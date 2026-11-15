@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { LibraryBig, Loader2 } from "lucide-react";
 import { BankDetail } from "@/components/banks/bank-detail";
 import { BankImportPanel } from "@/components/banks/bank-import-panel";
@@ -25,6 +26,8 @@ const STAGE_KEYS: Record<string, "primary" | "juniorHigh" | "seniorHigh" | "univ
 export default function BanksPage() {
     const { t } = useLanguage();
     usePageTitle(t.banks.title);
+    const { data: session } = useSession();
+    const isAdmin = session?.user?.role === "admin";
     const [banks, setBanks] = useState<QuestionBankSummary[]>([]);
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -56,8 +59,14 @@ export default function BanksPage() {
             <div className="space-y-6">
                 <PageHeader title={t.banks.title} description={t.banks.subtitle} />
 
-                <BankImportPanel notebooks={notebooks} onImported={fetchBanks} />
-                <SharedBankPicker existingNames={banks.map((bank) => bank.name)} onImported={fetchBanks} />
+                {isAdmin ? (
+                    <>
+                        <BankImportPanel notebooks={notebooks} onImported={fetchBanks} />
+                        <SharedBankPicker existingNames={banks.map((bank) => bank.name)} onImported={fetchBanks} />
+                    </>
+                ) : (
+                    <p className="text-sm text-muted-foreground">{t.banks.adminManagedHint}</p>
+                )}
 
                 <section className="space-y-3">
                     <h2 className="text-lg font-semibold">{t.banks.title}</h2>
@@ -100,6 +109,7 @@ export default function BanksPage() {
                             bankId={selectedId}
                             notebooks={notebooks}
                             onChanged={fetchBanks}
+                            canManage={isAdmin}
                             onDeleted={() => setSelectedId(null)}
                         />
                     </section>

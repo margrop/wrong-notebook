@@ -514,7 +514,8 @@ export const en = {
         },
         banks: {
             title: "Question Bank",
-            subtitle: "A site-wide shared question bank: import shared banks, manage questions, and pick by knowledge point in practice",
+            subtitle: "A site-wide shared question bank: view questions, add them to your own notebook and pick by knowledge point in practice; the administrator imports and manages banks",
+            adminManagedHint: "Question banks are imported and managed by the administrator; other accounts can view questions, add them to their own notebook, and pick by knowledge point in practice.",
             import: "Import Bank",
             importHint: "Choose a bank package JSON file. Each package holds up to {max} questions.",
             chooseFile: "Choose bank file",
