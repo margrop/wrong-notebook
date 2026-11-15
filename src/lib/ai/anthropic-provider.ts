@@ -120,9 +120,10 @@ export class AnthropicProvider extends BaseAIProvider {
         let requestId: string | undefined;
         const response = await withModelOutputLimit(async (limit) => {
             let content: UserContent = request.user;
-            if (request.image) {
+            const images = request.images?.length ? request.images : request.image ? [request.image] : [];
+            if (images.length > 0) {
                 const blocks: Anthropic.ContentBlockParam[] = [
-                    imageBlock(request.image.base64, request.image.mimeType),
+                    ...images.map((image) => imageBlock(image.base64, image.mimeType)),
                     { type: 'text', text: request.user },
                 ];
                 if (request.extraUserText) {

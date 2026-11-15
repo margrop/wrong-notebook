@@ -80,21 +80,21 @@ export class GeminiProvider extends BaseAIProvider {
         };
     }
 
-    /** 按请求构建 Gemini contents：文字在前，图片以 inlineData 附加在后 */
+    /** 按请求构建 Gemini contents：文字在前，图片以 inlineData 按顺序附加在后（多页分题逐页附上） */
     private buildContents(request: CompletionRequest): GeminiContent {
-        if (!request.image) {
+        const images = request.images?.length ? request.images : request.image ? [request.image] : [];
+        if (images.length === 0) {
             return request.user;
         }
         // 兼容 data URL（data:image/xxx;base64,...）前缀：去掉前缀，声明类型沿用传入的 mimeType（缺省 image/jpeg）
-        const base64Data = request.image.base64.replace(/^data:image\/\w+;base64,/, '');
         const contents: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
             { text: request.user },
-            {
+            ...images.map((image) => ({
                 inlineData: {
-                    data: base64Data,
-                    mimeType: request.image.mimeType || 'image/jpeg',
+                    data: image.base64.replace(/^data:image\/\w+;base64,/, ''),
+                    mimeType: image.mimeType || 'image/jpeg',
                 },
-            },
+            })),
         ];
         // 原 Gemini 的 generateFigureSvg 不在图片后附加额外文字（extraUserText 是 Anthropic 的行为），这里按 task 忽略
         if (request.extraUserText && request.task !== 'figure') {

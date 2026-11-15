@@ -89,7 +89,7 @@ test('[E2E-F4-2] 文字版 PDF（2 页跨页 3 题）：摘要 3 题、批次 3 
 });
 
 // 回归：解析时 pdfjs 会转移 ArrayBuffer 所有权，渲染扫描页前需保留可用的数据副本
-test('[E2E-F4-3] 扫描版 PDF（2 页无文字层）：显示扫描版视图与页数，确认后每页创建 image 批次', async ({ page, scenario }) => {
+test('[E2E-F4-3] 扫描版 PDF（2 页无文字层）：整份一个识别任务，跨页题目合并、自带答案保留', async ({ page, scenario }) => {
     await scenario.login(page);
     await page.goto(`/?notebook=${scenario.book.id}`);
     await uploadPdf(page, makeScannedPdf(2), 'scanned-two-pages.pdf');
@@ -104,15 +104,33 @@ test('[E2E-F4-3] 扫描版 PDF（2 页无文字层）：显示扫描版视图与
     await expect(confirm).toBeEnabled();
 
     await confirm.click();
-    // 2 个批次：跳转到导入中心列表（多批）
-    await expect(page).toHaveURL(/\/import-tasks$/, { timeout: 30000 });
-    const card = page.getByTestId('import-batch-card');
-    await expect(card).toHaveCount(2);
+    // 整份 PDF 一个批次：直达批次详情页
+    await expect(page).toHaveURL(/\/import-batches\/[a-f0-9]+$/, { timeout: 30000 });
+    // mock AI 的 split 只被调用 1 次（整份一次分题）
+    expect(await calls(scenario, 'split')).toHaveLength(1);
+    await expect.poll(() => scenario.db.importBatch.count({ where: { userId: scenario.user.id, source: 'image' } })).toBe(1);
 
-    // mock AI 的 split 被调用 2 次（每页一次）
-    expect(await calls(scenario, 'split')).toHaveLength(2);
-    // 数据库中 source='image' 的批次 2 个
-    await expect.poll(() => scenario.db.importBatch.count({ where: { userId: scenario.user.id, source: 'image' } })).toBe(2);
+    // 跨页的第 1 题仍是一道题：共 2 题，两页原图都显示
+    await expect(page.getByTestId('draft-summary')).toHaveText(/识别出 2 题/, { timeout: 30000 });
+    await expect(page.getByTestId('draft-item')).toHaveCount(2);
+    await expect(page.getByTestId('page-image-overview')).toHaveCount(2);
+    // 答案页摘出的答案进入草稿：默认「AI 只补知识点和难度」，不重新解答
+    await expect(page.getByTestId('draft-analysis-tags')).toHaveAttribute('aria-checked', 'true');
+    await page.getByTestId('draft-item').first().getByRole('button', { name: '编辑' }).click();
+    await page.getByTestId('draft-item').first().getByRole('button', { name: '答案与知识点' }).click();
+    await expect(page.getByTestId('draft-item').first().locator('textarea').nth(0)).toHaveValue('24 平方厘米');
+
+    // 按原样入库：答案原样保存，不再调用识别或解题
+    await page.getByTestId('draft-analysis-none').click();
+    await page.getByRole('button', { name: /按原样导入 2 题/ }).click();
+    await expect.poll(() => scenario.db.errorItem.count({ where: { userId: scenario.user.id } }), { timeout: 30000 }).toBe(2);
+    const saved = await scenario.db.errorItem.findMany({ where: { userId: scenario.user.id } });
+    expect(saved.find((item) => item.questionText?.includes('求它的周长'))).toMatchObject({ answerText: '24 平方厘米', analysis: '长乘宽。' });
+    expect(saved.find((item) => item.questionText?.includes('与 3/4 相等'))).toMatchObject({ answerText: 'A' });
+    // 只有分题一次 AI 调用，入库不重新解答
+    expect(await calls(scenario, 'split')).toHaveLength(1);
+    expect(await calls(scenario, 'analysis')).toHaveLength(0);
+    expect(await calls(scenario, 'reanswer')).toHaveLength(0);
 });
 
 test('[E2E-F4-4] 页码范围：非法范围（超出页数）显示无效提示', async ({ page, scenario }) => {
@@ -130,7 +148,7 @@ test('[E2E-F4-4] 页码范围：非法范围（超出页数）显示无效提示
     expect(await scenario.db.importBatch.count({ where: { userId: scenario.user.id, source: 'image' } })).toBe(0);
 });
 
-test('[E2E-F4-5] 页码范围：输入「1」只处理第 1 页，只创建 1 个批次', async ({ page, scenario }) => {
+test('[E2E-F4-5] 页码范围：输入「1」只处理第 1 页，仍只创建 1 个批次', async ({ page, scenario }) => {
     await scenario.login(page);
     await page.goto(`/?notebook=${scenario.book.id}`);
     await uploadPdf(page, makeScannedPdf(2), 'scanned-range-1.pdf');
@@ -138,8 +156,8 @@ test('[E2E-F4-5] 页码范围：输入「1」只处理第 1 页，只创建 1 �
     await expect(scanned).toBeVisible({ timeout: 30000 });
     await scanned.locator('#scanned-pdf-range').fill('1');
     await page.getByRole('button', { name: '转为图片并识别导入' }).click();
-    // 扫描版批次统一进入导入中心（无题页会在后台自动跳过）
-    await expect(page).toHaveURL(/\/import-tasks$/, { timeout: 30000 });
+    // 单页也走整份批次：直达批次详情页
+    await expect(page).toHaveURL(/\/import-batches\/[a-f0-9]+$/, { timeout: 30000 });
     expect(await calls(scenario, 'split')).toHaveLength(1);
     await expect.poll(() => scenario.db.importBatch.count({ where: { userId: scenario.user.id, source: 'image' } })).toBe(1);
 });

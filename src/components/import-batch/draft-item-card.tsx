@@ -27,6 +27,8 @@ interface DraftItemCardProps {
     onEdit: (change: (draft: BatchDraft) => BatchDraft, group?: string) => void;
     /** 图片批次：整页图与尺寸，用于显示裁片 */
     image?: { url: string; width: number; height: number } | null;
+    /** 多页扫描版 PDF 批次的各页图；区域带页码时从对应页显示裁片 */
+    pages?: Array<{ page: number; url: string; width: number; height: number }> | null;
     onAdjustRegion?: () => void;
     /** 高亮（在原图上点了这一题） */
     highlighted?: boolean;
@@ -78,13 +80,17 @@ function ItemImageThumbnail({ image, alt, onRemove }: { image: string; alt: stri
 }
 
 /** 分题预览中的一道题：默认折叠显示开头几行，展开后可编辑、拆分、合并、移动、删除 */
-export function DraftItemCard({ item, index, total, source, expanded, onToggleExpand, onEdit, image, onAdjustRegion, highlighted, onFixText, fixing, fixBusy, onContinue, continuing }: DraftItemCardProps) {
+export function DraftItemCard({ item, index, total, source, expanded, onToggleExpand, onEdit, image, pages, onAdjustRegion, highlighted, onFixText, fixing, fixBusy, onContinue, continuing }: DraftItemCardProps) {
     const { t } = useLanguage();
     const textRef = useRef<HTMLTextAreaElement>(null);
     const ready = isItemReady(item, source);
     const id = `draft-item-${item.key}`;
     // 建议生成后文字又被改过时不再显示（接受时也不会覆盖）
     const pendingFix = item.fix && item.fix.original === item.text ? item.fix : null;
+    // 多页批次：缩略图显示首个区域所在页上的区域
+    const thumbPage = pages?.length && item.regions.length > 0
+        ? pages.find((page) => page.page === (item.regions[0].page ?? pages[0].page)) ?? pages[0]
+        : null;
 
     const splitAtCursor = () => {
         const offset = textRef.current?.selectionStart ?? 0;
@@ -138,6 +144,11 @@ export function DraftItemCard({ item, index, total, source, expanded, onToggleEx
             {image && item.regions.length > 0 && (
                 <button type="button" className="mt-2 block w-full max-w-md pl-8" onClick={onAdjustRegion} aria-label={t.importBatch.adjustRegion}>
                     <RegionThumbnail imageUrl={image.url} imageSize={image} regions={item.regions} className="max-h-48" />
+                </button>
+            )}
+            {thumbPage && (
+                <button type="button" className="mt-2 block w-full max-w-md pl-8" onClick={onAdjustRegion} aria-label={t.importBatch.adjustRegion}>
+                    <RegionThumbnail imageUrl={thumbPage.url} imageSize={thumbPage} regions={item.regions.filter((region) => (region.page ?? thumbPage.page) === thumbPage.page)} className="max-h-48" />
                 </button>
             )}
 
@@ -201,6 +212,7 @@ export function DraftItemCard({ item, index, total, source, expanded, onToggleEx
                         <>
                             {item.text && <p className="whitespace-pre-line break-words text-sm text-muted-foreground">{item.text}</p>}
                             <p className="text-xs text-muted-foreground">{t.importBatch.imageTextHint}</p>
+                            {pages?.length && item.text.trim() && <DraftItemFields item={item} onEdit={(change) => onEdit(change)} />}
                         </>
                     )}
                     <div className="flex flex-wrap gap-2">

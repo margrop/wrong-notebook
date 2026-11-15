@@ -13,12 +13,13 @@ export const MAX_ITEM_REGIONS = 4;
 /** 区域最小边长（相对整图），过小的框不可能包含一道题 */
 export const MIN_REGION_SIZE = 0.01;
 
-/** 原图上的区域，相对坐标 0～1 */
+/** 原图上的区域，相对坐标 0～1；page 为多页批次（扫描版 PDF）中的页码（从 1 起），单图批次不带 */
 export const draftRegionSchema = z.object({
     x: z.number().min(0).max(1),
     y: z.number().min(0).max(1),
     width: z.number().min(MIN_REGION_SIZE).max(1),
     height: z.number().min(MIN_REGION_SIZE).max(1),
+    page: z.number().int().min(1).max(1000).optional(),
 }).refine((region) => region.x + region.width <= 1.0001 && region.y + region.height <= 1.0001, { message: 'REGION_OUT_OF_BOUNDS' });
 export type DraftRegion = z.infer<typeof draftRegionSchema>;
 

@@ -13,6 +13,7 @@ import type { FigureCanvas, PromptOptions, PromptRequest, LatexFixField } from '
 import type { AnswerGradingInput, GradeLevel, MasteryEvaluationInput, TagSuggestionInput } from './types';
 import type { LatexFixInput } from './latex-fix';
 import type { QuestionSplitInput } from './question-split';
+import { splitImagePages } from './question-split';
 import type { TextFixInput } from './text-fix';
 
 // 只有受限的控制值可以进入系统规则；所有自由文本通过 JSON 数据消息传递。
@@ -168,13 +169,20 @@ export function generateSvgNarrationRequest(questionText: string, answerText: st
     return createPromptRequest(generateSvgNarrationPrompt(ref('questionText'), ref('answerText'), ref('analysis'), ref('svgAnimation'), language, getSvgAnimationDuration(svgAnimation)), { questionText, answerText, analysis, svgAnimation: embedNarration(svgAnimation, null) }, SVG_NARRATION_REQUEST[language]);
 }
 
-/** 分题请求：文字按行编号放入 data.lines；图片分题的图片由提供商作为图片内容块随本请求发送 */
+/** 分题请求：文字按行编号放入 data.lines；图片分题的图片由提供商作为图片内容块随本请求发送；多页分题页码放入 data.pages */
 export function generateQuestionSplitRequest(input: QuestionSplitInput): PromptRequest {
     if (input.kind === 'text') {
         return createPromptRequest(
             generateQuestionSplitPrompt('text'),
             { lines: input.lines.map((text, index) => ({ n: index + 1, text })) },
             '请按系统规则把 data.lines 中的文字分成独立的题目，只输出 JSON。',
+        );
+    }
+    if (input.pages?.length) {
+        return createPromptRequest(
+            generateQuestionSplitPrompt('pages'),
+            { pages: splitImagePages(input).map(({ page }) => ({ page })) },
+            '请按系统规则找出这组页面图片中的每一道题及其所在页与位置，跨页的同一道题合并为一道；材料自带的答案按题号填入对应题，只输出 JSON。',
         );
     }
     return createPromptRequest(

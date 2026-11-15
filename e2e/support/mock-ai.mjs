@@ -15,6 +15,12 @@ export const PAGE_QUESTIONS = [
     { label: '3', text: '一根绳子长 24 米。（1）用去它的 1/4，用去多少米？（2）再用去 1/4 米，还剩多少米？', regions: [{ x: 48, y: 739, w: 905, h: 158 }], hasFigure: false },
 ];
 
+/** 多页扫描版 PDF 样例：第 1 题跨两页（区域带 page），第 2 题在第 2 页；答案页内容按题号摘出 */
+export const PAGES_QUESTIONS = [
+    { label: '1', text: '如图，长方形 ABCD 的长和宽如图中所示，求它的面积是多少平方厘米？（2）求它的周长。', regions: [{ page: 1, x: 48, y: 197, w: 905, h: 700 }, { page: 2, x: 48, y: 60, w: 905, h: 200 }], hasFigure: true, answer: '24 平方厘米', analysis: '长乘宽。' },
+    { label: '2', text: '下列分数中，与 3/4 相等的是（　　）。A．6/8 B．4/6 C．9/16 D．5/7', regions: [{ page: 2, x: 48, y: 320, w: 905, h: 105 }], hasFigure: false, answer: 'A' },
+];
+
 /** 文字分题：按空行分段，每段是一题，只返回行号范围（与正式协议一致） */
 function splitLines(lines) {
     const questions = [];
@@ -125,9 +131,11 @@ export async function startMockAI() {
                 }
                 if (operation === 'split') {
                     const user = JSON.parse(messages.find((message) => message.role === 'user') ? textOf(messages.filter((message) => message.role === 'user')) : '{}');
-                    const content = image
-                        ? { quality: 'clear', questions: PAGE_QUESTIONS }
-                        : { questions: splitLines(user.data?.lines || []) };
+                    const content = Array.isArray(user.data?.pages)
+                        ? { quality: 'clear', questions: PAGES_QUESTIONS }
+                        : image
+                            ? { quality: 'clear', questions: PAGE_QUESTIONS }
+                            : { questions: splitLines(user.data?.lines || []) };
                     return json(response, 200, { id: `e2e-${state.id}-${state.calls.length}`, object: 'chat.completion', created: 0, model: 'e2e-mock-model',
                         choices: [{ index: 0, message: { role: 'assistant', content: JSON.stringify(content) }, finish_reason: 'stop' }],
                         usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });

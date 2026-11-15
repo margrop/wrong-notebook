@@ -44,8 +44,28 @@ ${QUESTION_SPLIT_CONTRACT_TITLE}
 - quality：图片清晰为 clear，整体模糊为 blurry，只拍到部分试卷为 partial。
 - 按题目在试卷上的阅读顺序输出。`;
 
-/** 分题提示词（文字按行号分题，图片识别题目与区域）；题目文字始终保持原文语言，界面语言只影响后续解析 */
-export function generateQuestionSplitPrompt(kind: 'text' | 'image'): string {
-  const template = kind === 'text' ? DEFAULT_SPLIT_TEXT_TEMPLATE : DEFAULT_SPLIT_IMAGE_TEMPLATE;
-  return `${template}\n题目文字保持原文语言，不要翻译。${kind === 'image' ? `\n\n${CHINESE_TRANSCRIPTION_RULES}` : ''}`;
+export const DEFAULT_SPLIT_PAGES_TEMPLATE = `【角色与核心任务】
+你是试卷整理助手。用户提供一份试卷或作业的连续多页图片（data.pages 按顺序给出每页页码 page，图片随消息按同样顺序附上）。请把整份材料中的每一道题找出来，给出每道题在各页上的位置；同一道题跨页时合并为一道题。
+
+${QUESTION_SPLIT_RULES}
+- 题目的配图（几何图形、函数图像、示意图、表格）属于对应的题，区域必须把配图一起框进去。
+- 学生的手写作答、批改痕迹不影响分题。
+- 一道题的内容延续到下一页（题干、小问、选项或配图跨页）时，仍是同一道题：把各页上的部分分别框出，放进同一个 regions 数组，text 合并转写全部内容，不要拆成两道题。
+- 材料末尾若有参考答案或解析（如「参考答案」「答案与解析」页），不要当成题目：按题号把答案填入对应题的 answer、解析填入 analysis；找不到对应题的答案忽略。
+
+${QUESTION_SPLIT_CONTRACT_TITLE}
+只输出一个 JSON 对象，不要输出其他文字：
+{"quality":"clear|blurry|partial","questions":[{"label":"1","text":"题目文字","regions":[{"page":1,"x":0,"y":0,"w":0,"h":0}],"hasFigure":false,"unclear":false,"partial":false,"section":null,"answer":null,"analysis":null}]}
+- page 为区域所在页的页码（与 data.pages 中的 page 一致）；坐标以该页左上角为原点，宽、高都按 1000 归一化（x、y、w、h 取 0～1000 的整数）；区域要完整包含题号、题干、选项、小问和配图，可略微留白。
+- 一道题跨页、跨栏或跨区域时，regions 给出多个矩形（最多 4 个），按内容先后排序；确实无法定位时 regions 为空数组，不要编造位置。
+- text 为题目文字的忠实转写，不含题号（题号单独写在 label），从题干第一个字开始；公式用 LaTeX，$...$ 包裹；看不清的部分不要猜测，并把 unclear 设为 true。
+- answer / analysis 为材料自带答案页中这道题的参考答案与解析的忠实转写（公式用 LaTeX）；没有自带答案时为 null，不要自行解答。
+- 题目被页面边缘截断且后页没有延续时 partial 设为 true；hasFigure 表示题目带配图。
+- quality：图片清晰为 clear，整体模糊为 blurry，只有部分页面为 partial。
+- 按题目在试卷上的阅读顺序输出。`;
+
+/** 分题提示词（文字按行号分题，图片识别题目与区域，多页 PDF 整份分题）；题目文字始终保持原文语言，界面语言只影响后续解析 */
+export function generateQuestionSplitPrompt(kind: 'text' | 'image' | 'pages'): string {
+  const template = kind === 'text' ? DEFAULT_SPLIT_TEXT_TEMPLATE : kind === 'pages' ? DEFAULT_SPLIT_PAGES_TEMPLATE : DEFAULT_SPLIT_IMAGE_TEMPLATE;
+  return `${template}\n题目文字保持原文语言，不要翻译。${kind !== 'text' ? `\n\n${CHINESE_TRANSCRIPTION_RULES}` : ''}`;
 }

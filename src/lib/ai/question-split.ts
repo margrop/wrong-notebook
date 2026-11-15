@@ -17,15 +17,35 @@ import { MAX_ITEM_REGIONS, MIN_REGION_SIZE } from '../question-split/draft';
 export const MAX_SPLIT_LINES = 1000;
 /** 图片分题中每题识别文字的上限（只用于预览辨认，解析时重新识别裁片） */
 export const MAX_SPLIT_EXCERPT_LENGTH = 4000;
+/** 多页分题（整份扫描版 PDF 一个批次）一次最多发送的页数 */
+export const MAX_SPLIT_PAGES = 20;
+
+/** 分题图片的一页；页码从 1 起，区域坐标相对本页 */
+export interface SplitImagePage {
+    page: number;
+    imageBase64: string;
+    mimeType: string;
+}
 
 export type QuestionSplitInput =
     | { kind: 'text'; lines: string[]; language: 'zh' | 'en' }
-    | { kind: 'image'; imageBase64: string; mimeType: string; language: 'zh' | 'en' };
+    | { kind: 'image'; imageBase64: string; mimeType: string; language: 'zh' | 'en'; pages?: SplitImagePage[] };
+
+/** 分题输入的图片页列表：多页输入用 pages（按页码升序），单图输入包装为第 1 页 */
+export function splitImagePages(input: Extract<QuestionSplitInput, { kind: 'image' }>): SplitImagePage[] {
+    if (input.pages?.length) {
+        return [...input.pages].sort((a, b) => a.page - b.page).slice(0, MAX_SPLIT_PAGES);
+    }
+    return [{ page: 1, imageBase64: input.imageBase64, mimeType: input.mimeType }];
+}
 
 export interface SplitQuestion {
     label: string | null;
     text: string;
     material: string | null;
+    /** 答案与解析（多页 PDF 分题时从答案页摘出）；单图分题为空 */
+    answer: string | null;
+    analysis: string | null;
     section: string | null;
     /** 图片分题的区域，相对坐标 0～1；文字分题为空 */
     regions: DraftRegion[];
@@ -43,6 +63,7 @@ const lineRange = z.tuple([z.coerce.number().int(), z.coerce.number().int()]);
 const rawRegion = z.object({
     x: z.coerce.number(), y: z.coerce.number(),
     w: z.coerce.number(), h: z.coerce.number(),
+    page: z.coerce.number().int().nullish(),
 });
 const rawQuestion = z.object({
     label: z.union([z.string(), z.number()]).nullish(),
@@ -50,6 +71,8 @@ const rawQuestion = z.object({
     material: lineRange.nullish(),
     section: z.string().nullish(),
     text: z.string().nullish(),
+    answer: z.string().nullish(),
+    analysis: z.string().nullish(),
     regions: z.array(z.unknown()).nullish(),
     hasFigure: z.boolean().nullish(),
     unclear: z.boolean().nullish(),
@@ -123,12 +146,14 @@ function cleanLabel(value: string | number | null | undefined): string | null {
     return label || null;
 }
 
-/** 0～1000 坐标转为 0～1，越界部分裁掉；无效或过小时返回 null */
-export function normalizeSplitRegion(raw: unknown): DraftRegion | null {
+/** 0～1000 坐标转为 0～1，越界部分裁掉；无效或过小时返回 null。
+ * 多页分题（给出 validPages）时 page 必须在清单内，否则丢弃该区域；单图分题忽略模型误带的页码。 */
+export function normalizeSplitRegion(raw: unknown, validPages?: ReadonlySet<number>): DraftRegion | null {
     const parsed = rawRegion.safeParse(raw);
     if (!parsed.success) return null;
-    const { x, y, w, h } = parsed.data;
+    const { x, y, w, h, page } = parsed.data;
     if (![x, y, w, h].every(Number.isFinite)) return null;
+    if (validPages && page != null && !validPages.has(page)) return null;
     const left = Math.max(0, Math.min(1000, x));
     const top = Math.max(0, Math.min(1000, y));
     const right = Math.max(0, Math.min(1000, x + w));
@@ -137,7 +162,8 @@ export function normalizeSplitRegion(raw: unknown): DraftRegion | null {
     const height = (bottom - top) / 1000;
     if (width < MIN_REGION_SIZE || height < MIN_REGION_SIZE) return null;
     const round = (value: number) => Math.round(value * 10000) / 10000;
-    return { x: round(left / 1000), y: round(top / 1000), width: round(width), height: round(height) };
+    const keepPage = validPages !== undefined && page != null;
+    return { x: round(left / 1000), y: round(top / 1000), width: round(width), height: round(height), ...(keepPage ? { page } : {}) };
 }
 
 function validRange(range: [number, number] | null | undefined, total: number): [number, number] | null {
@@ -169,6 +195,8 @@ function parseTextSplit(questions: unknown[], lines: string[]): QuestionSplitRes
             label: cleanLabel(parsed.data.label),
             text,
             material: usableMaterial ? joinLines(lines.slice(usableMaterial[0] - 1, usableMaterial[1])) || null : null,
+            answer: null,
+            analysis: null,
             section: parsed.data.section?.trim().slice(0, 500) || null,
             regions: [],
             hasFigure: false,
@@ -194,7 +222,7 @@ function parseTextSplit(questions: unknown[], lines: string[]): QuestionSplitRes
     return { questions: order.map(({ question }) => question), ignored, warnings: [] };
 }
 
-function parseImageSplit(questions: unknown[], quality: string | null | undefined): QuestionSplitResult {
+function parseImageSplit(questions: unknown[], quality: string | null | undefined, validPages?: ReadonlySet<number>): QuestionSplitResult {
     const result: SplitQuestion[] = [];
     for (const entry of questions) {
         const parsed = rawQuestion.safeParse(entry);
@@ -202,7 +230,10 @@ function parseImageSplit(questions: unknown[], quality: string | null | undefine
         // 图片分题的 label 已单独给出；模型常把题号写进 text（如「1. 题干」），这里去掉点号题号与点后空格。
         // 只处理「1.」「1．」，保留「第一题」这类题干首句
         const text = stripDottedQuestionNumber((parsed.data.text || '').trim()).slice(0, MAX_SPLIT_EXCERPT_LENGTH);
-        const regions = (parsed.data.regions || []).map(normalizeSplitRegion).filter((region): region is DraftRegion => region !== null).slice(0, MAX_ITEM_REGIONS);
+        const regions = (parsed.data.regions || [])
+            .map((region) => normalizeSplitRegion(region, validPages))
+            .filter((region): region is DraftRegion => region !== null)
+            .slice(0, MAX_ITEM_REGIONS);
         if (!text && regions.length === 0) continue;
         const flags: DraftItemFlag[] = [];
         if (parsed.data.unclear) flags.push('unclear');
@@ -212,10 +243,24 @@ function parseImageSplit(questions: unknown[], quality: string | null | undefine
             label: cleanLabel(parsed.data.label),
             text,
             material: null,
+            answer: parsed.data.answer?.trim().slice(0, MAX_SPLIT_EXCERPT_LENGTH) || null,
+            analysis: parsed.data.analysis?.trim().slice(0, MAX_SPLIT_EXCERPT_LENGTH) || null,
             section: parsed.data.section?.trim().slice(0, 500) || null,
             regions,
             hasFigure: parsed.data.hasFigure === true,
             flags,
+        });
+    }
+    // 多页分题：题内区域按页码与纵坐标排序（裁剪按区域顺序拼接，模型输出顺序不可信），
+    // 题目按首个区域排序；单图保持模型给出的阅读顺序
+    if (validPages) {
+        for (const question of result) {
+            question.regions.sort((a, b) => (a.page ?? 0) - (b.page ?? 0) || a.y - b.y);
+        }
+        result.sort((a, b) => {
+            const ra = a.regions[0];
+            const rb = b.regions[0];
+            return (ra?.page ?? Number.MAX_SAFE_INTEGER) - (rb?.page ?? Number.MAX_SAFE_INTEGER) || (ra?.y ?? 0) - (rb?.y ?? 0);
         });
     }
     const warnings: DraftWarning[] = [];
@@ -232,7 +277,7 @@ export function parseQuestionSplit(text: string, input: QuestionSplitInput): Que
     const { value, truncated } = readJson(text);
     const parsed = input.kind === 'text'
         ? parseTextSplit(value.questions, input.lines)
-        : parseImageSplit(value.questions, value.quality);
+        : parseImageSplit(value.questions, value.quality, input.pages?.length ? new Set(splitImagePages(input).map((page) => page.page)) : undefined);
     const warnings = [...parsed.warnings];
     if (truncated) warnings.push('truncated');
     // 超出上限的题不静默丢弃：文字列入未计入内容并提示

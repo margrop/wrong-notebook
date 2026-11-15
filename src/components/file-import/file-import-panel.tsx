@@ -73,8 +73,8 @@ function FileImportPhaseView({ phase, notebookId, onNotebookChange, onFile, onCo
             return <FileImportBusy textKey="creating" batchCount={phase.batchCount} />;
         case "rendering-pdf":
             return <FileImportBusy textKey="rendering-pdf" rendered={phase.rendered} total={phase.total} />;
-        case "creating-pdf-batches":
-            return <FileImportBusy textKey="creating-pdf-batches" rendered={phase.created} total={phase.total} />;
+        case "creating-pdf-batch":
+            return <FileImportBusy textKey="creating-pdf-batch" fileName={phase.fileName} />;
         case "scanned-pdf":
             return (
                 <ScannedPdfView

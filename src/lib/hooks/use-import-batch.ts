@@ -46,7 +46,9 @@ export function useImportBatch(id: string, options: { onConflict?: () => void } 
 
     /** 采用服务端的批次；本地没有未保存修改时同时采用其草稿 */
     const adopt = useCallback((next: ImportBatchDetail, force = false) => {
-        setBatch((current) => (current && !next.imageData && current.imageData && current.id === next.id ? { ...next, imageData: current.imageData } : next));
+        setBatch((current) => (current && current.id === next.id
+            ? { ...next, imageData: next.imageData ?? current.imageData, images: next.images ?? current.images }
+            : next));
         const dirty = editSeq.current !== savedSeq.current;
         if (force || !dirty || next.status !== "draft") {
             if (draftRef.current !== null && next.version !== versionRef.current) {
@@ -104,7 +106,7 @@ export function useImportBatch(id: string, options: { onConflict?: () => void } 
             const next = await saveImportBatchDraft(id, versionRef.current, draftRef.current!);
             versionRef.current = next.version;
             savedSeq.current = seq;
-            setBatch((current) => (current ? { ...next, imageData: current.imageData } : next));
+            setBatch((current) => (current ? { ...next, imageData: current.imageData, images: current.images } : next));
             setSaveState(editSeq.current === seq ? "saved" : "dirty");
             return "ok";
         } catch (error) {

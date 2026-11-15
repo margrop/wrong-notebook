@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageLoading } from "@/components/ui/page-loading";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getAnalysisErrorMessage } from "@/lib/question/analysis-error";
-import { loadImage, renderQuestionImage } from "@/lib/import/batch-crop";
+import { loadImage, renderQuestionImage, renderQuestionImageFromPages } from "@/lib/import/batch-crop";
 import { confirmDialog, toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { confirmAllImportBatch, conflictBatch, discardImportBatch, markImportBatchRead, retryImportBatch, startImportBatch } from "@/lib/import/import-batch-client";
@@ -27,6 +27,7 @@ import { readyItems } from "@/lib/question-split/draft";
 import type { BatchDraft } from "@/lib/question-split/draft";
 import { useImportBatch } from "@/lib/hooks/use-import-batch";
 import { usePageImage } from "@/lib/hooks/use-page-image";
+import { usePageImages } from "@/lib/hooks/use-page-images";
 
 /**
  * 多题批次页：分题中 → 预览与调整 → 开始后的统一进度。刷新、锁屏、换设备打开都从服务端取回同一批次；
@@ -41,19 +42,24 @@ export default function ImportBatchPage() {
     const batchState = useImportBatch(id, { onConflict: () => toast.info(t.importBatch.conflict) });
     const { batch, draft, notFound } = batchState;
     const image = usePageImage(batch?.source === "image" ? batch.imageData : null);
+    const pageViews = usePageImages(batch?.source === "image" ? batch.images : null);
     const [confirmBeforeImport, setConfirmBeforeImport] = useState<boolean | null>(null);
     const [starting, setStarting] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [analysisMode, setAnalysisMode] = useState<"ai" | "tags" | "none">("ai");
     const markedRead = useRef<string | null>(null);
-    // 在渲染期间根据草稿调整默认解析方式（所有已选题都带答案时默认「按原样入库」）：
+    // 在渲染期间根据草稿调整默认解析方式（所有已选题都带答案时默认「AI 只补知识点和难度」）：
     // 用上一次渲染的 draft 引用与本次比较，仅在 draft 变化时同步，避免 effect 级联渲染
     const [prevDraftRef, setPrevDraftRef] = useState<BatchDraft | null>(null);
     if (draft !== prevDraftRef) {
         setPrevDraftRef(draft);
-        if (draft && batch?.source === "text") {
-            const ready = readyItems(draft, "text");
-            setAnalysisMode(ready.length > 0 && ready.every((item) => item.answer?.trim()) ? "tags" : "ai");
+        if (draft) {
+            // 文字批次与带题目文字的扫描版 PDF 批次：所有已选题都带答案时默认「AI 只补标签」，保留文件自带答案
+            const textLike = batch?.source === "text" || (batch?.source === "image" && draft.items.length > 0 && draft.items.every((item) => item.text.trim().length > 0));
+            if (textLike) {
+                const ready = readyItems(draft, batch?.source === "text" ? "text" : "image");
+                setAnalysisMode(ready.length > 0 && ready.every((item) => item.answer?.trim()) ? "tags" : "ai");
+            }
         }
     }
 
@@ -75,7 +81,7 @@ export default function ImportBatchPage() {
             </main>
         );
     }
-    if (!batch || confirmBeforeImport === null || (batch.source === "image" && batch.status === "draft" && !image)) return <PageLoading />;
+    if (!batch || confirmBeforeImport === null || (batch.source === "image" && batch.status === "draft" && !image && !pageViews?.length)) return <PageLoading />;
 
     const run = async (action: () => Promise<void>) => {
         setBusy(true);
@@ -101,16 +107,27 @@ export default function ImportBatchPage() {
             if (!await batchState.save()) return;
             let images: BatchItemImage[] | undefined;
             if (batch.source === "image") {
-                if (!batch.imageData) throw new Error("IMAGE_EMPTY");
-                const page = await loadImage(batch.imageData);
                 const ready = readyItems(draft, "image");
                 images = [];
                 let bytes = 0;
-                for (const item of ready) {
-                    setStarting(t.importBatch.cropping.replace("{done}", String(images.length + 1)).replace("{total}", String(ready.length)));
-                    const rendered = await renderQuestionImage(page, item.regions);
-                    bytes += rendered.bytes;
-                    images.push({ key: item.key, imageBase64: rendered.dataUrl, imageInfo: { outputWidth: rendered.width, outputHeight: rendered.height, outputBytes: rendered.bytes, quality: rendered.quality } });
+                if (batch.images?.length) {
+                    // 多页扫描版 PDF：按区域页码从对应页裁剪，跨页区域纵向拼接
+                    const pageElements = new Map(await Promise.all(batch.images.map(async (page) => [page.page, await loadImage(page.dataUrl)] as const)));
+                    for (const item of ready) {
+                        setStarting(t.importBatch.cropping.replace("{done}", String(images.length + 1)).replace("{total}", String(ready.length)));
+                        const rendered = await renderQuestionImageFromPages(pageElements, item.regions);
+                        bytes += rendered.bytes;
+                        images.push({ key: item.key, imageBase64: rendered.dataUrl, imageInfo: { outputWidth: rendered.width, outputHeight: rendered.height, outputBytes: rendered.bytes, quality: rendered.quality } });
+                    }
+                } else {
+                    if (!batch.imageData) throw new Error("IMAGE_EMPTY");
+                    const page = await loadImage(batch.imageData);
+                    for (const item of ready) {
+                        setStarting(t.importBatch.cropping.replace("{done}", String(images.length + 1)).replace("{total}", String(ready.length)));
+                        const rendered = await renderQuestionImage(page, item.regions);
+                        bytes += rendered.bytes;
+                        images.push({ key: item.key, imageBase64: rendered.dataUrl, imageInfo: { outputWidth: rendered.width, outputHeight: rendered.height, outputBytes: rendered.bytes, quality: rendered.quality } });
+                    }
                 }
                 // 与服务端相同的总量上限：超出时不提交，批次保持待确认
                 if (images.reduce((sum, image) => sum + image.imageBase64.length, 0) > MAX_START_IMAGES_LENGTH) {
@@ -177,6 +194,7 @@ export default function ImportBatchPage() {
                     canUndo={batchState.canUndo}
                     saveState={batchState.saveState}
                     image={image}
+                    pages={pageViews}
                     confirmBeforeImport={confirmBeforeImport}
                     starting={starting}
                     onStart={start}
@@ -188,7 +206,7 @@ export default function ImportBatchPage() {
                     onDismissConflict={batchState.dismissConflictCopy}
                 />
             ) : (
-                <BatchProgress batch={batch} image={image} busy={busy} onRetryFailed={retry} onRetryOne={retryOne} onConfirmAll={confirmAll} />
+                <BatchProgress batch={batch} image={image} pages={pageViews} busy={busy} onRetryFailed={retry} onRetryOne={retryOne} onConfirmAll={confirmAll} />
             )}
         </main>
     );

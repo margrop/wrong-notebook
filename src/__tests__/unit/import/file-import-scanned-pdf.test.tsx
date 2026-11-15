@@ -1,8 +1,8 @@
 /**
  * useFileImport 扫描版 PDF 分支测试：
  * - PDF_NO_TEXT_LAYER 时进入 scanned-pdf 阶段（不是死路）；
- * - 确认页码范围后逐页创建 image 批次并跳转（单批直达详情页，多批去导入中心）；
- * - 额度不足（429）的页给出提示，已创建的批次保留并正常跳转；
+ * - 确认页码范围后整份 PDF 创建一个多页识别批次并直达批次详情页；
+ * - 创建失败（含额度不足 429）给出提示并回到扫描版选择页；
  * - 超过 20 页上限要求用户缩小范围（UI 校验）。
  * 通过渲染 FileImportPanel 驱动真实 hook，注入 fake 渲染器与批次创建函数；
  * pdf 解析器返回构造好的 PDF_NO_TEXT_LAYER 结果（Node 下无法真实跑 pdfjs）。
@@ -27,13 +27,13 @@ vi.mock("next/navigation", () => ({
 
 // 注入 fake 渲染器与批次创建（通过 useFileImport 的 scannedPdfDeps 透传）
 const renderPagesMock = vi.hoisted(() => vi.fn());
-const createBatchesMock = vi.hoisted(() => vi.fn());
+const createBatchMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/hooks/use-file-import", async (importOriginal) => {
     const actual = await importOriginal<typeof import("@/lib/hooks/use-file-import")>();
     return {
         ...actual,
         useFileImport: (options: Parameters<typeof actual.useFileImport>[0]) =>
-            actual.useFileImport({ ...options, scannedPdfDeps: { renderPages: renderPagesMock, createBatches: createBatchesMock } }),
+            actual.useFileImport({ ...options, scannedPdfDeps: { renderPages: renderPagesMock, createBatch: createBatchMock } }),
     };
 });
 
@@ -132,9 +132,9 @@ describe("FileImportPanel：扫描版 PDF", () => {
         expect(toast.error).not.toHaveBeenCalled();
     });
 
-    it("默认全部页，确认后逐页创建 image 批次；扫描版统一去导入中心（无题页会被自动跳过）", async () => {
-        renderPagesMock.mockResolvedValue([renderedPage(1)]);
-        createBatchesMock.mockResolvedValue({ successes: [{ pageNumber: 1, batch: batch("b1") }], failures: [] });
+    it("默认全部页，确认后整份创建一个识别批次并直达批次详情页", async () => {
+        renderPagesMock.mockResolvedValue([renderedPage(1), renderedPage(2), renderedPage(3)]);
+        createBatchMock.mockResolvedValue({ ok: true, batch: batch("b1") });
         await render("nb-1");
         await pickPdfFile();
         const confirmButton = Array.from(container.querySelectorAll("button")).find((btn) =>
@@ -143,24 +143,19 @@ describe("FileImportPanel：扫描版 PDF", () => {
         expect(confirmButton.disabled).toBe(false);
         await act(async () => confirmButton.click());
         await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
-        // 默认全部 3 页
+        // 默认全部 3 页，一次渲染、一个批次
         expect(renderPagesMock).toHaveBeenCalledTimes(1);
         const renderArgs = renderPagesMock.mock.calls[0];
         expect(renderArgs?.[1]).toEqual([1, 2, 3]);
-        expect(createBatchesMock).toHaveBeenCalled();
-        expect(pushMock).toHaveBeenCalledWith("/import-tasks");
-        expect(toast.success).toHaveBeenCalledWith("已提交 1 页的识别批次；没有题目的页面会自动跳过。");
+        expect(createBatchMock).toHaveBeenCalledTimes(1);
+        expect(createBatchMock.mock.calls[0][0]).toHaveLength(3);
+        expect(pushMock).toHaveBeenCalledWith("/import-batches/b1");
+        expect(toast.success).toHaveBeenCalledWith("已提交整份 PDF（3 页）的识别任务，分题完成后在导入中心查看。");
     });
 
-    it("页码范围 1-2 只渲染所选页；多批跳转到导入中心列表", async () => {
+    it("页码范围 1-2 只渲染所选页，仍是一个批次", async () => {
         renderPagesMock.mockResolvedValue([renderedPage(1), renderedPage(2)]);
-        createBatchesMock.mockResolvedValue({
-            successes: [
-                { pageNumber: 1, batch: batch("b1") },
-                { pageNumber: 2, batch: batch("b2") },
-            ],
-            failures: [],
-        });
+        createBatchMock.mockResolvedValue({ ok: true, batch: batch("b2") });
         await render("nb-1");
         await pickPdfFile();
         const rangeInput = container.querySelector("#scanned-pdf-range") as HTMLInputElement;
@@ -173,7 +168,9 @@ describe("FileImportPanel：扫描版 PDF", () => {
         expect(renderPagesMock).toHaveBeenCalledTimes(1);
         const renderArgs = renderPagesMock.mock.calls[0];
         expect(renderArgs?.[1]).toEqual([1, 2]);
-        expect(pushMock).toHaveBeenCalledWith("/import-tasks");
+        expect(createBatchMock).toHaveBeenCalledTimes(1);
+        expect(createBatchMock.mock.calls[0][0]).toHaveLength(2);
+        expect(pushMock).toHaveBeenCalledWith("/import-batches/b2");
     });
 
     it("超出 20 页上限时提示缩小范围，不触发渲染", async () => {
@@ -193,15 +190,9 @@ describe("FileImportPanel：扫描版 PDF", () => {
         expect(renderPagesMock).not.toHaveBeenCalled();
     });
 
-    it("额度不足的页提示并保留已创建的批次，仍跳转到导入中心", async () => {
+    it("额度不足时提示并回到扫描版选择页，可调整范围重试", async () => {
         renderPagesMock.mockResolvedValue([renderedPage(1), renderedPage(2), renderedPage(3)]);
-        createBatchesMock.mockResolvedValue({
-            successes: [
-                { pageNumber: 1, batch: batch("b1") },
-                { pageNumber: 3, batch: batch("b3") },
-            ],
-            failures: [{ pageNumber: 2, error: Object.assign(new Error("quota"), { status: 429 }) }],
-        });
+        createBatchMock.mockResolvedValue({ ok: false, error: Object.assign(new Error("quota"), { status: 429 }) });
         await render("nb-1");
         await pickPdfFile();
         const confirmButton = Array.from(container.querySelectorAll("button")).find((btn) =>
@@ -209,8 +200,8 @@ describe("FileImportPanel：扫描版 PDF", () => {
         ) as HTMLButtonElement;
         await act(async () => confirmButton.click());
         await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
-        expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("第 2 页"));
         expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("额度不足"));
-        expect(pushMock).toHaveBeenCalledWith("/import-tasks");
+        expect(pushMock).not.toHaveBeenCalled();
+        expect(container.querySelector('[data-testid="file-import-scanned-pdf"]')).not.toBeNull();
     });
 });

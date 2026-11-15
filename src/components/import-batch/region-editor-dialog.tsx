@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 interface RegionEditorDialogProps {
     open: boolean;
     imageUrl: string;
+    /** 多页批次（扫描版 PDF）的各页图；给出时可切换页码，区域带页码保存 */
+    pages?: Array<{ page: number; url: string }>;
     /** 当前区域；为空时从一个居中的默认框开始 */
     regions: DraftRegion[];
     onClose: () => void;
@@ -23,21 +25,34 @@ interface RegionEditorDialogProps {
 
 const DEFAULT_REGION: DraftRegion = { x: 0.1, y: 0.1, width: 0.8, height: 0.3 };
 
+/** 一个待保存的区域：页码（多页批次）+ 百分比框 */
+interface PageCrop {
+    page?: number;
+    crop: PercentCrop;
+}
+
 function toCrop(region: DraftRegion): PercentCrop {
     return { unit: "%", x: region.x * 100, y: region.y * 100, width: region.width * 100, height: region.height * 100 };
 }
 
-function fromCrop(crop: PercentCrop): DraftRegion | null {
-    const region = { x: crop.x / 100, y: crop.y / 100, width: crop.width / 100, height: crop.height / 100 };
+function fromCrop(entry: PageCrop): DraftRegion | null {
+    const { crop, page } = entry;
+    const region = { x: crop.x / 100, y: crop.y / 100, width: crop.width / 100, height: crop.height / 100, ...(page !== undefined ? { page } : {}) };
     return region.width >= MIN_REGION_SIZE && region.height >= MIN_REGION_SIZE ? region : null;
 }
 
-/** 在整页原图上调整一道题的区域；一题最多 4 个区域（如跨栏的题干与配图） */
-export function RegionEditorDialog({ open, imageUrl, regions, onClose, onSave }: RegionEditorDialogProps) {
+/** 在原图上调整一道题的区域；一题最多 4 个区域（如跨栏的题干与配图）；多页批次可跨页框选 */
+export function RegionEditorDialog({ open, imageUrl, pages, regions, onClose, onSave }: RegionEditorDialogProps) {
     const { t } = useLanguage();
-    const [crops, setCrops] = useState<PercentCrop[]>(() => (regions.length ? regions : [DEFAULT_REGION]).map(toCrop));
+    const multiPage = !!pages?.length;
+    const [crops, setCrops] = useState<PageCrop[]>(() => (regions.length ? regions : [DEFAULT_REGION]).map((region) => ({
+        page: multiPage ? region.page ?? pages![0].page : undefined,
+        crop: toCrop(region),
+    })));
     const [active, setActive] = useState(0);
     const current = crops[Math.min(active, crops.length - 1)];
+    const currentPage = current.page ?? pages?.[0]?.page;
+    const currentUrl = multiPage ? pages!.find((page) => page.page === currentPage)?.url ?? imageUrl : imageUrl;
 
     const save = () => {
         const next = crops.map(fromCrop).filter((region): region is DraftRegion => region !== null);
@@ -49,30 +64,47 @@ export function RegionEditorDialog({ open, imageUrl, regions, onClose, onSave }:
             <DialogContent className="flex h-[90vh] max-w-3xl flex-col gap-0 p-0">
                 <DialogHeader className="shrink-0 border-b p-4">
                     <DialogTitle>{t.importBatch.regionDialogTitle}</DialogTitle>
-                    <DialogDescription>{t.importBatch.regionDialogHint}</DialogDescription>
+                    <DialogDescription>{multiPage ? t.importBatch.regionDialogPagesHint : t.importBatch.regionDialogHint}</DialogDescription>
                 </DialogHeader>
                 <div className="min-h-0 flex-1 overflow-auto bg-black p-3">
                     <div className="mx-auto w-fit">
-                        <ReactCrop crop={current} onChange={(_, percent) => setCrops((list) => list.map((crop, index) => (index === active ? percent : crop)))}>
-                            <img src={imageUrl} alt="" className="block max-h-[65vh] max-w-full" draggable={false} />
+                        <ReactCrop crop={current.crop} onChange={(_, percent) => setCrops((list) => list.map((entry, index) => (index === active ? { ...entry, crop: percent } : entry)))}>
+                            <img src={currentUrl} alt="" className="block max-h-[65vh] max-w-full" draggable={false} />
                         </ReactCrop>
                     </div>
                 </div>
                 <div className="shrink-0 space-y-3 border-t p-4">
+                    {multiPage && (
+                        <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label={t.importBatch.regionPageLabel}>
+                            {pages!.map((page) => (
+                                <button
+                                    key={page.page}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={page.page === currentPage}
+                                    onClick={() => setCrops((list) => list.map((entry, index) => (index === active ? { ...entry, page: page.page } : entry)))}
+                                    className={cn("rounded-md border px-3 py-1 text-sm", page.page === currentPage ? "border-primary bg-primary/10 font-medium" : "text-muted-foreground")}
+                                    data-testid="region-page"
+                                >
+                                    {t.importBatch.pageLabel.replace("{page}", String(page.page))}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     <div className="flex flex-wrap items-center gap-2">
-                        {crops.map((_, index) => (
+                        {crops.map((entry, index) => (
                             <button
                                 key={index}
                                 type="button"
                                 onClick={() => setActive(index)}
                                 className={cn("rounded-md border px-3 py-1 text-sm", index === active ? "border-primary bg-primary/10 font-medium" : "text-muted-foreground")}
                             >
-                                {t.importBatch.regionTab.replace("{index}", String(index + 1))}
+                                {t.importBatch.regionTab.replace("{index}", String(index + 1))}{multiPage && entry.page !== undefined ? ` · ${t.importBatch.pageLabel.replace("{page}", String(entry.page))}` : ""}
                             </button>
                         ))}
                         {crops.length < MAX_ITEM_REGIONS && (
                             <Button type="button" size="sm" variant="ghost" onClick={() => {
-                                setCrops((list) => [...list, toCrop(DEFAULT_REGION)]);
+                                setCrops((list) => [...list, { page: currentPage, crop: toCrop(DEFAULT_REGION) }]);
                                 setActive(crops.length);
                             }}>
                                 <Plus className="mr-1 h-4 w-4" />{t.importBatch.addRegion}

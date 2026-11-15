@@ -55,6 +55,8 @@ export interface ImportBatchDetail extends ImportBatchSummary {
     tasks: ImportTaskSummary[];
     /** 整页图片：只在请求时返回 */
     imageData: string | null;
+    /** 多页扫描版 PDF 的页图（按页码升序）：只在请求时返回；单图批次为 null */
+    images: Array<{ page: number; dataUrl: string }> | null;
     subjectId: string | null;
     targetSubjectId: string | null;
     paperLevel: string | null;

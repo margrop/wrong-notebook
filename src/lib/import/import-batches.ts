@@ -17,7 +17,7 @@ import type { Prisma, User } from "@prisma/client";
 import { z } from "zod";
 import { consumeAiQuota, quotaRejectionCode } from "@/lib/ai-quota";
 import type { ParsedQuestion } from "@/lib/ai";
-import { MAX_SPLIT_LINES } from "@/lib/ai/question-split";
+import { MAX_SPLIT_LINES, MAX_SPLIT_PAGES } from "@/lib/ai/question-split";
 import type { QuestionSplitInput } from "@/lib/ai/question-split";
 import { createErrorResponse, ErrorCode, notFound, validationError } from "@/lib/api-errors";
 import { MAX_PAPER_LEVEL_LENGTH } from "@/lib/constants/paper-level";
@@ -101,6 +101,12 @@ export const createImportBatchSchema = z.object({
     }).strip().optional(),
     imageBase64: z.string().max(MAX_IMAGE_DATA_LENGTH).regex(IMAGE_DATA_PATTERN).optional(),
     imageInfo: imageInfoSchema.optional(),
+    /** 多页图片（整份扫描版 PDF 一个批次）：与 imageBase64 二选一，每页一条，page 为 PDF 页码 */
+    images: z.array(z.object({
+        page: z.number().int().min(1).max(1000),
+        imageBase64: z.string().max(MAX_IMAGE_DATA_LENGTH).regex(IMAGE_DATA_PATTERN),
+        imageInfo: imageInfoSchema.optional(),
+    })).min(1).max(MAX_SPLIT_PAGES).optional(),
     language: z.enum(['zh', 'en']).default('zh'),
     subjectId: z.string().max(100).nullish(),
     targetSubjectId: z.string().max(100).nullish(),
@@ -111,7 +117,10 @@ export const createImportBatchSchema = z.object({
     if (input.source === 'text' && input.text?.trim() && input.items?.length) {
         context.addIssue({ code: 'custom', path: ['items'], message: 'ITEMS_TEXT_EXCLUSIVE' });
     }
-    if (input.source === 'image' && !input.imageBase64) context.addIssue({ code: 'custom', path: ['imageBase64'], message: 'IMAGE_REQUIRED' });
+    if (input.source === 'image' && !input.imageBase64 && !input.images?.length) context.addIssue({ code: 'custom', path: ['imageBase64'], message: 'IMAGE_REQUIRED' });
+    if (input.source === 'image' && input.imageBase64 && input.images?.length) context.addIssue({ code: 'custom', path: ['images'], message: 'IMAGES_EXCLUSIVE' });
+    if (input.images && input.source !== 'image') context.addIssue({ code: 'custom', path: ['images'], message: 'IMAGES_IMAGE_ONLY' });
+    if (input.images && new Set(input.images.map((image) => image.page)).size !== input.images.length) context.addIssue({ code: 'custom', path: ['images'], message: 'IMAGES_DUPLICATE_PAGE' });
     if (input.origin && !input.items?.length) context.addIssue({ code: 'custom', path: ['origin'], message: 'ORIGIN_REQUIRES_ITEMS' });
 });
 
@@ -125,7 +134,7 @@ const startSchema = z.object({
         imageBase64: z.string().max(MAX_IMAGE_DATA_LENGTH).regex(IMAGE_DATA_PATTERN),
         imageInfo: imageInfoSchema.optional(),
     })).max(60).optional(),
-    /** 逐题解析方式：ai 调用 AI 识别（默认，行为与之前一致）；tags 保留草稿答案解析、AI 只补知识点/难度/题型；none 按原样入库（不调用 AI、不计额度）。仅文字批次可用 tags/none */
+    /** 逐题解析方式：ai 调用 AI 识别（默认，行为与之前一致）；tags 保留草稿答案解析、AI 只补知识点/难度/题型；none 按原样入库（不调用 AI、不计额度）。文字批次与带题目文字的扫描版 PDF 批次可用 tags/none */
     analysis: z.enum(['ai', 'tags', 'none']).default('ai'),
 });
 
@@ -195,12 +204,15 @@ function toBatchSummary(batch: BatchWithTasks): { summary: ImportBatchSummary; d
 
 function toDetail(batch: BatchWithTasks, options: { image?: boolean } = {}): ImportBatchDetail {
     const { summary, draft, tasks } = toBatchSummary(batch);
+    const pages = batchPageImages(batch.imageData);
     return {
         ...summary,
         draft,
         tasks,
         version: batch.version,
-        imageData: options.image ? batch.imageData || null : null,
+        // 多页批次的 imageData 存的是页图清单，不作为整页图返回；页图经 images 返回
+        imageData: options.image && !pages ? batch.imageData || null : null,
+        images: options.image && pages ? pages : null,
         subjectId: batch.subjectId,
         targetSubjectId: batch.targetSubjectId,
         paperLevel: batch.paperLevel,
@@ -252,6 +264,8 @@ function draftFromSplit(result: Awaited<ReturnType<typeof splitQuestionsForUser>
                 label: question.label,
                 text: question.text,
                 material: question.material,
+                answer: question.answer,
+                analysis: question.analysis,
                 section: question.section,
                 // 空文字的图片题通常只是图形碎片或续页残片；默认不选，避免开始解析时裁出无效小图
                 selected: source === 'image' ? question.text.trim().length > 0 && question.regions.length > 0 : question.text.trim().length > 0,
@@ -266,18 +280,34 @@ function draftFromSplit(result: Awaited<ReturnType<typeof splitQuestionsForUser>
 }
 
 
-/** 扫描版 PDF 单页批次：imageInfo.sourceType 由扫描版导入流程写入 */
-function isScannedPdfPage(imageInfo: string | null): boolean {
+/** 扫描版 PDF 批次（整份多页或旧的单页）：imageInfo.sourceType 由扫描版导入流程写入 */
+function isScannedPdfBatch(imageInfo: string | null): boolean {
     try {
-        return (JSON.parse(imageInfo ?? 'null') as { sourceType?: string } | null)?.sourceType === 'pdf-page';
+        const sourceType = (JSON.parse(imageInfo ?? 'null') as { sourceType?: string } | null)?.sourceType;
+        return sourceType === 'pdf-pages' || sourceType === 'pdf-page';
     } catch {
         return false;
     }
 }
 
+/** 批次内页图（多页扫描版 PDF）：imageData 列存放带前缀的 JSON 清单（页码 + data URL）；单图批次返回 null。
+ * 与整页图一样只在预览取图（?include=image）或后台分题时读取，状态轮询不带出。 */
+interface BatchPageImage { page: number; dataUrl: string }
+const PDF_PAGES_MANIFEST_PREFIX = 'pdf-pages:';
+function batchPageImages(imageData: string | null | undefined): BatchPageImage[] | null {
+    if (!imageData?.startsWith(PDF_PAGES_MANIFEST_PREFIX)) return null;
+    try {
+        const parsed = JSON.parse(imageData.slice(PDF_PAGES_MANIFEST_PREFIX.length)) as { pages?: BatchPageImage[] };
+        return Array.isArray(parsed.pages) && parsed.pages.length > 0 ? parsed.pages : null;
+    } catch {
+        return null;
+    }
+}
+
 /**
  * 后台分题：结果写为草稿；没有识别到题目或出错时标记失败，可重试。
- * 扫描版 PDF 的单页如果分不出题目（答案页、空白页），直接删除批次，避免把无题页当成失败批次；
+ * 多页扫描版 PDF 整份一次分题（跨页题目合并、答案页摘出答案）；
+ * 旧版扫描版单页批次分不出题目（答案页、空白页）时直接删除批次，避免把无题页当成失败批次；
  * 其他图片/文字批次保持失败状态，用户可重试。
  */
 async function runSplit(id: string): Promise<void> {
@@ -288,10 +318,19 @@ async function runSplit(id: string): Promise<void> {
         if (!batch || batch.status !== 'splitting') return;
         const source = batch.source as ImportBatchSource;
         const language = batch.language === 'en' ? 'en' : 'zh';
+        const pages = source === 'image' ? batchPageImages(batch.imageData) : null;
         let input: QuestionSplitInput;
         if (source === 'text') {
             // 创建时已确认不超过行数上限
             input = { kind: 'text', lines: compactLines(batch.sourceText ?? ''), language };
+        } else if (pages) {
+            input = {
+                kind: 'image', imageBase64: '', mimeType: 'image/jpeg', language,
+                pages: pages.map(({ page, dataUrl }) => {
+                    const { base64, mimeType } = parseImageDataUrl(dataUrl);
+                    return { page, imageBase64: base64, mimeType: mimeType || 'image/jpeg' };
+                }),
+            };
         } else {
             const { base64, mimeType } = parseImageDataUrl(batch.imageData);
             input = { kind: 'image', imageBase64: base64, mimeType: mimeType || 'image/jpeg', language };
@@ -300,9 +339,10 @@ async function runSplit(id: string): Promise<void> {
         try {
             const result = await splitQuestionsForUser(batch.userId, input, `/import-batches/${id}`);
             draft = draftFromSplit(result, source);
-            // 扫描版答案页常被模型标成只有区域、没有文字和题号的“题”；没有可用题时直接删除批次
+            // 旧版扫描版单页批次：答案页常被模型标成只有区域、没有文字和题号的“题”；没有可用题时直接删除批次。
+            // 多页整份批次不删除：即使全是答案页也保留失败状态，用户可重试或丢弃
             const usable = draft.items.some((item) => item.text.trim().length > 0 || item.label);
-            if (source === 'image' && isScannedPdfPage(batch.imageInfo) && !usable) {
+            if (source === 'image' && !pages && isScannedPdfBatch(batch.imageInfo) && !usable) {
                 await serializeWrite(() => prisma.importBatch.deleteMany({ where: { id, status: 'splitting' } }));
                 logger.info({ batchId: id, splitMs: Date.now() - started }, 'Scanned PDF page without usable questions skipped');
                 return;
@@ -403,6 +443,11 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
             sourceText = excerpt ? `${structuredItems.length} 道结构化题目：${excerpt}${structuredItems.length > 1 ? '…' : ''}` : null;
         }
     }
+    // 多页扫描版 PDF：页图清单存 imageData（带前缀 JSON），sourceText 存可读说明
+    const pageImages = input.source === 'image' ? input.images : undefined;
+    if (pageImages?.length) {
+        sourceText = `扫描版 PDF：${pageImages.length} 页（第 ${pageImages[0].page}～${pageImages[pageImages.length - 1].page} 页）`;
+    }
     let batch: BatchWithTasks;
     try {
         batch = await serializeWrite(() => prisma.importBatch.create({
@@ -418,7 +463,9 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
                 targetSubjectId: input.targetSubjectId || null,
                 paperLevel: input.paperLevel || null,
                 sourceText,
-                imageData: input.imageBase64 ?? '',
+                imageData: pageImages?.length
+                    ? PDF_PAGES_MANIFEST_PREFIX + JSON.stringify({ pages: pageImages.map(({ page, imageBase64 }) => ({ page, dataUrl: imageBase64 })) })
+                    : input.imageBase64 ?? '',
                 imageInfo: input.imageInfo ? JSON.stringify(input.imageInfo) : null,
                 draft: draft ? JSON.stringify(draft) : null,
                 runnerId: bootId(),
@@ -497,9 +544,11 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
     if (items.length === 0) return validationError('IMPORT_BATCH_EMPTY');
 
     const images = new Map((parsed.data.images ?? []).map((image) => [image.key, image]));
+    // 带题目文字的扫描版 PDF 批次：分题已转写题干，tags/none 可像文字批次一样使用，裁片可选（有则保存为题目原图）
+    const pdfTextItems = source === 'image' && isScannedPdfBatch(batch.imageInfo) && items.every((item) => item.text.trim().length > 0);
     if (source === 'image') {
-        if (items.some((item) => !images.has(item.key))) return validationError('IMPORT_BATCH_IMAGE_MISSING');
-        const total = items.reduce((sum, item) => sum + images.get(item.key)!.imageBase64.length, 0);
+        if (!pdfTextItems && items.some((item) => !images.has(item.key))) return validationError('IMPORT_BATCH_IMAGE_MISSING');
+        const total = items.reduce((sum, item) => sum + (images.get(item.key)?.imageBase64.length ?? 0), 0);
         if (total > MAX_START_IMAGES_LENGTH) return validationError('IMPORT_BATCH_TOO_LARGE');
     }
     if (source === 'text') {
@@ -514,7 +563,7 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
 
     const analysis = parsed.data.analysis;
     if (analysis === 'none' || analysis === 'tags') {
-        if (source !== 'text') return validationError('IMPORT_BATCH_ANALYSIS_NONE_TEXT_ONLY');
+        if (source !== 'text' && !pdfTextItems) return validationError('IMPORT_BATCH_ANALYSIS_NONE_TEXT_ONLY');
         const targetNotebookId = batch.targetSubjectId ?? batch.subjectId;
         if (!targetNotebookId) return validationError('IMPORT_BATCH_ANALYSIS_NONE_TARGET_REQUIRED');
         const targetNotebook = await prisma.subject.findFirst({ where: { id: targetNotebookId, userId: user.id }, select: { name: true } });
@@ -525,7 +574,7 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
             logger.error({ batchId: id, key: invalid.item.key }, 'Import batch start failed: draft item cannot be converted to parsed question');
             return createErrorResponse('IMPORT_BATCH_START_FAILED', 500, ErrorCode.INTERNAL_ERROR);
         }
-        return await startWithDraftResults(user, batch, planned, results as Map<string, NonNullable<ReturnType<typeof draftItemToParsed>>>, mode, targetNotebookId, analysis);
+        return await startWithDraftResults(user, batch, planned, results as Map<string, ParsedQuestion>, mode, targetNotebookId, analysis, images);
     }
 
     const releases = new Map(planned.map(({ id: taskId }) => [taskId, register(taskId)]));
@@ -551,10 +600,10 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
                         subjectId: batch.subjectId,
                         targetSubjectId: batch.targetSubjectId,
                         paperLevel: batch.paperLevel,
-                        // ai 模式：图片批次按图片识别；文字批次带原图的题按图片识别（文字层作参考），纯文字题按文字识别
-                        imageData: source === 'image' ? image!.imageBase64 : (item.image ?? ''),
+                        // ai 模式：图片批次按图片识别（分题转写与自带答案作参考文字）；文字批次带原图的题按图片识别（文字层作参考），纯文字题按文字识别
+                        imageData: source === 'image' ? images.get(item.key)?.imageBase64 ?? '' : (item.image ?? ''),
                         imageInfo: image?.imageInfo ? JSON.stringify(image.imageInfo) : null,
-                        inputText: source === 'text' ? composeQuestionInput(item) : null,
+                        inputText: source === 'text' || (source === 'image' && item.text.trim()) ? composeQuestionInput(item) : null,
                         source: item.source?.trim() || null,
                         batchId: id,
                         batchItemKey: item.key,
@@ -581,8 +630,8 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
     // 抢占成功、任务已建出后逐题计额度；带原图的题按图片识别计 analyze 额度，纯文字题按 reanswer 计
     for (const { item, id: taskId } of planned) {
         const release = releases.get(taskId)!;
-        const imageData = source === 'image' ? images.get(item.key)!.imageBase64 : (item.image ?? '');
-        const limited = await serializeWrite(() => consumeAiQuota(user, quotaKindOf({ inputText: source === 'text' ? composeQuestionInput(item) : null, imageData })));
+        const imageData = source === 'image' ? images.get(item.key)?.imageBase64 ?? '' : (item.image ?? '');
+        const limited = await serializeWrite(() => consumeAiQuota(user, quotaKindOf({ inputText: source === 'text' || (source === 'image' && item.text.trim()) ? composeQuestionInput(item) : null, imageData })));
         if (limited) {
             release();
             await markFailed(taskId, 'analyzing', await quotaRejectionCode(limited));
@@ -619,6 +668,7 @@ async function startWithDraftResults(
     mode: ImportTaskMode,
     targetNotebookId: string,
     analysis: 'none' | 'tags',
+    cropImages?: Map<string, { imageBase64: string }>,
 ): Promise<NextResponse> {
     const initialStatus: ImportTaskStatus = analysis === 'none'
         ? (mode === 'review' ? 'review' : 'saving')
@@ -646,7 +696,8 @@ async function startWithDraftResults(
                         subjectId: batch.subjectId,
                         targetSubjectId: targetNotebookId,
                         paperLevel: batch.paperLevel,
-                        imageData: item.image ?? '',
+                        // 图片批次（扫描版 PDF）的裁片作为题目原图保存；文字批次用草稿中的原图
+                        imageData: cropImages?.get(item.key)?.imageBase64 ?? item.image ?? '',
                         inputText: null,
                         result: JSON.stringify(result),
                         batchId: batch.id,
