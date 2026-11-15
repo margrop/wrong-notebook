@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { withUser } from "@/lib/api-handler";
+import { withAdmin, withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 import { prisma } from "@/lib/prisma";
 import { conflict, internalError, notFound, validationError } from "@/lib/api-errors";
@@ -100,8 +100,8 @@ export const GET = withUser(async (req: Request, { params }: RouteContext & Auth
     }
 });
 
-/** PATCH /api/question-banks/:id：重命名或修改说明（全站共享，任何账号可管理） */
-export const PATCH = withUser(async (req: Request, { params }: RouteContext & AuthenticatedContext) => {
+/** PATCH /api/question-banks/:id：重命名或修改说明（全站共享，仅管理员） */
+export const PATCH = withAdmin(async (req: Request, { params }: RouteContext & AuthenticatedContext) => {
     const { id } = await params;
     const parsed = updateBankSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return validationError('Invalid bank update', parsed.error.issues);
@@ -127,8 +127,8 @@ export const PATCH = withUser(async (req: Request, { params }: RouteContext & Au
     }
 });
 
-/** DELETE /api/question-banks/:id：删除题库与全部题目（题目已写入的错题不受影响，影响全部账号） */
-export const DELETE = withUser(async (_req: Request, { params }: RouteContext & AuthenticatedContext) => {
+/** DELETE /api/question-banks/:id：删除题库与全部题目（题目已写入的错题不受影响，影响全部账号，仅管理员） */
+export const DELETE = withAdmin(async (_req: Request, { params }: RouteContext & AuthenticatedContext) => {
     const { id } = await params;
     try {
         const bank = await prisma.questionBank.findUnique({ where: { id }, select: { id: true } });

@@ -8,7 +8,7 @@
 
 ## 真题库包 JSON（共享题库）
 
-「真题库」页导入的题库包使用另一套格式 `wrong-notebook-question-bank` v1，格式定义、JSON Schema 与首批小学/初中/高中题库包位于 [margrop/wrong-notebook-question-bank](https://github.com/margrop/wrong-notebook-question-bank)。应用从该仓库的 `index.json` 读取题库清单，按 `file` 下载对应包；导入默认只进入真题库，勾选后才写入错题本。真题库全站共享，所有账号共用同一份题库。题目交换格式与真题库包互不替代：前者用于错题内容交换，后者用于共享题库分发与按知识点选题。
+「真题库」页导入的题库包使用另一套格式 `wrong-notebook-question-bank` v1，格式定义、JSON Schema 与首批小学/初中/高中题库包位于 [margrop/wrong-notebook-question-bank](https://github.com/margrop/wrong-notebook-question-bank)。应用从该仓库的 `index.json` 读取题库清单，按 `file` 下载对应包；导入默认只进入真题库，勾选后才写入错题本。真题库全站共享，由管理员导入和管理，所有账号共用同一份题库。题目交换格式与真题库包互不替代：前者用于错题内容交换，后者用于共享题库分发与按知识点选题。
 
 
 ## 从错题本导出
