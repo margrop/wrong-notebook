@@ -25,6 +25,7 @@ import { findDuplicateQuestion, recordDuplicateQuestion, runQuestionImportTransa
 import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
 import { MAX_FIGURE_IMAGE_LENGTH, sanitizeFigureImage } from "@/lib/figure-image";
 import { getDefaultPaperLevelGroupId, ensureDefaultPaperGroups } from "@/lib/paper-level";
+import { MAX_PAPER_LEVEL_LENGTH } from "@/lib/constants/paper-level";
 import { DEFAULT_FIGURE_ALIGN, DEFAULT_FIGURE_SCALE, FIGURE_ALIGNS, MAX_FIGURE_SCALE, MIN_FIGURE_SCALE } from "@/lib/figure-scale";
 
 const logger = createLogger('question-save');
@@ -45,7 +46,7 @@ export const importSchema = z.object({
     subjectName: z.string().max(100).nullish(),
     gradeSemester: z.string().max(100).nullish(),
     recognizedGradeSemester: z.string().max(100).nullish(),
-    paperLevel: z.string().max(30).nullish(),
+    paperLevel: z.string().max(MAX_PAPER_LEVEL_LENGTH).nullish(),
     difficultyStars: z.number().int().min(1).max(5).nullish(),
     hasFigure: z.boolean().optional(),
     figureSvg: z.string().max(MAX_FIGURE_SVG_LENGTH).nullish(),

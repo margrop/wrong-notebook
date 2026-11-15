@@ -20,6 +20,7 @@ import type { ParsedQuestion } from "@/lib/ai";
 import { MAX_SPLIT_LINES } from "@/lib/ai/question-split";
 import type { QuestionSplitInput } from "@/lib/ai/question-split";
 import { createErrorResponse, ErrorCode, notFound, validationError } from "@/lib/api-errors";
+import { MAX_PAPER_LEVEL_LENGTH } from "@/lib/constants/paper-level";
 import { describeQuestion } from "@/lib/background-tasks";
 import { draftItemToParsed } from "@/lib/import/draft-to-parsed";
 import { getErrorMessage } from "@/lib/error-message";
@@ -103,7 +104,7 @@ export const createImportBatchSchema = z.object({
     language: z.enum(['zh', 'en']).default('zh'),
     subjectId: z.string().max(100).nullish(),
     targetSubjectId: z.string().max(100).nullish(),
-    paperLevel: z.string().max(30).nullish(),
+    paperLevel: z.string().max(MAX_PAPER_LEVEL_LENGTH).nullish(),
     questionSource: z.string().trim().max(200).nullish(),
 }).superRefine((input, context) => {
     if (input.source === 'text' && !input.text?.trim() && !input.items?.length) context.addIssue({ code: 'custom', path: ['text'], message: 'TEXT_REQUIRED' });

@@ -321,6 +321,20 @@ describe('/api/error-items', () => {
             expect(response.status).toBe(201);
             expect(mocks.mockPrismaErrorItem.create.mock.calls[0][0].data.paperLevel).toBe(paperLevel);
         });
+
+        it('接受迁移生成的 32 位卷别分组 id', async () => {
+            mocks.mockPrismaErrorItem.create.mockResolvedValue({ id: 'new-item', userId: 'user-123' });
+            const legacyGroupId = '98af77b108b49481cd45b59bba221813';
+            mocks.mockPrismaPaperGroup.findFirst.mockImplementation(async (args: { where?: { id?: string } }) => {
+                if (args?.where?.id === legacyGroupId) return { id: legacyGroupId };
+                return null;
+            });
+            const response = await POST(new Request('http://localhost/api/error-items', {
+                method: 'POST', body: JSON.stringify({ questionText: '新题', difficultyStars: 2, paperLevel: legacyGroupId }),
+            }));
+            expect(response.status).toBe(201);
+            expect(mocks.mockPrismaErrorItem.create.mock.calls[0][0].data.paperLevel).toBe(legacyGroupId);
+        });
         it('应该成功创建错题', async () => {
             const errorItemData = {
                 questionText: '求解 x + 2 = 5',

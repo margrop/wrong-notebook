@@ -23,6 +23,7 @@ import { ParsedQuestionSchema } from "@/lib/ai/schema";
 import type { ParsedQuestion } from "@/lib/ai";
 import { consumeAiQuota, quotaRejectionCode } from "@/lib/ai-quota";
 import { createErrorResponse, ErrorCode, notFound, validationError } from "@/lib/api-errors";
+import { MAX_PAPER_LEVEL_LENGTH } from "@/lib/constants/paper-level";
 import { describeQuestion } from "@/lib/background-tasks";
 import { getErrorMessage } from "@/lib/error-message";
 import { CLIENT_TIMING_KEYS, IMPORT_TASK_INTERRUPTED_ERROR } from "@/lib/import/import-task-types";
@@ -107,7 +108,7 @@ export const createImportTaskSchema = z.object({
     language: z.enum(['zh', 'en']).default('zh'),
     subjectId: z.string().max(100).nullish(),
     targetSubjectId: z.string().max(100).nullish(),
-    paperLevel: z.string().max(30).nullish(),
+    paperLevel: z.string().max(MAX_PAPER_LEVEL_LENGTH).nullish(),
     source: z.string().trim().max(200).nullish(),
     /** 一图多题批量导入始终直接入库 */
     mode: z.literal('auto').optional(),
