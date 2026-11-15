@@ -17,7 +17,7 @@ Answers are checked when you submit. If your answer matches the reference answer
 
 Each question keeps the most recently generated variant and its solution. Reopening practice shows that question and when it was generated without calling the AI again; click "Regenerate" for a new one, which replaces the saved variant.
 
-Every generated variant is saved as an independent practice-history question. The **Practice** page (a separate navigation entry) lists all generated variants and filters them by notebook, knowledge point, difficulty and attempt status. Opening one lets you answer it directly and repeat the same question without calling AI again. Answer records reference that history question, making accuracy and attempt counts measurable; history questions survive deletion of the original mistake. If generation succeeds but saving fails, the page shows a warning; refresh or generate again.
+Every generated variant is saved as an independent practice-history question. The **Practice** page (a separate navigation entry) lists all generated variants and filters them by notebook, knowledge point, difficulty and attempt status. Opening one lets you answer it directly and repeat the same question without calling AI again. Answer records reference that history question, making accuracy and attempt counts measurable; history questions survive deletion of the original mistake. If generation succeeds but saving fails, the page shows a warning; refresh or generate again. On phones the bottom navigation keeps only four buttons (Add, Notebooks, Practice, Stats), and the top of the **Practice** page offers quick entries for Review, Exams and Question Bank; the desktop top navigation still shows all seven entries.
 
 ## Mastery
 
@@ -40,7 +40,7 @@ Mastery probability helps plan reviews. It does not guarantee the student unders
 
 ## Daily review
 
-The **Review** page in the navigation lists questions due today, and the home page shows how many are due.
+The **Review** page in the navigation lists questions due today, and the home page shows how many are due. On phones, reach it from the **Review** quick entry at the top of the Practice page or the "due today" tile on the home page; the bottom **Practice** button stays highlighted while reviewing.
 
 - Reviews follow intervals of 1, 2, 4, 7, 15 and 30 days: the first review is the day after adding a question; each correct answer moves it to the next interval, and a wrong answer starts over.
 - Intervals count from the most recent answer, whether from similar-question practice, sequential review, manual entry, exams or duplicate imports; "not attempted" records do not change the schedule.

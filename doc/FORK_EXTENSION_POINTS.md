@@ -13,7 +13,7 @@ fork 项目可在此文件中：
 - **替换品牌图标**：修改 `APP_BRAND.iconSrc`，无需改动 `src/components/app-shell.tsx`。
 - **新增翻译 key**：在 `src/lib/i18n/zh.ts` 与 `src/lib/i18n/en.ts` 的 `nav` 节（中英文同步）中添加对应 key。
 
-移动端底部导航的列数按 `NAV_ITEMS.length` 自动计算，无需手工调整样式。
+移动端底部导航使用 `MOBILE_NAV_ITEMS`（`NAV_ITEMS` 的 4 项子集：录入、错题本、练习、统计），列数按其长度自动计算，无需手工调整样式；复习/试卷/真题库在手机上从练习页顶部的快捷入口进入，桌面端顶部导航仍显示全部 `NAV_ITEMS`。修改底部入口时同步维护 `MOBILE_NAV_ITEMS`。
 
 纯函数 `isBarePath(pathname)` 与 `findActiveNavKey(pathname)` 已导出供测试和外部使用。
 

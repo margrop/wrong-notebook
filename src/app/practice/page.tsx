@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { PracticeResultCard } from "@/components/practice-result-card";
 import { QuestionFigure } from "@/components/question-figure";
+import { PracticeQuickEntries } from "@/components/practice/quick-entries";
 import { DifficultyPicker, DifficultySelect } from "@/components/practice/difficulty-picker";
 import { GenerateButton } from "@/components/practice/generate-button";
 import { PracticeSourcePicker } from "@/components/practice/source-picker";
@@ -186,6 +187,8 @@ function PracticeRoot() {
     return (
         <div className="mx-auto max-w-6xl space-y-6">
             <PageHeader title={t.practice.history?.title || t.practice.title} description={t.practice.history?.subtitle || t.practice.subtitle} />
+            <PracticeQuickEntries />
+
             <PracticeHistory />
         </div>
     );

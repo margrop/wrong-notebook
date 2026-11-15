@@ -13,7 +13,7 @@ import { TelemetryNoticeBanner } from "@/components/telemetry-notice-banner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { APP_BRAND, NAV_ITEMS, isBarePath } from "@/lib/app-navigation";
+import { APP_BRAND, MOBILE_NAV_ITEMS, NAV_ITEMS, isBarePath } from "@/lib/app-navigation";
 import { useEulaGate } from "@/lib/hooks/use-eula-gate";
 import { usePageTelemetry } from "@/lib/hooks/use-page-telemetry";
 import { useSetupRedirect } from "@/lib/hooks/use-setup-redirect";
@@ -112,8 +112,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {gate}
 
             <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t bg-card/90 backdrop-blur-md md:hidden print:hidden">
-                <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${NAV_ITEMS.length}, minmax(0, 1fr))` }}>
-                    {NAV_ITEMS.map((item) => {
+                <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${MOBILE_NAV_ITEMS.length}, minmax(0, 1fr))` }}>
+                    {MOBILE_NAV_ITEMS.map((item) => {
                         const active = item.match(pathname);
                         const Icon = item.icon;
                         return (
