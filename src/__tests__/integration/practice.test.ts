@@ -206,7 +206,8 @@ describe('/api/practice', () => {
         });
 
         it('真题库变式：先选题库题目，再以该题为原题生成变式并记录来源', async () => {
-            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
+            // 错题标签与题库题目知识点一致，才会被选中
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({ ...mockErrorItem, knowledgePoints: '["数的认识"]' });
             mocks.mockPrismaQuestionBank.findMany.mockResolvedValue([{ id: 'bank-1', name: '小学数学题库' }]);
             mocks.mockPrismaBankQuestion.findMany.mockResolvedValue([{
                 id: 'q1', bankId: 'bank-1', text: '3 的后面一个数是几？', material: null, optionsJson: null,
@@ -257,8 +258,86 @@ describe('/api/practice', () => {
             expect(mocks.mockAIService.generateSimilarQuestion).not.toHaveBeenCalled();
         });
 
-        it('真题库变式：AI 额度不足时只选题库题目，不调用 AI', async () => {
+        it('真题库选题：知识点全不匹配时返回 400，不随机选同学科的无关题目', async () => {
             mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
+            mocks.mockPrismaQuestionBank.findMany.mockResolvedValue([{ id: 'bank-1', name: '初中数学题库' }]);
+            // 苏教版标签与人教版题库标签体系不一致：同学段同学科有题，但知识点毫无交集
+            mocks.mockPrismaBankQuestion.findMany.mockResolvedValue([
+                {
+                    id: 'q1', bankId: 'bank-1', text: '计算圆的面积。', material: null, optionsJson: null,
+                    answer: 'S = πr²', analysis: '套用面积公式。', knowledgePoints: '["圆的面积"]', difficultyStars: 3,
+                    questionType: 'fill_blank', grade: 8, semester: '上', figureSvg: null, subjectKey: 'math', source: 'test',
+                },
+                {
+                    id: 'q2', bankId: 'bank-1', text: '化简分式。', material: null, optionsJson: null,
+                    answer: 'x', analysis: '约分。', knowledgePoints: '["分式化简"]', difficultyStars: 3,
+                    questionType: 'fill_blank', grade: 8, semester: '上', figureSvg: null, subjectKey: 'math', source: 'test',
+                },
+            ]);
+            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([]);
+
+            const response = await GENERATE_POST(new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({ errorItemId: 'error-item-1', source: 'bank' }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect(response.status).toBe(400);
+            expect((await response.json()).message).toBe('BANK_NO_MATCH');
+            expect(mocks.consumeAiQuota).not.toHaveBeenCalled();
+        });
+
+        it('真题库选题：错题没有知识点标签时返回 400，不按同学科兜底', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({ ...mockErrorItem, knowledgePoints: '[]' });
+            mocks.mockPrismaQuestionBank.findMany.mockResolvedValue([{ id: 'bank-1', name: '初中数学题库' }]);
+            mocks.mockPrismaBankQuestion.findMany.mockResolvedValue([{
+                id: 'q1', bankId: 'bank-1', text: '计算圆的面积。', material: null, optionsJson: null,
+                answer: 'S = πr²', analysis: '套用面积公式。', knowledgePoints: '["圆的面积"]', difficultyStars: 3,
+                questionType: 'fill_blank', grade: 8, semester: '上', figureSvg: null, subjectKey: 'math', source: 'test',
+            }]);
+            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([]);
+
+            const response = await GENERATE_POST(new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({ errorItemId: 'error-item-1', source: 'bank' }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect(response.status).toBe(400);
+            expect((await response.json()).message).toBe('BANK_NO_MATCH');
+        });
+
+        it('真题库选题：有匹配知识点时仍正常选题，不受无匹配兜底移除影响', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
+            mocks.mockPrismaQuestionBank.findMany.mockResolvedValue([{ id: 'bank-1', name: '初中数学题库' }]);
+            mocks.mockPrismaBankQuestion.findMany.mockResolvedValue([
+                {
+                    id: 'q1', bankId: 'bank-1', text: '计算圆的面积。', material: null, optionsJson: null,
+                    answer: 'S = πr²', analysis: '套用面积公式。', knowledgePoints: '["圆的面积"]', difficultyStars: 3,
+                    questionType: 'fill_blank', grade: 8, semester: '上', figureSvg: null, subjectKey: 'math', source: 'test',
+                },
+                {
+                    id: 'q2', bankId: 'bank-1', text: '解方程 x + 3 = 7。', material: null, optionsJson: null,
+                    answer: 'x = 4', analysis: '移项得 x = 4。', knowledgePoints: '["一元一次方程"]', difficultyStars: 3,
+                    questionType: 'fill_blank', grade: 8, semester: '上', figureSvg: null, subjectKey: 'math', source: 'test',
+                },
+            ]);
+            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([]);
+
+            const response = await GENERATE_POST(new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({ errorItemId: 'error-item-1', source: 'bank' }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.questionText).toBe('解方程 x + 3 = 7。');
+            expect(data.source).toBe('bank');
+        });
+
+        it('真题库变式：AI 额度不足时只选题库题目，不调用 AI', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({ ...mockErrorItem, knowledgePoints: '["数的认识"]' });
             mocks.mockPrismaQuestionBank.findMany.mockResolvedValue([{ id: 'bank-1', name: '小学数学题库' }]);
             mocks.mockPrismaBankQuestion.findMany.mockResolvedValue([{
                 id: 'q1', bankId: 'bank-1', text: '3 的后面一个数是几？', material: null, optionsJson: null,

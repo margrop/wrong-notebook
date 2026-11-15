@@ -1,7 +1,8 @@
 /**
  * 从全站共享真题库按知识点选题（服务端）：
- * 优先匹配错题的知识点标签，其次按同错题本、同学段、同学科与难度筛选；
+ * 只选知识点真正匹配错题标签的题目，再按同学段、同学科与难度筛选；
  * 排除该错题最近已练习过的题目文本，避免连续重复。
+ * 错题没有知识点标签、或题库中没有匹配题目时返回 null，不做同学科随机兜底。
  */
 import "server-only";
 import { prisma } from "@/lib/prisma";
@@ -80,7 +81,8 @@ function toSubjectName(subjectKey: string | null): ParsedQuestion["subject"] {
 
 /**
  * 选题结果；没有可用题目时返回 null。
- * 按难度先筛，若无候选则放宽难度；知识点优先，若无匹配则按同学科同学段兜底。
+ * 知识点必须有匹配（同名或包含关系），否则返回 null——教材版本不同导致标签体系不一致时，
+ * 同学科随机兜底会选出与原题无关的题目。同分题中优先所选难度，该难度没有候选则放宽。
  */
 export async function selectBankQuestion(input: BankSelectionInput): Promise<BankSelectionResult | null> {
     const scope = input.errorItem.subject
@@ -112,11 +114,8 @@ export async function selectBankQuestion(input: BankSelectionInput): Promise<Ban
         : [];
     const excluded = new Set(recent.map((record) => record.questionText?.trim()).filter(Boolean) as string[]);
 
-    const fetchCandidates = async (stars?: number[]) => prisma.bankQuestion.findMany({
-        where: {
-            ...baseWhere,
-            ...(stars ? { difficultyStars: { in: stars } } : {}),
-        },
+    const candidates = await prisma.bankQuestion.findMany({
+        where: baseWhere,
         orderBy: { createdAt: 'asc' },
         take: MAX_CANDIDATES,
         select: {
@@ -125,19 +124,22 @@ export async function selectBankQuestion(input: BankSelectionInput): Promise<Ban
             grade: true, semester: true, figureSvg: true, subjectKey: true, source: true,
         },
     });
-
     const preferredStars = DIFFICULTY_STARS[input.difficulty] ?? DIFFICULTY_STARS.medium;
-    const candidates = await fetchCandidates();
 
     const usable = candidates.filter((question) => !excluded.has(question.text.trim()));
     if (usable.length === 0) return null;
 
-    const scored = usable.map((question) => ({
-        question,
-        score: knowledgeScore(parsePoints(question.knowledgePoints), input.tagNames),
-    }));
-    const maxScore = Math.max(...scored.map((entry) => entry.score));
-    let pool = scored.filter((entry) => entry.score === maxScore);
+    // 只保留知识点真正匹配的题目：全部 0 分时 maxScore 为 0，会把同学科全部题目当成候选随机选一道
+    const matched = usable
+        .map((question) => ({
+            question,
+            score: knowledgeScore(parsePoints(question.knowledgePoints), input.tagNames),
+        }))
+        .filter((entry) => entry.score > 0);
+    if (matched.length === 0) return null;
+
+    const maxScore = Math.max(...matched.map((entry) => entry.score));
+    let pool = matched.filter((entry) => entry.score === maxScore);
     // 知识点匹配优先；同分时优先所选难度，若该难度没有候选则放宽
     const preferred = pool.filter((entry) => entry.question.difficultyStars !== null
         && preferredStars.includes(entry.question.difficultyStars));
