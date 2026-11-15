@@ -134,7 +134,7 @@ test('[E2E-F6-2] 多选 3 题导出 Excel：.xlsx 表头与导入模板一致（
     expect((await scenario.model()).calls).toHaveLength(0);
 });
 
-test('[E2E-F6-3] 多选 3 题导出 Word（含答案与解析）：.docx 含 3 道题干与「参考答案」；勾选原图时 word/media/ 下有图片', async ({ page, scenario }) => {
+test('[E2E-F6-3] 多选 3 题导出 Word：默认不含答案；勾选「包含答案与解析」后含「参考答案」且选择被记住；勾选原图时 word/media/ 下有图片', async ({ page, scenario }) => {
     const { itemA } = await seedThreeItems(scenario);
     // 真实上传的错题原图现在存为 WebP；Word 导出必须把它重编码为 JPEG 再嵌入
     await scenario.db.errorItem.update({ where: { id: itemA.id }, data: { originalImageUrl: TINY_WEBP_DATA_URL } });
@@ -147,8 +147,9 @@ test('[E2E-F6-3] 多选 3 题导出 Word（含答案与解析）：.docx 含 3 �
         `下列哪个是偶数？${scenario.marker}`,
         `求解 x + 1 = 3。${scenario.marker}`,
     ]);
-    // 第一次：默认包含答案与解析，不勾选原图
+    // 第一次：默认不勾选「包含答案与解析」与原图，只导出题干
     const dialog = await openExportDialogPickFormat(page, 'Word');
+    await expect(dialog.getByLabel('包含答案与解析（放在文末「参考答案」部分）')).not.toBeChecked();
     const first = await captureDownload(page, () => dialog.getByRole('button', { name: '导出', exact: true }).click());
     expect(first.name).toMatch(/\.docx$/);
     const entries1 = unzipDocx(first.buffer);
@@ -156,13 +157,14 @@ test('[E2E-F6-3] 多选 3 题导出 Word（含答案与解析）：.docx 含 3 �
     expect(documentXml1).toContain(`计算 1 + 2。${scenario.marker}`);
     expect(documentXml1).toContain(`下列哪个是偶数？${scenario.marker}`);
     expect(documentXml1).toContain(`求解 x + 1 = 3。${scenario.marker}`);
-    expect(documentXml1).toContain('参考答案');
-    expect(documentXml1).toContain('答案：3');
+    expect(documentXml1).not.toContain('参考答案');
+    expect(documentXml1).not.toContain('答案：3');
     // 不勾选原图：word/media/ 下无文件
     expect(Object.keys(entries1).filter((p) => p.startsWith('word/media/'))).toHaveLength(0);
 
-    // 第二次：勾选「包含原图」
+    // 第二次：勾选「包含答案与解析」和「包含原图」
     const dialog2 = await openExportDialogPickFormat(page, 'Word');
+    await dialog2.getByLabel('包含答案与解析（放在文末「参考答案」部分）').check();
     await dialog2.getByLabel('包含原图（文件会变大）').check();
     const second = await captureDownload(page, () => dialog2.getByRole('button', { name: '导出', exact: true }).click());
     const entries2 = unzipDocx(second.buffer);
@@ -171,6 +173,12 @@ test('[E2E-F6-3] 多选 3 题导出 Word（含答案与解析）：.docx 含 3 �
     expect(documentXml2).toContain('参考答案');
     const mediaFiles = Object.keys(entries2).filter((p) => p.startsWith('word/media/'));
     expect(mediaFiles.length).toBeGreaterThan(0);
+    expect(documentXml2).toContain('答案：3');
+
+    // 第三次：答案勾选已持久化到本机浏览器，重新打开对话框仍为勾选状态
+    const dialog3 = await openExportDialogPickFormat(page, 'Word');
+    await expect(dialog3.getByLabel('包含答案与解析（放在文末「参考答案」部分）')).toBeChecked();
+    await dialog3.getByRole('button', { name: '取消', exact: true }).click();
     expect((await scenario.model()).calls).toHaveLength(0);
 });
 

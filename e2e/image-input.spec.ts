@@ -77,9 +77,16 @@ async function assertBottomCropHandle(page: Page) {
     await expect.poll(async () => (await selection.boundingBox())?.height ?? 0).toBeLessThan(before - 10);
 }
 
+/** 首页文件选择器：软导航回首页时新旧页面可能短暂并存，等只剩一个再操作，避免 CI 慢机器上命中两个 */
+async function homeFileInput(page: Page) {
+    const input = page.locator('[data-testid="file-input"]');
+    await expect(input).toHaveCount(1);
+    return input;
+}
+
 /** 选择图片后确认整图裁剪，返回落库的识别任务 */
 async function uploadWhole(page: Page, scenario: Scenario, files: Parameters<Page['setInputFiles']>[1]) {
-    await page.locator('[data-testid="file-input"]').setInputFiles(files);
+    await (await homeFileInput(page)).setInputFiles(files);
     await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
     await page.getByRole('button', { name: /确认|Confirm/ }).click();
     await expect.poll(() => scenario.db.importTask.count({ where: { userId: scenario.user.id } })).toBeGreaterThan(0);
@@ -121,7 +128,7 @@ test.describe('照片格式与尺寸', () => {
         const largeScripts = () => page.evaluate(() => performance.getEntriesByType('resource')
             .filter((entry) => entry.name.endsWith('.js') && (entry as PerformanceResourceTiming).decodedBodySize > 1_000_000).length);
         expect(await largeScripts()).toBe(0);
-        await page.locator('[data-testid="file-input"]').setInputFiles(fixture('math_test.heic'));
+        await (await homeFileInput(page)).setInputFiles(fixture('math_test.heic'));
         await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
         // 解码库只在需要时加载
         expect(await largeScripts()).toBeGreaterThan(0);
@@ -160,11 +167,11 @@ test.describe('照片格式与尺寸', () => {
     });
 
     test('[E2E-I04] 无法解码的 HEIC 给出明确提示，不进入裁剪', async ({ page, scenario }, testInfo) => {
-        await page.locator('[data-testid="file-input"]').setInputFiles(fixture('corrupt.heic'));
+        await (await homeFileInput(page)).setInputFiles(fixture('corrupt.heic'));
         await expect(page.getByText('无法解码这张 HEIC/HEIF 照片', { exact: false })).toBeVisible({ timeout: 30000 });
         await snap(page, testInfo, 'heic-decode-error');
         await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toHaveCount(0);
-        await page.locator('[data-testid="file-input"]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not an image') });
+        await (await homeFileInput(page)).setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not an image') });
         await expect(page.getByText('所选文件不是可识别的图片', { exact: false })).toBeVisible();
         expect(await scenario.db.importTask.count({ where: { userId: scenario.user.id } })).toBe(0);
     });
@@ -180,14 +187,14 @@ test.describe('照片格式与尺寸', () => {
     });
 
     test('[E2E-I12] 桌面竖向长图的单题裁剪下边线在可视区内，可直接拖动下边', async ({ page }, testInfo) => {
-        await page.locator('[data-testid="file-input"]').setInputFiles({ name: 'tall.png', mimeType: 'image/png', buffer: grayPng(600, 2000) });
+        await (await homeFileInput(page)).setInputFiles({ name: 'tall.png', mimeType: 'image/png', buffer: grayPng(600, 2000) });
         await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
         await assertBottomCropHandle(page);
         await snap(page, testInfo, 'tall-crop-bottom');
     });
 
     test('[E2E-I14] 裁剪框内可擦除做题笔迹，确认后只把擦除区域写入上传图片', async ({ page, scenario }, testInfo) => {
-        await page.locator('[data-testid="file-input"]').setInputFiles({ name: 'marked.png', mimeType: 'image/png', buffer: markedPng(1200, 800) });
+        await (await homeFileInput(page)).setInputFiles({ name: 'marked.png', mimeType: 'image/png', buffer: markedPng(1200, 800) });
         await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
         await page.getByRole('button', { name: /擦除做题痕迹|Erase handwriting/ }).click();
         const canvas = page.getByRole('dialog').locator('canvas').first();
@@ -287,7 +294,7 @@ test.describe('手机拍照、相册与文件入口', () => {
         await scenario.db.user.update({ where: { id: scenario.user.id }, data: { confirmBeforeImport: true } });
         await scenario.login(page);
         await page.goto('/');
-        await page.locator('[data-testid="file-input"]').setInputFiles(fixture('math_test.png'));
+        await (await homeFileInput(page)).setInputFiles(fixture('math_test.png'));
         const cropper = page.getByRole('dialog');
         await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
         // 等进入动画结束再量位置
@@ -309,7 +316,7 @@ test.describe('手机拍照、相册与文件入口', () => {
         await scenario.db.user.update({ where: { id: scenario.user.id }, data: { confirmBeforeImport: true } });
         await scenario.login(page);
         await page.goto('/');
-        await page.locator('[data-testid="file-input"]').setInputFiles({ name: 'tall.png', mimeType: 'image/png', buffer: grayPng(600, 2000) });
+        await (await homeFileInput(page)).setInputFiles({ name: 'tall.png', mimeType: 'image/png', buffer: grayPng(600, 2000) });
         await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
         await assertBottomCropHandle(page);
         await testInfo.attach('tall-crop-bottom-mobile', { body: await page.screenshot(), contentType: 'image/png' });
@@ -348,7 +355,7 @@ test('[E2E-I09] 一道题分在两张纸上：第一段暂存后选第二张，�
     await page.goto('/');
     const cropper = page.getByRole('dialog');
 
-    await page.locator('[data-testid="file-input"]').setInputFiles({ name: 'part-1.png', mimeType: 'image/png', buffer: grayPng(600, 400) });
+    await (await homeFileInput(page)).setInputFiles({ name: 'part-1.png', mimeType: 'image/png', buffer: grayPng(600, 400) });
     await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
     await cropper.getByRole('button', { name: '下一段在另一张' }).click();
     await expect(page.getByTestId('question-parts')).toContainText('这道题已暂存 1 段');
@@ -357,7 +364,7 @@ test('[E2E-I09] 一道题分在两张纸上：第一段暂存后选第二张，�
     // 等裁剪框关闭动画结束（真实操作中，打开相机或相册选图本身就有间隔）
     await expect(page.getByRole('dialog')).toHaveCount(0);
 
-    await page.locator('[data-testid="file-input"]').setInputFiles({ name: 'part-2.png', mimeType: 'image/png', buffer: grayPng(300, 200) });
+    await (await homeFileInput(page)).setInputFiles({ name: 'part-2.png', mimeType: 'image/png', buffer: grayPng(300, 200) });
     await expect(page.getByRole('heading', { name: /裁剪|Crop/ })).toBeVisible({ timeout: 30000 });
     // 已有暂存的段时只保留单题裁剪，提示这是第 2 段
     await expect(cropper.getByRole('button', { name: '自动分题' })).toHaveCount(0);
