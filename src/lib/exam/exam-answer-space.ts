@@ -8,6 +8,9 @@ export const DEFAULT_ANSWER_SPACE_MODE: AnswerSpaceMode = 'auto';
 /** 本地保存用户上次选择的留白模式 */
 export const ANSWER_SPACE_STORAGE_KEY = 'exam-print-answer-space';
 
+/** 本地保存试卷打印「包含答案页」开关（"1" 勾选，"0" 不勾选） */
+export const EXAM_PRINT_INCLUDE_ANSWERS_STORAGE_KEY = "exam-print-include-answers";
+
 /** 固定留白高度（px，打印时 96px ≈ 2.54cm） */
 export const FIXED_ANSWER_SPACE_PX: Record<Exclude<AnswerSpaceMode, 'auto'>, number> = {
     none: 0,

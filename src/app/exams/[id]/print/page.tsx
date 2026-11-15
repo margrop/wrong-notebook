@@ -14,10 +14,12 @@ import { apiClient } from "@/lib/api-client";
 import { EXAM_PRINT_CSS, buildExamHtmlDocument, examFileName } from "@/lib/exam/exam-print";
 import {
     ANSWER_SPACE_STORAGE_KEY,
+    EXAM_PRINT_INCLUDE_ANSWERS_STORAGE_KEY,
     DEFAULT_ANSWER_SPACE_MODE,
     isAnswerSpaceMode,
 } from "@/lib/exam/exam-answer-space";
 import type { AnswerSpaceMode } from "@/lib/exam/exam-answer-space";
+import { useStoredChoice } from "@/lib/hooks/use-stored-choice";
 import { useSavedAnswerSpaces } from "@/lib/hooks/use-saved-answer-spaces";
 import type { AnswerSpaceChange } from "@/lib/hooks/use-saved-answer-spaces";
 import type { FigureAlign } from "@/lib/figure-scale";
@@ -31,7 +33,8 @@ export default function ExamPrintPage() {
     const { t, language } = useLanguage();
     const [paper, setPaper] = useState<ExamPaperDetail | null>(null);
     usePageTitle(t.exam.title, paper?.title, t.pageTitle.examPrint);
-    const [includeAnswers, setIncludeAnswers] = useState(true);
+    // 「包含答案页」默认不勾选，选择结果记在本机浏览器，下次打印沿用
+    const [includeAnswers, setIncludeAnswers] = useStoredChoice(EXAM_PRINT_INCLUDE_ANSWERS_STORAGE_KEY, ["1", "0"] as const, "0");
     const [answerSpace, setAnswerSpace] = useState<AnswerSpaceMode>(DEFAULT_ANSWER_SPACE_MODE);
     const [uniformPreview, setUniformPreview] = useState<{ scale: number | null; align: FigureAlign | null }>({ scale: null, align: null });
     const sheetRef = useRef<HTMLDivElement>(null);
@@ -123,7 +126,7 @@ export default function ExamPrintPage() {
                     <BackButton fallbackUrl={`/exams/${paper.id}`} />
                     <span className="font-semibold">{t.exam.printTitle}</span>
                     <label className="flex items-center gap-2 text-sm">
-                        <Checkbox checked={includeAnswers} onCheckedChange={(value) => setIncludeAnswers(value === true)} />
+                        <Checkbox checked={includeAnswers === "1"} onCheckedChange={(value) => setIncludeAnswers(value === true ? "1" : "0")} />
                         {t.exam.includeAnswers}
                     </label>
                     <div className="flex items-center gap-2 text-sm">
@@ -179,7 +182,7 @@ export default function ExamPrintPage() {
             <ExamPrintSheet
                 ref={sheetRef}
                 paper={paper}
-                includeAnswers={includeAnswers}
+                includeAnswers={includeAnswers === "1"}
                 answerSpace={answerSpace}
                 customSpaces={customSpaces}
                 uniformPreview={uniformPreview}

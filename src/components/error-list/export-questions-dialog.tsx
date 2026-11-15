@@ -19,7 +19,18 @@ export type ExportFormat = "json" | "excel" | "word";
 
 const FORMAT_STORAGE_KEY = "error-list-export-format";
 
+const ANSWERS_STORAGE_KEY = "error-list-export-include-answers";
+
 /** 记住上次选择的导出格式（失败时静默回退默认值） */
+function saveFormat(format: ExportFormat): void {
+    try {
+        window.localStorage.setItem(FORMAT_STORAGE_KEY, format);
+    } catch {
+        // localStorage 不可用时忽略
+    }
+}
+
+/** 读取上次选择的导出格式 */
 function loadSavedFormat(): ExportFormat {
     try {
         const saved = window.localStorage.getItem(FORMAT_STORAGE_KEY);
@@ -29,9 +40,19 @@ function loadSavedFormat(): ExportFormat {
     }
 }
 
-function saveFormat(format: ExportFormat): void {
+
+/** 记住上次是否勾选「包含答案与解析」（失败时静默回退默认值） */
+function loadSavedAnswers(): boolean {
     try {
-        window.localStorage.setItem(FORMAT_STORAGE_KEY, format);
+        return window.localStorage.getItem(ANSWERS_STORAGE_KEY) === "1";
+    } catch {
+        return false;
+    }
+}
+
+function saveAnswers(include: boolean): void {
+    try {
+        window.localStorage.setItem(ANSWERS_STORAGE_KEY, include ? "1" : "0");
     } catch {
         // localStorage 不可用时忽略
     }
@@ -52,7 +73,7 @@ export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: Expor
     const { t } = useLanguage();
     const [format, setFormat] = useState<ExportFormat>(loadSavedFormat);
     const [includeImages, setIncludeImages] = useState(false);
-    const [includeAnswers, setIncludeAnswers] = useState(true);
+    const [includeAnswers, setIncludeAnswers] = useState<boolean>(loadSavedAnswers);
     const [docxTitle, setDocxTitle] = useState("");
     const [exporting, setExporting] = useState(false);
 
@@ -170,7 +191,7 @@ export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: Expor
                             <Checkbox
                                 id="include-answers"
                                 checked={includeAnswers}
-                                onCheckedChange={(checked) => setIncludeAnswers(checked === true)}
+                                onCheckedChange={(checked) => { setIncludeAnswers(checked === true); saveAnswers(checked === true); }}
                             />
                             <label htmlFor="include-answers" className="text-sm cursor-pointer">
                                 {t.notebook.exportJsonDialog.includeAnswers}

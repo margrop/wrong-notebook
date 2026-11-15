@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStoredChoice } from '@/lib/hooks/use-stored-choice';
 import { DEFAULT_EXAM_FORM_PREFERENCES, parseExamFormPreferences, serializeExamFormPreferences } from '@/lib/exam/exam-form-preferences';
 import { HOME_INPUT_MODES, INPUT_MODE_STORAGE_KEY, NOTEBOOK_INPUT_MODES } from '@/lib/ui-preferences';
+import { EXAM_PRINT_INCLUDE_ANSWERS_STORAGE_KEY } from '@/lib/exam/exam-answer-space';
 
 function Probe({ options, next = 'text' }: { options: readonly string[]; next?: string }) {
     const [value, set] = useStoredChoice(INPUT_MODE_STORAGE_KEY, options, 'image');
@@ -68,6 +69,18 @@ describe('useStoredChoice', () => {
     it('服务端渲染输出默认值', () => {
         localStorage.setItem(INPUT_MODE_STORAGE_KEY, 'text');
         expect(renderToString(<Probe options={HOME_INPUT_MODES} />)).toContain('image');
+    });
+
+    it('试卷打印「包含答案页」开关记在本机浏览器，默认不勾选', () => {
+        function AnswerProbe() {
+            const [value, set] = useStoredChoice(EXAM_PRINT_INCLUDE_ANSWERS_STORAGE_KEY, ['1', '0'] as const, '0');
+            return <button type="button" onClick={() => set(value === '1' ? '0' : '1')}>{value === '1' ? 'on' : 'off'}</button>;
+        }
+        act(() => root.render(<AnswerProbe />));
+        expect(container.textContent).toBe('off');
+        choose(container);
+        expect(container.textContent).toBe('on');
+        expect(localStorage.getItem(EXAM_PRINT_INCLUDE_ANSWERS_STORAGE_KEY)).toBe('1');
     });
 });
 
