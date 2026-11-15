@@ -23,7 +23,7 @@ export function FileImportImageProcessing({ fileName, done, total }: FileImportI
 }
 
 interface FileImportBusyProps {
-    textKey: "parsing" | "creating" | "rendering-pdf" | "creating-pdf-batches";
+    textKey: "parsing" | "creating" | "rendering-pdf" | "creating-pdf-batch";
     fileName?: string;
     batchCount?: number;
     rendered?: number;
@@ -41,7 +41,7 @@ export function FileImportBusy({ textKey, fileName, batchCount, rendered, total 
     } else if (textKey === "rendering-pdf") {
         text = t.fileImport.pdfRendering.replace("{done}", String(rendered ?? 0)).replace("{total}", String(total ?? 0));
     } else {
-        text = t.fileImport.pdfCreatingBatches.replace("{done}", String(rendered ?? 0)).replace("{total}", String(total ?? 0));
+        text = t.fileImport.pdfCreatingBatch;
     }
     return (
         <div className="flex flex-col items-center gap-3 py-10 text-center" role="status">

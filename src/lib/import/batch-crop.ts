@@ -108,6 +108,31 @@ export async function renderQuestionImage(page: HTMLImageElement, regions: Draft
     })), false);
 }
 
+/**
+ * 多页批次（扫描版 PDF）中按区域裁剪一道题：区域带页码时从对应页取图，
+ * 跨页的多个区域按页码顺序纵向拼接（各页分辨率一致，保持原尺寸）；单区域直接裁剪。
+ */
+export async function renderQuestionImageFromPages(pages: Map<number, HTMLImageElement>, regions: DraftRegion[]): Promise<RenderedImage> {
+    const pieces: StackPiece[] = [];
+    for (const region of regions) {
+        const page = pages.get(region.page ?? 1);
+        if (!page) throw new Error("IMAGE_EMPTY");
+        const padded = padRegion(region);
+        pieces.push({
+            source: page,
+            sx: Math.round(padded.x * page.naturalWidth),
+            sy: Math.round(padded.y * page.naturalHeight),
+            sw: Math.max(1, Math.round(padded.width * page.naturalWidth)),
+            sh: Math.max(1, Math.round(padded.height * page.naturalHeight)),
+        });
+    }
+    if (pieces.length === 1) {
+        const page = pages.get(regions[0].page ?? 1)!;
+        return renderRegion({ source: page, width: page.naturalWidth, height: page.naturalHeight }, padRegion(regions[0]));
+    }
+    return renderStack(pieces, false);
+}
+
 /** 一道题分在几张纸上：把各张已裁好的图（data URL）按顺序纵向拼成一张，各段缩放到同一宽度 */
 export async function stackQuestionImages(dataUrls: string[]): Promise<RenderedImage> {
     const images = await Promise.all(dataUrls.map(loadImage));

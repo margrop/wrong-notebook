@@ -26,13 +26,15 @@ interface BatchDraftEditorProps {
     onUndo: () => void;
     canUndo: boolean;
     saveState: DraftSaveState;
-    /** 图片批次的整页图（含像素尺寸）；文字批次为空 */
+    /** 图片批次的整页图（含像素尺寸）；文字批次与多页批次为空 */
     image: { url: string; width: number; height: number } | null;
+    /** 多页扫描版 PDF 批次的各页图（含像素尺寸，按页码升序）；其他批次为空 */
+    pages?: Array<{ page: number; url: string; width: number; height: number }> | null;
     confirmBeforeImport: boolean;
     starting: string | null;
     onStart: () => void;
     onDiscard: () => void;
-    /** 解析方式：ai 完整识别；tags 保留草稿答案解析、AI 只补知识点/难度/题型；none 按原样入库（不调用 AI、不计额度），仅文字批次可用 */
+    /** 解析方式：ai 完整识别；tags 保留草稿答案解析、AI 只补知识点/难度/题型；none 按原样入库（不调用 AI、不计额度），文字批次与带题目文字的扫描版 PDF 批次可用 */
     analysisMode: "ai" | "tags" | "none";
     onAnalysisModeChange: (mode: "ai" | "tags" | "none") => void;
     /** 保存冲突后保留的本页修改：可恢复或放弃 */
@@ -42,13 +44,15 @@ interface BatchDraftEditorProps {
 }
 
 /** 分题预览：摘要、整页原图（图片批次）、题目列表、未计入题目的内容与底部操作栏 */
-export function BatchDraftEditor({ batch, draft, onEdit, onUndo, canUndo, saveState, image, confirmBeforeImport, starting, onStart, onDiscard, analysisMode, onAnalysisModeChange, hasConflictCopy, onRestoreConflict, onDismissConflict }: BatchDraftEditorProps) {
+export function BatchDraftEditor({ batch, draft, onEdit, onUndo, canUndo, saveState, image, pages, confirmBeforeImport, starting, onStart, onDiscard, analysisMode, onAnalysisModeChange, hasConflictCopy, onRestoreConflict, onDismissConflict }: BatchDraftEditorProps) {
     const { t } = useLanguage();
     const source = batch.source;
     // 一次只展开一道题，手机上不会铺满长表单
     const [expanded, setExpanded] = useState<string | null>(null);
     const [highlighted, setHighlighted] = useState<string | null>(null);
     const [regionTarget, setRegionTarget] = useState<{ key: string | null; regions: DraftRegion[] } | null>(null);
+    // 带题目文字的扫描版 PDF 批次可像文字批次一样选择解析方式（分题已转写题干，答案可保留）
+    const pdfTextDraft = source === "image" && !!pages?.length && draft.items.length > 0 && draft.items.every((item) => item.text.trim().length > 0);
 
     const ready = draft.items.filter((item) => item.selected && isItemReady(item, source));
     const allSelected = draft.items.length > 0 && draft.items.every((item) => item.selected || !isItemReady(item, source));
@@ -120,6 +124,9 @@ export function BatchDraftEditor({ batch, draft, onEdit, onUndo, canUndo, saveSt
             {image && (
                 <PageImageOverview imageUrl={image.url} items={draft.items} onSelectItem={focusItem} highlightedKey={highlighted} />
             )}
+            {pages?.map((page) => (
+                <PageImageOverview key={page.page} imageUrl={page.url} pageNumber={page.page} items={draft.items} onSelectItem={focusItem} highlightedKey={highlighted} />
+            ))}
 
             {draft.items.length === 0 ? (
                 <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{t.importBatch.emptyDraft}</p>
@@ -136,6 +143,7 @@ export function BatchDraftEditor({ batch, draft, onEdit, onUndo, canUndo, saveSt
                             onToggleExpand={() => setExpanded((current) => (current === item.key ? null : item.key))}
                             onEdit={onEdit}
                             image={image}
+                            pages={pages}
                             onAdjustRegion={() => setRegionTarget({ key: item.key, regions: item.regions })}
                             highlighted={highlighted === item.key}
                             onFixText={source === "text" ? () => void textFix.fix([item.key]) : undefined}
@@ -148,7 +156,7 @@ export function BatchDraftEditor({ batch, draft, onEdit, onUndo, canUndo, saveSt
                 </ol>
             )}
 
-            {image && (
+            {(image || pages?.length) && (
                 <Button type="button" variant="outline" size="sm" onClick={() => setRegionTarget({ key: null, regions: [] })}>
                     <Plus className="mr-1 h-4 w-4" />{t.importBatch.addQuestion}
                 </Button>
@@ -166,15 +174,17 @@ export function BatchDraftEditor({ batch, draft, onEdit, onUndo, canUndo, saveSt
                 onStart={onStart}
                 onDiscard={onDiscard}
                 source={source}
+                allowDraftAnalysis={pdfTextDraft}
                 analysisMode={analysisMode}
                 onAnalysisModeChange={onAnalysisModeChange}
                 hasTargetNotebook={!!batch.targetSubjectId || !!batch.subjectId}
             />
 
-            {image && regionTarget && (
+            {(image || pages?.length) && regionTarget && (
                 <RegionEditorDialog
                     open
-                    imageUrl={image.url}
+                    imageUrl={image?.url ?? pages![0].url}
+                    pages={pages ?? undefined}
                     regions={regionTarget.regions}
                     onClose={() => setRegionTarget(null)}
                     onSave={(regions) => {

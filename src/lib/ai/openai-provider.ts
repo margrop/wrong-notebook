@@ -114,29 +114,24 @@ export class OpenAIProvider extends BaseAIProvider implements AIService {
         const systemMessage = { role: "system", content: request.system };
         let userContent: OpenAIUserContent = request.user;
 
-        if (request.image) {
-            const imageUrl = request.image.base64.startsWith('data:')
-                ? request.image.base64
-                : `data:${request.image.mimeType || 'image/jpeg'};base64,${request.image.base64}`;
-
-            if (request.task === 'figure') {
-                // 配图重绘：图片在文字前
-                const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [
-                    { type: "image_url", image_url: { url: imageUrl } },
-                    { type: "text", text: request.user },
-                ];
-                userContent = parts;
-            } else {
-                const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [
-                    { type: "text", text: request.user },
-                    { type: "image_url", image_url: { url: imageUrl } },
-                ];
-                userContent = parts;
-            }
+        const requestImages = request.images?.length ? request.images : request.image ? [request.image] : [];
+        if (requestImages.length > 0) {
+            const imageParts = requestImages.map((image) => ({
+                type: "image_url" as const,
+                image_url: {
+                    url: image.base64.startsWith('data:')
+                        ? image.base64
+                        : `data:${image.mimeType || 'image/jpeg'};base64,${image.base64}`,
+                },
+            }));
+            // 配图重绘：图片在文字前；其余任务（含多页分题）图片按顺序放在文字后
+            userContent = request.task === 'figure'
+                ? [...imageParts, { type: "text", text: request.user }]
+                : [{ type: "text", text: request.user }, ...imageParts];
         }
 
         // LongCat 的多模态格式与 OpenAI 不同，analyze 和 question-split 任务绕过 SDK 直接请求
-        const useLongCatFetch = request.image && this.isLongCat &&
+        const useLongCatFetch = requestImages.length > 0 && this.isLongCat &&
             (request.task === 'analyze' || request.task === 'question-split');
 
         if (useLongCatFetch) {

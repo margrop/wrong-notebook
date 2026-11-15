@@ -1,10 +1,10 @@
 /**
- * 扫描版 PDF 导入流程：把渲染出的 PDF 页面图片包装成与「拍照自动分题」一致的
- * image 批次请求参数，并逐页创建批次。
+ * 扫描版 PDF 导入流程：把渲染出的 PDF 页面图片包装成一个 image 批次请求参数，
+ * 整份 PDF 只创建一个识别批次（一次分题），由模型在整卷上下文中分题：
+ * 跨页的同一道题合并为一道，材料自带的答案页按题号摘出答案。
  *
- * - buildScannedPdfImageParams：RenderedPdfPage → CreateImportBatchInput（纯函数，供测试）。
- * - createScannedPdfBatches：逐页创建 image 批次，单页失败（如额度不足）不中断，
- *   已创建的批次保留；返回每页结果（成功批次 id 或失败原因）。
+ * - buildScannedPdfImageParams：RenderedPdfPage[] → CreateImportBatchInput（纯函数，供测试）。
+ * - createScannedPdfBatch：创建单个多页批次；失败（如额度不足）时返回失败原因。
  *
  * 「use client」环境使用；批次创建函数可注入以便测试。
  */
@@ -13,23 +13,31 @@ import type { CreateImportBatchInput } from "@/lib/import/import-batch-client";
 import type { ImportBatchDetail } from "@/lib/import/import-batch-types";
 import type { RenderedPdfPage } from "@/lib/import/file-parsers/pdf/render-pages";
 
-/** 把渲染出的 PDF 页包装成 image 批次请求参数（与 buildImageBatchParams 的 source/字段一致） */
+/** 把渲染出的 PDF 页包装成一个多页 image 批次请求参数（整份 PDF 一个识别任务） */
 export function buildScannedPdfImageParams(
-    page: RenderedPdfPage,
+    pages: RenderedPdfPage[],
     ctx: { language: "zh" | "en"; notebookId: string },
 ): CreateImportBatchInput {
+    const ordered = [...pages].sort((a, b) => a.pageNumber - b.pageNumber);
     return {
         source: "image",
-        imageBase64: page.dataUrl,
+        images: ordered.map((page) => ({
+            page: page.pageNumber,
+            imageBase64: page.dataUrl,
+            imageInfo: {
+                sourceType: "pdf-page",
+                sourceBytes: page.bytes,
+                sourceWidth: page.width,
+                sourceHeight: page.height,
+                outputWidth: page.width,
+                outputHeight: page.height,
+                outputBytes: page.bytes,
+                quality: undefined,
+            },
+        })),
         imageInfo: {
-            sourceType: "pdf-page",
-            sourceBytes: page.bytes,
-            sourceWidth: page.width,
-            sourceHeight: page.height,
-            outputWidth: page.width,
-            outputHeight: page.height,
-            outputBytes: page.bytes,
-            quality: undefined,
+            sourceType: "pdf-pages",
+            sourceBytes: ordered.reduce((total, page) => total + page.bytes, 0),
         },
         language: ctx.language,
         subjectId: ctx.notebookId,
@@ -37,50 +45,29 @@ export function buildScannedPdfImageParams(
     };
 }
 
-export interface ScannedPdfPageSuccess {
-    pageNumber: number;
-    batch: ImportBatchDetail;
-}
-
-export interface ScannedPdfPageFailure {
-    pageNumber: number;
-    error: unknown;
-}
-
-export interface CreateScannedPdfBatchesResult {
-    successes: ScannedPdfPageSuccess[];
-    failures: ScannedPdfPageFailure[];
-}
-
 /** 判断批次创建失败是否为额度不足（服务端返回 429） */
 export function isQuotaError(error: unknown): boolean {
-    return (error as { status?: number })?.status === 429;
+    return typeof error === "object" && error !== null && "status" in error && error.status === 429;
 }
 
+export type CreateScannedPdfBatchResult =
+    | { ok: true; batch: ImportBatchDetail }
+    | { ok: false; error: unknown };
+
 /**
- * 逐页创建 image 批次。单页失败不中断后续页；返回成功与失败列表。
- * createBatch 可注入（测试用），默认调用 createImportBatch。
+ * 创建整份 PDF 的单个多页批次。createBatch 可注入（测试用），默认调用 createImportBatch。
  */
-export async function createScannedPdfBatches(
+export async function createScannedPdfBatch(
     pages: RenderedPdfPage[],
     ctx: { language: "zh" | "en"; notebookId: string },
     options: {
         createBatch?: (input: CreateImportBatchInput) => Promise<ImportBatchDetail>;
-        onProgress?: (completed: number, total: number) => void;
     } = {},
-): Promise<CreateScannedPdfBatchesResult> {
+): Promise<CreateScannedPdfBatchResult> {
     const create = options.createBatch ?? createImportBatch;
-    const successes: ScannedPdfPageSuccess[] = [];
-    const failures: ScannedPdfPageFailure[] = [];
-    for (let i = 0; i < pages.length; i++) {
-        const page = pages[i];
-        try {
-            const batch = await create(buildScannedPdfImageParams(page, ctx));
-            successes.push({ pageNumber: page.pageNumber, batch });
-        } catch (error) {
-            failures.push({ pageNumber: page.pageNumber, error });
-        }
-        options.onProgress?.(i + 1, pages.length);
+    try {
+        return { ok: true, batch: await create(buildScannedPdfImageParams(pages, ctx)) };
+    } catch (error) {
+        return { ok: false, error };
     }
-    return { successes, failures };
 }

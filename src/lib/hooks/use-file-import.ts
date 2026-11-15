@@ -23,7 +23,7 @@ import { captureQuestionImage } from "@/lib/import/file-parsers/pdf/capture";
 import { regionHasGraphics } from "@/lib/import/file-parsers/pdf/graphics";
 import type { PdfGraphicElement } from "@/lib/import/file-parsers/pdf/graphics";
 import {
-    createScannedPdfBatches,
+    createScannedPdfBatch,
     isQuotaError,
 } from "@/lib/import/scanned-pdf-flow";
 import type { QuestionParseResult, StructuredQuestion } from "@/lib/question-format/types";
@@ -37,7 +37,7 @@ export type FileImportPhase =
     | { kind: "creating"; fileName: string; batchCount: number }
     | { kind: "scanned-pdf"; fileName: string; buffer: ArrayBuffer; pageCount: number }
     | { kind: "rendering-pdf"; fileName: string; rendered: number; total: number }
-    | { kind: "creating-pdf-batches"; fileName: string; created: number; total: number };
+    | { kind: "creating-pdf-batch"; fileName: string };
 
 /** PDF 题目原图选项 */
 export type PdfImageOption = "with-graphics" | "all" | "none";
@@ -51,11 +51,11 @@ export interface UseFileImportOptions {
     texts: Translations["fileImport"];
     /**
      * 依赖注入（测试用）：渲染 PDF 页与创建批次的实现。
-     * 默认分别使用 pdfjs 渲染与 createScannedPdfBatches。
+     * 默认分别使用 pdfjs 渲染与 createScannedPdfBatch。
      */
     scannedPdfDeps?: {
         renderPages?: (buffer: ArrayBuffer, pages: number[], onProgress: (done: number, total: number) => void) => Promise<RenderedPdfPage[]>;
-        createBatches?: typeof createScannedPdfBatches;
+        createBatch?: typeof createScannedPdfBatch;
     };
     /** 依赖注入（测试用）：文字版 PDF 题目截图实现 */
     pdfCaptureDeps?: {
@@ -69,7 +69,7 @@ export interface UseFileImportResult {
     handleFile: (file: File, type: ImportFileTypeDef) => Promise<void>;
     handleConfirm: (pdfImageOption?: PdfImageOption) => Promise<void>;
     handleReset: () => void;
-    /** 扫描版 PDF：确认页码范围后触发渲染与建批次 */
+    /** 扫描版 PDF：确认页码范围后触发渲染并创建整份 PDF 的单个识别批次 */
     handleScannedPdfConfirm: (pages: number[]) => Promise<void>;
 }
 
@@ -87,7 +87,7 @@ export function scannedPdfPageCount(result: QuestionParseResult): number | null 
 /**
  * 「导入题库文件」流程状态：选文件 → 解析 → 图片合成（如有）→ 摘要 → 创建批次并跳转。
  * 只创建 1 个批次时直达批次详情页；多个批次去导入中心列表。
- * 扫描版 PDF（PDF_NO_TEXT_LAYER）提供页码范围选择，转图片后逐页创建 image 批次。
+ * 扫描版 PDF（PDF_NO_TEXT_LAYER）提供页码范围选择，转图片后整份创建一个多页 image 批次（一次分题）。
  * 文字版 PDF 可选按版面区域截图保存题目原图（含图形的题 / 全部题 / 不保存）。
  */
 export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps, pdfCaptureDeps }: UseFileImportOptions): UseFileImportResult {
@@ -225,7 +225,7 @@ export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps, 
         }
     };
 
-    /** 扫描版 PDF：渲染指定页 → 每页创建 image 批次 → 跳转导入中心 */
+    /** 扫描版 PDF：渲染指定页 → 整份创建一个多页 image 批次（一次分题，跨页题目合并）→ 直达批次详情 */
     const handleScannedPdfConfirm = async (pages: number[]) => {
         if (phase.kind !== "scanned-pdf") return;
         if (!notebookId) {
@@ -250,32 +250,20 @@ export function useFileImport({ language, notebookId, texts: t, scannedPdfDeps, 
             return;
         }
 
-        setPhase({ kind: "creating-pdf-batches", fileName, created: 0, total: renderedPages.length });
-        const createBatches = scannedPdfDeps?.createBatches ?? createScannedPdfBatches;
-        const { successes, failures } = await createBatches(
-            renderedPages,
-            { language, notebookId },
-            {
-                onProgress: (done, total) => {
-                    setPhase({ kind: "creating-pdf-batches", fileName, created: done, total });
-                },
-            },
-        );
+        setPhase({ kind: "creating-pdf-batch", fileName });
+        const createBatch = scannedPdfDeps?.createBatch ?? createScannedPdfBatch;
+        const outcome = await createBatch(renderedPages, { language, notebookId });
 
-        for (const failure of failures) {
-            if (isQuotaError(failure.error)) {
-                toast.error(t.pdfQuotaExceeded.replace("{page}", String(failure.pageNumber)));
-            } else {
-                toast.error(t.pdfPageFailed.replace("{page}", String(failure.pageNumber)).replace("{error}", getErrorMessage(failure.error)));
-            }
-        }
-
-        if (successes.length > 0) {
-            // 扫描版批次在后台分题，无题目的页会被自动跳过；统一去导入中心，避免单批随后被删除导致详情页 404
-            toast.success(t.pdfBatchesSubmitted.replace("{count}", String(successes.length)));
-            router.push("/import-tasks");
+        if (outcome.ok) {
+            toast.success(t.pdfBatchSubmitted.replace("{count}", String(renderedPages.length)));
+            router.push(`/import-batches/${outcome.batch.id}`);
         } else {
-            // 全部失败：回到扫描版选择页，可调整范围重试
+            if (isQuotaError(outcome.error)) {
+                toast.error(t.pdfQuotaExceeded);
+            } else {
+                toast.error(t.pdfBatchFailed.replace("{error}", getErrorMessage(outcome.error)));
+            }
+            // 创建失败：回到扫描版选择页，可调整范围重试
             setPhase({ kind: "scanned-pdf", fileName, buffer, pageCount: phase.pageCount });
         }
     };

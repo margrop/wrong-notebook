@@ -19,6 +19,8 @@ export interface CreateImportBatchInput {
     /** 结构化批次来源说明（文件名与格式） */
     origin?: { fileName?: string; format?: string };
     imageBase64?: string;
+    /** 多页图片（整份扫描版 PDF 一个批次）：与 imageBase64 二选一，page 为 PDF 页码 */
+    images?: Array<{ page: number; imageBase64: string; imageInfo?: ImportImageInfo }>;
     imageInfo?: ImportImageInfo;
     language: "zh" | "en";
     subjectId?: string | null;

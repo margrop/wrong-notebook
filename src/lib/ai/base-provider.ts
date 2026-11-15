@@ -24,7 +24,7 @@ import { normalizeMistakeStatusForSave } from '@/lib/question/mistake-status';
 import { parseRecognizedGrade } from '@/lib/question/question-grade';
 import { normalizeGeneratedQuestion } from './generated-question';
 import { normalizeAiQuestionTags } from './knowledge-points';
-import { isImageUnsupportedError, parseQuestionSplit, AI_IMAGE_NOT_SUPPORTED } from './question-split';
+import { isImageUnsupportedError, parseQuestionSplit, splitImagePages, AI_IMAGE_NOT_SUPPORTED } from './question-split';
 import { parseTextFix } from './text-fix';
 import type { CompletionObserver, CompletionResult } from './completion';
 import { completionErrorCode } from './completion';
@@ -73,6 +73,8 @@ export interface CompletionRequest {
     system: string;
     user: string;
     image?: CompletionImage;
+    /** 多张图片（多页 PDF 分题），按页码顺序发送；与 image 互斥 */
+    images?: CompletionImage[];
     /** 附加在图片后的额外文字（如配图重绘时的提示） */
     extraUserText?: string;
     /** 总时限到期时中止请求；由 run 设置，各提供商透传给 SDK */
@@ -512,11 +514,14 @@ export abstract class BaseAIProvider implements AIService {
 
     async splitQuestions(input: QuestionSplitInput): Promise<QuestionSplitResult> {
         const prompt = generateQuestionSplitRequest(input);
-        logger.info({ provider: this.providerName, kind: input.kind }, 'Question Split Request');
-        const image = input.kind === 'image' ? { base64: input.imageBase64, mimeType: input.mimeType } : undefined;
+        logger.info({ provider: this.providerName, kind: input.kind, pages: input.kind === 'image' ? input.pages?.length ?? 1 : 0 }, 'Question Split Request');
+        const images = input.kind === 'image' && input.pages?.length
+            ? splitImagePages(input).map((page) => ({ base64: page.imageBase64, mimeType: page.mimeType }))
+            : undefined;
+        const image = input.kind === 'image' && !images ? { base64: input.imageBase64, mimeType: input.mimeType } : undefined;
 
         try {
-            const text = await this.run({ task: 'question-split', system: prompt.system, user: prompt.user, image });
+            const text = await this.run({ task: 'question-split', system: prompt.system, user: prompt.user, image, images });
             logger.debug({ rawResponse: text }, 'Question split AI raw response');
             return parseQuestionSplit(text, input);
         } catch (error) {

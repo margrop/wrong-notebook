@@ -18,8 +18,10 @@ interface DraftStartBarProps {
     starting: string | null;
     onStart: () => void;
     onDiscard: () => void;
-    /** 批次来源：图片批次不支持「按原样入库」和「AI 只补标签」 */
+    /** 批次来源：普通图片批次不支持「按原样入库」和「AI 只补标签」 */
     source: "text" | "image";
+    /** 带题目文字的扫描版 PDF 批次：分题已转写题干，可像文字批次一样选择解析方式 */
+    allowDraftAnalysis?: boolean;
     /** 解析方式：ai 完整识别；tags 保留草稿答案解析、AI 只补知识点/难度/题型；none 按原样入库 */
     analysisMode: "ai" | "tags" | "none";
     onAnalysisModeChange: (mode: "ai" | "tags" | "none") => void;
@@ -27,8 +29,8 @@ interface DraftStartBarProps {
     hasTargetNotebook: boolean;
 }
 
-/** 分题预览底部固定的操作栏：按钮写明实际动作与题数；文字批次可选「按原样入库」或「AI 只补标签」 */
-export function DraftStartBar({ count, missingRegions, pendingFixes = 0, imageQuestions = 0, confirmBeforeImport, starting, onStart, onDiscard, source, analysisMode, onAnalysisModeChange, hasTargetNotebook }: DraftStartBarProps) {
+/** 分题预览底部固定的操作栏：按钮写明实际动作与题数；文字批次与带文字的扫描版 PDF 批次可选「按原样入库」或「AI 只补标签」 */
+export function DraftStartBar({ count, missingRegions, pendingFixes = 0, imageQuestions = 0, confirmBeforeImport, starting, onStart, onDiscard, source, allowDraftAnalysis = false, analysisMode, onAnalysisModeChange, hasTargetNotebook }: DraftStartBarProps) {
     const { t } = useLanguage();
     const isNone = analysisMode === "none";
     const isTags = analysisMode === "tags";
@@ -60,7 +62,7 @@ export function DraftStartBar({ count, missingRegions, pendingFixes = 0, imageQu
         <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t bg-background/95 py-3 pl-4 pr-16 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur md:sticky md:bottom-4 md:rounded-xl md:border md:px-4" data-testid="draft-start-bar">
             <div className="mx-auto flex max-w-4xl flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0 flex-1 space-y-1">
-                    {source === "text" && (
+                    {(source === "text" || allowDraftAnalysis) && (
                         <div className="flex flex-wrap items-center gap-2 text-xs" role="radiogroup" aria-label={t.importBatch.analysisModeLabel}>
                             <button
                                 type="button"

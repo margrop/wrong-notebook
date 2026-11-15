@@ -71,7 +71,7 @@ const providers: Array<{
     name: string;
     create: () => AIService;
     reply: (text: string) => void;
-    request: () => { system: string; userText: string; image: string | null };
+    request: () => { system: string; userText: string; image: string | null; images: string[] };
 }> = [
     {
         name: 'OpenAI（含国产兼容渠道）',
@@ -85,6 +85,7 @@ const providers: Array<{
                 system: body.messages[0].content,
                 userText: parts.filter((part: { type: string }) => part.type === 'text').map((part: { text: string }) => part.text).join(''),
                 image: parts.find((part: { type: string }) => part.type === 'image_url')?.image_url.url ?? null,
+                images: parts.filter((part: { type: string }) => part.type === 'image_url').map((part: { image_url: { url: string } }) => part.image_url.url),
             };
         },
     },
@@ -100,6 +101,7 @@ const providers: Array<{
                 system: body.messages[0].content,
                 userText: parts.filter((part: { type: string }) => part.type === 'text').map((part: { text: string }) => part.text).join(''),
                 image: parts.find((part: { type: string }) => part.type === 'image_url')?.image_url.url ?? null,
+                images: parts.filter((part: { type: string }) => part.type === 'image_url').map((part: { image_url: { url: string } }) => part.image_url.url),
             };
         },
     },
@@ -115,6 +117,7 @@ const providers: Array<{
                 system: body.config.systemInstruction,
                 userText: parts.filter((part: { text?: string }) => part.text).map((part: { text: string }) => part.text).join(''),
                 image: inline ? `data:${inline.mimeType};base64,${inline.data}` : null,
+                images: parts.filter((part: { inlineData?: { data: string; mimeType: string } }) => part.inlineData).map((part: { inlineData: { data: string; mimeType: string } }) => `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`),
             };
         },
     },
@@ -131,6 +134,7 @@ const providers: Array<{
                 system: body.system,
                 userText: parts.filter((part: { type: string }) => part.type === 'text').map((part: { text: string }) => part.text).join(''),
                 image: image ? `data:${image.source.media_type};base64,${image.source.data}` : null,
+                images: parts.filter((part: { type: string }) => part.type === 'image').map((part: { source: { media_type: string; data: string } }) => `data:${part.source.media_type};base64,${part.source.data}`),
             };
         },
     },
@@ -154,6 +158,41 @@ describe.each(providers)('$name 分题', ({ create, reply, request }) => {
         // 超出图片的部分裁掉，过小的区域丢弃
         expect(result.questions[1].regions).toEqual([{ x: 0.05, y: 0.38, width: 0.95, height: 0.25 }]);
         expect(result.warnings).toEqual([]);
+    });
+
+    it('多页分题把全部页图按页码顺序随请求发送，页码进入 data.pages，跨页题目合并、答案摘出', async () => {
+        reply(JSON.stringify({
+            quality: 'clear',
+            questions: [
+                {
+                    label: '1', text: '求长方形面积。（2）求周长。',
+                    regions: [{ page: 2, x: 0, y: 0, w: 900, h: 200 }, { page: 1, x: 0, y: 600, w: 900, h: 350 }],
+                    answer: '12 平方米', analysis: '长乘宽。',
+                },
+                { label: '2', text: '计算 3 + 4。', regions: [{ page: 2, x: 0, y: 300, w: 900, h: 200 }], answer: '7' },
+            ],
+        }));
+        const result = await create().splitQuestions({
+            kind: 'image', imageBase64: '', mimeType: 'image/jpeg', language: 'zh',
+            pages: [
+                { page: 2, imageBase64: 'UEFHRTI=', mimeType: 'image/jpeg' },
+                { page: 1, imageBase64: 'UEFHRTI=', mimeType: 'image/png' },
+            ],
+        });
+        const sent = request();
+        // 页图按页码升序发送（输入顺序无关）
+        expect(sent.images).toEqual(['data:image/png;base64,UEFHRTI=', 'data:image/jpeg;base64,UEFHRTI=']);
+        expect(sent.userText).toContain('"page":1');
+        expect(sent.userText).toContain('"page":2');
+        expect(sent.system).toContain('跨页');
+        expect(sent.system).toContain('answer');
+        // 跨页题目仍是一道题；多页结果按首个区域的页码与纵坐标排序
+        expect(result.questions).toHaveLength(2);
+        expect(result.questions[0]).toMatchObject({
+            label: '1', answer: '12 平方米', analysis: '长乘宽。',
+            regions: [{ page: 1, x: 0, y: 0.6, width: 0.9, height: 0.35 }, { page: 2, x: 0, y: 0, width: 0.9, height: 0.2 }],
+        });
+        expect(result.questions[1]).toMatchObject({ label: '2', answer: '7', analysis: null });
     });
 
     it('文字分题不发送图片，题目文字由原文按行号拼回', async () => {
@@ -245,5 +284,25 @@ describe('分题结果校验', () => {
         expect(normalizeSplitRegion({ x: 0, y: 0, w: 5, h: 500 })).toBeNull();
         expect(normalizeSplitRegion({ x: 'a', y: 0, w: 100, h: 100 })).toBeNull();
         expect(normalizeSplitRegion(null)).toBeNull();
+    });
+
+    it('多页分题：不在页码清单内的区域丢弃；没有有效区域的题标记未定位', () => {
+        const pagesInput: QuestionSplitInput = {
+            kind: 'image', imageBase64: '', mimeType: 'image/jpeg', language: 'zh',
+            pages: [{ page: 1, imageBase64: 'x', mimeType: 'image/jpeg' }, { page: 2, imageBase64: 'y', mimeType: 'image/jpeg' }],
+        };
+        const result = parseQuestionSplit(JSON.stringify({ quality: 'clear', questions: [
+            { label: '1', text: '第一题', regions: [{ page: 1, x: 0, y: 0, w: 500, h: 200 }, { page: 9, x: 0, y: 0, w: 500, h: 200 }] },
+            { label: '2', text: '第二题', regions: [{ page: 9, x: 0, y: 0, w: 500, h: 200 }] },
+        ] }), pagesInput);
+        expect(result.questions[0].regions).toEqual([{ page: 1, x: 0, y: 0, width: 0.5, height: 0.2 }]);
+        expect(result.questions[1]).toMatchObject({ regions: [], flags: ['unlocated'] });
+    });
+
+    it('单图分题忽略模型给出的页码（没有页码清单时不校验页码，也不写入区域）', () => {
+        const result = parseQuestionSplit(JSON.stringify({ questions: [
+            { label: '1', text: '题目', regions: [{ page: 3, x: 0, y: 0, w: 500, h: 200 }] },
+        ] }), imageInput);
+        expect(result.questions[0].regions).toEqual([{ x: 0, y: 0, width: 0.5, height: 0.2 }]);
     });
 });

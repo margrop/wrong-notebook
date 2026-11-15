@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 interface BatchProgressProps {
     batch: ImportBatchDetail;
     image: { url: string; width: number; height: number } | null;
+    /** 多页扫描版 PDF 批次的各页图；区域带页码时从对应页显示裁片 */
+    pages?: Array<{ page: number; url: string; width: number; height: number }> | null;
     busy: boolean;
     onRetryFailed: () => void;
     onRetryOne: (task: ImportTaskSummary) => void;
@@ -36,7 +38,7 @@ function StatusLine({ task }: { task: ImportTaskSummary }) {
 }
 
 /** 开始解析后的统一进度与逐题结果：成功、重复、待校对、失败；只重试失败的题 */
-export function BatchProgress({ batch, image, busy, onRetryFailed, onRetryOne, onConfirmAll }: BatchProgressProps) {
+export function BatchProgress({ batch, image, pages, busy, onRetryFailed, onRetryOne, onConfirmAll }: BatchProgressProps) {
     const { t } = useLanguage();
     const questionNoOf = useQuestionNo();
     const { counts } = batch;
@@ -79,10 +81,17 @@ export function BatchProgress({ batch, image, busy, onRetryFailed, onRetryOne, o
                 {batch.tasks.map((task) => {
                     const entry = items.get(task.batchItemKey ?? "");
                     const error = task.error ? (typeof errors[task.error] === "string" ? errors[task.error] as string : task.error) : null;
+                    // 多页批次：缩略图显示首个区域所在页上的区域
+                    const thumbPage = pages?.length && entry && entry.item.regions.length > 0
+                        ? pages.find((page) => page.page === (entry.item.regions[0].page ?? pages[0].page)) ?? pages[0]
+                        : null;
                     return (
                         <li key={task.id} className={cn("flex gap-3 rounded-xl border bg-card p-3 text-sm", task.unread && task.status === "review" && "border-primary/50")} data-testid="batch-task" data-status={task.status}>
                             {image && entry && entry.item.regions.length > 0 && (
                                 <RegionThumbnail imageUrl={image.url} imageSize={image} regions={entry.item.regions} className="w-20 shrink-0 self-start sm:w-28" />
+                            )}
+                            {thumbPage && entry && (
+                                <RegionThumbnail imageUrl={thumbPage.url} imageSize={thumbPage} regions={entry.item.regions.filter((region) => (region.page ?? thumbPage.page) === thumbPage.page)} className="w-20 shrink-0 self-start sm:w-28" />
                             )}
                             <div className="min-w-0 flex-1 space-y-1">
                                 <div className="flex flex-wrap items-center justify-between gap-2">

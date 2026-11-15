@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 
 interface PageImageOverviewProps {
     imageUrl: string;
+    /** 多页批次中的页码；给出时只显示本页的区域，单图批次不传 */
+    pageNumber?: number;
     items: DraftItem[];
     /** 点击框时定位到对应题目 */
     onSelectItem: (key: string) => void;
@@ -16,9 +18,13 @@ interface PageImageOverviewProps {
 }
 
 /** 整页原图与各题区域：编号框标出每道题，已取消选择的题用虚线；手机上默认收起 */
-export function PageImageOverview({ imageUrl, items, onSelectItem, highlightedKey }: PageImageOverviewProps) {
+export function PageImageOverview({ imageUrl, pageNumber, items, onSelectItem, highlightedKey }: PageImageOverviewProps) {
     const { t } = useLanguage();
     const [open, setOpen] = useState(true);
+    // 多页批次：区域按页码归属本页（不带页码的旧区域视为第 1 页）；题号仍按整份草稿的顺序
+    const regionsOf = (item: DraftItem) => pageNumber === undefined
+        ? item.regions
+        : item.regions.filter((region) => (region.page ?? 1) === pageNumber);
 
     return (
         <section className="rounded-xl border bg-card p-3" data-testid="page-image-overview">
@@ -26,9 +32,12 @@ export function PageImageOverview({ imageUrl, items, onSelectItem, highlightedKe
                 {open ? <ChevronUp className="mr-1 h-4 w-4" /> : <ChevronDown className="mr-1 h-4 w-4" />}
                 {open ? t.importBatch.hideImage : t.importBatch.showImage}
             </Button>
+            {pageNumber !== undefined && (
+                <p className="mb-1 text-xs font-medium text-muted-foreground">{t.importBatch.pageLabel.replace("{page}", String(pageNumber))}</p>
+            )}
             <div className={cn("relative mx-auto w-fit max-w-full", !open && "hidden md:block")}>
                 <img src={imageUrl} alt="" className="block max-h-[70vh] max-w-full select-none rounded-md" draggable={false} />
-                {items.map((item, index) => item.regions.map((region, regionIndex) => (
+                {items.map((item, index) => regionsOf(item).map((region, regionIndex) => (
                     <button
                         key={`${item.key}-${regionIndex}`}
                         type="button"

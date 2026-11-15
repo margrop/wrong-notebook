@@ -474,9 +474,9 @@ describe('照片自动分题批次', () => {
     it('真实图片随分题请求发送，区域校验后成为草稿；开始时逐题用裁片走完整识别', async () => {
         mocks.splitQuestions.mockResolvedValue({
             questions: [
-                { label: '1', text: '如图，求长方形的面积。', material: null, section: null, regions: [{ x: 0.05, y: 0.05, width: 0.9, height: 0.3 }], hasFigure: true, flags: [] },
-                { label: '2', text: '下列说法正确的是（　）A. … D. …', material: null, section: null, regions: [{ x: 0.05, y: 0.4, width: 0.9, height: 0.2 }], hasFigure: false, flags: [] },
-                { label: '3', text: '看不清的题', material: null, section: null, regions: [], hasFigure: false, flags: ['unclear', 'unlocated'] },
+                { label: '1', text: '如图，求长方形的面积。', material: null, answer: null, analysis: null, section: null, regions: [{ x: 0.05, y: 0.05, width: 0.9, height: 0.3 }], hasFigure: true, flags: [] },
+                { label: '2', text: '下列说法正确的是（　）A. … D. …', material: null, answer: null, analysis: null, section: null, regions: [{ x: 0.05, y: 0.4, width: 0.9, height: 0.2 }], hasFigure: false, flags: [] },
+                { label: '3', text: '看不清的题', material: null, answer: null, analysis: null, section: null, regions: [], hasFigure: false, flags: ['unclear', 'unlocated'] },
             ],
             ignored: [], warnings: ['blurry'],
         });
@@ -517,8 +517,8 @@ describe('照片自动分题批次', () => {
     it('空文字的图片题默认不选；扫描版 PDF 没有可用题的页直接删除批次', async () => {
         mocks.splitQuestions.mockResolvedValueOnce({
             questions: [
-                { label: '1', text: '', material: null, section: null, regions: [{ x: 0.1, y: 0.1, width: 0.2, height: 0.2 }], hasFigure: false, flags: [] },
-                { label: '2', text: '求阴影面积。', material: null, section: null, regions: [{ x: 0.1, y: 0.4, width: 0.8, height: 0.3 }], hasFigure: true, flags: [] },
+                { label: '1', text: '', material: null, answer: null, analysis: null, section: null, regions: [{ x: 0.1, y: 0.1, width: 0.2, height: 0.2 }], hasFigure: false, flags: [] },
+                { label: '2', text: '求阴影面积。', material: null, answer: null, analysis: null, section: null, regions: [{ x: 0.1, y: 0.4, width: 0.8, height: 0.3 }], hasFigure: true, flags: [] },
             ],
             ignored: [], warnings: [],
         });
@@ -531,7 +531,7 @@ describe('照片自动分题批次', () => {
 
         // 答案页常被模型标成只有区域、没有文字和题号的“题”
         mocks.splitQuestions.mockResolvedValueOnce({
-            questions: [{ label: null, text: '', material: null, section: null, regions: [{ x: 0.3, y: 0.02, width: 0.4, height: 0.15 }], hasFigure: false, flags: [] }],
+            questions: [{ label: null, text: '', material: null, answer: null, analysis: null, section: null, regions: [{ x: 0.3, y: 0.02, width: 0.4, height: 0.15 }], hasFigure: false, flags: [] }],
             ignored: [], warnings: ['partial'],
         });
         const emptyPage = await create({ source: 'image', imageBase64: PAGE, imageInfo: { sourceType: 'pdf-page' } });
@@ -546,6 +546,166 @@ describe('照片自动分题批次', () => {
         expect(response.status).toBe(429);
         expect(mocks.splitQuestions).not.toHaveBeenCalled();
         expect(await database.importBatch.findFirstOrThrow()).toMatchObject({ status: 'failed', error: 'AI_DAILY_LIMIT_EXCEEDED' });
+    });
+});
+
+describe('扫描版 PDF 多页批次（整份一个识别任务）', () => {
+    const pagesInput = [
+        { page: 1, imageBase64: PAGE, imageInfo: { sourceType: 'pdf-page' } },
+        { page: 2, imageBase64: CROP(9), imageInfo: { sourceType: 'pdf-page' } },
+    ];
+
+    it('整份 PDF 只计一次分题额度，多页图片随请求发送；跨页题目合并、答案页摘出答案', async () => {
+        mocks.splitQuestions.mockResolvedValue({
+            questions: [
+                {
+                    label: '1', text: '如图，求长方形的面积。（2）求周长。', material: null, answer: '12 平方米', analysis: '长乘宽。', section: null,
+                    regions: [{ x: 0.05, y: 0.6, width: 0.9, height: 0.35, page: 1 }, { x: 0.05, y: 0.05, width: 0.9, height: 0.2, page: 2 }],
+                    hasFigure: true, flags: [],
+                },
+                { label: '2', text: '计算 3 + 4。', material: null, answer: '7', analysis: null, section: null, regions: [{ x: 0.05, y: 0.3, width: 0.9, height: 0.2, page: 2 }], hasFigure: false, flags: [] },
+            ],
+            ignored: [], warnings: [],
+        });
+        const { response, batch } = await create({ source: 'image', images: pagesInput, imageInfo: { sourceType: 'pdf-pages' }, targetSubjectId: 'math' });
+        expect(response.status).toBe(201);
+        await waitSplit(batch.id);
+        expect(mocks.splitQuestions).toHaveBeenCalledTimes(1);
+        const call = mocks.splitQuestions.mock.calls[0][0] as QuestionSplitInput;
+        expect(call.kind).toBe('image');
+        if (call.kind === 'image') {
+            expect(call.pages?.map((page) => page.page)).toEqual([1, 2]);
+            expect(call.pages?.[0].imageBase64).toBe(PAGE.split(',')[1]);
+        }
+        expect(await database.aiUsage.count({ where: { kind: 'split' } })).toBe(1);
+
+        const { batch: ready } = await getBatch(batch.id, true);
+        expect(ready).toMatchObject({ status: 'draft', itemCount: 2, selectedCount: 2 });
+        // 跨页题目仍是一道题，区域带页码；答案页的答案写入草稿
+        expect(ready.draft.items[0].regions).toEqual([
+            { x: 0.05, y: 0.6, width: 0.9, height: 0.35, page: 1 },
+            { x: 0.05, y: 0.05, width: 0.9, height: 0.2, page: 2 },
+        ]);
+        expect(ready.draft.items[0]).toMatchObject({ answer: '12 平方米', analysis: '长乘宽。' });
+        expect(ready.draft.items[1]).toMatchObject({ answer: '7' });
+        // 多页批次：整页图为空，页图经 images 返回；状态查询不带页图
+        expect(ready.imageData).toBeNull();
+        expect(ready.images?.map((page: { page: number }) => page.page)).toEqual([1, 2]);
+        expect((await getBatch(batch.id)).batch.images).toBeNull();
+    });
+
+    it('带答案的扫描版批次按「只补标签」入库：保留自带答案，不重新解答，裁片存为题目原图', async () => {
+        mocks.splitQuestions.mockResolvedValue({
+            questions: [
+                { label: '1', text: '计算 3 + 4。', material: null, answer: '7', analysis: '凑十法。', section: null, regions: [{ x: 0.05, y: 0.1, width: 0.9, height: 0.2, page: 1 }], hasFigure: false, flags: [] },
+            ],
+            ignored: [], warnings: [],
+        });
+        const { batch } = await create({ source: 'image', images: pagesInput, imageInfo: { sourceType: 'pdf-pages' }, targetSubjectId: 'math' });
+        await waitSplit(batch.id);
+        const { batch: ready } = await getBatch(batch.id);
+        const images = [{ key: ready.draft.items[0].key, imageBase64: CROP(3) }];
+        expect((await start(batch.id, { version: ready.version, images, analysis: 'tags' })).status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+        // 不重新识别、不重新解答
+        expect(mocks.analyzeImage).not.toHaveBeenCalled();
+        expect(mocks.reanswerQuestion).not.toHaveBeenCalled();
+        const items = await database.errorItem.findMany();
+        expect(items).toHaveLength(1);
+        expect(items[0]).toMatchObject({ answerText: '7', analysis: '凑十法。', originalImageUrl: CROP(3) });
+        expect(items[0].questionText).toContain('计算 3 + 4。');
+        // 每题一次 retag 额度，分题一次 split 额度
+        expect(await database.aiUsage.count({ where: { kind: 'retag' } })).toBe(1);
+        expect(await database.aiUsage.count({ where: { kind: 'split' } })).toBe(1);
+        expect(await database.aiUsage.count({ where: { kind: 'analyze' } })).toBe(0);
+    });
+
+    it('带答案的扫描版批次按原样入库：不调用 AI、不计额度', async () => {
+        mocks.splitQuestions.mockResolvedValue({
+            questions: [
+                { label: '1', text: '计算 3 + 4。', material: null, answer: '7', analysis: null, section: null, regions: [{ x: 0.05, y: 0.1, width: 0.9, height: 0.2, page: 1 }], hasFigure: false, flags: [] },
+            ],
+            ignored: [], warnings: [],
+        });
+        const { batch } = await create({ source: 'image', images: pagesInput, imageInfo: { sourceType: 'pdf-pages' }, targetSubjectId: 'math' });
+        await waitSplit(batch.id);
+        const { batch: ready } = await getBatch(batch.id);
+        expect((await start(batch.id, { version: ready.version, analysis: 'none' })).status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+        expect(mocks.analyzeImage).not.toHaveBeenCalled();
+        expect(mocks.suggestKnowledgeTags).not.toHaveBeenCalled();
+        const items = await database.errorItem.findMany();
+        expect(items).toHaveLength(1);
+        expect(items[0].answerText).toBe('7');
+        expect(await database.aiUsage.count({ where: { kind: 'split' } })).toBe(1);
+        expect(await database.aiUsage.count({ where: { kind: 'retag' } })).toBe(0);
+    });
+
+    it('AI 完整解析时把分题转写与自带答案作为参考文字传给识别', async () => {
+        mocks.splitQuestions.mockResolvedValue({
+            questions: [
+                { label: '1', text: '计算 3 + 4。', material: null, answer: '7', analysis: null, section: null, regions: [{ x: 0.05, y: 0.1, width: 0.9, height: 0.2, page: 1 }], hasFigure: false, flags: [] },
+            ],
+            ignored: [], warnings: [],
+        });
+        const { batch } = await create({ source: 'image', images: pagesInput, imageInfo: { sourceType: 'pdf-pages' }, targetSubjectId: 'math' });
+        await waitSplit(batch.id);
+        const { batch: ready } = await getBatch(batch.id);
+        const images = [{ key: ready.draft.items[0].key, imageBase64: CROP(4) }];
+        expect((await start(batch.id, { version: ready.version, images })).status).toBe(202);
+        await waitForImportBatchTasksForTest(batch.id);
+        expect(mocks.analyzeImage).toHaveBeenCalledTimes(1);
+        // analyzeImage 第 8 个参数是 referenceText：含分题转写与参考答案
+        const reference = mocks.analyzeImage.mock.calls[0][7] as string;
+        expect(reference).toContain('计算 3 + 4。');
+        expect(reference).toContain('参考答案：7');
+    });
+
+    it('没有题目文字的扫描版批次仍要求裁片，且不允许按原样入库', async () => {
+        mocks.splitQuestions.mockResolvedValue({
+            questions: [
+                { label: '1', text: '', material: null, answer: null, analysis: null, section: null, regions: [{ x: 0.05, y: 0.1, width: 0.9, height: 0.2, page: 1 }], hasFigure: false, flags: [] },
+            ],
+            ignored: [], warnings: [],
+        });
+        const { batch } = await create({ source: 'image', images: pagesInput, imageInfo: { sourceType: 'pdf-pages' }, targetSubjectId: 'math' });
+        await waitSplit(batch.id);
+        const { batch: ready } = await getBatch(batch.id);
+        // 空文字题默认不选：先选中再开始
+        const draft = { ...ready.draft, items: ready.draft.items.map((item: { key: string }) => ({ ...item, selected: true })) };
+        await PATCH(json({ version: ready.version, draft }, 'PATCH'), params(batch.id));
+        const missing = await start(batch.id, { version: ready.version + 1 });
+        expect(missing.status).toBe(400);
+        expect((await missing.json()).message).toBe('IMPORT_BATCH_IMAGE_MISSING');
+        const none = await start(batch.id, { version: ready.version + 1, images: [{ key: ready.draft.items[0].key, imageBase64: CROP(5) }], analysis: 'none' });
+        expect(none.status).toBe(400);
+        expect((await none.json()).message).toBe('IMPORT_BATCH_ANALYSIS_NONE_TEXT_ONLY');
+    });
+
+    it('多页参数校验：页码重复、与单图互斥、仅限图片批次', async () => {
+        const dup = await create({ source: 'image', images: [{ page: 1, imageBase64: PAGE }, { page: 1, imageBase64: PAGE }] });
+        expect(dup.response.status).toBe(400);
+        const both = await create({ source: 'image', imageBase64: PAGE, images: pagesInput });
+        expect(both.response.status).toBe(400);
+        const textPages = await create({ source: 'text', text: '1．计算 1+1。', images: pagesInput });
+        expect(textPages.response.status).toBe(400);
+        expect(mocks.splitQuestions).not.toHaveBeenCalled();
+    });
+
+    it('分题失败后可重试：页图仍在，重试再次整份分题', async () => {
+        mocks.splitQuestions.mockRejectedValueOnce(new Error('AI_TIMEOUT_ERROR'));
+        const { batch } = await create({ source: 'image', images: pagesInput, imageInfo: { sourceType: 'pdf-pages' }, targetSubjectId: 'math' });
+        await waitSplit(batch.id);
+        expect((await getBatch(batch.id)).batch).toMatchObject({ status: 'failed' });
+        mocks.splitQuestions.mockResolvedValueOnce({
+            questions: [{ label: '1', text: '计算 3 + 4。', material: null, answer: null, analysis: null, section: null, regions: [{ x: 0.05, y: 0.1, width: 0.9, height: 0.2, page: 1 }], hasFigure: false, flags: [] }],
+            ignored: [], warnings: [],
+        });
+        expect((await RETRY(json({}), params(batch.id))).status).toBe(202);
+        await waitSplit(batch.id);
+        const { batch: ready } = await getBatch(batch.id);
+        expect(ready).toMatchObject({ status: 'draft', itemCount: 1 });
+        expect(mocks.splitQuestions).toHaveBeenCalledTimes(2);
     });
 });
 
@@ -931,7 +1091,7 @@ describe('AI 只补标签（analysis=tags）', () => {
 
     it('图片批次传 analysis=tags 返回校验错误', async () => {
         mocks.splitQuestions.mockResolvedValue({
-            questions: [{ label: '1', text: '如图，求面积。', material: null, section: null, regions: [{ x: 0.05, y: 0.05, width: 0.9, height: 0.3 }], hasFigure: false, flags: [] }],
+            questions: [{ label: '1', text: '如图，求面积。', material: null, answer: null, analysis: null, section: null, regions: [{ x: 0.05, y: 0.05, width: 0.9, height: 0.3 }], hasFigure: false, flags: [] }],
             ignored: [], warnings: [],
         });
         const { batch } = await create({ source: 'image', imageBase64: PAGE, targetSubjectId: 'math' });
@@ -1062,7 +1222,7 @@ describe('按原样入库（analysis=none）', () => {
 
     it('图片批次传 analysis=none 返回校验错误', async () => {
         mocks.splitQuestions.mockResolvedValue({
-            questions: [{ label: '1', text: '如图，求面积。', material: null, section: null, regions: [{ x: 0.05, y: 0.05, width: 0.9, height: 0.3 }], hasFigure: false, flags: [] }],
+            questions: [{ label: '1', text: '如图，求面积。', material: null, answer: null, analysis: null, section: null, regions: [{ x: 0.05, y: 0.05, width: 0.9, height: 0.3 }], hasFigure: false, flags: [] }],
             ignored: [], warnings: [],
         });
         const { batch } = await create({ source: 'image', imageBase64: PAGE, targetSubjectId: 'math' });

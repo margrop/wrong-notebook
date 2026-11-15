@@ -394,6 +394,21 @@ describe('BaseAIProvider', () => {
             }));
         });
 
+        it('多页分题时按页码顺序附带 images，不附带单图 image', async () => {
+            await provider.splitQuestions({
+                kind: 'image', imageBase64: '', mimeType: 'image/jpeg', language: 'zh',
+                pages: [
+                    { page: 2, imageBase64: 'REVG', mimeType: 'image/jpeg' },
+                    { page: 1, imageBase64: 'QUJD', mimeType: 'image/png' },
+                ],
+            });
+            expect(provider.completeText).toHaveBeenCalledWith(expect.objectContaining({
+                task: 'question-split',
+                image: undefined,
+                images: [{ base64: 'QUJD', mimeType: 'image/png' }, { base64: 'REVG', mimeType: 'image/jpeg' }],
+            }));
+        });
+
         it('文字分题时不附带 image', async () => {
             await provider.splitQuestions({ kind: 'text', lines: ['第一行'], language: 'zh' });
             expect(provider.completeText).toHaveBeenCalledWith(expect.objectContaining({
