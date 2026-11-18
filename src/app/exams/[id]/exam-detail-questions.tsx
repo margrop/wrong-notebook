@@ -22,6 +22,7 @@ interface ExamDetailQuestionsProps {
     onRegenerated: () => void;
     uniformPreview: { scale: number | null; align: FigureAlign | null };
     onSaveFigureScale: (questionId: string, figureScale: number, figureAlign: FigureAlign) => Promise<void>;
+    onSaveFigureSource: (questionId: string, source: 'svg' | 'image') => Promise<void>;
     onSaveScore: (questionId: string, score: number | null) => Promise<void>;
     onSaveUniformScore: (score: number | null) => Promise<void>;
     onSaveGroupByType: (groupByType: boolean) => Promise<void>;
@@ -59,6 +60,7 @@ function GroupedQuestions({
     onRegenerated,
     uniformPreview,
     onSaveFigureScale,
+    onSaveFigureSource,
     onSaveScore,
 }: Omit<ExamDetailQuestionsProps, "groupByType" | "questions" | "onSaveUniformScore" | "onSaveGroupByType"> & {
     sections: ExamSection<ExamQuestionDetail>[];
@@ -77,6 +79,7 @@ function GroupedQuestions({
             previewFigureScale={uniformPreview.scale}
             previewFigureAlign={uniformPreview.align}
             onSaveFigureScale={onSaveFigureScale}
+            onSaveFigureSource={onSaveFigureSource}
             onSaveScore={onSaveScore}
         />
     );
@@ -104,6 +107,7 @@ export function ExamDetailQuestions({
     onRegenerated,
     uniformPreview,
     onSaveFigureScale,
+    onSaveFigureSource,
     onSaveScore,
     onSaveUniformScore,
     onSaveGroupByType,
@@ -141,6 +145,7 @@ export function ExamDetailQuestions({
                     onRegenerated={onRegenerated}
                     uniformPreview={uniformPreview}
                     onSaveFigureScale={onSaveFigureScale}
+                    onSaveFigureSource={onSaveFigureSource}
                     onSaveScore={onSaveScore}
                 />
             ) : (
@@ -157,6 +162,7 @@ export function ExamDetailQuestions({
                         previewFigureScale={uniformPreview.scale}
                         previewFigureAlign={uniformPreview.align}
                         onSaveFigureScale={onSaveFigureScale}
+                        onSaveFigureSource={onSaveFigureSource}
                         onSaveScore={onSaveScore}
                     />
                 ))

@@ -55,6 +55,7 @@ describe('ExamPrintSheet 分值打印', () => {
                 customSpaces={{}}
                 uniformPreview={{ scale: null, align: null }}
                 onSaveFigureScale={NOOP}
+                onSaveFigureSource={NOOP}
                 onChangeCustomSpace={() => {}}
             />
         );
@@ -73,6 +74,7 @@ describe('ExamPrintSheet 分值打印', () => {
                 customSpaces={{}}
                 uniformPreview={{ scale: null, align: null }}
                 onSaveFigureScale={NOOP}
+                onSaveFigureSource={NOOP}
                 onChangeCustomSpace={() => {}}
             />
         );
@@ -91,6 +93,7 @@ describe('ExamPrintSheet 分值打印', () => {
                 customSpaces={{}}
                 uniformPreview={{ scale: null, align: null }}
                 onSaveFigureScale={NOOP}
+                onSaveFigureSource={NOOP}
                 onChangeCustomSpace={() => {}}
             />
         );
@@ -113,6 +116,7 @@ describe('ExamPrintSheet 分值打印', () => {
                 customSpaces={{}}
                 uniformPreview={{ scale: null, align: null }}
                 onSaveFigureScale={NOOP}
+                onSaveFigureSource={NOOP}
                 onChangeCustomSpace={() => {}}
             />
         );
@@ -145,6 +149,7 @@ describe('ExamPrintSheet 分值打印', () => {
                 customSpaces={{}}
                 uniformPreview={{ scale: null, align: null }}
                 onSaveFigureScale={NOOP}
+                onSaveFigureSource={NOOP}
                 onChangeCustomSpace={() => {}}
             />
         );
@@ -168,6 +173,7 @@ describe('ExamPrintSheet 分值打印', () => {
                 customSpaces={{}}
                 uniformPreview={{ scale: null, align: null }}
                 onSaveFigureScale={NOOP}
+                onSaveFigureSource={NOOP}
                 onChangeCustomSpace={() => {}}
             />
         );

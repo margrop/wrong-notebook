@@ -3,6 +3,7 @@
  */
 import { summarizePaperStatus } from "@/lib/exam/exam";
 import { sanitizeFigureSvg } from "@/lib/figure-svg";
+import { sanitizeFigureImage } from "@/lib/figure-image";
 import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
 import { normalizeCustomAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import { normalizeExamScore } from "@/lib/exam/exam-score";
@@ -81,6 +82,7 @@ export async function importExamPapers(ctx: ImportContext): Promise<void> {
         for (const [index, question] of questions.entries()) {
             const errorItemId = question.errorItemId && errorItemOwnerMap.get(question.errorItemId) === targetUserId
                 ? errorItemIdMap.get(question.errorItemId) : undefined;
+            const figureImage = sanitizeFigureImage(question.figureImage);
             const createdQuestion = await tx.examQuestion.create({
                 data: {
                     paperId: created.id,
@@ -92,6 +94,8 @@ export async function importExamPapers(ctx: ImportContext): Promise<void> {
                     answerText: question.answerText,
                     analysis: question.analysis,
                     figureSvg: sanitizeFigureSvg(question.figureSvg),
+                    figureImage,
+                    figureSource: question.figureSource === "image" && figureImage ? "image" : "svg",
                     figureScale: normalizeFigureScale(question.figureScale),
                     figureAlign: normalizeFigureAlign(question.figureAlign),
                     answerSpacePx: normalizeCustomAnswerSpacePx(question.answerSpacePx),

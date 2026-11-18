@@ -6,6 +6,7 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AnswerSpaceControl } from "@/components/print-preview/answer-space-control";
 import { PrintQuestionText } from "@/components/print-preview/print-question-text";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { stripFigureDescriptions } from "@/lib/question/question-similarity";
 import { resolveQuestionAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import type { AnswerSpaceMode } from "@/lib/exam/exam-answer-space";
 import { formatExamScore, summarizeExamScores } from "@/lib/exam/exam-score";
@@ -21,6 +22,7 @@ interface ExamPrintSheetProps {
     customSpaces: Record<string, number>;
     uniformPreview: { scale: number | null; align: FigureAlign | null };
     onSaveFigureScale: (questionId: string, figureScale: number, figureAlign: FigureAlign) => Promise<void>;
+    onSaveFigureSource: (questionId: string, source: 'svg' | 'image') => Promise<void>;
     onChangeCustomSpace: (questionId: string, px: number | null) => void;
 }
 
@@ -33,6 +35,7 @@ interface ExamPrintQuestionProps {
     customSpaces: Record<string, number>;
     uniformPreview: { scale: number | null; align: FigureAlign | null };
     onSaveFigureScale: (questionId: string, figureScale: number, figureAlign: FigureAlign) => Promise<void>;
+    onSaveFigureSource: (questionId: string, source: 'svg' | 'image') => Promise<void>;
     onChangeCustomSpace: (questionId: string, px: number | null) => void;
 }
 
@@ -45,6 +48,7 @@ function ExamPrintQuestion({
     customSpaces,
     uniformPreview,
     onSaveFigureScale,
+    onSaveFigureSource,
     onChangeCustomSpace,
 }: ExamPrintQuestionProps) {
     const { t } = useLanguage();
@@ -57,15 +61,20 @@ function ExamPrintQuestion({
                 </span>
                 <span className="exam-source">{t.exam.sourceLabel}: {question.sourceShortId}</span>
             </div>
-            <PrintQuestionText content={question.questionText!} />
+            <PrintQuestionText content={question.figureSvg || question.figureImage
+                ? stripFigureDescriptions(question.questionText!)
+                : question.questionText!} />
             <FigureScaleEditor
-                key={`${question.id}-${question.figureScale ?? 100}-${question.figureAlign ?? "center"}`}
+                key={`${question.id}-${question.figureScale ?? 100}-${question.figureAlign ?? "center"}-${question.figureSource ?? "svg"}`}
                 svg={question.figureSvg}
+                image={question.figureImage}
+                source={question.figureSource}
                 scale={question.figureScale}
                 align={question.figureAlign}
                 previewScaleOverride={uniformPreview.scale}
                 previewAlignOverride={uniformPreview.align}
                 onSave={(figureScale, figureAlign) => onSaveFigureScale(question.id, figureScale, figureAlign)}
+                onSaveSource={(source) => onSaveFigureSource(question.id, source)}
             />
             {(() => {
                 const effectivePx = resolveQuestionAnswerSpacePx(answerSpace, question.questionText!, customSpaces[question.id]);
@@ -117,6 +126,7 @@ export const ExamPrintSheet = forwardRef<HTMLDivElement, ExamPrintSheetProps>(fu
     customSpaces,
     uniformPreview,
     onSaveFigureScale,
+    onSaveFigureSource,
     onChangeCustomSpace,
 }, ref) {
     const { t, language } = useLanguage();
@@ -137,6 +147,7 @@ export const ExamPrintSheet = forwardRef<HTMLDivElement, ExamPrintSheetProps>(fu
             customSpaces={customSpaces}
             uniformPreview={uniformPreview}
             onSaveFigureScale={onSaveFigureScale}
+            onSaveFigureSource={onSaveFigureSource}
             onChangeCustomSpace={onChangeCustomSpace}
         />
     );

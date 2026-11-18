@@ -207,9 +207,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 18 版格式，包含 tagSet、练习生成题与空的 extensions', async () => {
+    it('导出文件使用第 19 版格式，包含 tagSet、练习生成题、试卷配图与空的 extensions', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(18);
+        expect(backup.version).toBe(19);
         expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
@@ -618,7 +618,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
                 subjectIds: JSON.stringify(['math']), tagNames: JSON.stringify(['自定义标签']), resultsRecordedAt: new Date('2026-10-22T00:00:00Z'),
                 createdAt: new Date('2026-10-21T00:00:00Z'),
                 questions: { create: [
-                    { id: 'question-1', order: 0, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', answerText: '答', analysis: '析', figureSvg: figure, figureScale: 75, figureAlign: 'right', answerSpacePx: 180, score: 2.5 },
+                    { id: 'question-1', order: 0, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', answerText: '答', analysis: '析', figureSvg: figure, figureImage, figureSource: 'image', figureScale: 75, figureAlign: 'right', answerSpacePx: 180, score: 2.5 },
                     { id: 'question-2', order: 1, errorItemId: 'item-1', sourceShortId: 'AbC234', status: 'pending' },
                 ] },
             },
@@ -627,6 +627,8 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             data: { userId: 'user-1', errorItemId: 'item-1', examQuestionId: 'question-1', result: 'wrong', isCorrect: false, source: 'exam', questionText: '试卷新题' },
         });
         const backup = await exportBackup();
+        expect(backup.examPapers[0].questions[0].figureImage).toBe(figureImage);
+        expect(backup.examPapers[0].questions[0].figureSource).toBe('image');
         expect(backup.examPapers[0].questions[0].figureScale).toBe(75);
         expect(backup.examPapers[0].questions[0].figureAlign).toBe('right');
         expect(backup.examPapers[0].questions[0].answerSpacePx).toBe(180);
@@ -644,7 +646,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             resultsRecordedAt: new Date('2026-10-22T00:00:00Z'), createdAt: new Date('2026-10-21T00:00:00Z'),
         });
         expect(paper.questions).toMatchObject([
-            { order: 0, errorItemId: item.id, sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', figureSvg: figure, figureScale: 75, figureAlign: 'right', answerSpacePx: 180, score: 2.5 },
+            { order: 0, errorItemId: item.id, sourceShortId: 'AbC234', status: 'ready', questionText: '试卷新题', figureSvg: figure, figureImage, figureSource: 'image', figureScale: 75, figureAlign: 'right', answerSpacePx: 180, score: 2.5 },
             // 导出时仍在生成的题目按失败导入，缺省配图比例为 100、位置为居中，留白按全局档位，分值未设
             { order: 1, errorItemId: item.id, status: 'failed', figureScale: 100, figureAlign: 'center', answerSpacePx: null, score: null },
         ]);
@@ -917,7 +919,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(response.status).toBe(200);
         const compressed = Buffer.from(await response.arrayBuffer());
         expect([compressed[0], compressed[1]]).toEqual([0x1f, 0x8b]);
-        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(18);
+        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(19);
 
         await clearUserData();
         const imported = await IMPORT(new Request('http://localhost/api/import', {

@@ -11,7 +11,7 @@ import { z } from "zod";
  */
 
 /** 当前备份文件版本号 */
-export const BACKUP_VERSION = 18;
+export const BACKUP_VERSION = 19;
 
 /** 备份文件中的用户对象 */
 export interface BackupUser {
@@ -200,6 +200,10 @@ export interface BackupExamQuestion {
     answerText: string | null;
     analysis: string | null;
     figureSvg: string | null;
+    /** 来源错题裁剪的原配图快照（PNG data URI）；version 19 起导出 */
+    figureImage?: string | null;
+    /** 配图显示来源；旧版备份缺省为 svg */
+    figureSource?: string;
     /** 旧版备份缺省为 100% */
     figureScale?: number;
     /** 旧版备份缺省为居中 */

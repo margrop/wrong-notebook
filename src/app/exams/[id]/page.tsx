@@ -72,7 +72,7 @@ export default function ExamDetailPage() {
     const recorded = paper.questions.some((question) => question.attempts.length > 0);
     const hasFailed = paper.questions.some((question) => question.status === "failed");
     const recordable = paper.questions.filter((question) => question.status === "ready" && question.errorItemId);
-    const figureQuestions = paper.questions.filter((question) => question.status === "ready" && Boolean(question.figureSvg));
+    const figureQuestions = paper.questions.filter((question) => question.status === "ready" && Boolean(question.figureSvg || question.figureImage));
 
     const selectedCount = draft ? recordable.filter((question) => draft[question.id]).length : 0;
 
@@ -139,6 +139,14 @@ export default function ExamDetailPage() {
         setPaper((prev) => (prev ? {
             ...prev,
             questions: prev.questions.map((question) => (question.id === questionId ? { ...question, figureScale, figureAlign } : question)),
+        } : prev));
+    };
+
+    const saveQuestionFigureSource = async (questionId: string, figureSource: 'svg' | 'image') => {
+        await apiClient.patch(`/api/exams/${paper.id}`, { questionId, figureSource });
+        setPaper((prev) => (prev ? {
+            ...prev,
+            questions: prev.questions.map((question) => (question.id === questionId ? { ...question, figureSource } : question)),
         } : prev));
     };
 
@@ -261,6 +269,7 @@ export default function ExamDetailPage() {
                     onRegenerated={load}
                     uniformPreview={uniformPreview}
                     onSaveFigureScale={saveQuestionFigureScale}
+                    onSaveFigureSource={saveQuestionFigureSource}
                     onSaveScore={saveQuestionScore}
                     onSaveUniformScore={saveUniformScore}
                     onSaveGroupByType={saveGroupByType}

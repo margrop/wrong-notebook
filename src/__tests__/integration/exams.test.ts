@@ -182,6 +182,7 @@ describe('/api/exams', () => {
                 .mockResolvedValueOnce([{
                     id: 'e1', shortId: 'AAAAAA',
                     questionText: '原题', answerText: '答', analysis: '析', figureSvg: '<svg/>',
+                    figureImage: 'data:image/png;base64,QUJD', figureSource: 'image',
                     figureScale: 65, figureAlign: 'left', answerSpacePx: 240,
                 }]);
             mocks.examPaper.create.mockResolvedValue({ id: 'p1', title: '数学', requestedCount: 1, _count: { questions: 1 } });
@@ -197,6 +198,7 @@ describe('/api/exams', () => {
             expect(created.difficulty).toBe('original');
             expect(created.questions.create[0]).toMatchObject({
                 questionText: '原题', answerText: '答', analysis: '析', figureSvg: '<svg/>',
+                figureImage: 'data:image/png;base64,QUJD', figureSource: 'image',
                 figureScale: 65, figureAlign: 'left', answerSpacePx: 240, status: 'ready',
             });
             expect(mocks.generateSimilarQuestion).not.toHaveBeenCalled();
@@ -371,6 +373,22 @@ describe('/api/exams', () => {
                 where: { paperId: 'p1' },
                 data: { figureAlign: 'right' },
             });
+        });
+
+        it('切换单题配图来源为原图或 AI 重绘', async () => {
+            mocks.examPaper.findUnique.mockResolvedValue({ userId: 'user-1' });
+            mocks.examQuestion.updateMany.mockResolvedValue({ count: 1 });
+
+            const imageResponse = await UPDATE_SCALE(json('http://localhost', 'PATCH', { questionId: 'q1', figureSource: 'image' }), params('p1'));
+            expect(imageResponse.status).toBe(200);
+            expect(await imageResponse.json()).toEqual({ questionId: 'q1', figureSource: 'image' });
+            expect(mocks.examQuestion.updateMany).toHaveBeenLastCalledWith({ where: { id: 'q1', paperId: 'p1' }, data: { figureSource: 'image' } });
+
+            const svgResponse = await UPDATE_SCALE(json('http://localhost', 'PATCH', { questionId: 'q1', figureSource: 'svg' }), params('p1'));
+            expect(svgResponse.status).toBe(200);
+            expect(mocks.examQuestion.updateMany).toHaveBeenLastCalledWith({ where: { id: 'q1', paperId: 'p1' }, data: { figureSource: 'svg' } });
+
+            expect((await UPDATE_SCALE(json('http://localhost', 'PATCH', { questionId: 'q1', figureSource: 'png' }), params('p1'))).status).toBe(400);
         });
 
         it('保存与清除单题留白，统一清除时更新整卷', async () => {
@@ -617,7 +635,7 @@ describe('/api/exams', () => {
             questionText: '旧题',
             paper: { userId: 'user-1', title: '试卷', difficulty: 'hard' },
             errorItem: {
-                questionText: '原题', knowledgePoints: null, gradeSemester: '初二上', figureSvg: null,
+                questionText: '原题', knowledgePoints: null, gradeSemester: '初二上', figureSvg: null, figureImage: null,
                 tags: [{ name: '函数' }], subject: { name: '数学', stage: 'junior_high', subjectKey: 'math' },
             },
             _count: { practiceRecords: practiceCount },
@@ -637,7 +655,7 @@ describe('/api/exams', () => {
             expect(mocks.generateSimilarQuestion).toHaveBeenCalledWith('原题', ['函数'], 'zh', 'hard', '初二上', null);
             expect(mocks.examQuestion.updateMany).toHaveBeenCalledWith({
                 where: { id: 'q1', practiceRecords: { none: {} } },
-                data: { status: 'ready', questionText: '新题', answerText: '新答', analysis: '新析', figureSvg: null, error: null },
+                data: { status: 'ready', questionText: '新题', answerText: '新答', analysis: '新析', figureSvg: null, figureImage: null, figureSource: 'svg', error: null },
             });
             expect(mocks.examPaper.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { status: 'ready' } });
         });
@@ -772,7 +790,7 @@ describe('/api/exams', () => {
         it('逐题生成举一反三题目并汇总试卷状态', async () => {
             mocks.examPaper.findUnique.mockResolvedValue({ difficulty: 'hard', questions: [{ id: 'q1' }, { id: 'q2' }] });
             mocks.examQuestion.findUnique
-                .mockResolvedValueOnce({ errorItem: { questionText: '原题1', knowledgePoints: null, gradeSemester: null, tags: [{ name: '函数' }] } })
+                .mockResolvedValueOnce({ errorItem: { questionText: '原题1', knowledgePoints: null, gradeSemester: null, figureImage: 'data:image/png;base64,QUJD', tags: [{ name: '函数' }] } })
                 .mockResolvedValueOnce({ errorItem: null });
             mocks.generateSimilarQuestion.mockResolvedValue({ questionText: '新题', answerText: '答', analysis: '析' });
             mocks.examQuestion.findMany.mockResolvedValue([{ status: 'ready' }, { status: 'failed' }]);
@@ -782,7 +800,7 @@ describe('/api/exams', () => {
             expect(mocks.generateSimilarQuestion).toHaveBeenCalledWith('原题1', ['函数'], 'zh', 'hard', null, undefined);
             expect(mocks.examQuestion.update).toHaveBeenCalledWith({
                 where: { id: 'q1' },
-                data: { status: 'ready', questionText: '新题', answerText: '答', analysis: '析', figureSvg: null, error: null },
+                data: { status: 'ready', questionText: '新题', answerText: '答', analysis: '析', figureSvg: null, figureImage: 'data:image/png;base64,QUJD', figureSource: 'image', error: null },
             });
             expect(mocks.examQuestion.update).toHaveBeenCalledWith({ where: { id: 'q2' }, data: { status: 'failed', error: 'SOURCE_DELETED' } });
             expect(mocks.examPaper.update).toHaveBeenLastCalledWith({ where: { id: 'p1' }, data: { status: 'partial' } });

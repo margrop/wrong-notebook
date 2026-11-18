@@ -220,7 +220,14 @@ async function generateQuestion(userId: string, questionId: string, difficulty: 
         where: { id: questionId },
         select: {
             errorItem: {
-                select: { questionText: true, knowledgePoints: true, gradeSemester: true, figureSvg: true, tags: { select: { name: true } } },
+                select: {
+                    questionText: true,
+                    knowledgePoints: true,
+                    gradeSemester: true,
+                    figureSvg: true,
+                    figureImage: true,
+                    tags: { select: { name: true } },
+                },
             },
         },
     });
@@ -247,6 +254,9 @@ async function generateQuestion(userId: string, questionId: string, difficulty: 
                 answerText: generated.answerText,
                 analysis: generated.analysis,
                 figureSvg: generated.figureSvg ?? null,
+                // 保留来源错题裁剪的原配图快照：AI 没画出新图时回退显示原图，也可在试卷中切换来源
+                figureImage: question.errorItem.figureImage,
+                figureSource: generated.figureSvg ? 'svg' : question.errorItem.figureImage ? 'image' : 'svg',
                 error: null,
             },
         });
@@ -372,6 +382,7 @@ export async function regenerateExamQuestion(
                     knowledgePoints: true,
                     gradeSemester: true,
                     figureSvg: true,
+                    figureImage: true,
                     tags: { select: { name: true } },
                     subject: { select: { name: true, stage: true, subjectKey: true } },
                 },
@@ -426,6 +437,8 @@ export async function regenerateExamQuestion(
                 answerText: generated.answerText,
                 analysis: generated.analysis,
                 figureSvg: generated.figureSvg ?? null,
+                figureImage: source.figureImage,
+                figureSource: generated.figureSvg ? 'svg' : source.figureImage ? 'image' : 'svg',
                 error: null,
             },
         });
@@ -542,6 +555,8 @@ export function snapshotOriginalQuestion(item: {
     answerText: string | null;
     analysis: string | null;
     figureSvg: string | null;
+    figureImage: string | null;
+    figureSource: string;
     figureScale: number;
     figureAlign: string;
     answerSpacePx: number | null;
@@ -552,6 +567,8 @@ export function snapshotOriginalQuestion(item: {
         answerText: item.answerText,
         analysis: item.analysis,
         figureSvg: item.figureSvg,
+        figureImage: item.figureImage ?? null,
+        figureSource: item.figureSource ?? 'svg',
         figureScale: item.figureScale,
         figureAlign: item.figureAlign,
         answerSpacePx: item.answerSpacePx,
@@ -568,6 +585,8 @@ const ORIGINAL_SNAPSHOT_SELECT = {
     answerText: true,
     analysis: true,
     figureSvg: true,
+    figureImage: true,
+    figureSource: true,
     figureScale: true,
     figureAlign: true,
     answerSpacePx: true,

@@ -512,6 +512,10 @@ export interface ExamQuestionDetail {
     answerText: string | null;
     analysis: string | null;
     figureSvg?: string | null;
+    /** 来源错题识别时裁剪的原配图快照（PNG data URI） */
+    figureImage?: string | null;
+    /** 配图显示来源：svg（AI 重绘）| image（裁剪原图） */
+    figureSource?: 'svg' | 'image' | string | null;
     figureScale?: number;
     figureAlign?: 'left' | 'center' | 'right' | string;
     /** 打印时手动设置的题下留白（px），为空时按全局档位 */

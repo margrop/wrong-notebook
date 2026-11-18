@@ -86,7 +86,7 @@ export default function ExamPrintPage() {
 
     if (!paper) return <div className="p-8 text-center">{t.common.loading}</div>;
 
-    const figureQuestions = paper.questions.filter((question) => question.status === "ready" && question.questionText && Boolean(question.figureSvg));
+    const figureQuestions = paper.questions.filter((question) => question.status === "ready" && question.questionText && Boolean(question.figureSvg || question.figureImage));
     const readyCount = paper.questions.filter((question) => question.status === "ready" && question.questionText).length;
 
     const saveQuestionFigureScale = async (questionId: string, figureScale: number, figureAlign: FigureAlign) => {
@@ -94,6 +94,14 @@ export default function ExamPrintPage() {
         setPaper((prev) => (prev ? {
             ...prev,
             questions: prev.questions.map((question) => (question.id === questionId ? { ...question, figureScale, figureAlign } : question)),
+        } : prev));
+    };
+
+    const saveQuestionFigureSource = async (questionId: string, figureSource: 'svg' | 'image') => {
+        await apiClient.patch(`/api/exams/${paper.id}`, { questionId, figureSource });
+        setPaper((prev) => (prev ? {
+            ...prev,
+            questions: prev.questions.map((question) => (question.id === questionId ? { ...question, figureSource } : question)),
         } : prev));
     };
 
@@ -187,6 +195,7 @@ export default function ExamPrintPage() {
                 customSpaces={customSpaces}
                 uniformPreview={uniformPreview}
                 onSaveFigureScale={saveQuestionFigureScale}
+                onSaveFigureSource={saveQuestionFigureSource}
                 onChangeCustomSpace={setQuestionCustomSpace}
             />
         </main>

@@ -3,8 +3,11 @@ export const DEFAULT_QUESTION_DUPLICATE_THRESHOLD = 90;
 // AI 识别时会在题干后另起一段描述图形（「图示：」「图示信息：」「图示说明：」等），每次措辞都不同
 const FIGURE_DESCRIPTION = /^[【[(（]?图示/u;
 
-/** 去掉题干后面的图形描述段落；第一行始终保留，避免误删以「图示」开头的题干本身。 */
-function stripFigureDescriptions(text: string): string {
+/**
+ * 去掉题干后面的图形描述段落；第一行始终保留，避免误删以「图示」开头的题干本身。
+ * 试卷已有配图（原图或 AI 重绘）时用此函数去掉 OCR 附加的文字描述，避免文字替代图片。
+ */
+export function stripFigureDescriptions(text: string): string {
     const kept: string[] = [];
     let seenContent = false;
     let skipping = false;
