@@ -102,7 +102,7 @@ curl --fail-with-body http://localhost:3000/api/mcp \
 | `create_notebook` | 创建错题本 | `name`、`stage`、`subjectKey`、`tagSet` |
 | `list_questions` | 筛选、搜索与分页错题 | `notebookId`、`query`、`tag`、`chapter`、`mastery`、`timeRange`、`gradeSemester`、`paperLevel`、`questionTypes`、`page`、`pageSize` |
 | `get_question` | 读取单题正文、答案、解析、标签与掌握状态 | `id`（CUID 或 6 位短 ID）、`includeImage` |
-| `add_question` | 新增错题；未知知识点会按标签体系创建 | 题目文字/图片、`knowledgePoints`、`notebookId` 或 `subjectName`、`gradeSemester`、难度与题型等 |
+| `add_question` | 新增错题；未知知识点会按标签体系创建 | 题目文字/图片、`knowledgePoints`、`notebookId` 或 `subjectName`、`gradeSemester`、难度与题型、`figureSvg`、`figureImage`、`figureSource` 等 |
 | `list_tags` | 列出知识点标签 | `subject`、`tagSet`、`query`、`flat`（默认叶子列表） |
 | `list_due_reviews` | 今日待复习错题 | `notebookId`、`page`、`pageSize` |
 | `get_weak_tags` | 薄弱知识点排行 | `notebookId`、`range`（`7d`/`30d`/`6m`/`all`）、`limit` |
@@ -112,6 +112,7 @@ curl --fail-with-body http://localhost:3000/api/mcp \
 - 工具结果均为 JSON 文本；客户端按 JSON 解析。调用失败返回 `isError: true`。
 - `add_question` 沿用「添加错题」接口的判重、年级与卷别规则；重复题返回 `duplicate` 并记录一次做错。未填 `gradeSemester` 且账号使用「AI 识别」年级规则时，会补充一次 AI 识别并计入每日用量；账号尚未同意 AI 数据授权时，需要 AI 的调用失败。
 - `get_question` 默认不返回原图；`includeImage: true` 时可能返回很大的 Base64 data URL。
+- `add_question` 的配图可用 `figureSvg`（AI 重绘）与 `figureImage`（裁剪原图，PNG data URI）分别传入，`figureSource` 选择界面显示来源（`svg` 默认，`image` 为原图）。`figureSvg` 支持内嵌位图，即 `<image href="data:image/png;base64,…">`（PNG/JPEG/GIF/WebP/AVIF），外部链接会被净化掉。
 - `list_questions` 返回列表卡片字段（题干、标签、掌握状态等），不返回解答、动画和大图；`pageSize` 上限 1000。
 - `list_tags` 默认返回叶子知识点名称，可直接用于 `add_question` 的 `knowledgePoints`。
 

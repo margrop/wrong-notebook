@@ -29,6 +29,7 @@ let database: PrismaClient;
 let directory: string;
 
 const API_KEY = 'test-mcp-key';
+const PNG_DATA_URI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
 function mcpRequest(body: object, headers: Record<string, string> = {}) {
     return new Request('http://localhost/api/mcp', {
@@ -179,6 +180,26 @@ describe('MCP 服务', () => {
         expect(secondData.status).toBe('duplicate');
         expect(secondData.question.id).toBe(firstData.question.id);
         expect(secondData.question.duplicate).toBe(true);
+    });
+
+    it('add_question 接受 figureImage 与 figureSource，内嵌位图 SVG 保留', async () => {
+        const embeddedSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><image href="${PNG_DATA_URI}" width="10" height="10"/></svg>`;
+        const response = await callTool('add_question', {
+            notebookId: 'math',
+            questionText: '如图，求面积',
+            originalImageUrl: PNG_DATA_URI,
+            figureSvg: embeddedSvg,
+            figureImage: PNG_DATA_URI,
+            figureSource: 'image',
+            gradeSemester: '七年级上',
+        });
+        const data = toolJson(response.result!) as { status: string; question: { id: string } };
+        expect(data.status).toBe('created');
+
+        const stored = await database.errorItem.findUnique({ where: { id: data.question.id } });
+        expect(stored?.figureSvg).toBe(embeddedSvg);
+        expect(stored?.figureImage).toBe(PNG_DATA_URI);
+        expect(stored?.figureSource).toBe('image');
     });
 
     it('list_questions 与 get_question 读取已保存的错题', async () => {

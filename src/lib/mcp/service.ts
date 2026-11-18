@@ -206,6 +206,8 @@ export interface AddQuestionInput {
     geogebraCommands?: string;
     hasFigure?: boolean;
     figureSvg?: string;
+    figureImage?: string;
+    figureSource?: string;
 }
 
 export async function addQuestion(user: User, input: AddQuestionInput): Promise<SaveQuestionResult> {

@@ -3,6 +3,7 @@ import { figureSvgToDataUri, MAX_FIGURE_SVG_LENGTH, repairDuplicateSvgAttributes
 import { parseFigure } from '@/lib/ai/schema';
 
 const triangle = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><polygon points="10,190 190,190 100,10" fill="none" stroke="#000"/><text x="5" y="198">A</text></svg>';
+const PNG_DATA_URI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
 describe('sanitizeFigureSvg', () => {
     it('保留正常的几何图形', () => {
@@ -28,6 +29,18 @@ describe('sanitizeFigureSvg', () => {
         expect(clean).toContain('<circle');
         expect(clean).toContain('<use href="#p"/>'); // 指向文档内部的引用保留
         expect(clean).toContain('xmlns="http://www.w3.org/2000/svg"'); // 缺少命名空间时补上，<img> 才能加载
+    });
+
+    it('保留内嵌位图的 <image>，去掉外部链接与无效 href', () => {
+        const embedded = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><image x="0" y="0" width="10" height="10" href="${PNG_DATA_URI}"/></svg>`;
+        expect(sanitizeFigureSvg(embedded)).toBe(embedded);
+
+        const xlink = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><image xlink:href="${PNG_DATA_URI}" width="10" height="10"/></svg>`;
+        expect(sanitizeFigureSvg(xlink)).toBe(xlink);
+
+        // 只有外部链接或非位图 data URI 的 <image> 渲染为空，整图无效
+        expect(sanitizeFigureSvg('<svg xmlns="http://www.w3.org/2000/svg"><image href="https://evil.example/a.png"/></svg>')).toBeNull();
+        expect(sanitizeFigureSvg('<svg xmlns="http://www.w3.org/2000/svg"><image href="data:image/svg+xml;base64,PHN2Zz4="/></svg>')).toBeNull();
     });
 
     it('嵌套拼接的脚本、事件属性和伪协议不会在净化后重新出现', () => {

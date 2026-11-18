@@ -134,6 +134,8 @@ export function createMcpServer(user: User): McpServer {
                 geogebraCommands: z.string().optional(),
                 hasFigure: z.boolean().optional(),
                 figureSvg: z.string().optional(),
+                figureImage: z.string().optional().describe("Cropped figure as a PNG data URL; use with figureSource=image"),
+                figureSource: z.enum(["svg", "image"]).optional().describe("Which figure to display: svg (AI redrawn, default) or image (original crop)"),
             },
         },
         async (args) => {

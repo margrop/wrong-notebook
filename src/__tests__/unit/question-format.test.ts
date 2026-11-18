@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
 import {
+    MAX_FIGURE_SVG_LENGTH_EXCHANGE,
     MAX_QUESTIONS_PER_FILE,
     parseQuestionFile,
     questionFileToJson,
@@ -201,15 +202,15 @@ describe('parseQuestionFile', () => {
     });
 
     describe('figureSvg 上限', () => {
-        it('figureSvg 超过 100000 字符记 FIGURE_SVG_TOO_LONG', () => {
-            const result = parseQuestionFile({ questions: [{ text: 'a', figureSvg: 'x'.repeat(100001) }] });
+        it('figureSvg 超过上限记 FIGURE_SVG_TOO_LONG', () => {
+            const result = parseQuestionFile({ questions: [{ text: 'a', figureSvg: 'x'.repeat(MAX_FIGURE_SVG_LENGTH_EXCHANGE + 1) }] });
             expect(result.errors).toEqual([{ index: 0, reason: 'FIGURE_SVG_TOO_LONG' }]);
         });
 
-        it('figureSvg 恰好 100000 字符可通过', () => {
-            const result = parseQuestionFile({ questions: [{ text: 'a', figureSvg: 'x'.repeat(100000) }] });
+        it('figureSvg 恰好等于上限可通过', () => {
+            const result = parseQuestionFile({ questions: [{ text: 'a', figureSvg: 'x'.repeat(MAX_FIGURE_SVG_LENGTH_EXCHANGE) }] });
             expect(result.errors).toEqual([]);
-            expect(result.questions[0].figureSvg).toHaveLength(100000);
+            expect(result.questions[0].figureSvg).toHaveLength(MAX_FIGURE_SVG_LENGTH_EXCHANGE);
         });
     });
 

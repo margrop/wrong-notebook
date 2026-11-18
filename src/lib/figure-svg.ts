@@ -5,14 +5,17 @@
  * 保存前仍做净化，防止导出的 HTML 或其他用途中出现脚本和外部资源。
  */
 
-/** 单个配图的最大长度（字符） */
-export const MAX_FIGURE_SVG_LENGTH = 100_000;
+/** 单个配图的最大长度（字符）；内嵌位图的 SVG 与 figureImage 上限一致 */
+export const MAX_FIGURE_SVG_LENGTH = 2_000_000;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-// 可执行或可嵌入外部内容的元素，连同内容一起删除
-const DANGEROUS_ELEMENTS = /<(script|foreignObject|iframe|object|embed|audio|video|image)\b[\s\S]*?(<\/\1\s*>|\/>)/gi;
-const DANGEROUS_OPEN_TAGS = /<\/?(script|foreignObject|iframe|object|embed|audio|video|image)\b[^>]*>/gi;
+// 可执行或可嵌入外部内容的元素，连同内容一起删除；<image> 保留，但只允许内嵌位图 data URI
+const DANGEROUS_ELEMENTS = /<(script|foreignObject|iframe|object|embed|audio|video)\b[\s\S]*?(<\/\1\s*>|\/>)/gi;
+const DANGEROUS_OPEN_TAGS = /<\/?(script|foreignObject|iframe|object|embed|audio|video)\b[^>]*>/gi;
+
+// <image href> 允许的位图 data URI（不执行脚本，渲染时通过 <img> 加载整张 SVG）
+const IMAGE_DATA_URI = /^data:image\/(?:png|jpe?g|gif|webp|avif);base64,/i;
 
 const MAX_SANITIZE_PASSES = 10;
 
@@ -75,20 +78,27 @@ export function sanitizeFigureSvg(raw: unknown, maxLength: number = MAX_FIGURE_S
         svg = svg.replace(DANGEROUS_OPEN_TAGS, '');
         // 事件属性（onload 等）
         svg = svg.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
-        // 只允许指向本文档内部的链接（#id），去掉外部和 javascript: 链接
-        svg = svg.replace(/\s+(?:xlink:)?href\s*=\s*("(?!#)[^"]*"|'(?!#)[^']*'|(?!["'#])[^\s>"']+)/gi, '');
+        // 只允许指向本文档内部的链接（#id）和内嵌位图的 data URI，去掉外部与 javascript: 链接
+        svg = svg.replace(/\s+(?:xlink:)?href\s*=\s*("[^"]*"|'[^']*'|[^\s>"']+)/gi, (attribute, raw: string) => {
+            const value = raw.replace(/^["']|["']$/g, '').trim();
+            return value.startsWith('#') || IMAGE_DATA_URI.test(value) ? attribute : '';
+        });
         // 样式中的外部资源与脚本
         svg = svg.replace(/@import[^;]*;?/gi, '');
         svg = svg.replace(/url\(\s*(['"]?)(?!#)[^)]*\)/gi, 'none');
-        svg = svg.replace(/(?:javascript|vbscript|data)\s*:/gi, '');
+        svg = svg.replace(/(?:javascript|vbscript)\s*:/gi, '');
+        // 保留 <image href> 的 data:image URI，其他 data: 内容去掉
+        svg = svg.replace(/\bdata\s*:(?!image\/)/gi, '');
     } while (svg !== previous);
 
+    // 没有内嵌位图 href 的 <image> 显示不出来，去掉
+    svg = svg.replace(/<image\b[^>]*>/gi, (tag) => /\s(?:xlink:)?href\s*=\s*["']?data:image\//i.test(tag) ? tag : '');
     svg = repairDuplicateSvgAttributes(svg);
     if (!/<svg[^>]*\sxmlns\s*=/i.test(svg)) {
         svg = svg.replace(/<svg/i, `<svg xmlns="${SVG_NS}"`);
     }
-    // 至少要有一个可见的图形元素
-    if (!/<(line|polyline|polygon|rect|circle|ellipse|path|text)\b/i.test(svg)) return null;
+    // 至少要有一个可见的图形元素（含内嵌位图的 <image>）
+    if (!/<(line|polyline|polygon|rect|circle|ellipse|path|text|image)\b/i.test(svg)) return null;
     return svg;
 }
 

@@ -102,7 +102,7 @@ Change `method` to `tools/list` to list tools. Call a tool:
 | `create_notebook` | Create a notebook | `name`, `stage`, `subjectKey`, `tagSet` |
 | `list_questions` | Filter, search and paginate questions | `notebookId`, `query`, `tag`, `chapter`, `mastery`, `timeRange`, `gradeSemester`, `paperLevel`, `questionTypes`, `page`, `pageSize` |
 | `get_question` | Read one question's text, answer, analysis, tags and mastery status | `id` (CUID or 6-character short ID), `includeImage` |
-| `add_question` | Add a question; unknown knowledge points are created in the tag set | question text/image, `knowledgePoints`, `notebookId` or `subjectName`, `gradeSemester`, difficulty and type |
+| `add_question` | Add a question; unknown knowledge points are created in the tag set | question text/image, `knowledgePoints`, `notebookId` or `subjectName`, `gradeSemester`, difficulty and type, `figureSvg`, `figureImage`, `figureSource`, etc. |
 | `list_tags` | List knowledge tags | `subject`, `tagSet`, `query`, `flat` (leaf list by default) |
 | `list_due_reviews` | Questions due for review today | `notebookId`, `page`, `pageSize` |
 | `get_weak_tags` | Rank weak knowledge points | `notebookId`, `range` (`7d`/`30d`/`6m`/`all`), `limit` |
@@ -112,6 +112,7 @@ Notes:
 - Tool results are JSON text; clients parse the JSON. Failures return `isError: true`.
 - `add_question` follows the same duplicate detection, grade and paper-group rules as the Add Question API. A duplicate returns `duplicate` and records another wrong attempt. When `gradeSemester` is omitted and the account uses AI grade recognition, one extra AI call counts against the daily quota; if the account has not accepted AI data consent, AI-dependent calls fail.
 - `get_question` omits the original image by default; `includeImage: true` may return a large Base64 data URL.
+- `add_question` accepts figures separately: `figureSvg` (AI redraw) and `figureImage` (the cropped original figure as a PNG data URI), with `figureSource` selecting the displayed source (`svg` by default; `image` for the original crop). `figureSvg` may embed a bitmap via `<image href="data:image/png;base64,…">` (PNG/JPEG/GIF/WebP/AVIF); external links are stripped by sanitization.
 - `list_questions` returns compact card fields (question text, tags, mastery status) without answers, animations or large images; `pageSize` is capped at 1000.
 - `list_tags` returns leaf knowledge-point names by default, ready for `add_question` `knowledgePoints`.
 
