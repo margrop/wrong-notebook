@@ -1,8 +1,8 @@
 # MCP Server
 
-External agents (Claude Code, Cursor, Claude Desktop, Openclaw and others) can call this system's notebooks, questions, knowledge tags and review data through [Model Context Protocol](https://modelcontextprotocol.io/) over Streamable HTTP.
+External agents (Claude Code, Cursor, Claude Desktop, Openclaw and others) can query notebooks, questions, knowledge tags and due reviews, and create notebooks and questions with figures through [Model Context Protocol](https://modelcontextprotocol.io/) over Streamable HTTP.
 
-Endpoint: `POST /api/mcp`. It is stateless: every request returns a JSON response and no `Mcp-Session-Id` is kept; `GET` returns `405` because there is no standalone SSE stream. The target account is fixed, and every tool reads or writes only that account's data.
+Endpoint: `POST /api/mcp`. It is stateless: every request returns a JSON response and no `Mcp-Session-Id` is kept; `GET` returns `405` because there is no standalone SSE stream. Every tool accesses only the configured account. There is no dedicated tool for recording review results.
 
 ## Data flow
 

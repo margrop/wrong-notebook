@@ -42,7 +42,7 @@ OpenAI 兼容服务的 Base URL 应包含其要求的 API 路径；Anthropic 兼
 
 接入兼容 Responses 的网关时，选择「OpenAI Responses API（通用）」，填写该网关的 API Key、Base URL（例如 `https://api.example.com/v1`）和模型 ID。应用将 Base URL 与 `/responses` 拼接；网关没有 `/models` 时可以手动填写模型名。需要识图时选择支持图片输入的模型，并用「测试连接」确认。
 
-本地 Ollama 通过 OpenAI 兼容接口接入。先 `ollama pull qwen3-vl:8b` 拉取支持图片输入的模型，再在「设置 → AI 设置」选择 Ollama；Base URL 和模型留空时用默认值。应用在服务端发起调用：Docker 部署时 `localhost` 指向容器，需填宿主机的局域网地址（如 `http://192.168.1.10:11434/v1`），并把 Ollama 的 `OLLAMA_HOST` 设为 `0.0.0.0`。识别准确率取决于所选模型的视觉能力。
+本地 Ollama 通过 OpenAI 兼容接口接入。先 `ollama pull qwen3-vl:8b` 拉取支持图片输入的模型，再在「设置 → AI 设置」选择 Ollama；Base URL 和模型留空时用默认值。应用在服务端发起调用：Docker 部署时 `localhost` 指向容器，需填宿主机的局域网地址（如 `http://ollama-host.example.com:11434/v1`），并把 Ollama 的 `OLLAMA_HOST` 设为 `0.0.0.0`。识别准确率取决于所选模型的视觉能力。
 
 ## MiniMax Code OAuth
 

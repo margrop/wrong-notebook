@@ -1,8 +1,8 @@
 # MCP 服务
 
-外部 agent（Claude Code、Cursor、Claude Desktop、Openclaw 等）可通过 [Model Context Protocol](https://modelcontextprotocol.io/) 的 Streamable HTTP 调用本系统的错题本、错题、知识点与复习数据。
+外部 agent（Claude Code、Cursor、Claude Desktop、Openclaw 等）可通过 [Model Context Protocol](https://modelcontextprotocol.io/) 的 Streamable HTTP 查询错题本、错题、知识点与今日待复习题，也可创建错题本与带配图的错题。
 
-端点：`POST /api/mcp`。实现为无状态服务，每次请求返回 JSON 响应，不维护 `Mcp-Session-Id`；`GET` 返回 `405`（不提供独立 SSE 流）。目标账号固定，所有工具只读写该账号的数据。
+端点：`POST /api/mcp`。实现为无状态服务，每次请求返回 JSON 响应，不维护 `Mcp-Session-Id`；`GET` 返回 `405`（不提供独立 SSE 流）。所有工具只访问固定目标账号的数据。当前没有单独写入复习结果的工具。
 
 ## 数据流
 

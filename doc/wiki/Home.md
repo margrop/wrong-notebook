@@ -18,7 +18,7 @@ Smart Wrong Notebook（智能错题本）把拍照或文字录入的错题整理
 | 调整偏好、应用时区和用户权限 | [设置与用户管理](Settings-and-Users) |
 | 导出个人数据或备份整站 | [数据备份与恢复](Backup-and-Restore) |
 | 从外部 Openclaw agent 批量导题 | [Openclaw 集成](Openclaw-Integration) |
-| 让外部 agent 通过 MCP 读写错题、标签与复习数据 | [MCP 服务](MCP-Server) |
+| 让外部 agent 通过 MCP 导入错题并查询知识点和今日待复习题 | [MCP 服务](MCP-Server) |
 | 了解代码结构、测试和贡献要求 | [开发与贡献](Development) |
 | 首次安装后如何登录，排查识别、公式或截图问题 | [常见问题](FAQ) |
 
@@ -44,4 +44,4 @@ Smart Wrong Notebook（智能错题本）把拍照或文字录入的错题整理
 
 ## 项目入口
 
-[源码](https://github.com/margrop/wrong-notebook) · [版本发布](https://github.com/margrop/wrong-notebook/releases) · [问题反馈](https://github.com/margrop/wrong-notebook/issues) · [项目介绍](https://wrong-notebook.margrop.net/)
+[源码](https://github.com/margrop/wrong-notebook) · [版本发布](https://github.com/margrop/wrong-notebook/releases) · [问题反馈](https://github.com/margrop/wrong-notebook/issues) · [项目介绍](https://wrong-notebook.margrop.net/) · [支持项目](https://github.com/margrop/wrong-notebook#-支持项目)

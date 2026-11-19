@@ -18,7 +18,7 @@ This Wiki covers [margrop/wrong-notebook](https://github.com/margrop/wrong-noteb
 | Preferences, the app time zone and user permissions | [Settings and Users](Settings-and-Users-en) |
 | Export personal data or back up the whole site | [Backup and Restore](Backup-and-Restore-en) |
 | Batch-import questions from an external Openclaw agent | [Openclaw Integration](Openclaw-Integration-en) |
-| Let external agents read and write questions, tags and review data via MCP | [MCP Server](MCP-Server-en) |
+| Let external agents import questions and query tags and due reviews via MCP | [MCP Server](MCP-Server-en) |
 | Code structure, tests and contribution rules | [Development](Development-en) |
 | Sign in after a fresh install; troubleshoot recognition, formulas or screenshots | [FAQ](FAQ-en) |
 
@@ -44,4 +44,4 @@ This Wiki covers [margrop/wrong-notebook](https://github.com/margrop/wrong-noteb
 
 ## Project links
 
-[Source code](https://github.com/margrop/wrong-notebook) · [Releases](https://github.com/margrop/wrong-notebook/releases) · [Issues](https://github.com/margrop/wrong-notebook/issues) · [Project page](https://wrong-notebook.margrop.net/en/)
+[Source code](https://github.com/margrop/wrong-notebook) · [Releases](https://github.com/margrop/wrong-notebook/releases) · [Issues](https://github.com/margrop/wrong-notebook/issues) · [Project page](https://wrong-notebook.margrop.net/en/) · [Support the project](https://github.com/margrop/wrong-notebook/blob/main/README.en.md#-support-the-project)

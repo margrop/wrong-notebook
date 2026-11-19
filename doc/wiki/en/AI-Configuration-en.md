@@ -42,7 +42,7 @@ For OpenAI-compatible services, the base URL should include the API path they re
 
 For a gateway that supports Responses, choose “OpenAI Responses API (compatible)” and enter its API key, base URL (for example, `https://api.example.com/v1`) and model ID. The app appends `/responses` to the base URL. If the gateway has no `/models` endpoint, enter the model manually. For image recognition, choose a model that accepts images and verify it with Test Connection.
 
-Local Ollama connects through the OpenAI-compatible API. Pull a vision-capable model first (`ollama pull qwen3-vl:8b`), then choose Ollama under **Settings → AI Provider**; leaving the base URL and model empty uses the defaults. The app calls it from the server, so under Docker `localhost` points at the container: enter the host's LAN address (for example `http://192.168.1.10:11434/v1`) and set Ollama's `OLLAMA_HOST` to `0.0.0.0`. Recognition accuracy depends on the chosen model's vision ability.
+Local Ollama connects through the OpenAI-compatible API. Pull a vision-capable model first (`ollama pull qwen3-vl:8b`), then choose Ollama under **Settings → AI Provider**; leaving the base URL and model empty uses the defaults. The app calls it from the server, so under Docker `localhost` points at the container: enter the host's LAN address (for example `http://ollama-host.example.com:11434/v1`) and set Ollama's `OLLAMA_HOST` to `0.0.0.0`. Recognition accuracy depends on the chosen model's vision ability.
 
 ## MiniMax Code OAuth
 
