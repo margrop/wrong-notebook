@@ -3,6 +3,25 @@
 本文件记录各正式版的改动，由 `scripts/changelog.sh` 根据提交信息生成，请勿手动编辑。
 预览版（`v年.月.日-n`）的改动见 [GitHub Releases](https://github.com/margrop/wrong-notebook/releases)，并归入其后的正式版。
 
+## [2026.11.19](https://github.com/margrop/wrong-notebook/releases/tag/v2026.11.19) - 2026-11-19
+
+### ✨ 新功能
+- 新增 OpenAI Responses API 通用渠道
+- 新增 MiniMax Code 国际站渠道
+- 新增硅基流动国内站与国际站渠道
+- MCP 配图参数与 SVG 内嵌位图支持
+- 试卷保留来源错题的原配图并可切换显示来源
+- 试卷保留来源错题的原配图并可切换显示来源
+- 扫描版 PDF 整份导入为一个识别任务，跨页题目合并并自动摘出答案页答案
+- 手机底部导航收敛为 4 个按钮，复习/试卷/真题库移入练习页快捷入口
+- 打印与导出默认不包含答案，勾选结果记在本机浏览器
+
+### 🛠 修复
+- 真题库选题要求知识点匹配，不再随机兜底无关题目
+- 放宽卷别分组 id 长度校验，兼容旧数据迁移生成的 32 位分组
+
+**完整变更**：https://github.com/margrop/wrong-notebook/compare/v2026.11.15...v2026.11.19
+
 ## [2026.11.15](https://github.com/margrop/wrong-notebook/releases/tag/v2026.11.15) - 2026-11-15
 
 ### ✨ 新功能
