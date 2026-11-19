@@ -65,7 +65,7 @@ describe('POST /api/ai/test', () => {
     it('MiniMax Code 不需要 apiKey，使用已登录的凭据', async () => {
         mocks.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'admin@localhost', role: 'admin' }, expires: '2099-01-01' });
         mocks.userFindUnique.mockResolvedValue({ id: 'a1', role: 'admin' });
-        mocks.withAccessToken.mockImplementation((fn: (token: string) => Promise<unknown>) => fn('mmoat_x'));
+        mocks.withAccessToken.mockImplementation((_site: string, fn: (token: string) => Promise<unknown>) => fn('mmoat_x'));
         mocks.analyzeImage.mockResolvedValue({ questionText: '2 + 3 = ?', analysis: '加法' });
 
         const response = await POST(makeRequest({ provider: 'minimax-code' }));
@@ -73,6 +73,18 @@ describe('POST /api/ai/test', () => {
 
         expect(response.status).toBe(200);
         expect(data).toMatchObject({ success: true, visionSupport: true, modelInfo: 'MiniMax-M3.1-Flash' });
+    });
+
+    it('MiniMax Code 国际站不需要 apiKey，使用国际站登录凭据', async () => {
+        mocks.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'admin@localhost', role: 'admin' }, expires: '2099-01-01' });
+        mocks.userFindUnique.mockResolvedValue({ id: 'a1', role: 'admin' });
+        mocks.withAccessToken.mockImplementation((_site: string, fn: (token: string) => Promise<unknown>) => fn('mmoat_x'));
+        mocks.analyzeImage.mockResolvedValue({ questionText: '2 + 3 = ?', analysis: '加法' });
+
+        const data = await (await POST(makeRequest({ provider: 'minimax-code-global' }))).json();
+
+        expect(data).toMatchObject({ success: true, visionSupport: true, modelInfo: 'MiniMax-M3.1-Flash' });
+        expect(mocks.withAccessToken.mock.calls[0][0]).toBe('global');
     });
 
     it('MiniMax Code 未登录时返回 AI_AUTH_ERROR', async () => {

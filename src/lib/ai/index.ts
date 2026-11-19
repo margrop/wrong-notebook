@@ -166,6 +166,9 @@ function createProviderService(provider: AiProviderId): ChannelService {
     } else if (provider === "minimax-code") {
         logger.info({ model: config.minimaxCode?.model }, 'Using MiniMax Code OAuth Provider');
         return { service: new MiniMaxCodeProvider(config.minimaxCode), key: concurrencyKey(provider, undefined, config.minimaxCode?.model), provider };
+    } else if (provider === "minimax-code-global") {
+        logger.info({ model: config.minimaxCodeGlobal?.model }, 'Using MiniMax Code OAuth (international) Provider');
+        return { service: new MiniMaxCodeProvider(config.minimaxCodeGlobal, 'global'), key: concurrencyKey(provider, undefined, config.minimaxCodeGlobal?.model), provider };
     } else if (provider === "gemini") {
         logger.info('Using Gemini Provider');
         return { service: new GeminiProvider(config.gemini), key: concurrencyKey(provider, config.gemini?.baseUrl, config.gemini?.model), provider };

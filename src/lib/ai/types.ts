@@ -137,6 +137,8 @@ export interface AIConfig {
     authToken?: string;
     baseUrl?: string;
     model?: string;
+    /** 附加请求头（兼容接口要求客户端标识时使用，如 MiniMax Code） */
+    headers?: Record<string, string>;
     // Azure OpenAI 特有字段
     azureDeployment?: string;   // Azure 部署名称
     azureApiVersion?: string;   // API 版本 (如 2024-02-15-preview)

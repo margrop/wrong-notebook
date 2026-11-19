@@ -59,6 +59,15 @@ function saveAccount() {
     }));
 }
 
+function saveGlobalAccount() {
+    updateMiniMaxCodeState(() => ({
+        account: {
+            accessToken: 'global_secret', refreshToken: 'global_refresh', expiresAt: inMinutes(60),
+            userId: 'g1', name: 'Global User', email: null, loggedInAt: '2026-10-25T00:00:00.000Z',
+        },
+    }), 'global');
+}
+
 beforeEach(() => {
     vi.clearAllMocks();
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'minimax-code-api-'));
@@ -111,7 +120,7 @@ describe('GET /api/minimax-code', () => {
             checkin: { autoCheckin: true, today: { checkedToday: false, streakDays: 2 }, last: null },
         });
         expect(text).not.toContain('secret');
-        expect(mocks.fetchCredits).toHaveBeenCalledWith('mmoat_secret');
+        expect(mocks.fetchCredits).toHaveBeenCalledWith('cn', 'mmoat_secret');
     });
 
     it('凭据被拒且无法刷新时显示登录失效', async () => {
@@ -123,6 +132,19 @@ describe('GET /api/minimax-code', () => {
 
         expect(data).toMatchObject({ login: 'expired', credits: null });
         expect(readMiniMaxCodeState().account?.invalid).toBe(true);
+    });
+
+    it('?site=global 读取国际站账号与积分', async () => {
+        saveGlobalAccount();
+        mocks.fetchCredits.mockResolvedValue({ total: 100, free: 100, purchased: 0, plan: null });
+        mocks.fetchCheckinStatus.mockResolvedValue({ checkedToday: false, streakDays: 0, points: 0, bonusPoints: 0 });
+
+        const request = new Request('http://localhost/api/minimax-code?site=global');
+        const data = await (await GET(request)).json();
+
+        expect(data).toMatchObject({ login: 'active', account: { name: 'Global User', userId: 'g1' } });
+        expect(mocks.fetchCredits).toHaveBeenCalledWith('global', 'global_secret');
+        expect(mocks.fetchCheckinStatus).toHaveBeenCalledWith('global', 'global_secret');
     });
 
     it('积分查询网络失败时仍显示已登录', async () => {

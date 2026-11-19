@@ -54,9 +54,12 @@ export function buildProviderTestRequest(config: AppConfig, provider: AiProvider
         };
     }
 
-    // MiniMax Code 使用服务端保存的登录凭据，只需要模型
+    // MiniMax Code 使用服务端保存的登录凭据，只需要模型（两个站点各自读取配置）
     if (provider === 'minimax-code') {
         return { ok: true, body: { provider, model: config.minimaxCode?.model, language } };
+    }
+    if (provider === 'minimax-code-global') {
+        return { ok: true, body: { provider, model: config.minimaxCodeGlobal?.model, language } };
     }
 
     // Gemini、Anthropic 与国产大模型渠道的配置结构相同：apiKey、baseUrl、model

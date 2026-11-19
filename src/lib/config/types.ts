@@ -4,7 +4,7 @@ import type { TtsConfig } from '../tts/constants';
 import type { QuestionNumbering } from '../seq-no/seq-no-format';
 
 /** 全部内置 AI 渠道：国产大模型官方渠道 + 各通用接口 */
-export type AiProviderId = 'gemini' | 'openai' | 'azure' | 'anthropic' | 'minimax-code' | VendorProviderId;
+export type AiProviderId = 'gemini' | 'openai' | 'azure' | 'anthropic' | 'minimax-code' | 'minimax-code-global' | VendorProviderId;
 
 // OpenAI 实例配置
 export interface OpenAIInstance {
@@ -46,7 +46,7 @@ export interface TelemetryConfig {
 }
 
 export interface AppConfig extends VendorConfigs {
-    aiProvider: 'gemini' | 'openai' | 'azure' | 'anthropic' | 'minimax-code' | VendorProviderId;
+    aiProvider: 'gemini' | 'openai' | 'azure' | 'anthropic' | 'minimax-code' | 'minimax-code-global' | VendorProviderId;
     allowRegistration?: boolean;
     /** 普通用户每天可发起的 AI 调用次数，0 表示不限制；管理员不受限制 */
     aiDailyLimit?: number;
@@ -81,8 +81,10 @@ export interface AppConfig extends VendorConfigs {
         baseUrl?: string;
         model?: string;
     };
-    // MiniMax Code OAuth 渠道：模型与自动签到开关；登录凭据另存于 minimax-code.json
+    // MiniMax Code OAuth 渠道（中国站）：模型与自动签到开关；登录凭据另存于 minimax-code.json
     minimaxCode?: MiniMaxCodeConfig;
+    // MiniMax Code OAuth 国际站渠道：单独登录与配置
+    minimaxCodeGlobal?: MiniMaxCodeConfig;
     /**
      * 渠道分工：图片识别与文本分析可分别使用不同渠道，主渠道额度用完或登录失效时改用备用渠道。
      * 留空表示跟随 aiProvider；备用渠道与主渠道相同时不启用。

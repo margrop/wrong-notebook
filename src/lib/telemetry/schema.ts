@@ -10,7 +10,7 @@ import type { AppConfig } from "@/lib/config/types";
 /** 外发协议版本，与收集服务的 schema 字段一致 */
 export const TELEMETRY_SCHEMA_VERSION = 1;
 
-const BUILTIN_AI_PROVIDERS = ["gemini", "openai", "azure", "anthropic", "minimax-code"] as const;
+const BUILTIN_AI_PROVIDERS = ["gemini", "openai", "azure", "anthropic", "minimax-code", "minimax-code-global"] as const;
 /** 与 AppConfig['aiProvider'] 的取值一致 */
 export const AI_PROVIDERS = [...BUILTIN_AI_PROVIDERS, ...VENDOR_PROVIDER_IDS] as [AppConfig["aiProvider"], ...AppConfig["aiProvider"][]];
 

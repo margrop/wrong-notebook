@@ -461,6 +461,23 @@ describe('/api/settings', () => {
             expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
         });
 
+        it('MiniMax Code 国际站同样只保存模型和自动签到开关', async () => {
+            const post = (minimaxCodeGlobal: unknown) => POST(new Request('http://localhost/api/settings', {
+                method: 'POST',
+                body: JSON.stringify({ minimaxCodeGlobal }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect((await post({ model: ' MiniMax-M3 ', autoCheckin: true, accessToken: 'forged' })).status).toBe(200);
+            expect(mocks.mockUpdateAppConfig).toHaveBeenCalledWith({ minimaxCodeGlobal: { model: 'MiniMax-M3', autoCheckin: true } });
+
+            mocks.mockUpdateAppConfig.mockClear();
+            for (const invalid of [{ model: 123 }, { autoCheckin: 'yes' }, 'MiniMax-M3']) {
+                expect((await post(invalid)).status).toBe(400);
+            }
+            expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
+        });
+
         it('渠道分工只接受内置渠道，空字符串表示跟随默认渠道', async () => {
             const post = (routing: unknown) => POST(new Request('http://localhost/api/settings', {
                 method: 'POST',

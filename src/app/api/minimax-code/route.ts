@@ -3,16 +3,18 @@ import { withAdmin } from "@/lib/api-handler";
 import { internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { logout } from "@/lib/minimax-code/auth";
+import { resolveMiniMaxCodeSite } from "@/lib/minimax-code/constants";
 import { getMiniMaxCodeStatus } from "@/lib/minimax-code/status";
 
 const logger = createLogger('api:minimax-code');
 
 export const dynamic = 'force-dynamic';
 
-/** GET /api/minimax-code：账号登录状态与剩余积分（仅管理员） */
-export const GET = withAdmin(async () => {
+/** GET /api/minimax-code：账号登录状态与剩余积分（?site=global 为国际站，缺省中国站；仅管理员） */
+export const GET = withAdmin(async (req?: Request) => {
     try {
-        return NextResponse.json(await getMiniMaxCodeStatus());
+        const site = resolveMiniMaxCodeSite(req ? new URL(req.url).searchParams.get('site') : null);
+        return NextResponse.json(await getMiniMaxCodeStatus(site));
     } catch (error) {
         logger.error({ error }, 'Failed to get MiniMax Code status');
         return internalError("Failed to get MiniMax Code status");
@@ -20,9 +22,10 @@ export const GET = withAdmin(async () => {
 });
 
 /** DELETE /api/minimax-code：退出登录，删除保存的凭据（仅管理员） */
-export const DELETE = withAdmin(async () => {
+export const DELETE = withAdmin(async (req?: Request) => {
     try {
-        logout();
+        const site = resolveMiniMaxCodeSite(req ? new URL(req.url).searchParams.get('site') : null);
+        logout(site);
         return NextResponse.json({ success: true });
     } catch (error) {
         logger.error({ error }, 'Failed to log out MiniMax Code');

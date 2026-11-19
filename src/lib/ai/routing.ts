@@ -9,6 +9,7 @@ import { getVendorName, hasDefaultApiKey, isVendorProvider, VENDOR_PROVIDER_IDS 
 export const AI_PROVIDER_IDS = [
     ...VENDOR_PROVIDER_IDS,
     'minimax-code',
+    'minimax-code-global',
     'anthropic',
     'azure',
     'openai',
@@ -29,6 +30,7 @@ export function routeRole(task: string, overrides?: { hasImage?: boolean }): AiR
 /** 渠道的显示名称 */
 export function aiProviderName(provider: AiProviderId, language: string): string {
     if (provider === 'minimax-code') return 'MiniMax Code OAuth';
+    if (provider === 'minimax-code-global') return language === 'zh' ? 'MiniMax Code OAuth（国际版）' : 'MiniMax Code OAuth (international)';
     if (isVendorProvider(provider)) return getVendorName(provider, language);
     const names: Record<string, string> = {
         anthropic: 'Anthropic / Compatible',
@@ -41,7 +43,7 @@ export function aiProviderName(provider: AiProviderId, language: string): string
 
 /** 该渠道是否已配置到可使用的程度；MiniMax Code 使用服务端登录凭据 */
 export function isProviderConfigured(config: AppConfig, provider: AiProviderId): boolean {
-    if (provider === 'minimax-code') return true;
+    if (provider === 'minimax-code' || provider === 'minimax-code-global') return true;
     if (provider === 'openai') {
         const active = config.openai?.instances?.find((instance) => instance.id === config.openai?.activeInstanceId);
         return Boolean(active?.apiKey?.trim());

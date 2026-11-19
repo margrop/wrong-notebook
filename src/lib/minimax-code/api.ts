@@ -3,18 +3,20 @@
  * 接口与参数参考 CreditDaddy（MIT）的 minimaxAuth.js / minimaxClient.js。
  *
  *   - 登录：RFC 8628 设备码授权 + S256 PKCE，client_id 为客户端公开的 mcode-public
- *   - 模型：Anthropic Messages 兼容接口 https://agent.minimax.cn/mavis/api/v1/llm/v1/messages
+ *   - 模型：Anthropic Messages 兼容接口，中国站 https://agent.minimax.cn、国际站 https://agent.minimax.io
  *   - refresh token 一次性轮换：刷新成功后旧值立即作废，调用方必须马上保存新值
  */
 
 import "server-only";
 
 import crypto from 'crypto';
+import { MINIMAX_CODE_SITES } from './constants';
+import type { MiniMaxCodeSite } from './constants';
 
-export const MINIMAX_CODE_ACCOUNT_BASE = 'https://account.minimax.cn';
-export const MINIMAX_CODE_AGENT_BASE = 'https://agent.minimax.cn';
+export const MINIMAX_CODE_ACCOUNT_BASE = MINIMAX_CODE_SITES.cn.accountBase;
+export const MINIMAX_CODE_AGENT_BASE = MINIMAX_CODE_SITES.cn.agentBase;
 /** 传给 Anthropic SDK 的 baseURL，SDK 会拼接 /v1/messages */
-export const MINIMAX_CODE_LLM_BASE_URL = `${MINIMAX_CODE_AGENT_BASE}/mavis/api/v1/llm`;
+export const MINIMAX_CODE_LLM_BASE_URL = MINIMAX_CODE_SITES.cn.llmBaseUrl;
 
 const CLIENT_ID = 'mcode-public';
 const SCOPE = 'agent.default';
@@ -110,8 +112,8 @@ function expiresAtFrom(expiresIn: unknown): string {
 }
 
 /** 带 Bearer Token 请求业务接口，校验 base_resp；401 抛出 MiniMaxCodeAuthError */
-async function callAgentApi<T extends BaseResp>(token: string, path: string, init: RequestInit = {}): Promise<T> {
-    const res = await request(`${MINIMAX_CODE_AGENT_BASE}${path}`, {
+async function callAgentApi<T extends BaseResp>(site: MiniMaxCodeSite, token: string, path: string, init: RequestInit = {}): Promise<T> {
+    const res = await request(`${MINIMAX_CODE_SITES[site].agentBase}${path}`, {
         ...init,
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', ...init.headers },
     });
@@ -125,12 +127,12 @@ async function callAgentApi<T extends BaseResp>(token: string, path: string, ini
 }
 
 /** 发起设备码授权，返回给用户打开的授权地址与轮询所需参数 */
-export async function startDeviceLogin(): Promise<DeviceLogin> {
+export async function startDeviceLogin(site: MiniMaxCodeSite = 'cn'): Promise<DeviceLogin> {
     const verifier = base64Url(crypto.randomBytes(32));
     const challenge = base64Url(crypto.createHash('sha256').update(verifier).digest());
     const { res, body } = await postForm<{
         device_code?: string; user_code?: string; verification_uri_complete?: string; expires_in?: number; interval?: number;
-    }>(`${MINIMAX_CODE_ACCOUNT_BASE}/oauth2/device/code`, {
+    }>(`${MINIMAX_CODE_SITES[site].accountBase}/oauth2/device/code`, {
         client_id: CLIENT_ID, scope: SCOPE, audience: AUDIENCE,
         code_challenge: challenge, code_challenge_method: 'S256',
     });
@@ -150,9 +152,9 @@ export async function startDeviceLogin(): Promise<DeviceLogin> {
 }
 
 /** 轮询一次授权结果：用户尚未授权时返回 null */
-export async function pollDeviceLogin(login: Pick<DeviceLogin, 'deviceCode' | 'verifier'>): Promise<TokenSet | null> {
+export async function pollDeviceLogin(site: MiniMaxCodeSite, login: Pick<DeviceLogin, 'deviceCode' | 'verifier'>): Promise<TokenSet | null> {
     const { res, body } = await postForm<{ error?: string; access_token?: string; refresh_token?: string; expires_in?: number }>(
-        `${MINIMAX_CODE_ACCOUNT_BASE}/oauth2/token`,
+        `${MINIMAX_CODE_SITES[site].accountBase}/oauth2/token`,
         { grant_type: DEVICE_GRANT, device_code: login.deviceCode, client_id: CLIENT_ID, code_verifier: login.verifier },
     );
     const error = body?.error;
@@ -170,9 +172,9 @@ export async function pollDeviceLogin(login: Pick<DeviceLogin, 'deviceCode' | 'v
 }
 
 /** 用 refresh token 换新的凭据；被服务端拒绝时抛出 MiniMaxCodeAuthError */
-export async function refreshTokens(refreshToken: string): Promise<TokenSet> {
+export async function refreshTokens(site: MiniMaxCodeSite, refreshToken: string): Promise<TokenSet> {
     const { res, body } = await postForm<{ access_token?: string; refresh_token?: string; expires_in?: number }>(
-        `${MINIMAX_CODE_ACCOUNT_BASE}/oauth2/token`,
+        `${MINIMAX_CODE_SITES[site].accountBase}/oauth2/token`,
         { grant_type: 'refresh_token', refresh_token: refreshToken, client_id: CLIENT_ID, scope: SCOPE, audience: AUDIENCE },
     );
     if (res.status === 400 || res.status === 401) throw new MiniMaxCodeAuthError(`MiniMax Code refresh rejected: HTTP ${res.status}`);
@@ -184,20 +186,20 @@ export async function refreshTokens(refreshToken: string): Promise<TokenSet> {
     };
 }
 
-export async function fetchProfile(token: string): Promise<MiniMaxCodeProfile> {
+export async function fetchProfile(site: MiniMaxCodeSite, token: string): Promise<MiniMaxCodeProfile> {
     const data = await callAgentApi<BaseResp & { user_id?: string | number; user_name?: string; email?: string }>(
-        token, '/matrix/api/v1/user/profile',
+        site, token, '/matrix/api/v1/user/profile',
     );
     return { userId: String(data.user_id || ''), name: data.user_name || null, email: data.email || null };
 }
 
-export async function fetchCredits(token: string): Promise<MiniMaxCodeCredits> {
+export async function fetchCredits(site: MiniMaxCodeSite, token: string): Promise<MiniMaxCodeCredits> {
     const data = await callAgentApi<BaseResp & {
         op_credit_summary?: { total_remaining_amount?: number; free_remaining_amount?: number; purchased_remaining_amount?: number };
         total_remains_credit?: number;
         plan_name?: string;
         is_pro_builder?: boolean;
-    }>(token, '/matrix/api/v1/commerce/get_membership_info', {
+    }>(site, token, '/matrix/api/v1/commerce/get_membership_info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: '{}',
@@ -221,9 +223,9 @@ interface SigninDay {
 }
 
 /** 查询今天的签到状态；接口没有返回今天的记录时返回 null */
-export async function fetchCheckinStatus(token: string): Promise<MiniMaxCodeCheckinStatus | null> {
+export async function fetchCheckinStatus(site: MiniMaxCodeSite, token: string): Promise<MiniMaxCodeCheckinStatus | null> {
     const data = await callAgentApi<BaseResp & { data?: { days?: SigninDay[] } }>(
-        token, `/minimax-cloud/api/v1/signin/status?${SIGNIN_QUERY}`,
+        site, token, `/minimax-cloud/api/v1/signin/status?${SIGNIN_QUERY}`,
     );
     const today = (data.data?.days || []).find((day) => day.is_today);
     if (!today) return null;
@@ -237,9 +239,9 @@ export async function fetchCheckinStatus(token: string): Promise<MiniMaxCodeChec
 }
 
 /** 领取今天的签到奖励 */
-export async function claimCheckin(token: string, today?: MiniMaxCodeCheckinStatus | null): Promise<MiniMaxCodeClaimResult> {
+export async function claimCheckin(site: MiniMaxCodeSite, token: string, today?: MiniMaxCodeCheckinStatus | null): Promise<MiniMaxCodeClaimResult> {
     const data = await callAgentApi<BaseResp & { data?: { claim_result?: number; points?: number; day_no?: number } }>(
-        token, `/minimax-cloud/api/v1/signin/claim?${SIGNIN_QUERY}`, { method: 'POST' },
+        site, token, `/minimax-cloud/api/v1/signin/claim?${SIGNIN_QUERY}`, { method: 'POST' },
     );
     const result = data.data || {};
     return {

@@ -7,15 +7,17 @@ import { getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import type { LoginPollResult } from "@/lib/minimax-code/auth";
+import type { MiniMaxCodeSite } from "@/lib/minimax-code/constants";
 import type { MiniMaxCodeCheckinRecord } from "@/lib/minimax-code/store";
 import type { MiniMaxCodeStatus } from "@/lib/minimax-code/status";
 
 export type PendingLogin = NonNullable<MiniMaxCodeStatus['pendingLogin']>;
 
-/** MiniMax Code 账号：读取状态、网页登录（打开授权页并轮询结果）、退出登录、立即签到 */
-export function useMiniMaxCodeAccount() {
+/** MiniMax Code 账号（中国站或国际站）：读取状态、网页登录（打开授权页并轮询结果）、退出登录、立即签到 */
+export function useMiniMaxCodeAccount(site: MiniMaxCodeSite = 'cn') {
     const { t } = useLanguage();
     const texts = t.settings?.ai?.minimaxCode;
+    const suffix = site === 'global' ? '?site=global' : '';
     const [status, setStatus] = useState<MiniMaxCodeStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [pending, setPending] = useState<PendingLogin | null>(null);
@@ -25,7 +27,7 @@ export function useMiniMaxCodeAccount() {
     const refresh = useCallback(async () => {
         setLoading(true);
         try {
-            const next = await apiClient.get<MiniMaxCodeStatus>('/api/minimax-code');
+            const next = await apiClient.get<MiniMaxCodeStatus>(`/api/minimax-code${suffix}`);
             setStatus(next);
             if (next.pendingLogin) setPending(next.pendingLogin);
         } catch (error) {
@@ -33,7 +35,7 @@ export function useMiniMaxCodeAccount() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [suffix]);
 
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- 挂载时读取账号状态
@@ -46,7 +48,7 @@ export function useMiniMaxCodeAccount() {
         let cancelled = false;
         const poll = async () => {
             try {
-                const result = await apiClient.get<LoginPollResult>('/api/minimax-code/login');
+                const result = await apiClient.get<LoginPollResult>(`/api/minimax-code/login${suffix}`);
                 if (cancelled) return;
                 if (result.status === 'pending') {
                     timer.current = setTimeout(poll, pending.intervalMs);
@@ -68,12 +70,12 @@ export function useMiniMaxCodeAccount() {
             cancelled = true;
             if (timer.current) clearTimeout(timer.current);
         };
-    }, [pending, refresh, texts]);
+    }, [pending, refresh, texts, suffix]);
 
     const login = async () => {
         setBusy(true);
         try {
-            const next = await apiClient.post<PendingLogin>('/api/minimax-code/login', {});
+            const next = await apiClient.post<PendingLogin>(`/api/minimax-code/login${suffix}`, {});
             setPending(next);
             // 弹窗可能被浏览器拦截，界面上同时提供授权链接
             window.open(next.url, '_blank', 'noopener,noreferrer');
@@ -87,7 +89,7 @@ export function useMiniMaxCodeAccount() {
     const logout = async () => {
         setBusy(true);
         try {
-            await apiClient.delete('/api/minimax-code');
+            await apiClient.delete(`/api/minimax-code${suffix}`);
             setPending(null);
             await refresh();
         } catch (error) {
@@ -100,7 +102,7 @@ export function useMiniMaxCodeAccount() {
     const checkin = async () => {
         setBusy(true);
         try {
-            const record = await apiClient.post<MiniMaxCodeCheckinRecord>('/api/minimax-code/checkin', {});
+            const record = await apiClient.post<MiniMaxCodeCheckinRecord>(`/api/minimax-code/checkin${suffix}`, {});
             if (record.status === 'failed') {
                 toast.error((texts?.checkinFailed || 'Check-in failed: {error}').replace('{error}', record.error || ''));
             } else {

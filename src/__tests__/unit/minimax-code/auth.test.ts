@@ -98,6 +98,29 @@ describe('网页登录', () => {
         await expect(pollLogin()).resolves.toEqual({ status: 'denied' });
     });
 
+    it('国际站登录写入 global，不影响中国站账号', async () => {
+        saveAccount();
+        api.startDeviceLogin.mockResolvedValue({
+            url: 'https://account.minimax.io/oauth-authorize?user_code=G', userCode: 'G',
+            deviceCode: 'dev', verifier: 'ver', expiresAt: inMinutes(5), intervalMs: 3000,
+        });
+        await startLogin('global');
+        expect(api.startDeviceLogin).toHaveBeenCalledWith('global');
+        expect(readMiniMaxCodeState('global').pendingLogin?.deviceCode).toBe('dev');
+        expect(readMiniMaxCodeState('cn').account?.accessToken).toBe('a1');
+    });
+
+    it('退出登录只删除所选站点的凭据', () => {
+        saveAccount();
+        updateMiniMaxCodeState((state) => ({
+            ...state,
+            account: { ...state.account!, accessToken: 'g1', refreshToken: 'gr1' },
+        }), 'global');
+        logout('global');
+        expect(readMiniMaxCodeState('global').account).toBeUndefined();
+        expect(readMiniMaxCodeState('cn').account?.accessToken).toBe('a1');
+    });
+
     it('退出登录删除凭据，保留签到记录', () => {
         saveAccount();
         updateMiniMaxCodeState((state) => ({ ...state, lastCheckin: { date: '2026-10-25', status: 'checked-in', trigger: 'auto', at: 'x' } }));
@@ -123,7 +146,7 @@ describe('getAccessToken', () => {
         saveAccount({ expiresAt: inMinutes(2) });
         api.refreshTokens.mockResolvedValue({ accessToken: 'a2', refreshToken: 'r2', expiresAt: inMinutes(60) });
         await expect(getAccessToken()).resolves.toBe('a2');
-        expect(api.refreshTokens).toHaveBeenCalledWith('r1');
+        expect(api.refreshTokens).toHaveBeenCalledWith('cn', 'r1');
         expect(readMiniMaxCodeState().account).toMatchObject({ accessToken: 'a2', refreshToken: 'r2', name: '小明' });
     });
 
@@ -159,14 +182,14 @@ describe('withAccessToken', () => {
         const fn = vi.fn()
             .mockRejectedValueOnce(new Error('AI_AUTH_ERROR'))
             .mockResolvedValueOnce('ok');
-        await expect(withAccessToken(fn)).resolves.toBe('ok');
+        await expect(withAccessToken('cn', fn)).resolves.toBe('ok');
         expect(fn.mock.calls).toEqual([['a1'], ['a2']]);
     });
 
     it('其他错误不重试', async () => {
         saveAccount();
         const fn = vi.fn().mockRejectedValue(new Error('AI_QUOTA_EXCEEDED'));
-        await expect(withAccessToken(fn)).rejects.toThrow('AI_QUOTA_EXCEEDED');
+        await expect(withAccessToken('cn', fn)).rejects.toThrow('AI_QUOTA_EXCEEDED');
         expect(fn).toHaveBeenCalledTimes(1);
     });
 });

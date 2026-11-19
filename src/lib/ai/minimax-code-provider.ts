@@ -1,21 +1,22 @@
 import { AnthropicProvider } from "./anthropic-provider";
 import type { AIService } from "./types";
 import type { CompletionObserver } from "./completion";
-import { MINIMAX_CODE_LLM_BASE_URL } from "../minimax-code/api";
 import { withAccessToken } from "../minimax-code/auth";
-import { DEFAULT_MINIMAX_CODE_MODEL } from "../minimax-code/constants";
-import type { MiniMaxCodeConfig } from "../minimax-code/constants";
+import { MINIMAX_CODE_HEADERS, MINIMAX_CODE_SITES } from "../minimax-code/constants";
+import type { MiniMaxCodeConfig, MiniMaxCodeSite } from "../minimax-code/constants";
 
 /**
- * MiniMax Code OAuth 渠道：用网页登录得到的 Access Token 调用 MiniMax Code 的 Anthropic 兼容接口。
- * 每次调用前取有效 Token（快到期时自动续期），上游返回 401 时刷新后重试一次。
+ * MiniMax Code OAuth 渠道（中国站与国际站）：用网页登录得到的 Access Token 调用 MiniMax Code 的 Anthropic 兼容接口。
+ * 每次调用前取该站点的有效 Token（快到期时自动续期），上游返回 401 时刷新后重试一次。
  */
 export class MiniMaxCodeProvider implements AIService {
     private model: string;
+    private site: MiniMaxCodeSite;
     private completionObserver?: CompletionObserver;
 
-    constructor(config?: MiniMaxCodeConfig) {
-        this.model = config?.model?.trim() || DEFAULT_MINIMAX_CODE_MODEL;
+    constructor(config?: MiniMaxCodeConfig, site: MiniMaxCodeSite = 'cn') {
+        this.site = site;
+        this.model = config?.model?.trim() || MINIMAX_CODE_SITES[site].defaultModel;
     }
 
     /** 补全观察者传给每次创建的 Anthropic 提供商 */
@@ -24,11 +25,12 @@ export class MiniMaxCodeProvider implements AIService {
     }
 
     private run<T>(call: (provider: AnthropicProvider) => Promise<T>): Promise<T> {
-        return withAccessToken((authToken) => {
+        return withAccessToken(this.site, (authToken) => {
             const provider = new AnthropicProvider({
                 authToken,
-                baseUrl: MINIMAX_CODE_LLM_BASE_URL,
+                baseUrl: MINIMAX_CODE_SITES[this.site].llmBaseUrl,
                 model: this.model,
+                headers: MINIMAX_CODE_HEADERS,
             });
             provider.observeCompletions(this.completionObserver);
             return call(provider);

@@ -69,6 +69,7 @@ function isAiConfigured(): boolean {
         case "anthropic":
             return !!config.anthropic?.apiKey;
         case "minimax-code":
+        case "minimax-code-global":
             return true;
         default:
             return !!config[config.aiProvider]?.apiKey;

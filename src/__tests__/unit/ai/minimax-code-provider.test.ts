@@ -1,5 +1,5 @@
 /**
- * MiniMax Code OAuth 渠道：用登录凭据构造 Anthropic 兼容客户端，并把调用转交给它
+ * MiniMax Code OAuth 渠道（中国站与国际站）：用登录凭据构造 Anthropic 兼容客户端，并把调用转交给它
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -29,17 +29,33 @@ describe('MiniMaxCodeProvider', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mocks.configs.length = 0;
-        mocks.withAccessToken.mockImplementation((fn: (token: string) => Promise<unknown>) => fn('mmoat_token'));
+        mocks.withAccessToken.mockImplementation((_site: string, fn: (token: string) => Promise<unknown>) => fn('mmoat_token'));
     });
 
-    it('用 Bearer Token 请求 MiniMax Code 的 Anthropic 兼容接口，默认模型 MiniMax-M3.1-Flash', async () => {
+    it('用 Bearer Token 请求中国站的 Anthropic 兼容接口，默认模型 MiniMax-M3.1-Flash', async () => {
         mocks.gradeAnswer.mockResolvedValue({ correct: true, reason: '一致' });
         const input = { questionText: 'q', answerText: 'a', userAnswer: 'a' };
 
         await expect(new MiniMaxCodeProvider().gradeAnswer(input)).resolves.toEqual({ correct: true, reason: '一致' });
 
-        expect(mocks.configs).toEqual([{ authToken: 'mmoat_token', baseUrl: 'https://agent.minimax.cn/mavis/api/v1/llm', model: 'MiniMax-M3.1-Flash' }]);
+        expect(mocks.configs).toEqual([{
+            authToken: 'mmoat_token',
+            baseUrl: 'https://agent.minimax.cn/mavis/api/v1/llm',
+            model: 'MiniMax-M3.1-Flash',
+            headers: { 'User-Agent': 'MiniMaxAgent', 'X-Mavis-Agent-Id': 'main' },
+        }]);
+        expect(mocks.withAccessToken.mock.calls[0][0]).toBe('cn');
         expect(mocks.gradeAnswer).toHaveBeenCalledWith(input);
+    });
+
+    it('国际站使用 agent.minimax.io 与同一默认模型', async () => {
+        mocks.gradeAnswer.mockResolvedValue({ correct: true, reason: '一致' });
+        await new MiniMaxCodeProvider(undefined, 'global').gradeAnswer({ questionText: 'q', answerText: 'a', userAnswer: 'a' });
+        expect(mocks.configs[0]).toMatchObject({
+            baseUrl: 'https://agent.minimax.io/mavis/api/v1/llm',
+            model: 'MiniMax-M3.1-Flash',
+        });
+        expect(mocks.withAccessToken.mock.calls[0][0]).toBe('global');
     });
 
     it('使用配置中的模型，并原样传递参数', async () => {
@@ -50,7 +66,7 @@ describe('MiniMaxCodeProvider', () => {
     });
 
     it('重试时用刷新后的 Token 重新构造客户端', async () => {
-        mocks.withAccessToken.mockImplementation(async (fn: (token: string) => Promise<unknown>) => {
+        mocks.withAccessToken.mockImplementation(async (_site: string, fn: (token: string) => Promise<unknown>) => {
             await fn('old').catch(() => undefined);
             return fn('new');
         });

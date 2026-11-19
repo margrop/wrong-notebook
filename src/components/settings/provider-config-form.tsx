@@ -28,6 +28,9 @@ export function ProviderConfigForm({ provider, config, setConfig }: ProviderConf
     if (provider === 'minimax-code') {
         return <MiniMaxCodeSettings value={config.minimaxCode} onChange={(minimaxCode) => setConfig(prev => ({ ...prev, minimaxCode }))} />;
     }
+    if (provider === 'minimax-code-global') {
+        return <MiniMaxCodeSettings site="global" value={config.minimaxCodeGlobal} onChange={(minimaxCodeGlobal) => setConfig(prev => ({ ...prev, minimaxCodeGlobal }))} />;
+    }
     if (provider === 'anthropic') {
         return <AnthropicSettings value={config.anthropic} onChange={(anthropic) => setConfig(prev => ({ ...prev, anthropic }))} />;
     }

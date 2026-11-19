@@ -7,20 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MiniMaxCodeCheckin } from "@/components/settings/minimax-code-checkin";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { DEFAULT_MINIMAX_CODE_MODEL, MINIMAX_CODE_MODELS } from "@/lib/minimax-code/constants";
-import type { MiniMaxCodeConfig } from "@/lib/minimax-code/constants";
+import { DEFAULT_MINIMAX_CODE_GLOBAL_MODEL, DEFAULT_MINIMAX_CODE_MODEL, MINIMAX_CODE_GLOBAL_MODELS, MINIMAX_CODE_MODELS } from "@/lib/minimax-code/constants";
+import type { MiniMaxCodeConfig, MiniMaxCodeSite } from "@/lib/minimax-code/constants";
 import { useMiniMaxCodeAccount } from "@/lib/hooks/use-minimax-code-account";
 
 interface MiniMaxCodeSettingsProps {
+    /** 中国站或国际站；缺省为中国站 */
+    site?: MiniMaxCodeSite;
     value?: MiniMaxCodeConfig;
     onChange: (value: MiniMaxCodeConfig) => void;
 }
 
-/** MiniMax Code OAuth 渠道：账号状态（登录、剩余积分、今日签到）、网页登录、自动签到与模型选择 */
-export function MiniMaxCodeSettings({ value, onChange }: MiniMaxCodeSettingsProps) {
+/** MiniMax Code OAuth 渠道（中国站或国际站）：账号状态（登录、剩余积分、今日签到）、网页登录、自动签到与模型选择 */
+export function MiniMaxCodeSettings({ site = 'cn', value, onChange }: MiniMaxCodeSettingsProps) {
     const { t } = useLanguage();
     const texts = t.settings?.ai?.minimaxCode;
-    const { status, loading, pending, busy, refresh, login, logout, checkin } = useMiniMaxCodeAccount();
+    const global = site === 'global';
+    const { status, loading, pending, busy, refresh, login, logout, checkin } = useMiniMaxCodeAccount(site);
     const loginState = status?.login ?? 'none';
     const account = status?.account;
     const credits = status?.credits;
@@ -33,11 +36,12 @@ export function MiniMaxCodeSettings({ value, onChange }: MiniMaxCodeSettingsProp
 
     return (
         <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-            <p className="text-xs text-muted-foreground">{texts?.intro}</p>
+            <p className="text-xs text-muted-foreground">{global ? texts?.globalIntro : texts?.intro}</p>
+            {global && <p className="text-xs text-muted-foreground">{texts?.globalNetworkHint}</p>}
 
-            <section className="space-y-3 rounded-md border bg-background p-3" aria-label={texts?.title || "MiniMax Code account"}>
+            <section className="space-y-3 rounded-md border bg-background p-3" aria-label={(global ? texts?.globalTitle : texts?.title) || "MiniMax Code account"}>
                 <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-medium">{texts?.title || "MiniMax Code account"}</h4>
+                    <h4 className="text-sm font-medium">{(global ? texts?.globalTitle : texts?.title) || "MiniMax Code account"}</h4>
                     <Button variant="ghost" size="sm" onClick={() => void refresh()} disabled={loading} aria-label={texts?.refresh || "Refresh"}>
                         <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                     </Button>
@@ -113,15 +117,15 @@ export function MiniMaxCodeSettings({ value, onChange }: MiniMaxCodeSettingsProp
                     list="minimax-code-models"
                     value={value?.model || ""}
                     onChange={(e) => onChange({ ...value, model: e.target.value })}
-                    placeholder={DEFAULT_MINIMAX_CODE_MODEL}
+                    placeholder={global ? DEFAULT_MINIMAX_CODE_GLOBAL_MODEL : DEFAULT_MINIMAX_CODE_MODEL}
                 />
                 <datalist id="minimax-code-models">
-                    {MINIMAX_CODE_MODELS.map((model) => <option key={model} value={model} />)}
+                    {(global ? MINIMAX_CODE_GLOBAL_MODELS : MINIMAX_CODE_MODELS).map((model) => <option key={model} value={model} />)}
                 </datalist>
-                <p className="text-xs text-muted-foreground">{texts?.modelHint}</p>
+                <p className="text-xs text-muted-foreground">{global ? texts?.globalModelHint : texts?.modelHint}</p>
             </div>
 
-            <p className="text-xs text-muted-foreground">{texts?.risk}</p>
+            <p className="text-xs text-muted-foreground">{global ? texts?.globalRisk : texts?.risk}</p>
         </div>
     );
 }

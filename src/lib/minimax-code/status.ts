@@ -8,6 +8,7 @@ import { fetchCheckinStatus, fetchCredits } from './api';
 import type { MiniMaxCodeCheckinStatus, MiniMaxCodeCredits } from './api';
 import { withAccessToken } from './auth';
 import { checkinDate } from './checkin';
+import type { MiniMaxCodeSite } from './constants';
 import { readMiniMaxCodeState } from './store';
 import type { MiniMaxCodeCheckinRecord } from './store';
 
@@ -33,13 +34,14 @@ function isAuthError(error: unknown): boolean {
     return error instanceof Error && (error.name === 'MiniMaxCodeAuthError' || error.message.startsWith('AI_AUTH_ERROR'));
 }
 
-export async function getMiniMaxCodeStatus(): Promise<MiniMaxCodeStatus> {
-    const state = readMiniMaxCodeState();
+export async function getMiniMaxCodeStatus(site: MiniMaxCodeSite = 'cn'): Promise<MiniMaxCodeStatus> {
+    const state = readMiniMaxCodeState(site);
     const pending = state.pendingLogin && Date.parse(state.pendingLogin.expiresAt) > Date.now()
         ? { url: state.pendingLogin.url, userCode: state.pendingLogin.userCode, expiresAt: state.pendingLogin.expiresAt, intervalMs: state.pendingLogin.intervalMs }
         : null;
+    const config = getAppConfig();
     const checkin = {
-        autoCheckin: getAppConfig().minimaxCode?.autoCheckin !== false,
+        autoCheckin: (site === 'global' ? config.minimaxCodeGlobal?.autoCheckin : config.minimaxCode?.autoCheckin) !== false,
         today: null as MiniMaxCodeCheckinStatus | null,
         last: state.lastCheckin?.date === checkinDate() ? state.lastCheckin : null,
     };
@@ -50,14 +52,14 @@ export async function getMiniMaxCodeStatus(): Promise<MiniMaxCodeStatus> {
     if (account.invalid) return { login: 'expired', account: summary, credits: null, checkin, pendingLogin: pending };
 
     try {
-        const [credits, today] = await withAccessToken((token) => Promise.all([
-            fetchCredits(token).catch((error) => {
+        const [credits, today] = await withAccessToken(site, (token) => Promise.all([
+            fetchCredits(site, token).catch((error) => {
                 if (isAuthError(error)) throw error;
                 // 积分查询失败（网络等）不代表登录失效
                 logger.warn({ error: error instanceof Error ? error.message : String(error) }, 'Failed to fetch MiniMax Code credits');
                 return null;
             }),
-            fetchCheckinStatus(token).catch((error) => {
+            fetchCheckinStatus(site, token).catch((error) => {
                 if (isAuthError(error)) throw error;
                 logger.warn({ error: error instanceof Error ? error.message : String(error) }, 'Failed to fetch MiniMax Code check-in status');
                 return null;

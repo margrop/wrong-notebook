@@ -19,7 +19,12 @@ vi.mock('@/lib/minimax-code/api', async (importOriginal) => ({
     claimCheckin: mocks.claimCheckin,
 }));
 vi.mock('@/lib/minimax-code/auth', () => ({ withAccessToken: mocks.withAccessToken }));
-vi.mock('@/lib/config', () => ({ getAppConfig: () => ({ minimaxCode: { autoCheckin: mocks.autoCheckin } }) }));
+vi.mock('@/lib/config', () => ({
+    getAppConfig: () => ({
+        minimaxCode: { autoCheckin: mocks.autoCheckin },
+        minimaxCodeGlobal: { autoCheckin: mocks.autoCheckin },
+    }),
+}));
 
 import { autoCheckinIfDue, checkinDate, runCheckin, shouldAutoCheckin, startCheckinScheduler } from '@/lib/minimax-code/checkin';
 import { readMiniMaxCodeState, updateMiniMaxCodeState } from '@/lib/minimax-code/store';
@@ -38,7 +43,7 @@ beforeEach(() => {
     process.env.CONFIG_DIR = dir;
     vi.clearAllMocks();
     mocks.autoCheckin = true;
-    mocks.withAccessToken.mockImplementation((fn: (token: string) => Promise<unknown>) => fn('tok'));
+    mocks.withAccessToken.mockImplementation((_site: string, fn: (token: string) => Promise<unknown>) => fn('tok'));
 });
 
 afterEach(() => {
@@ -81,9 +86,21 @@ describe('runCheckin', () => {
 
         const record = await runCheckin('auto');
 
-        expect(mocks.claimCheckin).toHaveBeenCalledWith('tok', today);
+        expect(mocks.claimCheckin).toHaveBeenCalledWith('cn', 'tok', today);
         expect(record).toMatchObject({ status: 'checked-in', trigger: 'auto', points: 1200, streakDays: 3, date: checkinDate() });
         expect(readMiniMaxCodeState().lastCheckin).toEqual(record);
+    });
+
+    it('国际站签到只写入 global 状态', async () => {
+        const today = { checkedToday: false, streakDays: 1, points: 10, bonusPoints: 0 };
+        mocks.fetchCheckinStatus.mockResolvedValue(today);
+        mocks.claimCheckin.mockResolvedValue({ status: 'checked-in', points: 10, streakDays: 1 });
+
+        const record = await runCheckin('manual', 'global');
+
+        expect(mocks.fetchCheckinStatus).toHaveBeenCalledWith('global', 'tok');
+        expect(readMiniMaxCodeState('global').lastCheckin).toEqual(record);
+        expect(readMiniMaxCodeState('cn').lastCheckin).toBeUndefined();
     });
 
     it('今天已经签到时不重复领取', async () => {
@@ -122,6 +139,13 @@ describe('autoCheckinIfDue 与定时任务', () => {
 
         await autoCheckinIfDue(); // 今天已签到
         expect(mocks.withAccessToken).toHaveBeenCalledTimes(1);
+    });
+
+    it('国际站按 minimaxCodeGlobal 的开关自动签到', async () => {
+        updateMiniMaxCodeState(() => ({ account }), 'global');
+        mocks.fetchCheckinStatus.mockResolvedValue({ checkedToday: true, streakDays: 1, points: 1, bonusPoints: 0 });
+        await autoCheckinIfDue('global');
+        expect(mocks.withAccessToken).toHaveBeenCalledWith('global', expect.any(Function));
     });
 
     it('启动后 1 分钟检查一次，之后每小时检查，重复启动不会创建多个定时器', async () => {

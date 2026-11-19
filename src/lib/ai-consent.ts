@@ -42,6 +42,7 @@ const PROVIDER_NAMES: Record<string, { zh: string; en: string }> = {
     azure: { zh: "Microsoft Azure OpenAI", en: "Microsoft Azure OpenAI" },
     anthropic: { zh: "Anthropic Claude", en: "Anthropic Claude" },
     "minimax-code": { zh: "MiniMax", en: "MiniMax" },
+    "minimax-code-global": { zh: "MiniMax Code 国际站", en: "MiniMax Code (international)" },
 };
 
 /** 设置中的 AI 渠道 ID 对应的服务商名称；未知时返回 null */

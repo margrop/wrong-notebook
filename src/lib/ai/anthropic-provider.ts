@@ -59,14 +59,14 @@ function isOfficialAnthropicHost(baseURL: string): boolean {
  *   anthropic-version 为 2023-06-01。SDK 1.x 改为以 Authorization: Bearer 发送 API Key，不少兼容网关只认 x-api-key。
  * authToken（OAuth 登录的渠道）始终以 Authorization: Bearer 发送。
  */
-export function createAnthropicClient(baseURL: string, apiKey?: string, authToken?: string): Anthropic {
+export function createAnthropicClient(baseURL: string, apiKey?: string, authToken?: string, headers?: Record<string, string>): Anthropic {
     const options = { baseURL, timeout: REQUEST_TIMEOUT_MS };
     if (isOfficialAnthropicHost(baseURL)) {
         return apiKey
             ? new Anthropic({ ...options, apiKey, authToken: null })
             : new Anthropic({ ...options, apiKey: null, authToken });
     }
-    const defaultHeaders: Record<string, string> = { 'anthropic-version': COMPAT_ANTHROPIC_VERSION };
+    const defaultHeaders: Record<string, string> = { ...headers, 'anthropic-version': COMPAT_ANTHROPIC_VERSION };
     if (apiKey) {
         defaultHeaders['x-api-key'] = apiKey;
         return new Anthropic({ ...options, apiKey: null, authToken: null, defaultHeaders });
@@ -102,7 +102,7 @@ export class AnthropicProvider extends BaseAIProvider {
         // SDK 会自动拼接 /v1/messages，这里去掉用户可能多填的 /v1 和末尾斜杠
         this.baseURL = trimTrailingSlashes(config?.baseUrl || DEFAULT_ANTHROPIC_BASE_URL).replace(/\/v1$/, '');
         this.model = config?.model || DEFAULT_ANTHROPIC_MODEL;
-        this.client = createAnthropicClient(this.baseURL, apiKey, authToken);
+        this.client = createAnthropicClient(this.baseURL, apiKey, authToken, config?.headers);
 
         logger.info({
             provider: 'Anthropic',

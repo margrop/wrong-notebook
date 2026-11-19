@@ -87,6 +87,11 @@ async function handlePost(req: Request) {
             // 只保存模型和自动签到开关；登录凭据与签到记录由服务端单独管理
             body.minimaxCode = parsed.data;
         }
+        if (body.minimaxCodeGlobal !== undefined) {
+            const parsed = minimaxCodeSchema.safeParse(body.minimaxCodeGlobal);
+            if (!parsed.success) return badRequest('INVALID_MINIMAX_CODE_CONFIG');
+            body.minimaxCodeGlobal = parsed.data;
+        }
         if (body.tts !== undefined) {
             const parsed = ttsSchema.safeParse(body.tts);
             if (!parsed.success) return badRequest('INVALID_TTS_CONFIG');

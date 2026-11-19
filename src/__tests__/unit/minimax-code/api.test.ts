@@ -52,6 +52,17 @@ describe('startDeviceLogin', () => {
         expect(Date.parse(login.expiresAt) - Date.now()).toBeGreaterThan(290_000);
     });
 
+    it('国际站使用 account.minimax.io', async () => {
+        fetchMock.mockResolvedValueOnce(jsonResponse(200, {
+            device_code: 'dev-g', user_code: 'GLOB', verification_uri_complete: 'https://account.minimax.io/oauth-authorize?user_code=GLOB',
+            expires_in: 300, interval: 5,
+        }));
+
+        await startDeviceLogin('global');
+
+        expect(fetchMock.mock.calls[0][0]).toBe('https://account.minimax.io/oauth2/device/code');
+    });
+
     it('拒绝非 https 的授权地址', async () => {
         fetchMock.mockResolvedValueOnce(jsonResponse(200, { device_code: 'd', verification_uri_complete: 'http://evil.example' }));
         await expect(startDeviceLogin()).rejects.toThrow('non-https');
@@ -68,14 +79,14 @@ describe('pollDeviceLogin', () => {
 
     it('用户尚未授权时返回 null', async () => {
         fetchMock.mockResolvedValueOnce(jsonResponse(400, { error: 'authorization_pending' }));
-        await expect(pollDeviceLogin(login)).resolves.toBeNull();
+        await expect(pollDeviceLogin('cn', login)).resolves.toBeNull();
         fetchMock.mockResolvedValueOnce(jsonResponse(400, { error: 'slow_down' }));
-        await expect(pollDeviceLogin(login)).resolves.toBeNull();
+        await expect(pollDeviceLogin('cn', login)).resolves.toBeNull();
     });
 
     it('授权完成时返回凭据', async () => {
         fetchMock.mockResolvedValueOnce(jsonResponse(200, { access_token: 'mmoat_a', refresh_token: 'r1', expires_in: 3600 }));
-        const tokens = await pollDeviceLogin(login);
+        const tokens = await pollDeviceLogin('cn', login);
         expect(lastForm().get('grant_type')).toBe('urn:ietf:params:oauth:grant-type:device_code');
         expect(lastForm().get('code_verifier')).toBe('v');
         expect(tokens).toMatchObject({ accessToken: 'mmoat_a', refreshToken: 'r1' });
@@ -83,30 +94,30 @@ describe('pollDeviceLogin', () => {
 
     it('超时和拒绝返回对应错误码', async () => {
         fetchMock.mockResolvedValueOnce(jsonResponse(400, { error: 'expired_token' }));
-        await expect(pollDeviceLogin(login)).rejects.toThrow('MINIMAX_CODE_LOGIN_EXPIRED');
+        await expect(pollDeviceLogin('cn', login)).rejects.toThrow('MINIMAX_CODE_LOGIN_EXPIRED');
         fetchMock.mockResolvedValueOnce(jsonResponse(400, { error: 'access_denied' }));
-        await expect(pollDeviceLogin(login)).rejects.toThrow('MINIMAX_CODE_LOGIN_DENIED');
+        await expect(pollDeviceLogin('cn', login)).rejects.toThrow('MINIMAX_CODE_LOGIN_DENIED');
     });
 });
 
 describe('refreshTokens', () => {
     it('返回轮换后的新 refresh token', async () => {
         fetchMock.mockResolvedValueOnce(jsonResponse(200, { access_token: 'a2', refresh_token: 'r2', expires_in: 60 }));
-        await expect(refreshTokens('r1')).resolves.toMatchObject({ accessToken: 'a2', refreshToken: 'r2' });
+        await expect(refreshTokens('cn', 'r1')).resolves.toMatchObject({ accessToken: 'a2', refreshToken: 'r2' });
         expect(lastForm().get('grant_type')).toBe('refresh_token');
         expect(lastForm().get('refresh_token')).toBe('r1');
     });
 
     it('没有返回新 refresh token 时沿用旧值', async () => {
         fetchMock.mockResolvedValueOnce(jsonResponse(200, { access_token: 'a2' }));
-        await expect(refreshTokens('r1')).resolves.toMatchObject({ refreshToken: 'r1' });
+        await expect(refreshTokens('cn', 'r1')).resolves.toMatchObject({ refreshToken: 'r1' });
     });
 
     it('被拒绝时抛出 MiniMaxCodeAuthError，其余失败抛普通错误', async () => {
         fetchMock.mockResolvedValueOnce(jsonResponse(400, { error: 'invalid_grant' }));
-        await expect(refreshTokens('r1')).rejects.toBeInstanceOf(MiniMaxCodeAuthError);
+        await expect(refreshTokens('cn', 'r1')).rejects.toBeInstanceOf(MiniMaxCodeAuthError);
         fetchMock.mockResolvedValueOnce(jsonResponse(502, {}));
-        await expect(refreshTokens('r1')).rejects.not.toBeInstanceOf(MiniMaxCodeAuthError);
+        await expect(refreshTokens('cn', 'r1')).rejects.not.toBeInstanceOf(MiniMaxCodeAuthError);
     });
 });
 
@@ -117,17 +128,26 @@ describe('积分与签到', () => {
             op_credit_summary: { total_remaining_amount: 2400.456, free_remaining_amount: 2000, purchased_remaining_amount: 400.456 },
             plan_name: '免费版',
         }));
-        await expect(fetchCredits('tok')).resolves.toEqual({ total: 2400.46, free: 2000, purchased: 400.46, plan: '免费版' });
+        await expect(fetchCredits('cn', 'tok')).resolves.toEqual({ total: 2400.46, free: 2000, purchased: 400.46, plan: '免费版' });
         const [url, init] = fetchMock.mock.calls[0];
         expect(url).toBe('https://agent.minimax.cn/matrix/api/v1/commerce/get_membership_info');
         expect(init.headers.Authorization).toBe('Bearer tok');
     });
 
+    it('国际站的积分接口在 agent.minimax.io', async () => {
+        fetchMock.mockResolvedValueOnce(jsonResponse(200, {
+            base_resp: { status_code: 0 },
+            op_credit_summary: { total_remaining_amount: 100, free_remaining_amount: 100 },
+        }));
+        await fetchCredits('global', 'tok');
+        expect(fetchMock.mock.calls[0][0]).toBe('https://agent.minimax.io/matrix/api/v1/commerce/get_membership_info');
+    });
+
     it('401 抛出 MiniMaxCodeAuthError，业务错误抛出接口信息', async () => {
         fetchMock.mockResolvedValueOnce(jsonResponse(401, {}));
-        await expect(fetchCredits('tok')).rejects.toBeInstanceOf(MiniMaxCodeAuthError);
+        await expect(fetchCredits('cn', 'tok')).rejects.toBeInstanceOf(MiniMaxCodeAuthError);
         fetchMock.mockResolvedValueOnce(jsonResponse(200, { base_resp: { status_code: 1001, status_msg: 'busy' } }));
-        await expect(fetchCredits('tok')).rejects.toThrow('busy');
+        await expect(fetchCredits('cn', 'tok')).rejects.toThrow('busy');
     });
 
     it('读取今天的签到状态', async () => {
@@ -135,17 +155,17 @@ describe('积分与签到', () => {
             base_resp: { status_code: 0 },
             data: { days: [{ is_today: false, status: 3 }, { is_today: true, status: 1, day_no: 3, points: 800, bonus_points: 400 }] },
         }));
-        await expect(fetchCheckinStatus('tok')).resolves.toEqual({ checkedToday: false, streakDays: 3, points: 800, bonusPoints: 400 });
+        await expect(fetchCheckinStatus('cn', 'tok')).resolves.toEqual({ checkedToday: false, streakDays: 3, points: 800, bonusPoints: 400 });
         expect(fetchMock.mock.calls[0][0]).toContain('/minimax-cloud/api/v1/signin/status?timezone_offset=28800');
     });
 
     it('领取签到奖励，区分新签到和重复签到', async () => {
         fetchMock.mockResolvedValueOnce(jsonResponse(200, { base_resp: { status_code: 0 }, data: { claim_result: 1, points: 1200, day_no: 3 } }));
-        await expect(claimCheckin('tok')).resolves.toEqual({ status: 'checked-in', points: 1200, streakDays: 3 });
+        await expect(claimCheckin('cn', 'tok')).resolves.toEqual({ status: 'checked-in', points: 1200, streakDays: 3 });
         expect(fetchMock.mock.calls[0][1].method).toBe('POST');
 
         fetchMock.mockResolvedValueOnce(jsonResponse(200, { base_resp: { status_code: 0 }, data: { claim_result: 2 } }));
-        await expect(claimCheckin('tok', { checkedToday: false, streakDays: 4, points: 800, bonusPoints: 400 }))
+        await expect(claimCheckin('cn', 'tok', { checkedToday: false, streakDays: 4, points: 800, bonusPoints: 400 }))
             .resolves.toEqual({ status: 'already', points: 1200, streakDays: 4 });
     });
 });
