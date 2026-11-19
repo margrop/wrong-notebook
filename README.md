@@ -28,7 +28,7 @@
   | 浏览器本地语音（Web Speech） | 由设备自带的语音朗读，听起来比较生硬，音色因设备而异 | 免费 |
   | 云端 TTS 语音（MiniMax、千问、智谱 GLM-TTS、阶跃星辰、火山引擎豆包语音、火山引擎 Agent Plan、OpenAI） | 声音自然，与真人讲题无异，所有设备音色一致 | 需要付费，**建议购买 Token Plan 等套餐**，比按量付费划算；火山引擎有[免费试用额度](https://docs.volcengine.com/docs/ark/free-inference-quota?lang=zh)，可参考文档自行开通 |
 
-- **🆓 免费账号就能用**：选择「MiniMax Code OAuth」渠道，用 MiniMax Code 账号网页登录即可使用，不需要购买 API Key，应用每天自动签到领取积分（见 [MiniMax Code OAuth](#minimax-code-oauth)）；火山引擎新用户也有[免费推理额度](#火山引擎免费试用)。
+- **🆓 免费账号就能用**：选择「MiniMax Code OAuth」渠道，用 MiniMax Code 账号网页登录即可使用，不需要购买 API Key，应用每天自动签到领取积分（见 [MiniMax Code OAuth](#minimax-code-oauth)）；「硅基流动 SiliconFlow」国内站注册并实名认证后有免费文字模型，国际站新用户有 $1 赠金（见 [硅基流动](#硅基流动)）；火山引擎新用户也有[免费推理额度](#火山引擎免费试用)。
 - **📚 复习闭环**：举一反三变式题自动判题、AI 评估掌握概率、艾宾浩斯间隔的今日复习、按错题组卷打印并回填结果。
 - **🗂️ 共享真题库**：新增「真题库」页，可从 [margrop/wrong-notebook-question-bank](https://github.com/margrop/wrong-notebook-question-bank) 下载小学、初中、高中多学科题库包；导入默认只进入真题库、不产生错题，也可勾选同时写入错题本。题库全站共享，由管理员导入和管理（重命名、删除题库或题目），所有账号共用同一份题库，题目可分别加入各自的错题本。举一反三可按知识点从真题库选题（不消耗 AI 额度），也可选「真题库变式」：先选出题库题目，再由 AI 以该题为原题生成变式题。
 - **📦 多平台安装**：Docker 镜像（amd64 / arm64）、npm、Windows、macOS、Linux、飞牛OS、群晖/威联通套件、安卓手机与平板（单机版或客户端），也可添加到手机主屏幕（PWA）。
@@ -399,6 +399,9 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 | :--- | :--- | :--- | :--- |
 | MiniMax | [MiniMax 开放平台](https://platform.minimax.cn) | `https://api.minimax.cn/v1`（国际站 `https://api.minimax.io/v1`） | `MiniMax-M3.1-Flash` |
 | MiniMax Code OAuth | **免费账号**，网页登录，见[下文](#minimax-code-oauth) | 固定接口 | `MiniMax-M3.1-Flash` |
+| MiniMax Code OAuth（国际站） | **免费账号**，需海外网络，单独网页登录，见[下文](#minimax-code-oauth国际站) | `https://agent.minimax.io/mavis/api/v1/llm` | `MiniMax-M3.1-Flash` |
+| 硅基流动 SiliconFlow（国内站） | 实名认证后有**免费文字模型**，见[下文](#硅基流动) | `https://api.siliconflow.cn/v1` | `THUDM/GLM-Z1-9B-0414` |
+| 硅基流动（国际站） | 新用户 **$1 赠金**，按量付费，见[下文](#硅基流动) | `https://api.siliconflow.com/v1` | `Qwen/Qwen2.5-VL-7B-Instruct` |
 | 智谱 GLM | [智谱开放平台](https://open.bigmodel.cn) | `https://open.bigmodel.cn/api/paas/v4`（国际站 `https://api.z.ai/api/paas/v4`） | `glm-5.3-flash` |
 | DeepSeek | [DeepSeek 开放平台](https://platform.deepseek.com) | `https://api.deepseek.com` | `deepseek-v4-flash` |
 | Kimi | [Kimi 开放平台](https://platform.kimi.com) | `https://api.moonshot.cn/v1`（国际站 `https://api.moonshot.ai/v1`） | `kimi-k3.1-pro` |
@@ -429,6 +432,26 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 使用方法：在“设置 → AI 设置”中选择 MiniMax Code OAuth，点击“网页登录”，在打开的 MiniMax 页面完成授权即可；设置页会显示登录状态、剩余积分和今天是否已自动签到。
 
 登录凭据保存在服务端配置目录的 `minimax-code.json`（与 `app-config.json` 同目录，不随数据备份导出），Access Token 到期前自动续期。登录后服务每小时检查一次，当天（北京时间）还没签到时自动领取 MiniMax Code 的签到积分，也可以在设置页关闭自动签到或手动立即签到。该渠道使用 MiniMax Code 桌面客户端的登录方式（OAuth 设备码授权），不是官方开放接口，MiniMax 可能随时调整或限制；请遵守 MiniMax 的服务条款。
+
+#### MiniMax Code OAuth（国际站）
+
+**与国内站分开登录**：国际站使用 `account.minimax.io` 和 `agent.minimax.io`，账号、积分与登录凭据都和国内站（`account.minimax.cn` / `agent.minimax.cn`）分开，不能互换使用。在「设置 → AI 设置」选择「MiniMax Code OAuth（国际站）」后单独网页登录，设置页同样显示登录状态、剩余积分和今日签到，并独立开关每日自动签到。
+
+- **需要海外网络**：从中国大陆访问 `account.minimax.io` 会被重定向到国内站，拿到的凭据在国际站接口无效；请通过海外网络或代理使用，并让服务端走同一网络（可用 `HTTPS_PROXY`）。
+- **固定接口与默认模型**：模型接口为 `https://agent.minimax.io/mavis/api/v1/llm`，默认模型同样是 `MiniMax-M3.1-Flash`；可选 `MiniMax-M3`、`MiniMax-M3.1-Flash-Preview` 等国际站模型，以设置页的模型提示为准。
+- **配置分开**：国际站模型和自动签到用 `MINIMAX_CODE_GLOBAL_MODEL`、`MINIMAX_CODE_GLOBAL_AUTO_CHECKIN`，国内站继续用 `MINIMAX_CODE_MODEL`、`MINIMAX_CODE_AUTO_CHECKIN`。两个站的凭据都存放在 `minimax-code.json` 的不同区块中，互不影响。
+
+登录、签到和积分规则与国内站相同，也使用 MiniMax Code 桌面客户端的 OAuth 设备码授权，不是官方开放接口；MiniMax 可能随时调整或限制，请遵守其服务条款。
+
+#### 硅基流动
+
+硅基流动分为国内站和国际站两个渠道，分别使用独立的账号、API Key 和地址，默认模型也不同。
+
+- **国内站（`https://api.siliconflow.cn/v1`）**：注册并完成实名认证后，可使用免费的文字模型，如 `THUDM/GLM-Z1-9B-0414`（默认）、`THUDM/GLM-4-9B-0414`、`Qwen/Qwen2.5-7B-Instruct`、`Qwen/Qwen3-8B`、`Qwen/Qwen3.5-4B`、`deepseek-ai/DeepSeek-R1-0528-Qwen3-8B`、`XingChenAGI/Xing4.0-29B`。这些模型都只支持文字输入，且有固定速率限制，适合解题、判分、知识点等纯文字任务。
+- **国内站图片识别**：免费模型不能看图。拍照识别、配图重绘等需要图片输入的任务，可在同一 Key 下改用付费的视觉模型，或在「渠道分工」中把图片识别交给其他渠道。
+- **国际站（`https://api.siliconflow.com/v1`）**：独立注册，新用户有 $1 体验赠金，之后按量付费；国际站没有长期免费的文字模型。默认模型 `Qwen/Qwen2.5-VL-7B-Instruct` 支持图片输入、价格较低，赠金可用于先体验识题与解析。
+
+两个渠道都在设置页填写 API Key，Base URL 和模型留空时使用上表默认值；API Key 分别从 [国内站控制台](https://cloud.siliconflow.cn/account/ak) 和 [国际站控制台](https://cloud.siliconflow.com/account/ak) 获取。免费模型、赠金资格和速率限制以硅基流动账户页面显示为准。
 
 #### 火山引擎（免费试用）
 
@@ -509,10 +532,12 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 
 | 环境变量 | 描述 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |
-| `AI_PROVIDER` | AI 提供商 | `minimax` | 可选 `minimax`、`minimax-code`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`volcengine`、`volcengine-agent`、`volcengine-coding`、`volcengine-free`、`anthropic`、`azure`、`openai`、`gemini` |
+| `AI_PROVIDER` | AI 提供商 | `minimax` | 可选 `minimax`、`minimax-code`、`minimax-code-global`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`volcengine`、`volcengine-agent`、`volcengine-coding`、`volcengine-free`、`siliconflow`、`siliconflow-global`、`ollama`、`anthropic`、`azure`、`openai`、`gemini` |
 | `MINIMAX_API_KEY` / `MINIMAX_BASE_URL` / `MINIMAX_MODEL` | MiniMax | 地址 `https://api.minimax.cn/v1`，模型 `MiniMax-M3.1-Flash` | 地址和模型可留空 |
-| `MINIMAX_CODE_MODEL` | MiniMax Code 模型 | `MiniMax-M3.1-Flash` | 账号在网页设置中登录，无需 API Key |
-| `MINIMAX_CODE_AUTO_CHECKIN` | MiniMax Code 每日自动签到 | `true` | 设为 `false` 关闭 |
+| `MINIMAX_CODE_MODEL` | MiniMax Code（国内站）模型 | `MiniMax-M3.1-Flash` | 账号在网页设置中登录，无需 API Key |
+| `MINIMAX_CODE_AUTO_CHECKIN` | MiniMax Code（国内站）每日自动签到 | `true` | 设为 `false` 关闭 |
+| `MINIMAX_CODE_GLOBAL_MODEL` | MiniMax Code（国际站）模型 | `MiniMax-M3.1-Flash` | 国际站单独网页登录，需海外网络 |
+| `MINIMAX_CODE_GLOBAL_AUTO_CHECKIN` | MiniMax Code（国际站）每日自动签到 | `true` | 设为 `false` 关闭 |
 | `GLM_API_KEY` / `GLM_BASE_URL` / `GLM_MODEL` | 智谱 GLM | 地址 `https://open.bigmodel.cn/api/paas/v4`，模型 `glm-5.3-flash` | 地址和模型可留空 |
 | `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` | DeepSeek | 地址 `https://api.deepseek.com`，模型 `deepseek-v4-flash` | 地址和模型可留空 |
 | `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Kimi | 地址 `https://api.moonshot.cn/v1`，模型 `kimi-k3.1-pro` | 地址和模型可留空 |
@@ -522,6 +547,8 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 | `VOLCENGINE_AGENT_API_KEY` / `VOLCENGINE_AGENT_BASE_URL` / `VOLCENGINE_AGENT_MODEL` | 火山引擎 Agent Plan | 地址 `https://ark.cn-beijing.volces.com/api/plan/v3`，模型 `doubao-seed-evolving` | Agent Plan 管理页的专属 API Key；套餐含豆包语音合成 |
 | `VOLCENGINE_CODING_API_KEY` / `VOLCENGINE_CODING_BASE_URL` / `VOLCENGINE_CODING_MODEL` | 火山引擎 Coding Plan | 地址 `https://ark.cn-beijing.volces.com/api/coding/v3`，模型 `doubao-seed-evolving` | 方舟 API Key；不要改成 `/api/v3`（不计入套餐）；套餐不含语音合成 |
 | `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | 火山引擎（免费试用） | 地址 `https://ark.cn-beijing.volces.com/api/v3`，模型 `doubao-seed-evolving` | 新用户免费推理额度，开启「安心体验模式」后用完自动暂停 |
+| `SILICONFLOW_API_KEY` / `SILICONFLOW_BASE_URL` / `SILICONFLOW_MODEL` | 硅基流动 SiliconFlow（国内站） | 地址 `https://api.siliconflow.cn/v1`，模型 `THUDM/GLM-Z1-9B-0414` | 实名认证后免费文字模型；图片识别需付费视觉模型或改用其他渠道 |
+| `SILICONFLOW_GLOBAL_API_KEY` / `SILICONFLOW_GLOBAL_BASE_URL` / `SILICONFLOW_GLOBAL_MODEL` | 硅基流动（国际站） | 地址 `https://api.siliconflow.com/v1`，模型 `Qwen/Qwen2.5-VL-7B-Instruct` | 独立账号；新用户 $1 赠金，之后按量付费 |
 | `VOLCENGINE_TTS_API_KEY` | 豆包语音 API Key | 无 | 云端语音选择火山引擎豆包语音时使用，与火山方舟的 Key 不同 |
 | `ANTHROPIC_API_KEY` | Anthropic API Key | 无 | 从 [Claude Console](https://platform.claude.com/) 获取 |
 | `ANTHROPIC_BASE_URL` | API 地址 | `https://api.anthropic.com` | 兼容服务填写不含 `/v1` 的地址 |
@@ -580,7 +607,7 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 - **数据库**：[SQLite](https://www.sqlite.org/)（via [Prisma 5](https://www.prisma.io/)）
 - **样式**：[Tailwind CSS v4](https://tailwindcss.com/) + [Radix UI](https://www.radix-ui.com/)（shadcn/ui 风格组件）
 - **公式**：[KaTeX](https://katex.org/)（react-markdown + remark-math）
-- **AI**：MiniMax / MiniMax Code（网页登录）/ 智谱 GLM / DeepSeek / Kimi / 千问 Qwen / 阶跃星辰 StepFun / 火山引擎豆包（含 Agent Plan、Coding Plan、免费试用）/ Anthropic（及兼容接口）/ Azure OpenAI / OpenAI（及兼容接口）/ Google Gemini
+- **AI**：MiniMax / MiniMax Code（网页登录，含国内站与国际站）/ 智谱 GLM / DeepSeek / Kimi / 千问 Qwen / 阶跃星辰 StepFun / 火山引擎豆包（含 Agent Plan、Coding Plan、免费试用）/ 硅基流动 SiliconFlow（国内站、国际站）/ Ollama / Anthropic（及兼容接口）/ Azure OpenAI / OpenAI（及兼容接口）/ Google Gemini
 - **认证**：[NextAuth.js v4](https://next-auth.js.org/)
 - **测试**：Vitest（单元、集成）、Playwright（E2E）
 

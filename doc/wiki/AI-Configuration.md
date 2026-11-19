@@ -17,6 +17,9 @@ AI 设置、连接测试、模型列表与提示词设置只向管理员开放�
 | --- | --- | --- |
 | MiniMax | API Key | 默认 `https://api.minimax.cn/v1`；代码默认 `MiniMax-M3.1-Flash` |
 | MiniMax Code OAuth | 在设置页网页登录 MiniMax Code 账号 | 固定接口 `https://agent.minimax.cn/mavis/api/v1/llm`；代码默认 `MiniMax-M3.1-Flash` |
+| MiniMax Code OAuth（国际站） | 在设置页单独网页登录；需海外网络 | 固定接口 `https://agent.minimax.io/mavis/api/v1/llm`；代码默认 `MiniMax-M3.1-Flash` |
+| 硅基流动 SiliconFlow（国内站） | API Key；注册并实名认证后有免费文字模型 | 默认 `https://api.siliconflow.cn/v1`；代码默认免费模型 `THUDM/GLM-Z1-9B-0414`（仅文字输入） |
+| 硅基流动（国际站） | API Key；独立账号，新用户有 $1 赠金 | 默认 `https://api.siliconflow.com/v1`；代码默认 `Qwen/Qwen2.5-VL-7B-Instruct`（支持图片输入） |
 | 智谱 GLM | API Key | 默认 `https://open.bigmodel.cn/api/paas/v4`；代码默认 `glm-5.3-flash` |
 | DeepSeek | API Key | 默认 `https://api.deepseek.com`；代码默认 `deepseek-v4-flash` |
 | Kimi | API Key | 默认 `https://api.moonshot.cn/v1`；代码默认 `kimi-k3.1-pro` |
@@ -52,6 +55,26 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 
 该渠道使用 MiniMax Code 桌面客户端的登录方式，不是官方开放接口，MiniMax 可能随时调整或限制，请遵守其服务条款。
 
+## MiniMax Code OAuth（国际站）
+
+国际站与国内站分开登录：账号接口为 `https://account.minimax.io`，模型接口为 `https://agent.minimax.io/mavis/api/v1/llm`，账号、积分和凭据都与国内站（`account.minimax.cn` / `agent.minimax.cn`）分开，不能互换。
+
+- **需海外网络**：从中国大陆访问 `account.minimax.io` 会被重定向到国内站，得到的凭据在国际站接口无效；请通过海外网络或代理使用，并让服务端走同一网络（如 `HTTPS_PROXY`）。
+- **登录与签到**：在“设置 → AI 设置”选择「MiniMax Code OAuth（国际站）」后单独网页登录，账号区域同样显示登录状态、剩余积分和今日签到，可独立开关每日自动签到。
+- **配置分开**：国际站的模型和自动签到使用 `MINIMAX_CODE_GLOBAL_MODEL`、`MINIMAX_CODE_GLOBAL_AUTO_CHECKIN`；国内站仍用 `MINIMAX_CODE_MODEL`、`MINIMAX_CODE_AUTO_CHECKIN`。两个站的凭据存放在 `minimax-code.json` 的不同区块中。
+- **默认模型**：`MiniMax-M3.1-Flash`；也可选 `MiniMax-M3`、`MiniMax-M3.1-Flash-Preview` 等国际站模型，以设置页的模型提示为准。
+
+该渠道同样使用 MiniMax Code 桌面客户端的 OAuth 设备码授权，不是官方开放接口；MiniMax 可能随时调整或限制，请遵守其服务条款。
+
+## 硅基流动
+
+硅基流动分为国内站和国际站两个渠道，账号、API Key、地址和默认模型都分开。
+
+- **国内站**：默认地址 `https://api.siliconflow.cn/v1`，默认免费文字模型 `THUDM/GLM-Z1-9B-0414`。注册并完成实名认证后，还可使用 `THUDM/GLM-4-9B-0414`、`Qwen/Qwen2.5-7B-Instruct`、`Qwen/Qwen3-8B`、`Qwen/Qwen3.5-4B`、`deepseek-ai/DeepSeek-R1-0528-Qwen3-8B`、`XingChenAGI/Xing4.0-29B` 等免费模型。它们都只支持文字输入且有固定速率限制，适合解题、判分、知识点等纯文字任务。
+- **国内站图片识别**：免费模型不能看图；拍照识别、配图重绘等任务可改用同一 Key 下的付费视觉模型，或在“渠道分工”中把图片识别交给其他渠道。
+- **国际站**：默认地址 `https://api.siliconflow.com/v1`，默认模型 `Qwen/Qwen2.5-VL-7B-Instruct`（支持图片输入、价格较低）。独立注册，新用户有 $1 体验赠金，之后按量付费；国际站没有长期免费的文字模型。
+- **配置项**：国内站 `SILICONFLOW_API_KEY`、`SILICONFLOW_BASE_URL`、`SILICONFLOW_MODEL`；国际站 `SILICONFLOW_GLOBAL_API_KEY`、`SILICONFLOW_GLOBAL_BASE_URL`、`SILICONFLOW_GLOBAL_MODEL`。API Key 分别从[国内站控制台](https://cloud.siliconflow.cn/account/ak)和[国际站控制台](https://cloud.siliconflow.com/account/ak)获取；免费模型、赠金资格和速率限制以账户页面显示为准。
+
 ## 云端语音讲解
 
 动画的语音讲解默认由浏览器本地语音（Web Speech）朗读。管理员可在「设置 → AI 设置 → 语音讲解」改用云端语音，由服务端合成后播放，所有设备听到的音色一致：
@@ -75,12 +98,13 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 
 ## 环境变量
 
-基础选择使用 `AI_PROVIDER`，默认 `minimax`，可选 `minimax`、`minimax-code`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`volcengine`、`volcengine-agent`、`volcengine-coding`、`volcengine-free`、`ollama`、`anthropic`、`azure`、`openai`、`gemini`。
+基础选择使用 `AI_PROVIDER`，默认 `minimax`，可选 `minimax`、`minimax-code`、`minimax-code-global`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`volcengine`、`volcengine-agent`、`volcengine-coding`、`volcengine-free`、`siliconflow`、`siliconflow-global`、`ollama`、`anthropic`、`azure`、`openai`、`gemini`。
 
 | 提供商 | 配置项 |
 | --- | --- |
 | MiniMax | `MINIMAX_API_KEY`、`MINIMAX_BASE_URL`、`MINIMAX_MODEL` |
 | MiniMax Code OAuth | `MINIMAX_CODE_MODEL`、`MINIMAX_CODE_AUTO_CHECKIN`（账号只能在网页中登录） |
+| MiniMax Code OAuth（国际站） | `MINIMAX_CODE_GLOBAL_MODEL`、`MINIMAX_CODE_GLOBAL_AUTO_CHECKIN`（单独网页登录；需海外网络） |
 | 智谱 GLM | `GLM_API_KEY`、`GLM_BASE_URL`、`GLM_MODEL` |
 | DeepSeek | `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL` |
 | Kimi | `KIMI_API_KEY`、`KIMI_BASE_URL`、`KIMI_MODEL` |
@@ -90,6 +114,8 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 | 火山引擎 Agent Plan | `VOLCENGINE_AGENT_API_KEY`、`VOLCENGINE_AGENT_BASE_URL`、`VOLCENGINE_AGENT_MODEL` |
 | 火山引擎 Coding Plan | `VOLCENGINE_CODING_API_KEY`、`VOLCENGINE_CODING_BASE_URL`、`VOLCENGINE_CODING_MODEL` |
 | 火山引擎（免费试用） | `VOLCENGINE_FREE_API_KEY`、`VOLCENGINE_FREE_BASE_URL`、`VOLCENGINE_FREE_MODEL` |
+| 硅基流动 SiliconFlow（国内站） | `SILICONFLOW_API_KEY`、`SILICONFLOW_BASE_URL`、`SILICONFLOW_MODEL` |
+| 硅基流动（国际站） | `SILICONFLOW_GLOBAL_API_KEY`、`SILICONFLOW_GLOBAL_BASE_URL`、`SILICONFLOW_GLOBAL_MODEL` |
 | Ollama（本地） | `OLLAMA_API_KEY`（可填 `ollama`）、`OLLAMA_BASE_URL`、`OLLAMA_MODEL` |
 | 豆包语音（云端语音） | `VOLCENGINE_TTS_API_KEY` |
 | Anthropic | `ANTHROPIC_API_KEY`、`ANTHROPIC_BASE_URL`、`ANTHROPIC_MODEL` |

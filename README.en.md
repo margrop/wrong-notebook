@@ -28,7 +28,7 @@ An AI-powered notebook for the questions you got wrong. Snap a photo or type a q
   | Browser voice (Web Speech) | Read by the device's built-in voice; sounds stiff, and the voice varies by device | Free |
   | Cloud TTS (MiniMax, Qwen, Zhipu GLM-TTS, StepFun, Volcengine Doubao Speech, Volcengine Agent Plan, OpenAI) | Natural, just like a real person explaining the problem, and the same on every device | Paid; **a Token Plan or similar subscription is recommended** over pay-as-you-go. Volcengine offers a [free trial quota](https://docs.volcengine.com/docs/ark/free-inference-quota?lang=zh) you can turn on by following its docs |
 
-- **🆓 Works with free accounts**: choose the "MiniMax Code OAuth" channel and sign in with a MiniMax Code account in the browser, with no API key to buy; the app checks in every day to collect credits (see [MiniMax Code OAuth](#minimax-code-oauth)). New Volcengine users also get a [free inference quota](#volcengine-free-trial).
+- **🆓 Works with free accounts**: choose the "MiniMax Code OAuth" channel and sign in with a MiniMax Code account in the browser, with no API key to buy; the app checks in every day to collect credits (see [MiniMax Code OAuth](#minimax-code-oauth)). The SiliconFlow China site offers free text models after identity verification, and its international site gives new users a $1 credit (see [SiliconFlow](#siliconflow)). New Volcengine users also get a [free inference quota](#volcengine-free-trial).
 - **📚 A complete review loop**: auto-graded similar questions, AI mastery estimates, daily review at Ebbinghaus intervals, and printable exams built from your mistakes with per-question results.
 - **🗂️ Shared question banks**: the new Question Bank page downloads primary, junior-high and senior-high subject banks from [margrop/wrong-notebook-question-bank](https://github.com/margrop/wrong-notebook-question-bank). Imported questions stay in the bank by default and do not become mistakes; you can optionally add them to a notebook. Banks are shared site-wide and imported and managed by the administrator (renaming or deleting a bank or question affects all accounts); every account uses the same banks and can add bank questions to its own notebook. Practice can pick a bank question by knowledge point without spending AI quota, or choose **Variant from bank** to have AI generate a variant seeded by a selected bank question.
 - **📦 Install anywhere**: Docker image (amd64 / arm64), npm, Windows, macOS, Linux, fnOS, Synology/QNAP packages, Android phones and tablets (standalone or client), or add it to your home screen as a PWA.
@@ -401,6 +401,9 @@ The official Chinese model channels call each vendor's OpenAI-compatible API, so
 | :--- | :--- | :--- | :--- |
 | MiniMax | [MiniMax platform](https://platform.minimax.io) | `https://api.minimax.cn/v1` (international `https://api.minimax.io/v1`) | `MiniMax-M3.1-Flash` |
 | MiniMax Code OAuth | **Free account**, browser sign-in; see [below](#minimax-code-oauth) | Fixed endpoint | `MiniMax-M3.1-Flash` |
+| MiniMax Code OAuth (international) | **Free account**, overseas network required, separate browser sign-in; see [below](#minimax-code-oauth-international) | `https://agent.minimax.io/mavis/api/v1/llm` | `MiniMax-M3.1-Flash` |
+| SiliconFlow (China site) | **Free text models** after identity verification; see [below](#siliconflow) | `https://api.siliconflow.cn/v1` | `THUDM/GLM-Z1-9B-0414` |
+| SiliconFlow (international) | **$1 credit** for new users, then pay-as-you-go; see [below](#siliconflow) | `https://api.siliconflow.com/v1` | `Qwen/Qwen2.5-VL-7B-Instruct` |
 | Zhipu GLM | [Z.ai platform](https://z.ai) | `https://open.bigmodel.cn/api/paas/v4` (international `https://api.z.ai/api/paas/v4`) | `glm-5.3-flash` |
 | DeepSeek | [DeepSeek platform](https://platform.deepseek.com) | `https://api.deepseek.com` | `deepseek-v4-flash` |
 | Kimi | [Kimi platform](https://platform.kimi.com) | `https://api.moonshot.cn/v1` (international `https://api.moonshot.ai/v1`) | `kimi-k3.1-pro` |
@@ -431,6 +434,26 @@ The official Chinese model channels call each vendor's OpenAI-compatible API, so
 To set it up, choose MiniMax Code OAuth in "Settings → AI Provider", click "Sign in with browser" and finish authorizing on the MiniMax page that opens. The settings page shows the login status, the remaining credits and whether today's check-in was done automatically.
 
 The credentials are stored in `minimax-code.json` in the server's config directory (next to `app-config.json`, not included in data backups), and the access token is renewed automatically before it expires. Once signed in, the server checks every hour and collects the MiniMax Code daily check-in credits if today's check-in (Beijing time) has not been done yet. You can turn auto check-in off or check in right away on the settings page. This channel uses the sign-in of the MiniMax Code desktop client (OAuth device authorization) rather than an official open API, so MiniMax may change or restrict it at any time. Follow MiniMax's terms of service.
+
+#### MiniMax Code OAuth (international)
+
+**Signed in separately from the China site**: the international site uses `account.minimax.io` and `agent.minimax.io`; its account, credits and credentials are separate from the China site (`account.minimax.cn` / `agent.minimax.cn`) and cannot be exchanged. Choose "MiniMax Code OAuth (international)" under **Settings → AI Provider** and sign in on its own page. The settings page shows the login status, remaining credits and today's check-in, and toggles daily auto check-in independently.
+
+- **Overseas network required**: requests from mainland China to `account.minimax.io` are redirected to the China site, and the resulting credentials do not work on the international API. Use an overseas network or proxy, and make the server use the same route (for example via `HTTPS_PROXY`).
+- **Fixed endpoint and default model**: the model endpoint is `https://agent.minimax.io/mavis/api/v1/llm`, and the default model is again `MiniMax-M3.1-Flash`; `MiniMax-M3`, `MiniMax-M3.1-Flash-Preview` and other international models are available, as shown by the model hint on the settings page.
+- **Separate configuration**: the international model and auto check-in use `MINIMAX_CODE_GLOBAL_MODEL` and `MINIMAX_CODE_GLOBAL_AUTO_CHECKIN`; the China site keeps `MINIMAX_CODE_MODEL` and `MINIMAX_CODE_AUTO_CHECKIN`. Both credentials live in separate sections of `minimax-code.json` and do not affect each other.
+
+Login, check-in and credit rules are the same as on the China site. This channel also uses the MiniMax Code desktop client's OAuth device authorization rather than an official open API; MiniMax may change or restrict it at any time, so follow its terms of service.
+
+#### SiliconFlow
+
+SiliconFlow is split into China-site and international channels with separate accounts, API keys and endpoints, and different default models.
+
+- **China site (`https://api.siliconflow.cn/v1`)**: after registration and identity verification, free text models are available, including `THUDM/GLM-Z1-9B-0414` (default), `THUDM/GLM-4-9B-0414`, `Qwen/Qwen2.5-7B-Instruct`, `Qwen/Qwen3-8B`, `Qwen/Qwen3.5-4B`, `deepseek-ai/DeepSeek-R1-0528-Qwen3-8B` and `XingChenAGI/Xing4.0-29B`. They accept text only and have fixed rate limits, which suits text-only work such as solving, grading and tagging.
+- **Vision on the China site**: the free models cannot see images. For photo recognition and figure redrawing, switch to a paid vision model with the same key, or route image recognition to another channel under **Channel routing**.
+- **International (`https://api.siliconflow.com/v1`)**: register separately; new users get a $1 trial credit, then pay as you go. There are no permanently free text models. The default `Qwen/Qwen2.5-VL-7B-Instruct` accepts images and is inexpensive, so the credit can cover an initial try at recognition and explanations.
+
+Both channels take an API key on the settings page; leaving the base URL and model empty uses the defaults above. Get keys from the [China console](https://cloud.siliconflow.cn/account/ak) and the [international console](https://cloud.siliconflow.com/account/ak). Free-model availability, credit eligibility and rate limits are shown in your SiliconFlow account.
 
 #### Volcengine (free trial)
 
@@ -511,10 +534,12 @@ The most common variables are below; see the collapsed table and [`.env.example`
 
 | Variable | Description | Default | Notes |
 | :--- | :--- | :--- | :--- |
-| `AI_PROVIDER` | AI provider | `minimax` | `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-agent`, `volcengine-coding`, `volcengine-free`, `anthropic`, `azure`, `openai` or `gemini` |
+| `AI_PROVIDER` | AI provider | `minimax` | `minimax`, `minimax-code`, `minimax-code-global`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-agent`, `volcengine-coding`, `volcengine-free`, `siliconflow`, `siliconflow-global`, `ollama`, `anthropic`, `azure`, `openai` or `gemini` |
 | `MINIMAX_API_KEY` / `MINIMAX_BASE_URL` / `MINIMAX_MODEL` | MiniMax | URL `https://api.minimax.cn/v1`, model `MiniMax-M3.1-Flash` | URL and model are optional |
-| `MINIMAX_CODE_MODEL` | MiniMax Code model | `MiniMax-M3.1-Flash` | The account signs in from the web settings; no API key needed |
-| `MINIMAX_CODE_AUTO_CHECKIN` | MiniMax Code daily auto check-in | `true` | Set to `false` to turn it off |
+| `MINIMAX_CODE_MODEL` | MiniMax Code (China site) model | `MiniMax-M3.1-Flash` | The account signs in from the web settings; no API key needed |
+| `MINIMAX_CODE_AUTO_CHECKIN` | MiniMax Code (China site) daily auto check-in | `true` | Set to `false` to turn it off |
+| `MINIMAX_CODE_GLOBAL_MODEL` | MiniMax Code (international) model | `MiniMax-M3.1-Flash` | Separate browser sign-in; overseas network required |
+| `MINIMAX_CODE_GLOBAL_AUTO_CHECKIN` | MiniMax Code (international) daily auto check-in | `true` | Set to `false` to turn it off |
 | `GLM_API_KEY` / `GLM_BASE_URL` / `GLM_MODEL` | Zhipu GLM | URL `https://open.bigmodel.cn/api/paas/v4`, model `glm-5.3-flash` | URL and model are optional |
 | `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` | DeepSeek | URL `https://api.deepseek.com`, model `deepseek-v4-flash` | URL and model are optional |
 | `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Kimi | URL `https://api.moonshot.cn/v1`, model `kimi-k3.1-pro` | URL and model are optional |
@@ -524,6 +549,8 @@ The most common variables are below; see the collapsed table and [`.env.example`
 | `VOLCENGINE_AGENT_API_KEY` / `VOLCENGINE_AGENT_BASE_URL` / `VOLCENGINE_AGENT_MODEL` | Volcengine Agent Plan | URL `https://ark.cn-beijing.volces.com/api/plan/v3`, model `doubao-seed-evolving` | The plan's dedicated API key from the Agent Plan page; the plan includes Doubao speech synthesis |
 | `VOLCENGINE_CODING_API_KEY` / `VOLCENGINE_CODING_BASE_URL` / `VOLCENGINE_CODING_MODEL` | Volcengine Coding Plan | URL `https://ark.cn-beijing.volces.com/api/coding/v3`, model `doubao-seed-evolving` | Ark API key; do not change it to `/api/v3` (not counted toward the plan); the plan does not include speech synthesis |
 | `VOLCENGINE_FREE_API_KEY` / `VOLCENGINE_FREE_BASE_URL` / `VOLCENGINE_FREE_MODEL` | Volcengine (free trial) | URL `https://ark.cn-beijing.volces.com/api/v3`, model `doubao-seed-evolving` | Free inference quota for new users; with worry-free trial mode on, calls pause when it runs out |
+| `SILICONFLOW_API_KEY` / `SILICONFLOW_BASE_URL` / `SILICONFLOW_MODEL` | SiliconFlow (China site) | URL `https://api.siliconflow.cn/v1`, model `THUDM/GLM-Z1-9B-0414` | Free text models after identity verification; vision needs a paid model or another channel |
+| `SILICONFLOW_GLOBAL_API_KEY` / `SILICONFLOW_GLOBAL_BASE_URL` / `SILICONFLOW_GLOBAL_MODEL` | SiliconFlow (international) | URL `https://api.siliconflow.com/v1`, model `Qwen/Qwen2.5-VL-7B-Instruct` | Separate account; $1 credit for new users, then pay-as-you-go |
 | `VOLCENGINE_TTS_API_KEY` | Doubao Speech API key | None | Used when cloud voice is Volcengine Doubao Speech; different from the Volcengine Ark key |
 | `ANTHROPIC_API_KEY` | Anthropic API key | None | From the [Claude Console](https://platform.claude.com/) |
 | `ANTHROPIC_BASE_URL` | API URL | `https://api.anthropic.com` | For compatible services, use the URL without `/v1` |
@@ -582,7 +609,7 @@ Screen capture requires a secure browser context (HTTPS). When running in Docker
 - **Database**: [SQLite](https://www.sqlite.org/) (via [Prisma 5](https://www.prisma.io/))
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) + [Radix UI](https://www.radix-ui.com/) (shadcn/ui-style components)
 - **Formulas**: [KaTeX](https://katex.org/) (react-markdown + remark-math)
-- **AI**: MiniMax / MiniMax Code (browser sign-in) / Zhipu GLM / DeepSeek / Kimi / Qwen / StepFun / Volcengine Doubao (including Agent Plan, Coding Plan and a free trial) / Anthropic (and compatible APIs) / Azure OpenAI / OpenAI (and compatible APIs) / Google Gemini
+- **AI**: MiniMax / MiniMax Code (browser sign-in, China and international sites) / Zhipu GLM / DeepSeek / Kimi / Qwen / StepFun / Volcengine Doubao (including Agent Plan, Coding Plan and a free trial) / SiliconFlow (China site and international) / Ollama / Anthropic (and compatible APIs) / Azure OpenAI / OpenAI (and compatible APIs) / Google Gemini
 - **Auth**: [NextAuth.js v4](https://next-auth.js.org/)
 - **Testing**: Vitest (unit, integration), Playwright (E2E)
 

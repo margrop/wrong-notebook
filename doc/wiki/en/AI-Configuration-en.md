@@ -17,6 +17,9 @@ AI settings, connection tests, model lists and prompt settings are admin-only. T
 | --- | --- | --- |
 | MiniMax | API key | Defaults to `https://api.minimax.cn/v1`; code default `MiniMax-M3.1-Flash` |
 | MiniMax Code OAuth | Sign in to a MiniMax Code account on the settings page | Fixed endpoint `https://agent.minimax.cn/mavis/api/v1/llm`; code default `MiniMax-M3.1-Flash` |
+| MiniMax Code OAuth (international) | Separate browser sign-in on the settings page; overseas network required | Fixed endpoint `https://agent.minimax.io/mavis/api/v1/llm`; code default `MiniMax-M3.1-Flash` |
+| SiliconFlow (China site) | API key; free text models after registration and identity verification | Defaults to `https://api.siliconflow.cn/v1`; code default free model `THUDM/GLM-Z1-9B-0414` (text input only) |
+| SiliconFlow (international) | API key; separate account; $1 credit for new users | Defaults to `https://api.siliconflow.com/v1`; code default `Qwen/Qwen2.5-VL-7B-Instruct` (accepts images) |
 | Zhipu GLM | API key | Defaults to `https://open.bigmodel.cn/api/paas/v4`; code default `glm-5.3-flash` |
 | DeepSeek | API key | Defaults to `https://api.deepseek.com`; code default `deepseek-v4-flash` |
 | Kimi | API key | Defaults to `https://api.moonshot.cn/v1`; code default `kimi-k3.1-pro` |
@@ -52,6 +55,26 @@ The credentials are stored in `minimax-code.json` in the config directory, and t
 
 This channel uses the sign-in of the MiniMax Code desktop client rather than an official open API. MiniMax may change or restrict it at any time; follow its terms of service.
 
+## MiniMax Code OAuth (international)
+
+The international site signs in separately from the China site: the account endpoint is `https://account.minimax.io` and the model endpoint is `https://agent.minimax.io/mavis/api/v1/llm`. The account, credits and credentials are separate from the China site (`account.minimax.cn` / `agent.minimax.cn`) and cannot be exchanged.
+
+- **Overseas network required**: requests from mainland China to `account.minimax.io` are redirected to the China site, and the resulting credentials do not work on the international API. Use an overseas network or proxy, and make the server use the same route (for example `HTTPS_PROXY`).
+- **Sign-in and check-in**: choose "MiniMax Code OAuth (international)" under **Settings → AI Provider** and sign in on its own page. The account area shows the login status, remaining credits and today's check-in, and daily auto check-in can be toggled independently.
+- **Separate configuration**: the international site uses `MINIMAX_CODE_GLOBAL_MODEL` and `MINIMAX_CODE_GLOBAL_AUTO_CHECKIN`; the China site keeps `MINIMAX_CODE_MODEL` and `MINIMAX_CODE_AUTO_CHECKIN`. Both credentials live in separate sections of `minimax-code.json`.
+- **Default model**: `MiniMax-M3.1-Flash`; `MiniMax-M3`, `MiniMax-M3.1-Flash-Preview` and other international models are also available, as shown by the model hint on the settings page.
+
+This channel also uses the MiniMax Code desktop client's OAuth device authorization rather than an official open API. MiniMax may change or restrict it at any time; follow its terms of service.
+
+## SiliconFlow
+
+SiliconFlow is split into China-site and international channels, with separate accounts, API keys, endpoints and default models.
+
+- **China site**: default endpoint `https://api.siliconflow.cn/v1`, default free text model `THUDM/GLM-Z1-9B-0414`. After registration and identity verification, the free models also include `THUDM/GLM-4-9B-0414`, `Qwen/Qwen2.5-7B-Instruct`, `Qwen/Qwen3-8B`, `Qwen/Qwen3.5-4B`, `deepseek-ai/DeepSeek-R1-0528-Qwen3-8B` and `XingChenAGI/Xing4.0-29B`. They accept text only and have fixed rate limits, which suits text-only work such as solving, grading and tagging.
+- **Vision on the China site**: the free models cannot see images; for photo recognition and figure redrawing, switch to a paid vision model with the same key, or route image recognition to another channel under **Channel routing**.
+- **International**: default endpoint `https://api.siliconflow.com/v1`, default model `Qwen/Qwen2.5-VL-7B-Instruct` (accepts images and is inexpensive). Register separately; new users get a $1 trial credit, then pay as you go. There are no permanently free text models on the international site.
+- **Configuration**: the China site uses `SILICONFLOW_API_KEY`, `SILICONFLOW_BASE_URL` and `SILICONFLOW_MODEL`; the international site uses `SILICONFLOW_GLOBAL_API_KEY`, `SILICONFLOW_GLOBAL_BASE_URL` and `SILICONFLOW_GLOBAL_MODEL`. Get keys from the [China console](https://cloud.siliconflow.cn/account/ak) and the [international console](https://cloud.siliconflow.com/account/ak); free-model availability, credit eligibility and rate limits are shown in your account.
+
 ## Cloud voice narration
 
 Animation narration is read by the browser's own voice (Web Speech) by default. Admins can switch to a cloud voice under **Settings → AI → Voice narration**; the server synthesizes the speech, so every device hears the same voice:
@@ -75,12 +98,13 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 
 ## Environment variables
 
-`AI_PROVIDER` selects the provider. It defaults to `minimax` and accepts `minimax`, `minimax-code`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-agent`, `volcengine-coding`, `volcengine-free`, `ollama`, `anthropic`, `azure`, `openai` and `gemini`.
+`AI_PROVIDER` selects the provider. It defaults to `minimax` and accepts `minimax`, `minimax-code`, `minimax-code-global`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-agent`, `volcengine-coding`, `volcengine-free`, `siliconflow`, `siliconflow-global`, `ollama`, `anthropic`, `azure`, `openai` and `gemini`.
 
 | Provider | Variables |
 | --- | --- |
 | MiniMax | `MINIMAX_API_KEY`, `MINIMAX_BASE_URL`, `MINIMAX_MODEL` |
 | MiniMax Code OAuth | `MINIMAX_CODE_MODEL`, `MINIMAX_CODE_AUTO_CHECKIN` (the account can only sign in from the web UI) |
+| MiniMax Code OAuth (international) | `MINIMAX_CODE_GLOBAL_MODEL`, `MINIMAX_CODE_GLOBAL_AUTO_CHECKIN` (separate browser sign-in; overseas network required) |
 | Zhipu GLM | `GLM_API_KEY`, `GLM_BASE_URL`, `GLM_MODEL` |
 | DeepSeek | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` |
 | Kimi | `KIMI_API_KEY`, `KIMI_BASE_URL`, `KIMI_MODEL` |
@@ -90,6 +114,8 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 | Volcengine Agent Plan | `VOLCENGINE_AGENT_API_KEY`, `VOLCENGINE_AGENT_BASE_URL`, `VOLCENGINE_AGENT_MODEL` |
 | Volcengine Coding Plan | `VOLCENGINE_CODING_API_KEY`, `VOLCENGINE_CODING_BASE_URL`, `VOLCENGINE_CODING_MODEL` |
 | Volcengine (free trial) | `VOLCENGINE_FREE_API_KEY`, `VOLCENGINE_FREE_BASE_URL`, `VOLCENGINE_FREE_MODEL` |
+| SiliconFlow (China site) | `SILICONFLOW_API_KEY`, `SILICONFLOW_BASE_URL`, `SILICONFLOW_MODEL` |
+| SiliconFlow (international) | `SILICONFLOW_GLOBAL_API_KEY`, `SILICONFLOW_GLOBAL_BASE_URL`, `SILICONFLOW_GLOBAL_MODEL` |
 | Ollama (local) | `OLLAMA_API_KEY` (may be `ollama`), `OLLAMA_BASE_URL`, `OLLAMA_MODEL` |
 | Doubao Speech (cloud voice) | `VOLCENGINE_TTS_API_KEY` |
 | Anthropic | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL` |
