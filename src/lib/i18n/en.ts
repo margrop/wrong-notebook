@@ -937,6 +937,16 @@ export const en = {
                     body: "New Volcengine accounts get a free inference quota for each model (500,000 tokens per model, per Volcengine's docs). Turn on worry-free trial mode under Activation Management in the Ark console: calls only use the free quota and pause when it is nearly used up, so you are never charged. To keep going afterwards, verify your identity and switch to the regular Volcengine channel.",
                 },
                 qwenBaseUrlHint: "The default is the Alibaba Cloud Model Studio Token Plan endpoint (recommended; keys start with sk-sp-). For a pay-as-you-go key, enter https://dashscope.aliyuncs.com/compatible-mode/v1.",
+                siliconflowBaseUrlHint: "The default is the free THUDM/GLM-Z1-9B-0414 (text input only). Free chat models do not accept images; for question recognition use a paid vision model under the same key (check the model list) or route image recognition to another channel under Channel routing. For the international site, enter https://api.siliconflow.com/v1.",
+                siliconflowFree: {
+                    title: "Free models",
+                    body: "The SiliconFlow China site makes some chat models free (currently THUDM/GLM-Z1-9B-0414, THUDM/GLM-4-9B-0414 and Qwen/Qwen3-8B among others), available after identity verification with a fixed rate limit. Free chat models take text only: image recognition needs a paid vision model or another channel. Check the official pricing page for the current free list.",
+                },
+                siliconflowGlobalBaseUrlHint: "The international endpoint is fixed at https://api.siliconflow.com/v1 (not the China site's api.siliconflow.cn). The default Qwen/Qwen2.5-VL-7B-Instruct accepts images at about $0.05 per million input tokens, payable from the new-user credit. API keys, accounts and credits do not carry over between the two sites.",
+                siliconflowGlobalFree: {
+                    title: "New-user credit",
+                    body: "New users on the SiliconFlow international site get a $1 trial credit, deducted at live prices; the international site has no permanently free chat models. The default Qwen/Qwen2.5-VL-7B-Instruct is inexpensive and accepts images, so $1 covers roughly 20 million input tokens (output billed separately). Top up when the credit runs out; for permanently free text models, use the SiliconFlow China channel instead.",
+                },
                 minimaxCode: {
                     title: "MiniMax Code account",
                     intro: "Sign in to your MiniMax Code account in the browser. The app uses this login to call MiniMax Code models, so no API key is needed.",

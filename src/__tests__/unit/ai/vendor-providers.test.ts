@@ -51,6 +51,8 @@ const EXPECTED: Record<VendorProviderId, { baseUrl: string; model: string }> = {
     'volcengine-agent': { baseUrl: 'https://ark.cn-beijing.volces.com/api/plan/v3', model: 'doubao-seed-evolving' },
     'volcengine-coding': { baseUrl: 'https://ark.cn-beijing.volces.com/api/coding/v3', model: 'doubao-seed-evolving' },
     'volcengine-free': { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-evolving' },
+    siliconflow: { baseUrl: 'https://api.siliconflow.cn/v1', model: 'THUDM/GLM-Z1-9B-0414' },
+    'siliconflow-global': { baseUrl: 'https://api.siliconflow.com/v1', model: 'Qwen/Qwen2.5-VL-7B-Instruct' },
     ollama: { baseUrl: 'http://localhost:11434/v1', model: 'qwen3-vl:8b' },
 };
 
@@ -72,6 +74,8 @@ describe('国产大模型渠道预设', () => {
         }
         expect(getVendorName('volcengine-free', 'en')).toBe('Volcengine (free trial)');
         expect(getVendorName('glm', 'zh')).toBe('智谱 GLM');
+        expect(getVendorName('siliconflow', 'zh')).toBe('硅基流动 SiliconFlow');
+        expect(getVendorName('siliconflow-global', 'en')).toBe('SiliconFlow (international)');
     });
 
     it('只识别已知渠道', () => {

@@ -8,10 +8,10 @@ import { VENDOR_PROVIDER_IDS } from '@/lib/ai/vendor-presets';
 const isHttps = (url: string | undefined) => !url || url.startsWith('https://');
 
 describe('官方接入文档', () => {
-    it('国产大模型渠道都有国内站文档，链接为 https', () => {
+    it('国产大模型渠道都有国内站或国际站文档，链接为 https', () => {
         for (const id of VENDOR_PROVIDER_IDS) {
             const docs = getProviderDocs(id);
-            expect(docs?.cn, id).toMatch(/^https:\/\//);
+            expect(docs?.cn ?? docs?.intl, id).toMatch(/^https:\/\//);
             expect(isHttps(docs?.intl), id).toBe(true);
         }
     });
@@ -23,6 +23,12 @@ describe('官方接入文档', () => {
         });
         expect(getProviderDocs('kimi')?.intl).toContain('moonshot.ai');
         expect(getProviderDocs('deepseek')?.intl).toBeUndefined();
+        expect(getProviderDocs('siliconflow')).toMatchObject({
+            cn: 'https://docs.siliconflow.cn/cn/userguide/quickstart',
+            intl: 'https://docs.siliconflow.com/en/userguide/quickstart',
+        });
+        expect(getProviderDocs('siliconflow-global')?.cn).toBeUndefined();
+        expect(getProviderDocs('siliconflow-global')?.intl).toContain('siliconflow.com');
     });
 
     it('海外提供商只有一个入口；MiniMax Code OAuth 没有', () => {

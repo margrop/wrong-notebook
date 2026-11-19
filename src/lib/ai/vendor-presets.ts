@@ -1,19 +1,19 @@
 /**
- * 内置 OpenAI 兼容渠道预设：国产大模型官方渠道 + 本地 Ollama，均复用 OpenAIProvider。
+ * 内置 OpenAI 兼容渠道预设：国产大模型官方渠道、硅基流动 + 本地 Ollama，均复用 OpenAIProvider。
  * 本文件不依赖 Node 模块，前端设置界面也会引用。
  */
 
 export interface VendorPreset {
     name: string;        // 中文界面的显示名称
     nameEn: string;      // 英文界面的显示名称
-    baseUrl: string;     // 官方 OpenAI 兼容地址（中国大陆）
+    baseUrl: string;     // 官方 OpenAI 兼容地址（国内站或国际站）
     model: string;       // 默认模型（当前最新、支持图片输入）
     envPrefix: string;   // 环境变量前缀：<PREFIX>_API_KEY / _BASE_URL / _MODEL
     consoleUrl: string;  // 获取 API Key 的控制台
     /** 本地服务不校验 Key 时使用的占位 API Key（如 Ollama 要求非空但忽略内容） */
     defaultApiKey?: string;
-    /** 官方接入文档：国内站与国际站（只有一个入口时只填 cn），以及获取 API Key 的说明和模型列表 */
-    docs: { cn: string; intl?: string; apiKey: string; models: string };
+    /** 官方接入文档：国内站与国际站（只有一个入口时只填 cn 或 intl），以及获取 API Key 的说明和模型列表 */
+    docs: { cn?: string; intl?: string; apiKey: string; models: string };
 }
 
 export const VENDOR_PRESETS = {
@@ -112,6 +112,27 @@ export const VENDOR_PRESETS = {
         envPrefix: 'VOLCENGINE_FREE',
         consoleUrl: 'https://console.volcengine.com/ark',
         docs: { cn: 'https://www.volcengine.com/docs/82379/1399514', apiKey: 'https://www.volcengine.com/docs/82379/1541594', models: 'https://www.volcengine.com/docs/82379/1330310' },
+    },
+    // 硅基流动中国站：OpenAI 兼容接口；默认使用免费的 GLM-Z1-9B-0414。
+    // 免费对话模型只有文本输入，图片识别需另选付费视觉模型或把识别渠道设为其他渠道
+    siliconflow: {
+        name: '硅基流动 SiliconFlow',
+        nameEn: 'SiliconFlow',
+        baseUrl: 'https://api.siliconflow.cn/v1',
+        model: 'THUDM/GLM-Z1-9B-0414',
+        envPrefix: 'SILICONFLOW',
+        consoleUrl: 'https://cloud.siliconflow.cn',
+        docs: { cn: 'https://docs.siliconflow.cn/cn/userguide/quickstart', intl: 'https://docs.siliconflow.com/en/userguide/quickstart', apiKey: 'https://docs.siliconflow.cn/cn/userguide/quickstart', models: 'https://www.siliconflow.cn/pricing' },
+    },
+    // 硅基流动国际站：独立账号与地址，新用户有 $1 体验赠金；默认用便宜的视觉模型 Qwen2.5-VL-7B
+    'siliconflow-global': {
+        name: '硅基流动（国际站）',
+        nameEn: 'SiliconFlow (international)',
+        baseUrl: 'https://api.siliconflow.com/v1',
+        model: 'Qwen/Qwen2.5-VL-7B-Instruct',
+        envPrefix: 'SILICONFLOW_GLOBAL',
+        consoleUrl: 'https://cloud.siliconflow.com',
+        docs: { intl: 'https://docs.siliconflow.com/en/userguide/quickstart', apiKey: 'https://docs.siliconflow.com/en/userguide/quickstart', models: 'https://www.siliconflow.com/pricing' },
     },
     // 本地 Ollama：OpenAI 兼容接口；API Key 必须非空但本地服务不校验，模型需支持图片输入
     ollama: {
