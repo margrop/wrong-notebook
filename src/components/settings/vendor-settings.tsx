@@ -15,12 +15,12 @@ interface VendorSettingsProps {
     onChange: (value: VendorConfig) => void;
 }
 
-/** MiniMax、GLM 等国产大模型官方渠道的配置表单，地址和模型留空时使用官方默认值 */
+/** 兼容渠道的配置表单，地址和模型留空时使用预设值 */
 export function VendorSettings({ provider, value, onChange }: VendorSettingsProps) {
     const { t } = useLanguage();
     const preset: VendorPreset = VENDOR_PRESETS[provider];
     const update = (key: keyof VendorConfig, next: string) => onChange({ ...value, [key]: next });
-    // 默认地址为套餐地址的渠道单独说明按量付费和国际站的地址
+    // 各渠道特有的地址说明
     const baseUrlHints: Partial<Record<VendorProviderId, string>> = {
         qwen: t.settings?.ai?.qwenBaseUrlHint,
         stepfun: t.settings?.ai?.stepfunBaseUrlHint,
@@ -29,6 +29,7 @@ export function VendorSettings({ provider, value, onChange }: VendorSettingsProp
         "volcengine-coding": t.settings?.ai?.volcengineCodingBaseUrlHint,
         siliconflow: t.settings?.ai?.siliconflowBaseUrlHint,
         "siliconflow-global": t.settings?.ai?.siliconflowGlobalBaseUrlHint,
+        "openai-responses": t.settings?.ai?.openaiResponsesBaseUrlHint,
     };
     // 免费额度说明：火山引擎新用户免费试用、硅基流动免费模型与体验赠金
     const freeNotices: Partial<Record<VendorProviderId, { title: string; body: string }>> = {

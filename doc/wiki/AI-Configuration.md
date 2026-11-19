@@ -9,7 +9,7 @@
 3. 测试连接；需要时从接口获取模型列表。测试失败时，除错误类型外还会显示服务商的原始报错（如额度用完、模型不存在），便于排查。
 4. 保存设置，再用一道真实题目检查图片输入、解析格式和答案质量。
 
-AI 设置、连接测试、模型列表与提示词设置只向管理员开放。OpenAI 配置支持多个实例，最多 10 个，通过当前激活实例决定实际使用的配置。
+AI 设置、连接测试、模型列表与提示词设置只向管理员开放。「OpenAI / Compatible」（Chat Completions）支持最多 10 个实例，通过当前激活实例决定实际使用的配置。Responses API 使用独立的配置。
 
 ## 提供商参数
 
@@ -32,12 +32,15 @@ AI 设置、连接测试、模型列表与提示词设置只向管理员开放�
 | Ollama（本地） | API Key 填 `ollama`（本地服务要求非空但忽略内容），需支持图片输入的模型 | 默认 `http://localhost:11434/v1`；代码默认 `qwen3-vl:8b`。Docker 部署时填宿主机地址，并让 Ollama 监听局域网 |
 | Anthropic 或兼容接口 | API Key、模型 | 默认 `https://api.anthropic.com`；代码默认 `claude-sonnet-5-5` |
 | Azure OpenAI | API Key、Endpoint、部署名称 | API 版本默认 `2024-02-15-preview`；模型字段用于显示 |
-| OpenAI 或兼容接口 | API Key、模型 | 默认 `https://api.openai.com/v1`；代码默认 `gpt-6.1-sol` |
+| OpenAI 或兼容接口（Chat Completions） | API Key | 默认 `https://api.openai.com/v1`；代码默认 `gpt-6.1-sol` |
+| OpenAI Responses API（通用） | API Key | 默认 `https://api.openai.com/v1`；代码默认 `gpt-6.1-sol` |
 | Gemini | API Key、可用模型 | 官方 API；代码默认 `gemini-2.5-flash` |
 
 默认名称来自当前代码，不代表你的账户已开通这些模型。模型可用性、计费和能力以服务商为准。
 
 OpenAI 兼容服务的 Base URL 应包含其要求的 API 路径；Anthropic 兼容服务的 Base URL 不含 `/v1`，应用会拼接 `/v1/messages`。国产大模型官方渠道通过 OpenAI 兼容接口调用，地址和模型留空时使用官方默认值；使用国际站时改填国际站地址。
+
+接入兼容 Responses 的网关时，选择「OpenAI Responses API（通用）」，填写该网关的 API Key、Base URL（例如 `https://api.example.com/v1`）和模型 ID。应用将 Base URL 与 `/responses` 拼接；网关没有 `/models` 时可以手动填写模型名。需要识图时选择支持图片输入的模型，并用「测试连接」确认。
 
 本地 Ollama 通过 OpenAI 兼容接口接入。先 `ollama pull qwen3-vl:8b` 拉取支持图片输入的模型，再在「设置 → AI 设置」选择 Ollama；Base URL 和模型留空时用默认值。应用在服务端发起调用：Docker 部署时 `localhost` 指向容器，需填宿主机的局域网地址（如 `http://192.168.1.10:11434/v1`），并把 Ollama 的 `OLLAMA_HOST` 设为 `0.0.0.0`。识别准确率取决于所选模型的视觉能力。
 
@@ -98,7 +101,7 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 
 ## 环境变量
 
-基础选择使用 `AI_PROVIDER`，默认 `minimax`，可选 `minimax`、`minimax-code`、`minimax-code-global`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`volcengine`、`volcengine-agent`、`volcengine-coding`、`volcengine-free`、`siliconflow`、`siliconflow-global`、`ollama`、`anthropic`、`azure`、`openai`、`gemini`。
+基础选择使用 `AI_PROVIDER`，默认 `minimax`，可选 `minimax`、`minimax-code`、`minimax-code-global`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`volcengine`、`volcengine-agent`、`volcengine-coding`、`volcengine-free`、`siliconflow`、`siliconflow-global`、`ollama`、`anthropic`、`azure`、`openai`、`openai-responses`、`gemini`。
 
 | 提供商 | 配置项 |
 | --- | --- |
@@ -121,6 +124,7 @@ MiniMax Code OAuth 用 MiniMax Code 账号登录后调用模型，不需要 API 
 | Anthropic | `ANTHROPIC_API_KEY`、`ANTHROPIC_BASE_URL`、`ANTHROPIC_MODEL` |
 | Azure | `AZURE_OPENAI_API_KEY`、`AZURE_OPENAI_ENDPOINT`、`AZURE_OPENAI_DEPLOYMENT`、`AZURE_OPENAI_API_VERSION`、`AZURE_OPENAI_MODEL` |
 | OpenAI | `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL` |
+| OpenAI Responses API | `OPENAI_RESPONSES_API_KEY`、`OPENAI_RESPONSES_BASE_URL`、`OPENAI_RESPONSES_MODEL` |
 | Gemini | `GOOGLE_API_KEY`、`GEMINI_BASE_URL`、`GEMINI_MODEL` |
 
 如果网页里已经保存配置，仅修改环境变量可能不会改变实际生效值；先检查网页中所选提供商和激活实例。全局 AI 分析超时可在管理员“设置 → 通用”中调整，代码默认 180 秒。

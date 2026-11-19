@@ -75,7 +75,7 @@ Fork projects (for example an "AI question bank") can customize features through
 
 ## Changing AI features
 
-AI business methods are implemented once in `src/lib/ai/base-provider.ts`. The providers — Gemini, OpenAI (including the MiniMax, GLM, DeepSeek, Kimi, Qwen, StepFun and Volcengine channels), Azure and Anthropic — only implement request transport and their own request differences, so a new AI feature only changes the base class. Prompts live in the `prompts/` directory; the type and format contract of generated questions is also validated by modules such as `generated-question.ts`.
+AI business methods are implemented once in `src/lib/ai/base-provider.ts`. Gemini, OpenAI Chat Completions, OpenAI Responses API, Azure and Anthropic each handle their own transport, so new AI features belong in the base class. Prompts live in the `prompts/` directory; the type and format contract of generated questions is also validated by modules such as `generated-question.ts`.
 
 Cover normal results, malformed output, timeouts and truncated output when verifying. After changing an output structure, also check callers such as practice, exam papers, figures and re-solving.
 

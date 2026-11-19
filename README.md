@@ -414,10 +414,11 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 | Ollama（本地） | 本机运行 [Ollama](https://ollama.com)，需支持图片输入的模型 | `http://localhost:11434/v1`（Docker 部署填宿主机地址） | `qwen3-vl:8b` |
 | Anthropic 及兼容接口 | [Claude Console](https://platform.claude.com/) | `https://api.anthropic.com`（不含 `/v1`） | `claude-sonnet-5-5` |
 | Azure OpenAI | Azure 门户 → OpenAI 资源 → 密钥和终结点 | 填写资源 Endpoint 和部署名称 | 部署名称 |
-| OpenAI 及兼容接口 | [OpenAI Platform](https://platform.openai.com/api-keys)，可添加多个配置并切换 | `https://api.openai.com/v1` | `gpt-6.1-sol` |
+| OpenAI 及兼容接口（Chat Completions） | [OpenAI Platform](https://platform.openai.com/api-keys)，可添加多个配置并切换 | `https://api.openai.com/v1` | `gpt-6.1-sol` |
+| OpenAI Responses API（通用） | [OpenAI Platform](https://platform.openai.com/api-keys) 或兼容网关的 API Key | `https://api.openai.com/v1` | `gpt-6.1-sol` |
 | Google Gemini | [Google AI Studio](https://aistudio.google.com/apikey) | 官方地址 | `gemini-2.5-flash`（推荐 `gemini-3.8-flash`） |
 
-> **兼容接口**：OpenAI 提供商可接入任何 OpenAI API 格式的第三方服务（如硅基流动），Anthropic 提供商可接入兼容 Messages API 的服务；把 Base URL 改为服务商地址，模型填写对应平台的完整模型 ID。推理模型返回的思考内容会被自动忽略。
+> **兼容接口**：在「设置 → AI 设置」中，Chat Completions 服务选择「OpenAI / Compatible」，Responses 服务选择「OpenAI Responses API（通用）」，Anthropic Messages 服务选择「Anthropic / Compatible」。Responses 渠道可把 Base URL 改为网关地址（如 `https://api.example.com/v1`），应用会拼接 `/responses`。模型填写对应服务的完整 ID；识图需要支持图片输入的模型。推理模型返回的思考内容会被自动忽略。
 
 > **本地 Ollama**：先在 Ollama 中拉取支持图片输入的模型（如 `ollama pull qwen3-vl:8b`），再在「设置 → AI 设置」选择 Ollama，模型留空即用默认值。应用在服务端发起调用，Docker 部署时 `localhost` 指向容器，Base URL 要填宿主机的局域网地址（如 `http://192.168.1.10:11434/v1`）；Ollama 默认只监听本机时，需设置 `OLLAMA_HOST=0.0.0.0` 允许局域网访问。模型越小识别越快，但准确率取决于所选模型的视觉能力。
 
@@ -532,7 +533,7 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 
 | 环境变量 | 描述 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |
-| `AI_PROVIDER` | AI 提供商 | `minimax` | 可选 `minimax`、`minimax-code`、`minimax-code-global`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`volcengine`、`volcengine-agent`、`volcengine-coding`、`volcengine-free`、`siliconflow`、`siliconflow-global`、`ollama`、`anthropic`、`azure`、`openai`、`gemini` |
+| `AI_PROVIDER` | AI 提供商 | `minimax` | 可选 `minimax`、`minimax-code`、`minimax-code-global`、`glm`、`deepseek`、`kimi`、`qwen`、`stepfun`、`volcengine`、`volcengine-agent`、`volcengine-coding`、`volcengine-free`、`siliconflow`、`siliconflow-global`、`ollama`、`anthropic`、`azure`、`openai`、`openai-responses`、`gemini` |
 | `MINIMAX_API_KEY` / `MINIMAX_BASE_URL` / `MINIMAX_MODEL` | MiniMax | 地址 `https://api.minimax.cn/v1`，模型 `MiniMax-M3.1-Flash` | 地址和模型可留空 |
 | `MINIMAX_CODE_MODEL` | MiniMax Code（国内站）模型 | `MiniMax-M3.1-Flash` | 账号在网页设置中登录，无需 API Key |
 | `MINIMAX_CODE_AUTO_CHECKIN` | MiniMax Code（国内站）每日自动签到 | `true` | 设为 `false` 关闭 |
@@ -561,6 +562,7 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 | `OPENAI_API_KEY` | OpenAI API Key | 无 | 从 [OpenAI Platform](https://platform.openai.com/api-keys) 获取 |
 | `OPENAI_BASE_URL` | OpenAI API 地址 | `https://api.openai.com/v1` | 使用兼容服务时填写其地址 |
 | `OPENAI_MODEL` | OpenAI 模型 | `gpt-6.1-sol` | 兼容服务填写对应平台的模型 ID |
+| `OPENAI_RESPONSES_API_KEY` / `OPENAI_RESPONSES_BASE_URL` / `OPENAI_RESPONSES_MODEL` | OpenAI Responses API | 地址 `https://api.openai.com/v1`，模型 `gpt-6.1-sol` | 使用 `AI_PROVIDER=openai-responses`；地址和模型可留空 |
 | `GOOGLE_API_KEY` | Gemini API Key | 无 | 从 [Google AI Studio](https://aistudio.google.com/apikey) 获取 |
 | `GEMINI_BASE_URL` | Gemini API 地址 | 官方地址 | 通常无需修改 |
 | `GEMINI_MODEL` | Gemini 模型 | `gemini-2.5-flash` | 推荐 `gemini-3.8-flash` |

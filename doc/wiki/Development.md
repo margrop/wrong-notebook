@@ -75,7 +75,7 @@ fork 项目（例如「AI 题库」）可通过上游预留的扩展点定制功
 
 ## 修改 AI 功能
 
-AI 业务方法统一实现在 `src/lib/ai/base-provider.ts`，Gemini、OpenAI、Azure、Anthropic 四个提供商只实现请求传输与各自的请求差异，新增 AI 功能只需修改基类。提示词集中在 `prompts/` 目录；生成题目的题型与格式契约还由 `generated-question.ts` 等模块校验。
+AI 业务方法统一实现在 `src/lib/ai/base-provider.ts`。Gemini、OpenAI Chat Completions、OpenAI Responses API、Azure 和 Anthropic 的适配器负责各自的请求传输，新增 AI 业务功能只需修改基类。提示词集中在 `prompts/` 目录；生成题目的题型与格式契约还由 `generated-question.ts` 等模块校验。
 
 验证时覆盖正常结果、格式异常、超时和输出截断。变更输出结构后，也要检查练习、试卷、配图和重新解答等调用方。
 

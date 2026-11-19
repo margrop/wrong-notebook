@@ -1,5 +1,5 @@
 /**
- * 内置 OpenAI 兼容渠道预设：国产大模型官方渠道、硅基流动 + 本地 Ollama，均复用 OpenAIProvider。
+ * 内置 OpenAI 兼容渠道预设：官方渠道、本地服务和通用 Responses API。
  * 本文件不依赖 Node 模块，前端设置界面也会引用。
  */
 
@@ -144,6 +144,15 @@ export const VENDOR_PRESETS = {
         consoleUrl: 'https://ollama.com',
         defaultApiKey: 'ollama',
         docs: { cn: 'https://docs.ollama.com/api/openai-compatibility', apiKey: 'https://docs.ollama.com/api/openai-compatibility', models: 'https://ollama.com/library' },
+    },
+    'openai-responses': {
+        name: 'OpenAI Responses API（通用）',
+        nameEn: 'OpenAI Responses API (compatible)',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-6.1-sol',
+        envPrefix: 'OPENAI_RESPONSES',
+        consoleUrl: 'https://platform.openai.com/api-keys',
+        docs: { intl: 'https://platform.openai.com/docs/api-reference/responses/create', apiKey: 'https://platform.openai.com/api-keys', models: 'https://platform.openai.com/docs/models' },
     },
 } as const satisfies Record<string, VendorPreset>;
 

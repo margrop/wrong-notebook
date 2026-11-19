@@ -90,10 +90,11 @@ wrongNotebook/
 │   │   │   ├── base-provider.ts  # 提供商公共基类（14 个业务方法）
 │   │   │   ├── prompts/          # 提示词模板（按任务拆分）
 │   │   │   ├── gemini-provider.ts # Google Gemini Provider
-│   │   │   ├── openai-provider.ts # OpenAI Provider
+│   │   │   ├── openai-provider.ts # OpenAI Chat Completions
+│   │   │   ├── openai-responses-provider.ts # OpenAI Responses API
 │   │   │   ├── azure-provider.ts  # Azure OpenAI Provider
 │   │   │   ├── anthropic-provider.ts  # Anthropic 及兼容接口 Provider
-│   │   │   ├── vendor-presets.ts  # 国产大模型官方渠道预设（复用 OpenAI Provider）
+│   │   │   ├── vendor-presets.ts  # OpenAI 兼容渠道的配置预设
 │   │   │   └── tag-service.ts    # 标签查询服务
 │   │   ├── tags/                 # 知识点标签
 │   │   │   ├── data/             # 预置知识点标签数据 (按学科)
@@ -202,7 +203,7 @@ User (id, email, password, name, role, isActive, educationStage, enrollmentYear)
 ### AI 多提供商架构
 - 工厂模式: `getAIService()` 根据配置返回对应 Provider 实例
 - 配置来源: `app-config.json` > 环境变量 > 默认值
-- OpenAI 支持多实例管理 (可配置 10 个不同 endpoint)
+- OpenAI Chat Completions 支持多实例管理（最多 10 个）。OpenAI Responses API 使用独立的可配置地址和模型。
 
 ### 标签系统
 - 系统预置标签 (10 学科) + 用户自定义标签

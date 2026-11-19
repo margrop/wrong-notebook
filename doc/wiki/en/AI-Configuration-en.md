@@ -9,7 +9,7 @@ Admins can change the AI configuration in the web settings. Once saved, later re
 3. Test the connection; fetch the model list from the API if needed. When the test fails, the provider's original error (such as an exhausted quota or a missing model) is shown along with the error type.
 4. Save, then check image input, output format and answer quality with a real question.
 
-AI settings, connection tests, model lists and prompt settings are admin-only. The OpenAI configuration supports up to 10 instances; the currently active instance decides which configuration is used.
+AI settings, connection tests, model lists and prompt settings are admin-only. “OpenAI / Compatible” (Chat Completions) supports up to 10 instances and uses the currently active instance. Responses API has its own configuration.
 
 ## Provider parameters
 
@@ -32,12 +32,15 @@ AI settings, connection tests, model lists and prompt settings are admin-only. T
 | Ollama (local) | API key `ollama` (the local server requires a non-empty value but ignores it); a vision-capable model is required | Defaults to `http://localhost:11434/v1`; code default `qwen3-vl:8b`. Under Docker, use the host address and let Ollama listen on the LAN |
 | Anthropic or compatible | API key, model | Defaults to `https://api.anthropic.com`; code default `claude-sonnet-5-5` |
 | Azure OpenAI | API key, endpoint, deployment name | API version defaults to `2024-02-15-preview`; the model field is for display |
-| OpenAI or compatible | API key, model | Defaults to `https://api.openai.com/v1`; code default `gpt-6.1-sol` |
+| OpenAI or compatible (Chat Completions) | API key | Defaults to `https://api.openai.com/v1`; code default `gpt-6.1-sol` |
+| OpenAI Responses API (compatible) | API key | Defaults to `https://api.openai.com/v1`; code default `gpt-6.1-sol` |
 | Gemini | API key, an available model | Official API; code default `gemini-2.5-flash` |
 
 The default names come from the current code and do not mean these models are enabled for your account. Model availability, billing and capabilities are determined by the provider.
 
 For OpenAI-compatible services, the base URL should include the API path they require. For Anthropic-compatible services, the base URL excludes `/v1`; the app appends `/v1/messages`. The official MiniMax, GLM, DeepSeek, Kimi, Qwen, StepFun and Volcengine channels are called through the OpenAI-compatible API; leaving the endpoint and model empty uses the official defaults. Fill in the international endpoint if you use an international site.
+
+For a gateway that supports Responses, choose “OpenAI Responses API (compatible)” and enter its API key, base URL (for example, `https://api.example.com/v1`) and model ID. The app appends `/responses` to the base URL. If the gateway has no `/models` endpoint, enter the model manually. For image recognition, choose a model that accepts images and verify it with Test Connection.
 
 Local Ollama connects through the OpenAI-compatible API. Pull a vision-capable model first (`ollama pull qwen3-vl:8b`), then choose Ollama under **Settings → AI Provider**; leaving the base URL and model empty uses the defaults. The app calls it from the server, so under Docker `localhost` points at the container: enter the host's LAN address (for example `http://192.168.1.10:11434/v1`) and set Ollama's `OLLAMA_HOST` to `0.0.0.0`. Recognition accuracy depends on the chosen model's vision ability.
 
@@ -98,7 +101,7 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 
 ## Environment variables
 
-`AI_PROVIDER` selects the provider. It defaults to `minimax` and accepts `minimax`, `minimax-code`, `minimax-code-global`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-agent`, `volcengine-coding`, `volcengine-free`, `siliconflow`, `siliconflow-global`, `ollama`, `anthropic`, `azure`, `openai` and `gemini`.
+`AI_PROVIDER` selects the provider. It defaults to `minimax` and accepts `minimax`, `minimax-code`, `minimax-code-global`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-agent`, `volcengine-coding`, `volcengine-free`, `siliconflow`, `siliconflow-global`, `ollama`, `anthropic`, `azure`, `openai`, `openai-responses` and `gemini`.
 
 | Provider | Variables |
 | --- | --- |
@@ -121,6 +124,7 @@ Animation narration is read by the browser's own voice (Web Speech) by default. 
 | Anthropic | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL` |
 | Azure | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION`, `AZURE_OPENAI_MODEL` |
 | OpenAI | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` |
+| OpenAI Responses API | `OPENAI_RESPONSES_API_KEY`, `OPENAI_RESPONSES_BASE_URL`, `OPENAI_RESPONSES_MODEL` |
 | Gemini | `GOOGLE_API_KEY`, `GEMINI_BASE_URL`, `GEMINI_MODEL` |
 
 If a configuration has already been saved in the web UI, changing only the environment variables may not change what is actually used; check the selected provider and active instance in the web UI first. The global AI analysis timeout can be adjusted in the admin "Settings → General"; the code default is 180 seconds.

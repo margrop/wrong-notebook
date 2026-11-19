@@ -39,6 +39,7 @@ export function privacyPolicyUrl(language: "zh" | "en"): string {
 const PROVIDER_NAMES: Record<string, { zh: string; en: string }> = {
     gemini: { zh: "Google Gemini", en: "Google Gemini" },
     openai: { zh: "OpenAI 或管理员填写的兼容接口", en: "OpenAI or an OpenAI-compatible endpoint set by the administrator" },
+    "openai-responses": { zh: "OpenAI 或管理员填写的 Responses API 兼容服务", en: "OpenAI or a Responses API compatible service set by the administrator" },
     azure: { zh: "Microsoft Azure OpenAI", en: "Microsoft Azure OpenAI" },
     anthropic: { zh: "Anthropic Claude", en: "Anthropic Claude" },
     "minimax-code": { zh: "MiniMax", en: "MiniMax" },

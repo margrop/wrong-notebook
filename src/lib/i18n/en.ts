@@ -916,6 +916,7 @@ export const en = {
                 anthropicBaseUrlHint: "Leave empty for the official API. For compatible services enter the base URL without /v1 (e.g. https://api.example.com/anthropic).",
                 vendorApiKeyHint: "Get an API key from the official console:",
                 vendorBaseUrlHint: "Leave empty for the official mainland China endpoint shown above. For the international site, enter its OpenAI-compatible URL instead.",
+                openaiResponsesBaseUrlHint: "Leave empty to use OpenAI. For compatible services, enter the base URL (for example, https://api.example.com/v1). The app appends /responses.",
                 ollamaHint: "Ollama runs on the local machine: the default base URL is http://localhost:11434/v1 (for Docker use the host's LAN address); the API key can be ollama (the local server requires a non-empty value but ignores it). The model must support image input; the default is qwen3-vl:8b. If recognition is slow, switch to a smaller vision model in Ollama.",
                 providerErrorDetail: "Provider error: ",
                 docLinks: {

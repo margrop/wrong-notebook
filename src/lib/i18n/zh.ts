@@ -916,6 +916,7 @@ export const zh = {
                 anthropicBaseUrlHint: "留空使用官方接口；兼容服务请填写不含 /v1 的地址（如 https://api.example.com/anthropic）。",
                 vendorApiKeyHint: "在官方控制台获取 API Key：",
                 vendorBaseUrlHint: "留空使用上方的中国大陆官方地址；使用国际站时填写其 OpenAI 兼容地址。",
+                openaiResponsesBaseUrlHint: "留空使用 OpenAI 官方地址。也可填写兼容服务的基础地址（如 https://api.example.com/v1），应用会接上 /responses。",
                 ollamaHint: "Ollama 在本机运行：Base URL 默认 http://localhost:11434/v1（Docker 部署时填宿主机的局域网地址），API Key 可填 ollama（本地服务要求非空但会忽略内容）。模型需支持图片输入，默认 qwen3-vl:8b；识别慢时可在 Ollama 中换更小的视觉模型。",
                 providerErrorDetail: "服务商报错：",
                 docLinks: {

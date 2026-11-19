@@ -416,10 +416,11 @@ The official Chinese model channels call each vendor's OpenAI-compatible API, so
 | Ollama (local) | [Ollama](https://ollama.com) running on the local machine, with a vision-capable model | `http://localhost:11434/v1` (for Docker, the host address) | `qwen3-vl:8b` |
 | Anthropic and compatible APIs | [Claude Console](https://platform.claude.com/) | `https://api.anthropic.com` (without `/v1`) | `claude-sonnet-5-5` |
 | Azure OpenAI | Azure portal → OpenAI resource → Keys and Endpoint | Your resource endpoint and deployment name | Deployment name |
-| OpenAI and compatible APIs | [OpenAI Platform](https://platform.openai.com/api-keys); several configurations can be added and switched | `https://api.openai.com/v1` | `gpt-6.1-sol` |
+| OpenAI and compatible APIs (Chat Completions) | [OpenAI Platform](https://platform.openai.com/api-keys); several configurations can be added and switched | `https://api.openai.com/v1` | `gpt-6.1-sol` |
+| OpenAI Responses API (compatible) | API key from [OpenAI Platform](https://platform.openai.com/api-keys) or a compatible gateway | `https://api.openai.com/v1` | `gpt-6.1-sol` |
 | Google Gemini | [Google AI Studio](https://aistudio.google.com/apikey) | Official URL | `gemini-2.5-flash` (`gemini-3.8-flash` recommended) |
 
-> **Compatible APIs**: the OpenAI provider works with any third-party service that implements the OpenAI API format (such as SiliconFlow), and the Anthropic provider with services that implement the Messages API. Set the base URL to the service's address and enter the platform's full model ID. Thinking output from reasoning models is ignored.
+> **Compatible APIs**: in Settings → AI Provider, select “OpenAI / Compatible” for Chat Completions, “OpenAI Responses API (compatible)” for Responses, or “Anthropic / Compatible” for Anthropic Messages. For a Responses gateway, enter its base URL (for example, `https://api.example.com/v1`); the app appends `/responses`. Enter the provider's full model ID and choose a model that accepts images if you need image recognition. Thinking output from reasoning models is ignored.
 
 > **Local Ollama**: pull a vision-capable model first (for example `ollama pull qwen3-vl:8b`), then choose Ollama under **Settings → AI Provider**; leave the model empty to use the default. The app calls it from the server, so under Docker `localhost` points at the container: set the base URL to the host's LAN address (for example `http://192.168.1.10:11434/v1`) and set `OLLAMA_HOST=0.0.0.0` so Ollama listens beyond localhost. Smaller models recognize faster, but accuracy depends on the chosen model's vision ability.
 
@@ -534,7 +535,7 @@ The most common variables are below; see the collapsed table and [`.env.example`
 
 | Variable | Description | Default | Notes |
 | :--- | :--- | :--- | :--- |
-| `AI_PROVIDER` | AI provider | `minimax` | `minimax`, `minimax-code`, `minimax-code-global`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-agent`, `volcengine-coding`, `volcengine-free`, `siliconflow`, `siliconflow-global`, `ollama`, `anthropic`, `azure`, `openai` or `gemini` |
+| `AI_PROVIDER` | AI provider | `minimax` | `minimax`, `minimax-code`, `minimax-code-global`, `glm`, `deepseek`, `kimi`, `qwen`, `stepfun`, `volcengine`, `volcengine-agent`, `volcengine-coding`, `volcengine-free`, `siliconflow`, `siliconflow-global`, `ollama`, `anthropic`, `azure`, `openai`, `openai-responses` or `gemini` |
 | `MINIMAX_API_KEY` / `MINIMAX_BASE_URL` / `MINIMAX_MODEL` | MiniMax | URL `https://api.minimax.cn/v1`, model `MiniMax-M3.1-Flash` | URL and model are optional |
 | `MINIMAX_CODE_MODEL` | MiniMax Code (China site) model | `MiniMax-M3.1-Flash` | The account signs in from the web settings; no API key needed |
 | `MINIMAX_CODE_AUTO_CHECKIN` | MiniMax Code (China site) daily auto check-in | `true` | Set to `false` to turn it off |
@@ -563,6 +564,7 @@ The most common variables are below; see the collapsed table and [`.env.example`
 | `OPENAI_API_KEY` | OpenAI API key | None | From [OpenAI Platform](https://platform.openai.com/api-keys) |
 | `OPENAI_BASE_URL` | OpenAI API URL | `https://api.openai.com/v1` | Set to the provider's URL for compatible services |
 | `OPENAI_MODEL` | OpenAI model | `gpt-6.1-sol` | For compatible services, use the platform's model ID |
+| `OPENAI_RESPONSES_API_KEY` / `OPENAI_RESPONSES_BASE_URL` / `OPENAI_RESPONSES_MODEL` | OpenAI Responses API | URL `https://api.openai.com/v1`, model `gpt-6.1-sol` | Select `AI_PROVIDER=openai-responses`; URL and model are optional |
 | `GOOGLE_API_KEY` | Gemini API key | None | From [Google AI Studio](https://aistudio.google.com/apikey) |
 | `GEMINI_BASE_URL` | Gemini API URL | Official URL | Usually unchanged |
 | `GEMINI_MODEL` | Gemini model | `gemini-2.5-flash` | `gemini-3.8-flash` recommended |

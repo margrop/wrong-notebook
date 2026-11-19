@@ -6,7 +6,8 @@ import { OpenAIProvider } from "./openai-provider";
 import { AzureOpenAIProvider } from "./azure-provider";
 import { AnthropicProvider } from "./anthropic-provider";
 import { MiniMaxCodeProvider } from "./minimax-code-provider";
-import { isVendorProvider, resolveVendorConfig, VENDOR_PRESETS } from "./vendor-presets";
+import { isVendorProvider, VENDOR_PRESETS } from "./vendor-presets";
+import { createVendorProvider } from "./vendor-provider";
 import { limitModelConcurrency } from "./concurrency";
 import { resolveProviderAssignment, routeRole } from "./routing";
 import type { AiRouteRole } from "./routing";
@@ -173,10 +174,10 @@ function createProviderService(provider: AiProviderId): ChannelService {
         logger.info('Using Gemini Provider');
         return { service: new GeminiProvider(config.gemini), key: concurrencyKey(provider, config.gemini?.baseUrl, config.gemini?.model), provider };
     } else {
-        // 国产大模型官方渠道；未知取值回退到默认的 MiniMax
+        // 按预设选择兼容协议；未知取值回退到默认的 MiniMax
         const vendor = isVendorProvider(provider) ? provider : 'minimax';
-        const vendorConfig = resolveVendorConfig(vendor, config[vendor]);
+        const { service, config: vendorConfig } = createVendorProvider(vendor, config[vendor]);
         logger.info({ vendor: VENDOR_PRESETS[vendor].name, model: vendorConfig.model }, 'Using vendor provider (OpenAI compatible)');
-        return { service: new OpenAIProvider(vendorConfig), key: concurrencyKey(vendor, vendorConfig.baseUrl, vendorConfig.model), provider: vendor };
+        return { service, key: concurrencyKey(vendor, vendorConfig.baseUrl, vendorConfig.model), provider: vendor };
     }
 }
