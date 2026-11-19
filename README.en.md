@@ -670,6 +670,16 @@ You can also follow the author on X at [@MargropMe](https://x.com/MargropMe) for
 
 Issues and pull requests are welcome. Please read the [contributing guide](CONTRIBUTING.md) (Chinese) and the [code of conduct](CODE_OF_CONDUCT.md). For questions and bug reports, see [getting help](SUPPORT.md). Report security vulnerabilities privately as described in the [security policy](SECURITY.md). See the [changelog](CHANGELOG.md) (Chinese) for changes in each stable release.
 
+## ☕ Support the project
+
+If Smart Wrong Notebook saves you time organizing and reviewing mistakes, you can use Alipay to buy the author a coffee or help pay for the tokens used to test how different AI models recognize and solve questions. Thanks for your support!
+
+<a href="doc/images/alipay-support.png"><img src="doc/images/alipay-support.png" alt="Alipay QR code for voluntary support of Smart Wrong Notebook" width="320"></a>
+
+On a phone, open the full image and save it, then select it from your photo album in Alipay's scanner.
+
+Anonymous support is welcome. If you'd like to be thanked by name, message me privately through the QQ group above with the name you'd like displayed. Starring the project or reporting a specific problem in [Issues](https://github.com/margrop/wrong-notebook/issues) helps too.
+
 ## 📄 License
 
 [MIT License](LICENSE)

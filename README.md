@@ -668,6 +668,16 @@ E2E 启动器会在系统临时目录复制应用和依赖、执行正式迁移�
 
 欢迎提交 Issue 和 Pull Request，请先阅读[贡献指南](CONTRIBUTING.md)和[行为准则](CODE_OF_CONDUCT.md)。提问和反馈方式见[获取帮助](SUPPORT.md)，安全漏洞请按[安全策略](SECURITY.md)私下报告。各正式版的改动见[更新日志](CHANGELOG.md)。
 
+## ☕ 支持项目
+
+如果智能错题本帮你节省了整理错题和复习的时间，欢迎用支付宝请作者喝杯咖啡，或帮忙分担测试不同 AI 模型识题、解题效果的 Token 费用。感谢你的支持！
+
+<a href="doc/images/alipay-support.png"><img src="doc/images/alipay-support.png" alt="支付宝收款码，自愿支持智能错题本开发" width="320"></a>
+
+在手机上可以点开原图保存，再打开支付宝「扫一扫」从相册选取。
+
+欢迎匿名支持。如果愿意在项目感谢名单留名，可以通过上方 QQ 群私信作者，告诉我你希望展示的昵称。给项目点个 Star，或在 [Issues](https://github.com/margrop/wrong-notebook/issues) 反馈一个具体的使用问题，也很有帮助。
+
 ## 📄 许可证
 
 [MIT License](LICENSE)
