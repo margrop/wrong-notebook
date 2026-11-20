@@ -8,7 +8,7 @@ import fs from 'fs';
 
 // Mock fs module
 vi.mock('fs', () => {
-    const mocked = { readFileSync: vi.fn(), writeFileSync: vi.fn(), renameSync: vi.fn() };
+    const mocked = { readFileSync: vi.fn(), writeFileSync: vi.fn(), renameSync: vi.fn(), mkdirSync: vi.fn(), chmodSync: vi.fn() };
     return { default: mocked, ...mocked };
 });
 
@@ -129,7 +129,7 @@ describe('config module', () => {
             const config = updateAppConfig({ timeZone: 'America/New_York' });
             vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(config));
             expect(getAppTimeZone()).toBe('America/New_York');
-            expect(fs.writeFileSync).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('"timeZone": "America/New_York"'));
+            expect(fs.writeFileSync).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('"timeZone": "America/New_York"'), { mode: 0o600 });
         });
 
         it('直接写配置也拒绝无效时区', async () => {
@@ -277,6 +277,8 @@ describe('config module', () => {
             const tmp = vi.mocked(fs.writeFileSync).mock.calls[0][0] as string;
             expect(tmp).toMatch(/app-config\.json\.\d+\.tmp$/);
             expect(fs.renameSync).toHaveBeenCalledWith(tmp, expect.stringMatching(/app-config\.json$/));
+            expect(fs.chmodSync).toHaveBeenCalledWith(tmp, 0o600);
+            expect(fs.chmodSync).toHaveBeenCalledWith(expect.stringMatching(/config$/), 0o700);
         });
 
         it('配置文件无法读取（非不存在）时记录错误并返回默认配置', async () => {
