@@ -13,7 +13,8 @@ async function handlePost(_req: Request, { session }: AuthenticatedContext) {
     // 1. 删除全部练习记录
     // 2. 删除全部错题
     // 3. 删除全部错题本
-    // 4. 删除全部自定义知识点（保留系统标签）
+    // 4. 删除全部用户级试卷、智能练习题、卷别分组和未完成导入任务
+    // 5. 删除 AI 用量记录与全部自定义知识点（保留共享真题库和系统标签）
     // 不删除当前用户，保留其登录能力
 
     try {
@@ -22,6 +23,13 @@ async function handlePost(_req: Request, { session }: AuthenticatedContext) {
         const deletedUserIds: string[] = [];
         await prisma.$transaction(async (tx) => {
             await tx.practiceRecord.deleteMany({});
+            await tx.practiceQuestion.deleteMany({});
+            await tx.examPaper.deleteMany({});
+            await tx.paperGroup.deleteMany({});
+            await tx.importTask.deleteMany({});
+            await tx.importBatch.deleteMany({});
+            await tx.aiUsage.deleteMany({});
+            await tx.aiCompletion.deleteMany({});
             await tx.errorItem.deleteMany({});
             await tx.subject.deleteMany({});
             await tx.knowledgeTag.deleteMany({

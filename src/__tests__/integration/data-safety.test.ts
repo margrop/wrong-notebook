@@ -174,6 +174,23 @@ describe('POST /api/admin/system-reset', () => {
         await createItem(alice.id, subject.id);
         await createItem(admin.id);
         await database.practiceRecord.create({ data: { userId: bob.id } });
+        await database.practiceQuestion.create({
+            data: { userId: admin.id, questionText: '智能练习题', answerText: '答案', analysis: '解析' },
+        });
+        await database.examPaper.create({
+            data: { userId: admin.id, title: '待清理试卷', scope: 'all', difficulty: 'medium', requestedCount: 1, subjectIds: '[]' },
+        });
+        await database.paperGroup.create({ data: { userId: admin.id, key: 'a', name: 'A卷' } });
+        const batch = await database.importBatch.create({
+            data: { userId: admin.id, source: 'text', splitter: 'local', status: 'draft', language: 'zh', sourceText: '题目' },
+        });
+        await database.importTask.create({
+            data: { userId: admin.id, batchId: batch.id, mode: 'review', status: 'review', language: 'zh', imageData: '' },
+        });
+        await database.aiUsage.create({ data: { userId: admin.id, kind: 'analyze' } });
+        await database.aiCompletion.create({
+            data: { userId: admin.id, kind: 'analyze', task: 'analyze', provider: 'test', durationMs: 1, status: 'succeeded' },
+        });
         await database.knowledgeTag.create({ data: { name: '系统标签', subject: 'math', isSystem: true } });
         await database.knowledgeTag.create({ data: { name: '自定义', subject: 'math', userId: alice.id } });
         signInAs(admin, 'admin');
@@ -182,6 +199,13 @@ describe('POST /api/admin/system-reset', () => {
 
         expect(await database.errorItem.count()).toBe(0);
         expect(await database.practiceRecord.count()).toBe(0);
+        expect(await database.practiceQuestion.count()).toBe(0);
+        expect(await database.examPaper.count()).toBe(0);
+        expect(await database.paperGroup.count()).toBe(0);
+        expect(await database.importTask.count()).toBe(0);
+        expect(await database.importBatch.count()).toBe(0);
+        expect(await database.aiUsage.count()).toBe(0);
+        expect(await database.aiCompletion.count()).toBe(0);
         expect(await database.subject.count()).toBe(0);
         expect((await database.user.findMany()).map((u) => u.email)).toEqual(['admin@example.com']);
         expect((await database.knowledgeTag.findMany()).map((t) => t.name)).toEqual(['系统标签']);
