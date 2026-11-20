@@ -108,7 +108,7 @@ async function savedItemsInDraftOrder(batchId: string) {
     const ids = keys
         .map((key) => tasks.find((task) => task.batchItemKey === key)?.errorItemId)
         .filter((id): id is string => !!id);
-    const items = await database.errorItem.findMany({ where: { id: { in: ids } } });
+    const items = await database.errorItem.findMany({ where: { id: { in: ids } }, include: { tags: { select: { name: true } } } });
     return ids.map((id) => items.find((item) => item.id === id)!);
 }
 const waitSplit = async (id: string) => {
@@ -1012,7 +1012,7 @@ describe('AI 只补标签（analysis=tags）', () => {
         expect(items[0].answerText).toBe('2');
         expect(items[0].analysis).toBe('1+1=2');
         // AI 补全的知识点、难度、题型落库
-        expect(items[0].knowledgePoints).toContain('分数的意义');
+        expect(items[0].tags.map((tag) => tag.name)).toContain('分数的意义');
         expect(items[0].difficultyStars).toBe(3);
         expect(items[0].questionType).toBe('calculation');
 
@@ -1029,9 +1029,9 @@ describe('AI 只补标签（analysis=tags）', () => {
 
         // 草稿已填全部字段时 AI 不被调用（无缺失字段需要补全）
         expect(mocks.suggestKnowledgeTags).not.toHaveBeenCalled();
-        const items = await database.errorItem.findMany();
+        const items = await database.errorItem.findMany({ include: { tags: { select: { name: true } } } });
         expect(items).toHaveLength(1);
-        expect(items[0].knowledgePoints).toContain('自定义知识点');
+        expect(items[0].tags.map((tag) => tag.name)).toContain('自定义知识点');
         expect(items[0].difficultyStars).toBe(4);
         expect(items[0].questionType).toBe('fill_blank');
     });
