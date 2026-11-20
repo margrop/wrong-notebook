@@ -228,16 +228,10 @@ function createLoggerInstance(baseContext: LogContext = {}): Logger {
     fatal: createLogFunction('fatal', baseContext),
     child: (bindings: LogContext) => createLoggerInstance({ ...baseContext, ...bindings }),
 
-    // Decorative box logging (only in development)
+    // Decorative box logging：生产环境不输出内容，避免把题目、Prompt 和 AI 响应写入日志
     box: (title: string, content?: string | LogContext, emoji: string = '📋') => {
+      if (!isPrettyMode) return;
       recordDebugLog('info', { ...baseContext, ...(typeof content === 'string' ? { content } : content) }, title);
-
-      if (!isPrettyMode) {
-        // In production, just log as JSON
-        const ctx = typeof content === 'string' ? { content } : (content || {});
-        console.log(JSON.stringify({ level: 'info', time: new Date().toISOString(), ...baseContext, title, ...ctx, msg: title }));
-        return;
-      }
 
       const width = 80;
       const line = '='.repeat(width);

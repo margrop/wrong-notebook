@@ -176,6 +176,20 @@ describe('logger module', () => {
 
             consoleSpy.mockRestore();
         });
+
+        it('生产环境不输出 box 的敏感内容', async () => {
+            vi.resetModules();
+            vi.stubEnv('NODE_ENV', 'production');
+            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+            const { createLogger } = await import('@/lib/logger');
+
+            createLogger('test').box('AI Raw Response', '学生题目与模型完整回答');
+
+            expect(consoleSpy).not.toHaveBeenCalled();
+            consoleSpy.mockRestore();
+            vi.unstubAllEnvs();
+            vi.resetModules();
+        });
     });
 
     describe('边界情况', () => {
