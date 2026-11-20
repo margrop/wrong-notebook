@@ -69,7 +69,7 @@ describe('GET /api/review/due', () => {
         expect(mocks.errorItem.findMany).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: { userId: 'user-1' } }));
         // 作答记录用平铺查询 + 正向白名单：嵌套关系的否定过滤会让 Prisma 无法拆分查询，错题多时报参数上限
         expect(mocks.practiceRecord.findMany).toHaveBeenCalledWith(expect.objectContaining({
-            where: { userId: 'user-1', errorItemId: { not: null }, result: { in: ['correct', 'wrong'] } },
+            where: { userId: 'user-1', errorItemId: { in: ['new', 'fresh', 'old'] }, result: { in: ['correct', 'wrong'] } },
         }));
     });
 

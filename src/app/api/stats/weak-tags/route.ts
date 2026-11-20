@@ -13,6 +13,7 @@ import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 
 const logger = createLogger('api:stats:weak-tags');
+const WEAK_TAG_ITEM_BATCH_SIZE = 500;
 
 /**
  * GET /api/stats/weak-tags?range=&subjectId=
@@ -39,42 +40,48 @@ export const GET = withUser(async (req: Request, { user }: AuthenticatedContext)
 
         const masteryThreshold = await getMasteryThreshold(userId);
 
-        const items = await prisma.errorItem.findMany({
-            where: {
-                userId,
-                ...(subjectId ? { subjectId } : {}),
-                ...(rangeStart ? { createdAt: { gte: rangeStart } } : {}),
-            },
-            select: {
-                id: true,
-                subjectId: true,
-                subject: { select: { name: true } },
-                masteryProbability: true,
-                tags: { select: { name: true, tagSet: true } },
-                _count: PRACTICE_RECORD_COUNT,
-                // 近 30 天作答记录：嵌套关系里带 `not: null` 这类否定过滤时，Prisma 无法按父级 id
-                // 拆分查询，错题超过 999 道会触发 SQLite 参数上限，所以先取回再按 source 过滤。
-                practiceRecords: {
-                    where: {
-                        result: { in: ['correct', 'wrong', 'not_attempted'] },
-                        createdAt: { gte: recentStart, lt: recentEnd },
+        const sourceItems: WeakTagSourceItem[] = [];
+        const where = {
+            userId,
+            ...(subjectId ? { subjectId } : {}),
+            ...(rangeStart ? { createdAt: { gte: rangeStart } } : {}),
+        };
+        // 分批读取轻字段，避免 Prisma 为大错题本展开一次超大的关系查询。
+        for (let skip = 0; ; skip += WEAK_TAG_ITEM_BATCH_SIZE) {
+            const items = await prisma.errorItem.findMany({
+                where,
+                orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+                skip,
+                take: WEAK_TAG_ITEM_BATCH_SIZE,
+                select: {
+                    id: true,
+                    subjectId: true,
+                    subject: { select: { name: true } },
+                    masteryProbability: true,
+                    tags: { select: { name: true, tagSet: true } },
+                    _count: PRACTICE_RECORD_COUNT,
+                    practiceRecords: {
+                        where: {
+                            result: { in: ['correct', 'wrong', 'not_attempted'] },
+                            createdAt: { gte: recentStart, lt: recentEnd },
+                        },
+                        select: { result: true, source: true },
                     },
-                    select: { result: true, source: true },
                 },
-            },
-        });
-
-        const sourceItems: WeakTagSourceItem[] = items.map(item => ({
-            id: item.id,
-            subjectId: item.subjectId,
-            subjectName: item.subject?.name ?? null,
-            masteryProbability: item.masteryProbability,
-            tags: item.tags,
-            practiceRecordCount: item._count.practiceRecords,
-            recentResults: item.practiceRecords
-                .filter(record => record.source !== 'duplicate_import')
-                .map(record => record.result),
-        }));
+            });
+            sourceItems.push(...items.map(item => ({
+                id: item.id,
+                subjectId: item.subjectId,
+                subjectName: item.subject?.name ?? null,
+                masteryProbability: item.masteryProbability,
+                tags: item.tags,
+                practiceRecordCount: item._count.practiceRecords,
+                recentResults: item.practiceRecords
+                    .filter(record => record.source !== 'duplicate_import')
+                    .map(record => record.result),
+            })));
+            if (items.length < WEAK_TAG_ITEM_BATCH_SIZE) break;
+        }
 
         const weakTags = buildWeakTags(sourceItems, { masteryThreshold });
 

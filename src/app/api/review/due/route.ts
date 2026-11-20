@@ -14,6 +14,7 @@ import type { ReviewRecord } from "@/lib/review-schedule";
 
 /** 参与复习计划的作答结果（未作答的记录不影响计划） */
 const ANSWERED_RESULTS = ['correct', 'wrong'];
+const REVIEW_ITEM_BATCH_SIZE = 500;
 
 const logger = createLogger('api:review:due');
 
@@ -35,37 +36,40 @@ async function handleGet(req: Request, { user }: AuthenticatedContext) {
     try {
         const timeZone = getAppTimeZone();
         const now = new Date();
-        // 作答记录单独平铺查询：嵌套关系里带 `result: { not: null }` 这类否定过滤时，
-        // Prisma 无法按父级 id 拆分查询，错题超过 999 道会触发 SQLite 参数上限而整条查询失败。
-        const [candidates, answeredRecords] = await Promise.all([
-            prisma.errorItem.findMany({
+        const masteryThreshold = await getMasteryThreshold(user.id);
+        const due: { id: string; plan: ReturnType<typeof getReviewPlan> }[] = [];
+        // 作答记录单独平铺查询，并按错题分批读取，避免一次把所有用户历史和父级 ID 放进内存/SQL 参数。
+        for (let skip = 0; ; skip += REVIEW_ITEM_BATCH_SIZE) {
+            const candidates = await prisma.errorItem.findMany({
                 where: { userId: user.id, ...(subjectId ? { subjectId } : {}) },
+                orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+                skip,
+                take: REVIEW_ITEM_BATCH_SIZE,
                 select: { id: true, createdAt: true },
-            }),
-            prisma.practiceRecord.findMany({
-                where: { userId: user.id, errorItemId: { not: null }, result: { in: ANSWERED_RESULTS } },
+            });
+            if (candidates.length === 0) break;
+
+            const answeredRecords = await prisma.practiceRecord.findMany({
+                where: { userId: user.id, errorItemId: { in: candidates.map((item) => item.id) }, result: { in: ANSWERED_RESULTS } },
                 select: { errorItemId: true, result: true, createdAt: true },
                 orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-            }),
-        ]);
+            });
 
-        // 按错题归组，保持作答先后顺序
-        const recordsByItem = new Map<string, ReviewRecord[]>();
-        for (const { errorItemId, result, createdAt } of answeredRecords) {
-            if (!errorItemId) continue;
-            const records = recordsByItem.get(errorItemId);
-            if (records) {
+            const recordsByItem = new Map<string, ReviewRecord[]>();
+            for (const { errorItemId, result, createdAt } of answeredRecords) {
+                if (!errorItemId) continue;
+                const records = recordsByItem.get(errorItemId) ?? [];
                 records.push({ result, createdAt });
-            } else {
-                recordsByItem.set(errorItemId, [{ result, createdAt }]);
+                recordsByItem.set(errorItemId, records);
             }
-        }
 
-        const masteryThreshold = await getMasteryThreshold(user.id);
-        const due = candidates
-            .map((item) => ({ id: item.id, plan: getReviewPlan(item.createdAt, recordsByItem.get(item.id) ?? [], timeZone) }))
-            .filter(({ plan }) => isReviewDue(plan, timeZone, now))
-            .sort((a, b) => a.plan.nextReviewAt!.getTime() - b.plan.nextReviewAt!.getTime());
+            for (const item of candidates) {
+                const plan = getReviewPlan(item.createdAt, recordsByItem.get(item.id) ?? [], timeZone);
+                if (isReviewDue(plan, timeZone, now)) due.push({ id: item.id, plan });
+            }
+            if (candidates.length < REVIEW_ITEM_BATCH_SIZE) break;
+        }
+        due.sort((a, b) => a.plan.nextReviewAt!.getTime() - b.plan.nextReviewAt!.getTime());
 
         const pageEntries = due.slice((page - 1) * pageSize, page * pageSize);
         const items = await prisma.errorItem.findMany({

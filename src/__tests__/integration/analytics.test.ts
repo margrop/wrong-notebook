@@ -230,13 +230,14 @@ describe('/api/analytics', () => {
                 expect(response.status).toBe(200);
                 expect((await response.json()).activityData.at(-1).date).toBe('10-19');
                 // 验证 7 天范围的查询条件
-                expect(mocks.mockPrismaErrorItem.findMany).toHaveBeenCalledWith({
+                expect(mocks.mockPrismaErrorItem.findMany).toHaveBeenCalledWith(expect.objectContaining({
                     where: {
                         userId: 'user-123',
                         createdAt: { gte: new Date('2026-10-12T16:00:00Z') },
                     },
-                    select: { createdAt: true },
-                });
+                    select: { id: true, createdAt: true },
+                    take: 500,
+                }));
             } finally {
                 vi.useRealTimers();
             }
@@ -588,7 +589,7 @@ describe('/api/analytics', () => {
 
             // 第二次 findMany 是新掌握查询，应包含学科筛选与 mastered 条件
             expect(mocks.mockPrismaErrorItem.findMany).toHaveBeenCalledTimes(2);
-            expect(mocks.mockPrismaErrorItem.findMany).toHaveBeenNthCalledWith(2, {
+            expect(mocks.mockPrismaErrorItem.findMany).toHaveBeenNthCalledWith(2, expect.objectContaining({
                 where: {
                     userId: 'user-123',
                     subjectId: 'sub-1',
@@ -598,8 +599,9 @@ describe('/api/analytics', () => {
                         masteryProbability: { gte: 0.5 },
                     }],
                 },
-                select: { masteryEvaluatedAt: true },
-            });
+                select: { id: true, masteryEvaluatedAt: true },
+                take: 500,
+            }));
         });
 
         it('all 范围的分桶起点取最早创建与最早掌握评估时间中较早者', async () => {

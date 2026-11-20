@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAppTimeZone } from "@/lib/config";
 import { internalError } from "@/lib/api-errors";
@@ -12,6 +13,52 @@ import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
 
 const logger = createLogger('api:analytics');
+const ANALYTICS_ITEM_BATCH_SIZE = 500;
+
+async function collectCreatedBucketCounts(
+    where: Prisma.ErrorItemWhereInput,
+    buckets: { start: Date; end: Date }[],
+): Promise<number[]> {
+    const counts = buckets.map(() => 0);
+    for (let skip = 0; ; skip += ANALYTICS_ITEM_BATCH_SIZE) {
+        const rows = await prisma.errorItem.findMany({
+            where,
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            skip,
+            take: ANALYTICS_ITEM_BATCH_SIZE,
+            select: { id: true, createdAt: true },
+        });
+        for (const row of rows) {
+            const bucket = buckets.findIndex((candidate) => row.createdAt >= candidate.start && row.createdAt < candidate.end);
+            if (bucket >= 0) counts[bucket] += 1;
+        }
+        if (rows.length < ANALYTICS_ITEM_BATCH_SIZE) break;
+    }
+    return counts;
+}
+
+async function collectMasteredBucketCounts(
+    where: Prisma.ErrorItemWhereInput,
+    buckets: { start: Date; end: Date }[],
+): Promise<number[]> {
+    const counts = buckets.map(() => 0);
+    for (let skip = 0; ; skip += ANALYTICS_ITEM_BATCH_SIZE) {
+        const rows = await prisma.errorItem.findMany({
+            where,
+            orderBy: [{ masteryEvaluatedAt: 'asc' }, { id: 'asc' }],
+            skip,
+            take: ANALYTICS_ITEM_BATCH_SIZE,
+            select: { id: true, masteryEvaluatedAt: true },
+        });
+        for (const row of rows) {
+            if (!row.masteryEvaluatedAt) continue;
+            const bucket = buckets.findIndex((candidate) => row.masteryEvaluatedAt! >= candidate.start && row.masteryEvaluatedAt! < candidate.end);
+            if (bucket >= 0) counts[bucket] += 1;
+        }
+        if (rows.length < ANALYTICS_ITEM_BATCH_SIZE) break;
+    }
+    return counts;
+}
 
 export const GET = withUser(async (req: Request, { user }: AuthenticatedContext) => {
     const userId = user.id;
@@ -66,7 +113,7 @@ export const GET = withUser(async (req: Request, { user }: AuthenticatedContext)
             ...(rangeInfo.start ? { createdAt: { gte: rangeInfo.start } } : {}),
         };
 
-        const [totalErrors, newCount, reviewingCount, masteredCount, subjectGroups, rangeItems, masteredItems, mistakeStatusGroups, errorTypeGroups, difficultyStarsGroups, difficultyStarsMasteredGroups] = await Promise.all([
+        const [totalErrors, newCount, reviewingCount, masteredCount, subjectGroups, mistakeStatusGroups, errorTypeGroups, difficultyStarsGroups, difficultyStarsMasteredGroups] = await Promise.all([
             prisma.errorItem.count({ where: scopedWhere }),
             prisma.errorItem.count({
                 where: { AND: [scopedWhere, masteryStatusWhere('new', masteryThreshold)] }
@@ -81,21 +128,6 @@ export const GET = withUser(async (req: Request, { user }: AuthenticatedContext)
                 by: ['subjectId'],
                 where: scopedWhere,
                 _count: { id: true },
-            }),
-            prisma.errorItem.findMany({
-                where: scopedWhere,
-                select: { createdAt: true },
-            }),
-            prisma.errorItem.findMany({
-                // 近似口径：以最近一次掌握评估时间（masteryEvaluatedAt）作为「掌握时间」。
-                // 这类错题可能创建于范围之前，因此不套用 createdAt 范围条件，
-                // 只要 masteryEvaluatedAt 落在范围起点之后即计入。
-                where: {
-                    ...baseWhere,
-                    ...(rangeInfo.start ? { masteryEvaluatedAt: { gte: rangeInfo.start } } : {}),
-                    AND: [masteryStatusWhere('mastered', masteryThreshold)],
-                },
-                select: { masteryEvaluatedAt: true },
             }),
             prisma.errorItem.groupBy({
                 by: ['mistakeStatus'],
@@ -117,6 +149,16 @@ export const GET = withUser(async (req: Request, { user }: AuthenticatedContext)
                 where: { AND: [scopedWhere, masteryStatusWhere('mastered', masteryThreshold)] },
                 _count: { id: true },
             }),
+        ]);
+
+        // 日期活动改为分批读取日期列，避免 all/长时间范围把全部错题保留在内存中。
+        const [addedCounts, masteredCounts] = await Promise.all([
+            collectCreatedBucketCounts(scopedWhere, rangeInfo.buckets),
+            collectMasteredBucketCounts({
+                ...baseWhere,
+                ...(rangeInfo.start ? { masteryEvaluatedAt: { gte: rangeInfo.start } } : {}),
+                AND: [masteryStatusWhere('mastered', masteryThreshold)],
+            }, rangeInfo.buckets),
         ]);
 
         // 掌握率
@@ -195,15 +237,9 @@ export const GET = withUser(async (req: Request, { user }: AuthenticatedContext)
 
         // 按分桶统计每日/每月新增与新掌握
         // 近似口径：以最近一次掌握评估时间（masteryEvaluatedAt）作为「掌握时间」
-        const activityData = rangeInfo.buckets.map(bucket => {
-            const added = rangeItems.filter(
-                item => item.createdAt >= bucket.start && item.createdAt < bucket.end
-            ).length;
-            const mastered = masteredItems.filter(
-                item => item.masteryEvaluatedAt !== null
-                    && item.masteryEvaluatedAt >= bucket.start
-                    && item.masteryEvaluatedAt < bucket.end
-            ).length;
+        const activityData = rangeInfo.buckets.map((bucket, index) => {
+            const added = addedCounts[index];
+            const mastered = masteredCounts[index];
             return {
                 date: bucket.label,
                 // count 为兼容旧版前端保留，与 added 相同
