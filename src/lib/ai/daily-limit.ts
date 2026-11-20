@@ -9,6 +9,15 @@ import type { AiUsageKind } from "@/lib/ai-quota";
 
 const logger = createLogger('ai:daily-limit');
 
+// 额度预占是很短的写事务；单独串行化，避免与调用方已有的写队列嵌套等待。
+let reservationQueue: Promise<unknown> = Promise.resolve();
+
+function serializeReservation<T>(operation: () => Promise<T>): Promise<T> {
+    const run = reservationQueue.then(operation);
+    reservationQueue = run.catch(() => undefined);
+    return run;
+}
+
 /** 用户在应用时区的今天已发起的 AI 调用次数 */
 export async function countTodayAiUsage(userId: string, now = new Date()): Promise<number> {
     const { start, end } = getDayRange(now, getAppTimeZone());
@@ -39,7 +48,7 @@ export async function reserveDailyAiUsage(
         let reserved = false;
         for (let attempt = 0; ; attempt++) {
             try {
-                reserved = await prisma.$transaction(async (tx) => {
+                reserved = await serializeReservation(() => prisma.$transaction(async (tx) => {
                     const current = await tx.aiDailyUsage.findUnique({
                         where: { userId_day: { userId: user.id, day } },
                         select: { count: true },
@@ -61,7 +70,7 @@ export async function reserveDailyAiUsage(
                     }
                     await tx.aiUsage.create({ data: { userId: user.id, kind } });
                     return true;
-                }, { maxWait: 10000, timeout: 30000 });
+                }, { maxWait: 10000, timeout: 30000 }));
                 break;
             } catch (error) {
                 const code = (error as { code?: string })?.code;
