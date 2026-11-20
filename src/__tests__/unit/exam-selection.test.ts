@@ -69,4 +69,21 @@ describe('selectSourceItems 结果与知识点筛选', () => {
         });
         expect(picked).toHaveLength(3);
     });
+
+    it('大规模候选题使用主键游标继续分页，避免 offset 重复扫描', async () => {
+        const firstPage = Array.from({ length: 500 }, (_, index) => candidate(`page-1-${index}`, '函数', null));
+        const secondPage = [candidate('page-2-0', '函数', null)];
+        mocks.findMany.mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage);
+
+        const picked = await selectSourceItems('u1', { ...baseSelection, count: 1 });
+
+        expect(picked).toHaveLength(1);
+        expect(mocks.findMany).toHaveBeenCalledTimes(2);
+        expect(mocks.findMany.mock.calls[1][0]).toMatchObject({
+            cursor: { id: 'page-1-499' },
+            skip: 1,
+            take: 500,
+            orderBy: { id: 'asc' },
+        });
+    });
 });

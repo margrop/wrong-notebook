@@ -167,11 +167,14 @@ export async function selectSourceItems(userId: string, selection: ExamSelection
     }> = [];
     // 只有原题直出需要判断题干；标签、最近一次作答和计数都在每个小批次内读取。
     // 这样即使错题本超过 1000 道，也不会让 Prisma 把全部父级 ID 放进一次关联查询。
-    for (let skip = 0; ; skip += EXAM_SELECTION_RELATION_BATCH_SIZE) {
+    // 使用主键游标而不是不断增加 offset，避免大错题本在后续分页中重复扫描，
+    // 同时让一次选题过程中发生新增/删除时仍保持分页边界稳定。
+    let cursor: { id: string } | undefined;
+    for (;;) {
         const page = await prisma.errorItem.findMany({
             where,
             orderBy: { id: 'asc' },
-            skip,
+            ...(cursor ? { cursor, skip: 1 } : {}),
             take: EXAM_SELECTION_RELATION_BATCH_SIZE,
             select: {
                 id: true,
@@ -191,6 +194,7 @@ export async function selectSourceItems(userId: string, selection: ExamSelection
         });
         candidates.push(...page);
         if (page.length < EXAM_SELECTION_RELATION_BATCH_SIZE) break;
+        cursor = { id: page[page.length - 1].id };
     }
     let items = candidates.map(({ _count, practiceRecords, tags, ...item }) => ({
         ...item,
