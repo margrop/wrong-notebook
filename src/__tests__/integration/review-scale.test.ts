@@ -26,6 +26,7 @@ vi.mock('@/lib/logger', () => ({ createLogger: () => ({ debug: vi.fn(), info: vi
 
 import { GET as REVIEW_DUE } from '@/app/api/review/due/route';
 import { GET as WEAK_TAGS } from '@/app/api/stats/weak-tags/route';
+import { selectSourceItems } from '@/lib/exam/exam';
 
 /** 必须超过 SQLite 的 999 参数上限才能复现 */
 const ITEM_COUNT = 1200;
@@ -55,7 +56,7 @@ beforeAll(async () => {
     for (let start = 0; start < ids.length; start += 400) {
         const slice = ids.slice(start, start + 400);
         await database.errorItem.createMany({
-            data: slice.map((id) => ({ id, userId: 'scale-user', subjectId: 'math', originalImageUrl: '', questionText: id, createdAt })),
+            data: slice.map((id) => ({ id, shortId: id, userId: 'scale-user', subjectId: 'math', originalImageUrl: '', questionText: id, createdAt })),
         });
         await database.practiceRecord.createMany({
             data: slice.map((id) => ({ userId: 'scale-user', errorItemId: id, result: 'wrong', source: 'practice', createdAt: new Date(now - 3 * DAY) })),
@@ -111,5 +112,18 @@ describe('错题超过 SQLite 参数上限时', () => {
         // 该标签下有 1 道题；近 30 天只有那条 practice 记录，duplicate_import 不计入
         const [group] = data.weakTags;
         expect(group).toMatchObject({ tag: '方程', total: 1, unmastered: 1, recentAttempted: 1, recentCorrect: 0 });
+    });
+
+    it('组卷候选题超过 999 道时仍能完成选题', async () => {
+        const items = await selectSourceItems('scale-user', {
+            subjectIds: ['math'],
+            scope: 'all',
+            count: 10,
+            lastResult: 'wrong',
+        });
+
+        expect(items).toHaveLength(10);
+        expect(items.every((item) => item.practiceCount === 1)).toBe(true);
+        expect(items.every((item) => item.lastAttempt?.result === 'wrong')).toBe(true);
     });
 });
