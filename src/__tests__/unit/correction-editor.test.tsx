@@ -25,6 +25,7 @@ vi.mock('@/components/geogebra-demo', () => ({ GeogebraDemo: () => null }));
 vi.mock('@/components/paper-group-select', () => ({
     PaperGroupSelect: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
         <select value={value} onChange={(e) => onChange(e.target.value)}>
+            <option value="">选择卷别</option>
             <option value="group-a">A卷</option>
             <option value="group-b">B卷</option>
             <option value="group-other">其他</option>
@@ -109,15 +110,16 @@ describe('校对页的默认卷别与手工覆盖', () => {
         ] : {});
     });
 
-    it.each([[1, 'group-a'], [2, 'group-a'], [3, 'group-a'], [4, 'group-b'], [5, 'group-b']] as const)('%i 星校对题默认显示并保存为 %s 分组', async (difficultyStars, paperLevel) => {
+    it.each([[1, 'group-a'], [2, 'group-a'], [3, 'group-a'], [4, 'group-b'], [5, 'group-b']] as const)('%i 星校对题预览 %s 分组并由服务端决定最终归属', async (difficultyStars, paperLevel) => {
         await renderEditor({ difficultyStars });
         expect(paperSelect().value).toBe(paperLevel);
         await clickButton(translations.zh.editor.save);
-        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ paperLevel, difficultyStars }));
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ paperLevel: undefined, difficultyStars }));
     });
 
     it('未手工选卷时，修改星级会更新默认卷别', async () => {
-        await renderEditor({ difficultyStars: 3 });
+        await renderEditor();
+        expect(paperSelect().value).toBe('');
         await clickStar(4);
         expect(paperSelect().value).toBe('group-b');
         await clickStar(2);

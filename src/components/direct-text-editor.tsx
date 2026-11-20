@@ -181,7 +181,7 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
                     </div>
                     <div className="space-y-2">
                         <Label>{t.editor?.paperLevel || "Paper Level"}</Label>
-                        <PaperGroupSelect value={paperLevel} onChange={setPaperLevel} />
+                        <PaperGroupSelect value={paperLevel} onChange={setPaperLevel} allowUnspecified />
                     </div>
                 </div>
 

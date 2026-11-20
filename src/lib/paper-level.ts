@@ -1,4 +1,7 @@
+import "server-only";
+
 import type { Prisma } from "@prisma/client";
+import { getDefaultPaperLevelKey } from "@/lib/constants/paper-level";
 import { prisma } from "@/lib/prisma";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
@@ -15,11 +18,8 @@ export async function getDefaultPaperLevelGroupId(
     difficultyStars: number | null | undefined,
     client?: DbClient,
 ): Promise<string | null> {
-    if (typeof difficultyStars !== "number" || !Number.isInteger(difficultyStars)
-        || difficultyStars < 1 || difficultyStars > 5) {
-        return null;
-    }
-    const key = difficultyStars <= 3 ? "a" : "b";
+    const key = getDefaultPaperLevelKey(difficultyStars);
+    if (!key) return null;
     const db = getClient(client);
     const group = await db.paperGroup.findFirst({
         where: { userId, key, isActive: true },

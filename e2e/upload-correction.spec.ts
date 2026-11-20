@@ -2,8 +2,11 @@ import { test, expect } from './support/fixtures';
 import { importImage } from './support/flows';
 import { acceptConfirmDialog } from './helpers';
 
-test('图片识别经人工校对后保存、刷新并删除', async ({ page, scenario }) => {
+test('没有卷别分组时也能首次校对保存，随后刷新并删除', async ({ page, scenario }) => {
+    await scenario.db.paperGroup.deleteMany({ where: { userId: scenario.user.id } });
     const item = await importImage(page, scenario, true);
+    const group = await scenario.db.paperGroup.findUniqueOrThrow({ where: { userId_key: { userId: scenario.user.id, key: 'a' } } });
+    expect(item.paperLevel).toBe(group.id);
     await expect(page.getByText('校对后的方程', { exact: false })).toBeVisible();
     await expect(page.getByText('待复习', { exact: true }).first()).toBeVisible();
     expect(item.masteryLevel).toBe(0);

@@ -402,6 +402,9 @@ export const zh = {
                 selectNotebook: "请选择一个错题本",
             },
             paperLevel: "所属卷等级",
+            paperLevelPlaceholder: "选择卷别",
+            paperLevelUnspecified: "不手工指定",
+            paperLevelUnavailable: "卷别不可用，请重新选择",
             paperLevels: {
                 a: "A卷",
                 b: "B卷",
@@ -1228,7 +1231,7 @@ export const zh = {
             QUESTION_SAVE_DATABASE_UNAVAILABLE: "保存失败：数据库无法访问。请管理员检查数据库路径、挂载目录和容器日志。",
             QUESTION_SAVE_REFERENCE_INVALID: "保存失败：所选错题本或关联数据已不存在，请刷新页面后重新选择并保存。",
             QUESTION_SAVE_CONFLICT: "保存失败：数据与已有记录冲突，请刷新页面并检查错题本和卷别分组后重试。",
-            QUESTION_SAVE_INVALID_PAPER_LEVEL: "保存失败：所选卷别分组不可用，可能已停用或删除，请刷新页面后重新选择。",
+            QUESTION_SAVE_INVALID_PAPER_LEVEL: "保存失败：所选卷别分组不可用，可能已停用或删除。请重新选择，或选择「不手工指定」后再保存。",
             QUESTION_SAVE_INVALID_INPUT: "保存失败：题目部分字段不符合要求，请根据下方提示修改后重新保存。",
             QUESTION_SAVE_INVALID_JSON: "保存失败：请求内容不是有效的 JSON，请刷新页面后重试。",
             QUESTION_SAVE_UNAUTHORIZED: "保存失败：尚未登录或登录已失效，请先复制录入内容，重新登录后再保存。",

@@ -167,7 +167,7 @@ When editing the question text, use the **Pinyin** tool below the box: it opens 
 | Fix LaTeX | Appears when formula syntax issues are detected, letting the AI correct the formulas |
 | Original image | View, replace or add it to check the recognition |
 
-Unrated questions are not assigned a paper level by the default rule alone. Regenerating the full solution keeps the knowledge points and mistake information.
+If you make no manual selection, an unrated question or one whose default group is disabled can be saved without a paper group. If a group you chose during direct entry or review has since been disabled or deleted, the app keeps your draft and refreshes the options. Select an active group or choose **No manual selection** to use the default rule, then save again. Regenerating the full solution keeps the knowledge points and mistake information.
 
 ![Question text, knowledge points, difficulty and question info](https://raw.githubusercontent.com/margrop/wrong-notebook/a5f816515e3dc31dcdb90c9fa456baed12eef94d/doc/screenshots/en/question-detail.png)
 

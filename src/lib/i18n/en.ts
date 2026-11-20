@@ -402,6 +402,9 @@ export const en = {
                 selectNotebook: "Please select a notebook",
             },
             paperLevel: "Paper Level",
+            paperLevelPlaceholder: "Select a paper group",
+            paperLevelUnspecified: "No manual selection",
+            paperLevelUnavailable: "Paper group unavailable. Please select again.",
             paperLevels: {
                 a: "Paper A",
                 b: "Paper B",
@@ -1229,7 +1232,7 @@ export const en = {
             QUESTION_SAVE_DATABASE_UNAVAILABLE: "The database is unavailable. Ask an administrator to check the database path, mounted directories and container logs.",
             QUESTION_SAVE_REFERENCE_INVALID: "The selected notebook or related data no longer exists. Refresh the page, select it again and save.",
             QUESTION_SAVE_CONFLICT: "The data conflicts with another saved record. Refresh the page and check the notebook and paper group before saving again.",
-            QUESTION_SAVE_INVALID_PAPER_LEVEL: "The selected paper group is unavailable. It may have been disabled or deleted. Refresh the page and select a group again.",
+            QUESTION_SAVE_INVALID_PAPER_LEVEL: "The selected paper group is unavailable. Select an active group or choose No manual selection, then save again.",
             QUESTION_SAVE_INVALID_INPUT: "Some question fields are invalid. Check the fields below and save again.",
             QUESTION_SAVE_INVALID_JSON: "The save request is not valid JSON. Refresh the page and try again.",
             QUESTION_SAVE_UNAUTHORIZED: "Your session has expired or you are not signed in. Copy your input, sign in again, then save.",

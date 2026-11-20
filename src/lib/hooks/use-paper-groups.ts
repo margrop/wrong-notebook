@@ -16,12 +16,37 @@ export interface PaperGroup {
 // 简单内存缓存，30 秒内不重复拉
 let cachedGroups: PaperGroup[] | null = null;
 let cachedAt = 0;
+let pendingRequest: Promise<void> | null = null;
 const CACHE_TTL = 30_000;
 const subscribers = new Set<(groups: PaperGroup[]) => void>();
 
 export function invalidatePaperGroupsCache() {
     cachedGroups = null;
     cachedAt = 0;
+    pendingRequest = null;
+}
+
+function requestPaperGroups() {
+    if (pendingRequest) return pendingRequest;
+    const request = apiClient.get<PaperGroup[]>("/api/paper-groups", { cache: "no-store" })
+        .then((groups) => {
+            // 分组更新后，忽略此前发出但较晚返回的请求。
+            if (pendingRequest !== request) return;
+            cachedGroups = groups;
+            cachedAt = Date.now();
+            subscribers.forEach((subscriber) => subscriber(groups));
+        })
+        .finally(() => {
+            if (pendingRequest === request) pendingRequest = null;
+        });
+    pendingRequest = request;
+    return request;
+}
+
+/** 分组变更或保存被拒绝时，刷新当前页的所有卷别选项。 */
+export function refreshPaperGroups() {
+    invalidatePaperGroupsCache();
+    return requestPaperGroups();
 }
 
 /**
@@ -34,19 +59,14 @@ export function usePaperGroups() {
     const [error, setError] = useState<string | null>(null);
 
     const fetchGroups = useCallback(async (force = false) => {
-        const now = Date.now();
-        if (!force && cachedGroups && now - cachedAt < CACHE_TTL) {
+        if (!force && cachedGroups && Date.now() - cachedAt < CACHE_TTL) {
             setGroups(cachedGroups);
             setLoading(false);
             return;
         }
         try {
             setLoading(true);
-            const data = await apiClient.get<PaperGroup[]>("/api/paper-groups");
-            cachedGroups = data;
-            cachedAt = now;
-            // 设置页刷新后，通知已挂载的录入、筛选和详情组件更新选项。
-            subscribers.forEach((subscriber) => subscriber(data));
+            await (force ? refreshPaperGroups() : requestPaperGroups());
             setError(null);
         } catch (err) {
             frontendLogger.error("[usePaperGroups]", "Failed to fetch paper groups", { error: err });
@@ -63,10 +83,7 @@ export function usePaperGroups() {
         return () => { subscribers.delete(setGroups); };
     }, [fetchGroups]);
 
-    const refetch = useCallback(() => {
-        invalidatePaperGroupsCache();
-        return fetchGroups(true);
-    }, [fetchGroups]);
+    const refetch = useCallback(() => fetchGroups(true), [fetchGroups]);
 
     return { groups, loading, error, refetch };
 }

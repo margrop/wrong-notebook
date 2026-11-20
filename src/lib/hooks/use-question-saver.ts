@@ -7,6 +7,7 @@ import { isAiRejectionCode } from "@/lib/ai-limit-message";
 import { getApiErrorMessage, getErrorMessage } from "@/lib/error-message";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { refreshPaperGroups } from "@/lib/hooks/use-paper-groups";
 import { getQuestionSaveErrorMessage } from "@/lib/question/question-save-error";
 
 interface SavedQuestion {
@@ -38,11 +39,17 @@ export function useQuestionSaver(logPrefix: string) {
             }
             return true;
         } catch (error) {
-            frontendLogger.error(logPrefix, 'Save failed', { errorMessage: getApiErrorMessage(error) ?? getErrorMessage(error) });
+            const apiMessage = getApiErrorMessage(error);
+            frontendLogger.error(logPrefix, 'Save failed', { errorMessage: apiMessage ?? getErrorMessage(error) });
+            if (apiMessage === 'QUESTION_SAVE_INVALID_PAPER_LEVEL') {
+                void refreshPaperGroups().catch((refreshError: unknown) => {
+                    frontendLogger.warn(logPrefix, '刷新卷别分组失败', { errorMessage: getErrorMessage(refreshError) });
+                });
+            }
             const message = getQuestionSaveErrorMessage(error, t);
             setSaveError(message);
             // 额度用完与未授权由 apiClient 统一提示或弹出授权窗口，这里不再重复报错
-            if (!isAiRejectionCode(getApiErrorMessage(error))) toast.error(message);
+            if (!isAiRejectionCode(apiMessage)) toast.error(message);
             return false;
         }
     };

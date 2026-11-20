@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTimeZone } from "@/contexts/TimeZoneContext";
 import { apiClient } from "@/lib/api-client";
+import { getDefaultPaperLevelKey } from "@/lib/constants/paper-level";
 import { toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { getFixedQuestionGrade } from "@/lib/question/question-grade";
@@ -64,14 +65,11 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
     };
     // 配图工具在渲染期接收更新函数；不读取 gradeEdited ref，避免渲染期访问 ref
     const updateFigure = (fields: Partial<CorrectionDraft>) => setData(prev => ({ ...prev, ...fields }));
-    // 未手工选卷时随星级更新默认值，手工选择后优先保留。
+    // 显示按星级建议的分组；未手工选卷时，保存由服务端按最新分组状态决定。
     const { groups: paperGroups } = usePaperGroups();
-    const defaultPaperLevelId = (() => {
-        if (data.paperLevel) return data.paperLevel;
-        const key = typeof data.difficultyStars === "number" && data.difficultyStars >= 4 ? "b" : "a";
-        return paperGroups.find((g) => g.key === key && g.isActive)?.id || "";
-    })();
-    const paperLevel = data.paperLevel ?? defaultPaperLevelId;
+    const defaultPaperLevelKey = getDefaultPaperLevelKey(data.difficultyStars);
+    const paperLevel = data.paperLevel || (defaultPaperLevelKey
+        ? paperGroups.find((group) => group.key === defaultPaperLevelKey && group.isActive)?.id : undefined) || "";
     const [isReanswering, setIsReanswering] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     // GeoGebra 动态演示默认关闭，用户在设置中开启后才显示
@@ -147,7 +145,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
         if (isSaving) return; // 防止重复点击
         setIsSaving(true);
         try {
-            await onSave({ ...data, paperLevel, mistakeStatus: normalizeMistakeStatusForSave(data.mistakeStatus, data.wrongAnswerText) });
+            await onSave({ ...data, paperLevel: data.paperLevel || undefined, mistakeStatus: normalizeMistakeStatusForSave(data.mistakeStatus, data.wrongAnswerText) });
         } finally {
             setIsSaving(false);
         }

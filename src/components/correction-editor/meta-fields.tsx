@@ -70,7 +70,7 @@ export function MetaFields({ data, paperLevel, onChange }: MetaFieldsProps) {
                 </div>
                 <div className="space-y-2">
                     <Label>{t.editor.paperLevel || "Paper Level"}</Label>
-                    <PaperGroupSelect value={paperLevel} onChange={(val) => onChange({ paperLevel: val })} />
+                    <PaperGroupSelect value={paperLevel} onChange={(val) => onChange({ paperLevel: val || undefined })} allowUnspecified />
                 </div>
             </div>
 
