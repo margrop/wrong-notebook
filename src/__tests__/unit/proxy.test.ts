@@ -15,6 +15,11 @@ vi.mock('@/lib/logger', () => ({
     })),
 }));
 
+const { userFindUnique } = vi.hoisted(() => ({ userFindUnique: vi.fn() }));
+vi.mock('@/lib/prisma', () => ({
+    prisma: { user: { findUnique: userFindUnique } },
+}));
+
 import { proxy } from '@/proxy';
 import { getToken } from 'next-auth/jwt';
 import type { JWT } from 'next-auth/jwt';
@@ -22,6 +27,11 @@ import type { JWT } from 'next-auth/jwt';
 describe('proxy', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        userFindUnique.mockImplementation(({ where }: { where: { id?: string } }) => Promise.resolve(
+            where.id === 'admin-1'
+                ? { isActive: true, role: 'admin' }
+                : { isActive: true, role: 'user' },
+        ));
     });
 
     afterEach(() => {
@@ -85,7 +95,7 @@ describe('proxy', () => {
 
     describe('已认证用户', () => {
         const mockToken = {
-            sub: 'user-123',
+            id: 'user-123',
             email: 'test@example.com',
             name: 'Test User',
         };
@@ -159,6 +169,28 @@ describe('proxy', () => {
             const response = await proxy(new NextRequest('http://localhost:3000/notebooks'));
 
             expect(response).toBeUndefined();
+        });
+    });
+
+    describe('数据库账号状态', () => {
+        it('数据库停用账号时，即使 token 仍存在也跳转登录页', async () => {
+            vi.mocked(getToken).mockResolvedValue({ id: 'user-123', role: 'user' } as unknown as JWT);
+            userFindUnique.mockResolvedValue({ isActive: false, role: 'user' });
+
+            const response = await proxy(new NextRequest('http://localhost:3000/notebooks'));
+
+            expect(response?.status).toBe(307);
+            expect(response?.headers.get('location')).toContain('/login');
+        });
+
+        it('数据库已降权时，旧管理员 token 不能访问管理页', async () => {
+            vi.mocked(getToken).mockResolvedValue({ id: 'admin-1', role: 'admin' } as unknown as JWT);
+            userFindUnique.mockResolvedValue({ isActive: true, role: 'user' });
+
+            const response = await proxy(new NextRequest('http://localhost:3000/admin'));
+
+            expect(response?.status).toBe(307);
+            expect(response?.headers.get('location')).toContain('/login?callbackUrl=%2Fadmin');
         });
     });
 

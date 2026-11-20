@@ -62,8 +62,13 @@ describe('/api/user', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        // withUser 包装器通过 prisma 查询用户，设置默认返回值
-        mocks.mockPrismaUser.findUnique.mockResolvedValue(defaultDbUser);
+        // withUser 按 session 中的不可变 ID（旧测试 session 没有 ID 时按邮箱）读取当前账号。
+        mocks.mockPrismaUser.findUnique.mockImplementation(async (args: { where?: { email?: string } }) => {
+            const email = args.where?.email;
+            if (email === 'admin@localhost') return { ...defaultDbUser, email, role: 'admin' };
+            if (email && email !== defaultDbUser.email) return { ...defaultDbUser, email };
+            return defaultDbUser;
+        });
     });
 
     describe('GET /api/user', () => {

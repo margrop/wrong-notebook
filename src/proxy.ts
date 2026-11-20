@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 import { createLogger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
 const logger = createLogger('proxy');
 
@@ -24,7 +25,13 @@ export async function proxy(req: NextRequest) {
             cookieName: "next-auth.session-token", // Explicitly look for the standardized cookie
         });
 
-        const isAuth = !!token;
+        // 页面代理不能只相信 JWT：管理员停用账号后，旧 token 仍可能存在。
+        // API 层也会再次校验，这里提前阻止旧会话继续访问受保护页面。
+        const currentUser = token?.id
+            ? await prisma.user.findUnique({ where: { id: token.id }, select: { isActive: true, role: true } })
+            : null;
+        const isAuth = !!token?.id && currentUser?.isActive !== false && currentUser !== null;
+        const currentRole = currentUser?.role;
         // /initialize：全新安装时用一次性初始化链接创建管理员，未登录也要能打开
         const isAuthPage = ["/login", "/register", "/initialize"].some((prefix) => req.nextUrl.pathname.startsWith(prefix));
         const isAdminPage = req.nextUrl.pathname.startsWith("/admin");
@@ -65,7 +72,7 @@ export async function proxy(req: NextRequest) {
         }
 
         // Admin route protection: only allow users with admin role
-        if (isAdminPage && token?.role !== "admin") {
+        if (isAdminPage && currentRole !== "admin") {
             logger.warn({ userId: token?.id, path: req.nextUrl.pathname }, 'Non-admin user attempting to access admin area');
             return NextResponse.redirect(new URL("/", req.url));
         }

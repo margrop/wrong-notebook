@@ -62,25 +62,44 @@ async function resolveUser(): Promise<{ user: User; session: Session } | { error
     if (!session?.user?.email) {
         return { error: unauthorized("Authentication required") };
     }
-    const adminUser = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!adminUser) {
+    // JWT 会话可能在账号被停用或降权后仍然存在一段时间，不能只相信 token 中的邮箱和角色。
+    // 新会话优先按不可变的用户 ID 查找；旧会话没有 ID 时再回退到邮箱。
+    const principal = session.user.id
+        ? await prisma.user.findUnique({ where: { id: session.user.id } })
+        : await prisma.user.findUnique({ where: { email: session.user.email } });
+    if (!principal || principal.isActive === false) {
         return { error: unauthorized("Authentication required") };
     }
 
+    // 管理员角色以数据库当前值为准，避免旧 JWT 在降权后继续获得管理员权限。
+    const principalSession = principal.id === session.user.id
+        && principal.email === session.user.email
+        && principal.role === session.user.role
+        ? session
+        : {
+            ...session,
+            user: {
+                ...session.user,
+                id: principal.id,
+                email: principal.email,
+                role: principal.role,
+            },
+        };
+
     // 管理员「以某用户身份查看」：普通接口按目标用户执行，鉴权仍以管理员会话为准
-    if (session.user.role === "admin") {
+    if (principal.role === "admin") {
         try {
             const targetId = (await cookies()).get(ADMIN_VIEW_AS_COOKIE)?.value;
-            if (targetId && targetId !== adminUser.id) {
+            if (targetId && targetId !== principal.id) {
                 const target = await prisma.user.findUnique({ where: { id: targetId } });
-                if (target) return { user: target, session };
+                if (target) return { user: target, session: principalSession };
             }
         } catch {
             // 非请求上下文（如直接调用路由的测试）没有 cookie 存储，按管理员本人处理
         }
     }
 
-    return { user: adminUser, session };
+    return { user: principal, session: principalSession };
 }
 
 export interface AdminRouteOptions {

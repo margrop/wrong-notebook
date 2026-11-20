@@ -71,6 +71,7 @@ const existingUser = {
     email: 'user@example.com',
     name: 'Test User',
     role: 'user',
+    isActive: true,
 };
 
 const adminUser = {
@@ -78,6 +79,7 @@ const adminUser = {
     email: 'admin@localhost',
     name: 'Admin',
     role: 'admin',
+    isActive: true,
 };
 
 describe('withUser', () => {
@@ -105,6 +107,17 @@ describe('withUser', () => {
         const wrapped = withUser(handler);
 
         const response = await wrapped(new Request('http://localhost/api/test'));
+
+        expect(response.status).toBe(401);
+        expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('数据库中已停用的账号不能继续使用已有会话', async () => {
+        mocks.getServerSession.mockResolvedValue(loggedInSession);
+        mocks.userFindUnique.mockResolvedValue({ ...existingUser, isActive: false });
+        const handler = vi.fn();
+
+        const response = await withUser(handler)(new Request('http://localhost/api/test'));
 
         expect(response.status).toBe(401);
         expect(handler).not.toHaveBeenCalled();
@@ -200,9 +213,7 @@ describe('withAdmin', () => {
         expect(ctx.session).toEqual(adminSession);
     });
 
-    it('管理员判定与 isAdmin 一致：session.user.role === admin', async () => {
-        // session 中 role 为 admin，但数据库中 role 为 user（数据不一致的边缘场景）
-        // 按 session 判定（与现有 requireAdmin 一致）
+    it('数据库已降权时，旧的管理员 session 不能继续访问管理接口', async () => {
         mocks.getServerSession.mockResolvedValue(adminSession);
         mocks.userFindUnique.mockResolvedValue({ ...adminUser, role: 'user' });
         const handler = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
@@ -210,8 +221,19 @@ describe('withAdmin', () => {
 
         const response = await wrapped(new Request('http://localhost/api/admin/test'));
 
-        expect(response.status).toBe(200);
-        expect(handler).toHaveBeenCalledTimes(1);
+        expect(response.status).toBe(403);
+        expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('数据库中已停用的管理员不能继续访问管理接口', async () => {
+        mocks.getServerSession.mockResolvedValue(adminSession);
+        mocks.userFindUnique.mockResolvedValue({ ...adminUser, isActive: false });
+        const handler = vi.fn();
+
+        const response = await withAdmin(handler)(new Request('http://localhost/api/admin/test'));
+
+        expect(response.status).toBe(401);
+        expect(handler).not.toHaveBeenCalled();
     });
 });
 
