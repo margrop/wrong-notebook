@@ -291,6 +291,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
 
     it('真题库导入默认不进错题，可选写入；按知识点从题库选题', async () => {
         mocks.session = { user: { id: 'user-1', email: 'backup-test@example.com', role: 'admin' }, expires: '2099-01-01' };
+        await database.user.update({ where: { id: 'user-1' }, data: { role: 'admin' } });
         const file = {
             format: 'wrong-notebook-question-bank',
             version: 1,
@@ -378,6 +379,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             // 普通账号不能导入题库，管理员导入后题库全站可见
             mocks.session = { user: { id: 'user-2', email: 'member@example.com', role: 'user' }, expires: '2099-01-01' };
             expect((await postBank()).status).toBe(403);
+            await database.user.update({ where: { id: 'user-2' }, data: { role: 'admin' } });
             mocks.session = { user: { id: 'user-2', email: 'member@example.com', role: 'admin' }, expires: '2099-01-01' };
             expect((await postBank()).status).toBe(201);
             expect(await database.questionBank.count()).toBe(1);
@@ -409,12 +411,15 @@ describe('数据导出后再导入（真实 SQLite）', () => {
             expect(await database.errorItem.count({ where: { userId: 'user-1', subjectId: 'shared-math' } })).toBe(1);
 
             // 名称查重全站生效；普通账号不能删除题库
+            await database.user.update({ where: { id: 'user-1' }, data: { role: 'admin' } });
             mocks.session = { user: { id: 'user-1', email: 'backup-test@example.com', role: 'admin' }, expires: '2099-01-01' };
             expect((await postBank()).status).toBe(409);
+            await database.user.update({ where: { id: 'user-1' }, data: { role: 'user' } });
             mocks.session = originalSession;
             expect((await DELETE_BANK(new Request('http://localhost/api/question-banks'), {
                 params: Promise.resolve({ id: bankQuestion.bankId }),
             })).status).toBe(403);
+            await database.user.update({ where: { id: 'user-1' }, data: { role: 'admin' } });
             mocks.session = { user: { id: 'user-1', email: 'backup-test@example.com', role: 'admin' }, expires: '2099-01-01' };
             expect((await DELETE_BANK(new Request('http://localhost/api/question-banks'), {
                 params: Promise.resolve({ id: bankQuestion.bankId }),

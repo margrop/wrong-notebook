@@ -152,7 +152,9 @@ export async function POST() {
 
                         // 查找执行操作的用户
                         const adminUser = await tx.user.findUnique({
-                            where: { email: session.user!.email! },
+                            where: session.user.id
+                                ? { id: session.user.id }
+                                : { email: session.user!.email! },
                             select: { id: true }
                         });
 

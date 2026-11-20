@@ -48,7 +48,7 @@ export async function GET() {
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email: session.user.email },
+            where: session.user.id ? { id: session.user.id } : { email: session.user.email },
             select: {
                 name: true,
                 email: true,
@@ -80,7 +80,7 @@ export async function GET() {
     }
 }
 
-async function handlePatch(req: Request, { session }: AuthenticatedContext) {
+async function handlePatch(req: Request, { session, user }: AuthenticatedContext) {
     try {
         const body = await req.json();
         const { name, email, password, educationStage, enrollmentYear, gradeRecognitionMode, fixedGradeSemester, confirmBeforeImport, enableGeogebra, enableSvgAnimation, themePreference, questionDuplicateThreshold, masteryThreshold } = userUpdateSchema.parse(body);
@@ -135,10 +135,9 @@ async function handlePatch(req: Request, { session }: AuthenticatedContext) {
             updateData.password = await hash(password, 10);
         }
 
-        const sessionEmail = session.user.email!;
         const updatedUser = await prisma.$transaction(async (tx) => {
             const updated = await tx.user.update({
-                where: { email: sessionEmail },
+                where: { id: user.id },
                 data: updateData,
                 select: {
                     id: true,

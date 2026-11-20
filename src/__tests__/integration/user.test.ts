@@ -65,7 +65,8 @@ describe('/api/user', () => {
         // withUser 按 session 中的不可变 ID（旧测试 session 没有 ID 时按邮箱）读取当前账号。
         mocks.mockPrismaUser.findUnique.mockImplementation(async (args: { where?: { email?: string } }) => {
             const email = args.where?.email;
-            if (email === 'admin@localhost') return { ...defaultDbUser, email, role: 'admin' };
+            if (email === 'admin@localhost') return { ...defaultDbUser, id: 'admin-1', email, role: 'admin' };
+            if (email === 'normaluser@example.com') return { ...defaultDbUser, id: 'normal-user-1', email };
             if (email && email !== defaultDbUser.email) return { ...defaultDbUser, email };
             return defaultDbUser;
         });
@@ -614,6 +615,32 @@ describe('/api/user', () => {
     });
 
     describe('管理员特有功能', () => {
+        it('带用户 ID 的 session 更新资料时按 ID 定位账号', async () => {
+            const { getServerSession } = await import('next-auth');
+            vi.mocked(getServerSession).mockResolvedValue({
+                user: {
+                    id: 'user-1',
+                    email: 'old@example.com',
+                    name: 'User',
+                    role: 'user',
+                },
+                expires: '2025-12-31',
+            });
+            mocks.mockPrismaUser.update.mockResolvedValue({
+                id: 'user-1',
+                name: 'New User',
+                email: 'new@example.com',
+            });
+
+            await PATCH(new Request('http://localhost/api/user', {
+                method: 'PATCH',
+                body: JSON.stringify({ email: 'new@example.com', name: 'New User' }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect(mocks.mockPrismaUser.update.mock.calls[0][0].where).toEqual({ id: 'user-1' });
+        });
+
         it('管理员修改信息时使用的是自己的 session email', async () => {
             const { getServerSession } = await import('next-auth');
             vi.mocked(getServerSession).mockResolvedValue({
@@ -643,7 +670,7 @@ describe('/api/user', () => {
 
             // 验证更新操作使用了 session 中的 email
             const updateCall = mocks.mockPrismaUser.update.mock.calls[0][0];
-            expect(updateCall.where.email).toBe('admin@localhost');
+            expect(updateCall.where.id).toBe('admin-1');
         });
 
         it('普通用户修改信息时使用的是自己的 session email', async () => {
@@ -675,7 +702,7 @@ describe('/api/user', () => {
 
             // 验证更新操作使用了 session 中的 email（不能修改其他用户）
             const updateCall = mocks.mockPrismaUser.update.mock.calls[0][0];
-            expect(updateCall.where.email).toBe('normaluser@example.com');
+            expect(updateCall.where.id).toBe('normal-user-1');
         });
     });
     describe('DELETE /api/user', () => {
