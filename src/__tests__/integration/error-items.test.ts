@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => ({
     },
     mockPrismaSubject: {
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
         findMany: vi.fn(),
         upsert: vi.fn(),
     },
@@ -103,6 +104,8 @@ describe('/api/error-items', () => {
 
         // Default: subject not found (handle null case)
         mocks.mockPrismaSubject.findUnique.mockResolvedValue(null);
+        mocks.mockPrismaSubject.findFirst.mockImplementation(async (args: { where?: { id?: string; userId?: string } }) =>
+            args.where?.id && args.where.userId === mockUser.id ? { id: args.where.id } : null);
 
         // Default: paperGroup returns a mock group (used when resolving paperLevel)
         mocks.mockPrismaPaperGroup.findFirst.mockImplementation(async (args: { where?: { key?: string; id?: string } }) => {

@@ -63,8 +63,8 @@ beforeEach(async () => {
     // withAdmin 包装器通过 prisma 查询用户，需确保管理员用户存在
     await database.user.upsert({
         where: { email: 'admin@localhost' },
-        update: {},
-        create: { email: 'admin@localhost', name: 'Admin', role: 'admin', password: 'x' },
+        update: { id: 'admin-1', role: 'admin', isActive: true },
+        create: { id: 'admin-1', email: 'admin@localhost', name: 'Admin', role: 'admin', password: 'x' },
     });
 });
 
@@ -91,7 +91,7 @@ describe('/api/admin/cnm-tags', () => {
         await database.user.upsert({
             where: { email: 'user@localhost' },
             update: {},
-            create: { email: 'user@localhost', name: 'User', role: 'user', password: 'x' },
+            create: { id: 'user-1', email: 'user@localhost', name: 'User', role: 'user', password: 'x' },
         });
         mocks.getServerSession.mockResolvedValue(user);
         expect((await GET()).status).toBe(403);

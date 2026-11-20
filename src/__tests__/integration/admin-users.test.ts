@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
         email: 'admin@localhost',
         name: 'Admin',
         role: 'admin',
+        isActive: true,
     },
 }));
 
@@ -107,6 +108,7 @@ describe('/api/admin/users', () => {
                 user: { id: 'user-id', email: 'user@example.com', role: 'user' },
                 expires: '2025-12-31',
             });
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ ...mocks.adminDbUser, id: 'user-id', email: 'user@example.com', role: 'user' });
 
             const response = await GET();
 
@@ -129,7 +131,8 @@ describe('/api/admin/users', () => {
                 email: 'user@example.com',
                 isActive: false,
             };
-            mocks.mockPrismaUser.findUnique.mockResolvedValue(targetUser);
+            mocks.mockPrismaUser.findUnique.mockImplementation(async ({ where }: { where: { id?: string } }) =>
+                where.id === 'admin-id' ? mocks.adminDbUser : targetUser);
             mocks.mockPrismaUser.update.mockResolvedValue({ ...targetUser, isActive: false });
 
             const request = new Request('http://localhost/api/admin/users/target-user-id', {
@@ -151,7 +154,8 @@ describe('/api/admin/users', () => {
                 email: 'user@example.com',
                 isActive: true,
             };
-            mocks.mockPrismaUser.findUnique.mockResolvedValue(targetUser);
+            mocks.mockPrismaUser.findUnique.mockImplementation(async ({ where }: { where: { id?: string } }) =>
+                where.id === 'admin-id' ? mocks.adminDbUser : targetUser);
             mocks.mockPrismaUser.update.mockResolvedValue({ ...targetUser, isActive: true });
 
             const request = new Request('http://localhost/api/admin/users/target-user-id', {
@@ -186,7 +190,8 @@ describe('/api/admin/users', () => {
                 id: 'super-admin-id',
                 email: 'admin@localhost',
             };
-            mocks.mockPrismaUser.findUnique.mockResolvedValue(superAdmin);
+            mocks.mockPrismaUser.findUnique.mockImplementation(async ({ where }: { where: { id?: string } }) =>
+                where.id === 'another-admin-id' ? { ...mocks.adminDbUser, id: 'another-admin-id', email: 'admin2@example.com' } : superAdmin);
 
             // 使用另一个管理员身份尝试禁用超级管理员
             vi.mocked(getServerSession).mockResolvedValue({
@@ -236,6 +241,7 @@ describe('/api/admin/users', () => {
                 user: { id: 'user-id', email: 'user@example.com', role: 'user' },
                 expires: '2025-12-31',
             });
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ ...mocks.adminDbUser, id: 'user-id', email: 'user@example.com', role: 'user' });
 
             const request = new Request('http://localhost/api/admin/users/target-id', {
                 method: 'PATCH',
@@ -256,7 +262,8 @@ describe('/api/admin/users', () => {
                 email: 'user@example.com',
                 role: 'user',
             };
-            mocks.mockPrismaUser.findUnique.mockResolvedValue(targetUser);
+            mocks.mockPrismaUser.findUnique.mockImplementation(async ({ where }: { where: { id?: string } }) =>
+                where.id === 'admin-id' ? mocks.adminDbUser : targetUser);
             mocks.mockPrismaUser.delete.mockResolvedValue(targetUser);
 
             const request = new Request('http://localhost/api/admin/users/target-user-id', {
@@ -288,7 +295,8 @@ describe('/api/admin/users', () => {
                 email: 'admin@localhost',
                 role: 'admin',
             };
-            mocks.mockPrismaUser.findUnique.mockResolvedValue(superAdmin);
+            mocks.mockPrismaUser.findUnique.mockImplementation(async ({ where }: { where: { id?: string } }) =>
+                where.id === 'another-admin-id' ? { ...mocks.adminDbUser, id: 'another-admin-id', email: 'admin2@example.com' } : superAdmin);
 
             // 使用另一个管理员身份
             vi.mocked(getServerSession).mockResolvedValue({
@@ -313,7 +321,8 @@ describe('/api/admin/users', () => {
                 email: 'admin2@example.com',
                 role: 'admin',
             };
-            mocks.mockPrismaUser.findUnique.mockResolvedValue(otherAdmin);
+            mocks.mockPrismaUser.findUnique.mockImplementation(async ({ where }: { where: { id?: string } }) =>
+                where.id === 'admin-id' ? mocks.adminDbUser : otherAdmin);
             mocks.mockPrismaUser.delete.mockResolvedValue(otherAdmin);
 
             const request = new Request('http://localhost/api/admin/users/other-admin-id', {
@@ -330,6 +339,7 @@ describe('/api/admin/users', () => {
                 user: { id: 'user-id', email: 'user@example.com', role: 'user' },
                 expires: '2025-12-31',
             });
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ ...mocks.adminDbUser, id: 'user-id', email: 'user@example.com', role: 'user' });
 
             const request = new Request('http://localhost/api/admin/users/target-id', {
                 method: 'DELETE',
