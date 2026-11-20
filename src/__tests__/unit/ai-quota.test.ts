@@ -2,10 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
     aiUsage: { count: vi.fn(), create: vi.fn() },
+    aiDailyUsage: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    transaction: vi.fn(),
     config: { aiDailyLimit: 3 } as { aiDailyLimit?: number },
 }));
 
-vi.mock('@/lib/prisma', () => ({ prisma: { aiUsage: mocks.aiUsage } }));
+vi.mock('@/lib/prisma', () => ({ prisma: {
+    aiUsage: mocks.aiUsage,
+    aiDailyUsage: mocks.aiDailyUsage,
+    $transaction: mocks.transaction,
+} }));
 vi.mock('@/lib/config', () => ({ getAppConfig: () => mocks.config, getAppTimeZone: () => 'Asia/Shanghai' }));
 vi.mock('@/lib/logger', () => ({ createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }) }));
 
@@ -19,6 +25,13 @@ describe('consumeAiQuota', () => {
         mocks.config = { aiDailyLimit: 3 };
         mocks.aiUsage.count.mockResolvedValue(0);
         mocks.aiUsage.create.mockResolvedValue({});
+        mocks.aiDailyUsage.findUnique.mockResolvedValue(null);
+        mocks.aiDailyUsage.create.mockResolvedValue({});
+        mocks.aiDailyUsage.update.mockResolvedValue({});
+        mocks.transaction.mockImplementation(async (operation: (tx: unknown) => Promise<unknown>) => operation({
+            aiUsage: mocks.aiUsage,
+            aiDailyUsage: mocks.aiDailyUsage,
+        }));
     });
 
     it('未达上限时记录一次调用并放行', async () => {

@@ -8,7 +8,7 @@ import type { AiAccessDenial } from "@/lib/ai/account";
 import { isAiRejectionCode } from "@/lib/ai-limit-message";
 import type { AiRejectionCode } from "@/lib/ai-limit-message";
 import { createLogger } from "@/lib/logger";
-import { prisma } from "@/lib/prisma";
+import { reserveDailyAiUsage } from "@/lib/ai/daily-limit";
 
 const logger = createLogger('ai-quota');
 
@@ -55,10 +55,6 @@ export async function consumeAiQuota(user: QuotaUser, kind: AiUsageKind): Promis
     if (denial) {
         return createErrorResponse(denial.code, 429, ErrorCode[denial.code], denial.details);
     }
-    try {
-        await prisma.aiUsage.create({ data: { userId: user.id, kind } });
-    } catch (error) {
-        logger.error({ error, userId: user.id, kind }, 'Failed to record AI usage');
-    }
-    return null;
+    const reserved = await reserveDailyAiUsage(user, kind);
+    return reserved ? createErrorResponse(reserved.code, 429, ErrorCode[reserved.code], reserved.details) : null;
 }

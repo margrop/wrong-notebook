@@ -104,6 +104,17 @@ describe('默认实现的每日上限', () => {
             expect(await consumeAiQuota({ id: admin.id, role: 'admin' }, 'exam')).toBeNull();
         }
     });
+
+    it('并发请求不会突破每日上限', async () => {
+        const results = await Promise.all(
+            Array.from({ length: 8 }, () => consumeAiQuota({ id: alice.id, role: 'user' }, 'grade')),
+        );
+
+        expect(results.filter((result) => result === null)).toHaveLength(2);
+        expect(results.filter((result) => result?.status === 429)).toHaveLength(6);
+        expect(await database.aiUsage.count({ where: { userId: alice.id } })).toBe(2);
+        expect(await database.aiDailyUsage.findFirst({ where: { userId: alice.id } })).toMatchObject({ count: 2 });
+    });
 });
 
 describe('删除用户后通知 AI 账户实现', () => {

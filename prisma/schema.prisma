@@ -43,6 +43,7 @@ model User {
   customTags KnowledgeTag[] // User's custom tags
   examPapers ExamPaper[]
   aiUsages   AiUsage[]
+  aiDailyUsages AiDailyUsage[]
   aiCompletions AiCompletion[]
   paperGroups PaperGroup[]
   importTasks ImportTask[]
@@ -373,6 +374,20 @@ model AiUsage {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+/// 每个用户按应用时区记录当天已预占的 AI 次数，供额度检查原子递增；属于运行统计，不进入备份
+model AiDailyUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day       String   // 当地日历日的 UTC 起点 ISO 字符串
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, day])
+  @@index([userId, day])
 }
 
 // 每次 AI 补全的 token 用量（含后台自动的掌握概率评估）；一次用户操作可能对应多次补全
