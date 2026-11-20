@@ -54,7 +54,7 @@ describe('resolveOrCreateTags', () => {
         create.mockResolvedValue({ id: 'tag-new-1' });
         await resolveOrCreateTags(client, { ...input, tagSet: 'custom-set' });
         expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({
-            where: expect.objectContaining({ tagSet: 'custom-set' }),
+            where: expect.objectContaining({ subject: 'math', tagSet: 'custom-set' }),
         }));
         expect(findParentTagIdForGradeMock).toHaveBeenCalledWith('七年级上', 'math', client, 'custom-set');
         expect(create).toHaveBeenCalledWith(expect.objectContaining({

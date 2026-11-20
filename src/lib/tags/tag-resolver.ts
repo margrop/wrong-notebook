@@ -52,6 +52,7 @@ export async function resolveOrCreateTags(
             let tag = await client.knowledgeTag.findFirst({
                 where: {
                     name: tagName,
+                    subject: subjectKey,
                     tagSet,
                     OR: [
                         { isSystem: true },

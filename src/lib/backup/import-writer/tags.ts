@@ -102,17 +102,18 @@ export async function preloadErrorItemTags(ctx: ImportContext): Promise<void> {
             ],
         },
     });
-    // 按 (tagSet, name) 建索引，错题关联时按错题本 tagSet 精确匹配系统标签
+    // 按 (subject, tagSet, name) 建索引，避免不同学科的同名标签串联
     for (const tag of preloadedTags) {
-        const key = `${tag.tagSet}::${tag.name}`;
+        const key = `${tag.subject}::${tag.tagSet}::${tag.name}`;
         if (!tagBySetAndName.has(key) || (!importAll && tag.userId === user.id)) {
             tagBySetAndName.set(key, tag.id);
         }
     }
-    // 兼容旧版导出文件：不区分 tagSet 时按名字兜底
+    // 兼容旧版导出文件：不区分 tagSet 时按学科和名字兜底
     for (const tag of preloadedTags) {
-        if (!tagNameMap.has(tag.name) || (!importAll && tag.userId === user.id)) {
-            tagNameMap.set(tag.name, tag.id);
+        const key = `${tag.subject}::${tag.name}`;
+        if (!tagNameMap.has(key) || (!importAll && tag.userId === user.id)) {
+            tagNameMap.set(key, tag.id);
         }
     }
 }

@@ -83,7 +83,7 @@ async function resolvePaperLevel(
     return resolved;
 }
 
-/** 关联 tags：优先按备份 ID 还原具体节点，旧备份再按体系和名字兜底。 */
+    /** 关联 tags：优先按备份 ID 还原具体节点，旧备份再按学科、体系和名字兜底。 */
 async function connectErrorItemTags(ctx: ImportContext, createdId: string, item: NormalizedErrorItem): Promise<void> {
     const { tx, tagIdMap, systemTagIdMap, subjectTagSetMap, tagBySetAndName, tagNameMap, stats } = ctx;
     const raw = item.raw;
@@ -96,8 +96,8 @@ async function connectErrorItemTags(ctx: ImportContext, createdId: string, item:
         } else if (systemTagIdMap.has(tag.id)) {
             tagConnections.push({ id: systemTagIdMap.get(tag.id)! });
         } else {
-            const bySet = tagBySetAndName.get(`${itemTagSet}::${tag.name}`);
-            const byName = tagNameMap.get(tag.name);
+            const bySet = tagBySetAndName.get(`${tag.subject}::${itemTagSet}::${tag.name}`);
+            const byName = tagNameMap.get(`${tag.subject}::${tag.name}`);
             const matched = bySet || byName;
             if (matched) {
                 tagConnections.push({ id: matched });
