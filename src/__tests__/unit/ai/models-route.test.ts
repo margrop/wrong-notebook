@@ -22,8 +22,10 @@ const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
 const mockGetServerSession = vi.hoisted(() => vi.fn());
+const mockPrismaUserFindUnique = vi.hoisted(() => vi.fn());
 vi.mock('next-auth', () => ({ getServerSession: mockGetServerSession }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
+vi.mock('@/lib/prisma', () => ({ prisma: { user: { findUnique: mockPrismaUserFindUnique } } }));
 
 import { POST } from '@/app/api/ai/models/route';
 
@@ -40,19 +42,21 @@ function makeRequest(params: Record<string, string>): NextRequest {
 describe('POST /api/ai/models - 权限', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        mockPrismaUserFindUnique.mockResolvedValue({ id: 'admin-1', email: 'admin@localhost', role: 'admin', isActive: true });
     });
 
-    it('未登录时返回 403，且不请求外部地址', async () => {
+    it('未登录时返回 401，且不请求外部地址', async () => {
         mockGetServerSession.mockResolvedValue(null);
 
         const res = await POST(makeRequest({ provider: 'openai', apiKey: 'k', baseUrl: 'http://10.0.0.1' }));
 
-        expect(res.status).toBe(403);
+        expect(res.status).toBe(401);
         expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('普通用户返回 403，且不请求外部地址', async () => {
         mockGetServerSession.mockResolvedValue({ user: { id: 'u1', email: 'u@localhost', role: 'user' }, expires: '2099-01-01' });
+        mockPrismaUserFindUnique.mockResolvedValue({ id: 'u1', email: 'u@localhost', role: 'user', isActive: true });
 
         const res = await POST(makeRequest({ provider: 'openai', apiKey: 'k', baseUrl: 'http://10.0.0.1' }));
 
@@ -65,6 +69,7 @@ describe('POST /api/ai/models - 地址校验', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockGetServerSession.mockResolvedValue(adminSession);
+        mockPrismaUserFindUnique.mockResolvedValue({ id: 'admin-1', email: 'admin@localhost', role: 'admin', isActive: true });
     });
 
     it.each(['file:///etc/passwd', 'ftp://example.com', 'not a url'])('拒绝非 http/https 地址 %s，且不发起请求', async (baseUrl) => {
@@ -89,6 +94,7 @@ describe('POST /api/ai/models - Anthropic provider', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockGetServerSession.mockResolvedValue(adminSession);
+        mockPrismaUserFindUnique.mockResolvedValue({ id: 'admin-1', email: 'admin@localhost', role: 'admin', isActive: true });
     });
 
     it('用 x-api-key 请求 /v1/models 并返回模型列表', async () => {
@@ -120,6 +126,7 @@ describe('POST /api/ai/models - Gemini provider', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockGetServerSession.mockResolvedValue(adminSession);
+        mockPrismaUserFindUnique.mockResolvedValue({ id: 'admin-1', email: 'admin@localhost', role: 'admin', isActive: true });
     });
 
     it('应该正确获取并返回 Gemini 视觉模型列表', async () => {
@@ -252,6 +259,7 @@ describe('POST /api/ai/models - OpenAI provider', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockGetServerSession.mockResolvedValue(adminSession);
+        mockPrismaUserFindUnique.mockResolvedValue({ id: 'admin-1', email: 'admin@localhost', role: 'admin', isActive: true });
     });
 
     it('应该正确获取并返回 OpenAI 视觉模型列表', async () => {
