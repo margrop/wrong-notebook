@@ -69,7 +69,7 @@ describe('/api/analyze', () => {
 
     describe('POST /api/analyze (图像分析)', () => {
         it.each([['fixed', '四年级上', 4, '四年级上'], ['ai', '高二下', null, null]] as const)('图片识别遵循 %s 年级规则', async (gradeRecognitionMode, expectedGrade, grade, gradeContext) => {
-            mocks.mockPrismaUser.findUnique.mockResolvedValue({ id: 'u1', educationStage: 'junior_high', enrollmentYear: 2025, gradeRecognitionMode, fixedGradeSemester: '四年级上' });
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ id: 'u1', email: 'user@example.com', role: 'user', isActive: true, educationStage: 'junior_high', enrollmentYear: 2025, gradeRecognitionMode, fixedGradeSemester: '四年级上' });
             mocks.mockAIService.analyzeImage.mockResolvedValue({ questionText: '题目', answerText: '答', analysis: '析', knowledgePoints: [], gradeSemester: '高二下' });
             const response = await POST(new Request('http://localhost/api/analyze', {
                 method: 'POST', body: JSON.stringify({ imageBase64: 'dGVzdA==', language: 'en' }),
@@ -188,7 +188,7 @@ describe('/api/analyze', () => {
         });
 
         it('错题本的学段 + 学科下的全部知识点作为候选标签交给 AI', async () => {
-            mocks.mockPrismaUser.findUnique.mockResolvedValue({ id: 'user-1', educationStage: 'primary', enrollmentYear: 2023 });
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ id: 'user-1', email: 'user@example.com', role: 'user', isActive: true, educationStage: 'primary', enrollmentYear: 2023 });
             mocks.mockPrismaSubject.findUnique.mockResolvedValue({ name: '物理错题', userId: 'user-1', stage: 'senior_high', subjectKey: 'physics' });
             const candidateTags = { subjectName: '物理', tags: ['牛顿第二定律', '动能定理'] };
             mockGetNotebookCandidateTags.mockResolvedValue(candidateTags);
@@ -207,7 +207,7 @@ describe('/api/analyze', () => {
         });
 
         it('他人的错题本不参与，按未指定错题本处理', async () => {
-            mocks.mockPrismaUser.findUnique.mockResolvedValue({ id: 'user-1', educationStage: 'primary', enrollmentYear: 2023 });
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({ id: 'user-1', email: 'user@example.com', role: 'user', isActive: true, educationStage: 'primary', enrollmentYear: 2023 });
             mocks.mockPrismaSubject.findUnique.mockResolvedValue({ name: '数学', userId: 'other-user', stage: 'primary', subjectKey: 'math' });
             mocks.mockAIService.analyzeImage.mockResolvedValue({ questionText: 'q', answerText: 'a', analysis: 'x', knowledgePoints: [] });
 

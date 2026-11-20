@@ -7,7 +7,8 @@ import { withRecoverableResponse } from "@/lib/recoverable-response";
 import { analyzeQuestionForUser, mapAnalysisError } from "@/lib/question/question-analysis";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
-import { analyzeBodySchema } from "@/lib/schemas/ai";
+import { analyzeBodySchema, MAX_AI_REQUEST_BODY_BYTES } from "@/lib/schemas/ai";
+import { readJsonBody, RequestBodyTooLargeError } from "@/lib/request-body";
 
 const logger = createLogger('api:analyze');
 
@@ -19,7 +20,14 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
     logger.info('Analyze API called');
 
     try {
-        const parsed = analyzeBodySchema.safeParse(await req.json().catch(() => null));
+        let rawBody: unknown;
+        try {
+            rawBody = await readJsonBody(req, MAX_AI_REQUEST_BODY_BYTES);
+        } catch (error) {
+            if (error instanceof RequestBodyTooLargeError) return badRequest('QUESTION_SAVE_TOO_LARGE');
+            throw error;
+        }
+        const parsed = analyzeBodySchema.safeParse(rawBody);
         if (!parsed.success) {
             logger.warn('Invalid request body');
             return badRequest("Missing image data");

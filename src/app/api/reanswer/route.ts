@@ -13,7 +13,8 @@ import { getFixedQuestionGrade, resolveQuestionGrade } from "@/lib/question/ques
 import { getAppTimeZone } from "@/lib/config";
 import { withUser } from "@/lib/api-handler";
 import type { AuthenticatedContext } from "@/lib/api-handler";
-import { reanswerBodySchema } from "@/lib/schemas/ai";
+import { MAX_AI_REQUEST_BODY_BYTES, reanswerBodySchema } from "@/lib/schemas/ai";
+import { readJsonBody, RequestBodyTooLargeError } from "@/lib/request-body";
 import { trackReanswer } from "@/lib/telemetry/events";
 
 const logger = createLogger('api:reanswer');
@@ -22,7 +23,14 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
     logger.info('Reanswer API called');
 
     try {
-        const parsed = reanswerBodySchema.safeParse(await req.json().catch(() => null));
+        let rawBody: unknown;
+        try {
+            rawBody = await readJsonBody(req, MAX_AI_REQUEST_BODY_BYTES);
+        } catch (error) {
+            if (error instanceof RequestBodyTooLargeError) return badRequest('QUESTION_SAVE_TOO_LARGE');
+            throw error;
+        }
+        const parsed = reanswerBodySchema.safeParse(rawBody);
         if (!parsed.success) {
             logger.warn('Missing or invalid request body');
             return badRequest("Missing question text");

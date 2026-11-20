@@ -50,7 +50,7 @@ describe('/api/reanswer', () => {
 
     describe('POST /api/reanswer (重新回答问题)', () => {
         it.each([['fixed', '四年级上', '四年级上'], ['ai', null, '高二下']] as const)('新文字录入遵循 %s 年级规则', async (gradeRecognitionMode, targetGrade, expectedGrade) => {
-            scopeMocks.findUser.mockResolvedValue({ gradeRecognitionMode, fixedGradeSemester: '四年级上', educationStage: 'junior_high', enrollmentYear: 2025 });
+            scopeMocks.findUser.mockResolvedValue({ id: 'user-1', email: 'user@example.com', role: 'user', isActive: true, gradeRecognitionMode, fixedGradeSemester: '四年级上', educationStage: 'junior_high', enrollmentYear: 2025 });
             mocks.mockAIService.reanswerQuestion.mockResolvedValue({ answerText: '答', analysis: '析', gradeSemester: '高二下' });
             const response = await POST(new Request('http://localhost/api/reanswer', {
                 method: 'POST', body: JSON.stringify({ questionText: '题目', forImport: true }),
@@ -472,7 +472,7 @@ describe('/api/reanswer', () => {
     describe('按错题本限定候选知识点', () => {
         it('传入错题本 ID 时，只查当前用户的错题本，并把其学段 + 学科的全部知识点交给 AI', async () => {
             const candidateTags = { subjectName: '数学', tags: ['鸡兔同笼', '植树问题'] };
-            scopeMocks.findUser.mockResolvedValue({ id: 'user-1' });
+            scopeMocks.findUser.mockResolvedValue({ id: 'user-1', email: 'user@example.com', role: 'user', isActive: true });
             scopeMocks.findFirst.mockResolvedValue({ name: '数学', stage: 'primary', subjectKey: 'math' });
             scopeMocks.getNotebookCandidateTags.mockResolvedValue(candidateTags);
             mocks.mockAIService.reanswerQuestion.mockResolvedValue({ answerText: 'a', analysis: 'x', knowledgePoints: [] });
