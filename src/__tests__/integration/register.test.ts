@@ -156,7 +156,7 @@ describe('/api/register', () => {
 
             const response = await POST(request);
 
-            expect(response.status).toBe(500); // Zod validation error caught as 500
+            expect(response.status).toBe(400);
         });
 
         it('应该拒绝太短的密码', async () => {
@@ -171,7 +171,7 @@ describe('/api/register', () => {
 
             const response = await POST(request);
 
-            expect(response.status).toBe(500); // Zod validation error
+            expect(response.status).toBe(400);
         });
 
         it('应该拒绝空用户名', async () => {
@@ -186,7 +186,21 @@ describe('/api/register', () => {
 
             const response = await POST(request);
 
-            expect(response.status).toBe(500); // Zod validation error
+            expect(response.status).toBe(400);
+        });
+
+        it('注册邮箱会统一去除空白并转为小写', async () => {
+            mocks.mockPrismaUser.findUnique.mockResolvedValue(null);
+            mocks.mockPrismaUser.create.mockResolvedValue({ id: 'new-user-id', email: 'newuser@example.com', name: 'New User' });
+
+            const response = await POST(new Request('http://localhost/api/register', {
+                method: 'POST',
+                body: JSON.stringify({ ...validUserData, email: '  NewUser@Example.COM  ' }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect(response.status).toBe(201);
+            expect(mocks.mockPrismaUser.findUnique).toHaveBeenCalledWith({ where: { email: 'newuser@example.com' } });
         });
 
         it('配置中未指定注册开关时按关闭处理，返回 403', async () => {

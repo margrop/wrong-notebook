@@ -21,7 +21,7 @@ const logger = createLogger('api:user');
 
 const userUpdateSchema = z.object({
     name: z.string().optional(),
-    email: z.string().optional(),
+    email: z.string().trim().toLowerCase().max(254).optional(),
     password: z.string().optional(),
     educationStage: z.preprocess((val) => (val === '' ? undefined : val), z.enum(["primary", "junior_high", "senior_high", "university"]).optional()),
     enrollmentYear: z.number().optional().nullable(),

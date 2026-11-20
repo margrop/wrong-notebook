@@ -2,15 +2,15 @@ import { NextResponse } from "next/server"
 import { hash } from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
-import { tooManyRequests } from "@/lib/api-errors"
+import { tooManyRequests, validationError } from "@/lib/api-errors"
 import { getAppConfig } from "@/lib/config"
 import { getClientIp, registerIpLimiter } from "@/lib/rate-limit"
 
 const userSchema = z.object({
     // 支持标准邮箱和本地邮箱（如 user@localhost）
-    email: z.string().regex(/^[^\s@]+@[^\s@]+$/, "Invalid email format"),
+    email: z.string().trim().toLowerCase().max(254).regex(/^[^\s@]+@[^\s@]+$/, "Invalid email format"),
     password: z.string().min(6),
-    name: z.string().min(1),
+    name: z.string().trim().min(1).max(100),
     educationStage: z.string().optional(),
     enrollmentYear: z.number().optional(),
 })
@@ -67,7 +67,10 @@ export async function POST(req: Request) {
             { user: rest, message: "User created successfully" },
             { status: 201 }
         )
-    } catch {
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return validationError("Invalid registration data", error.issues);
+        }
         return NextResponse.json(
             { user: null, message: "Something went wrong" },
             { status: 500 }

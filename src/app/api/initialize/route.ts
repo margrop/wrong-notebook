@@ -16,7 +16,7 @@ const logger = createLogger("api:initialize");
 const initializeSchema = z.object({
     token: z.string().min(1),
     // 与注册一致，支持本地邮箱（如 admin@localhost）
-    email: z.string().trim().regex(/^[^\s@]+@[^\s@]+$/),
+    email: z.string().trim().toLowerCase().max(254).regex(/^[^\s@]+@[^\s@]+$/),
     name: z.string().trim().min(1).max(50),
     password: z.string().min(6).refine((value) => value !== DEFAULT_ADMIN_PASSWORD),
     // 管理员必须同意使用协议（只针对管理员，普通用户注册不涉及）
