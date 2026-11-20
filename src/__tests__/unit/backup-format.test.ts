@@ -76,6 +76,24 @@ describe("parseBackupFile", () => {
         expect(result.success).toBe(false);
     });
 
+    it("拒绝 errorItems 中的 null 项", () => {
+        const result = parseBackupFile({
+            version: 1,
+            user: { id: "u1", email: "a@example.com" },
+            errorItems: [null],
+        });
+        expect(result.success).toBe(false);
+    });
+
+    it("拒绝缺少题目 ID 的嵌套对象", () => {
+        const result = parseBackupFile({
+            version: 19,
+            user: { id: "u1", email: "a@example.com" },
+            errorItems: [{ questionText: "题目" }],
+        });
+        expect(result.success).toBe(false);
+    });
+
     it("保留未知顶层字段", () => {
         const withUnknown = {
             version: 1,

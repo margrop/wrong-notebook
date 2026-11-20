@@ -1,4 +1,16 @@
 import { z } from "zod";
+import {
+    MAX_BACKUP_BANK_QUESTIONS,
+    MAX_BACKUP_ERROR_ITEMS,
+    MAX_BACKUP_EXAM_PAPERS,
+    MAX_BACKUP_EXAM_QUESTIONS,
+    MAX_BACKUP_PAPER_GROUPS,
+    MAX_BACKUP_PRACTICE_QUESTIONS,
+    MAX_BACKUP_PRACTICE_RECORDS,
+    MAX_BACKUP_QUESTION_BANKS,
+    MAX_BACKUP_REVIEW_SCHEDULES,
+    MAX_BACKUP_TAGS,
+} from "@/lib/backup/limits";
 
 /**
  * 备份文件的格式定义，导出与导入共用。
@@ -421,11 +433,37 @@ export interface ImportableBackupFile {
     [key: string]: unknown;
 }
 
-/** 宽松的顶层 schema：version 为数字、user 为对象、errorItems 为数组，其余可选并允许未知字段 */
+const backupIdObjectSchema = z.object({ id: z.string().min(1).max(200) }).passthrough();
+const backupTagSchema = backupIdObjectSchema.extend({
+    name: z.string().max(500).optional(),
+    subject: z.string().max(100).optional(),
+});
+const backupExamPaperSchema = backupIdObjectSchema.extend({
+    questions: z.array(z.unknown()).max(MAX_BACKUP_EXAM_QUESTIONS).optional(),
+});
+const backupQuestionBankSchema = backupIdObjectSchema.extend({
+    questions: z.array(z.unknown()).max(MAX_BACKUP_BANK_QUESTIONS).optional(),
+});
+
+/**
+ * 顶层 schema 保持对未来字段的宽容，但对会进入导入写入器的嵌套数组做结构与数量校验。
+ * 这样旧版缺字段仍可由 import-parser 补默认值，null 项和超大数组会在入口明确拒绝。
+ */
 const backupFileSchema = z.object({
     version: z.number(),
     user: z.record(z.string(), z.unknown()),
-    errorItems: z.array(z.unknown()),
+    errorItems: z.array(backupIdObjectSchema).max(MAX_BACKUP_ERROR_ITEMS),
+    subjects: z.array(backupIdObjectSchema).max(MAX_BACKUP_TAGS).optional(),
+    systemTags: z.array(backupTagSchema).max(MAX_BACKUP_TAGS).optional(),
+    customTags: z.array(backupTagSchema).max(MAX_BACKUP_TAGS).optional(),
+    reviewSchedules: z.array(z.record(z.string(), z.unknown())).max(MAX_BACKUP_REVIEW_SCHEDULES).optional(),
+    practiceRecords: z.array(z.record(z.string(), z.unknown())).max(MAX_BACKUP_PRACTICE_RECORDS).optional(),
+    practiceQuestions: z.array(z.record(z.string(), z.unknown())).max(MAX_BACKUP_PRACTICE_QUESTIONS).optional(),
+    examPapers: z.array(backupExamPaperSchema).max(MAX_BACKUP_EXAM_PAPERS).optional(),
+    paperGroups: z.array(z.record(z.string(), z.unknown())).max(MAX_BACKUP_PAPER_GROUPS).optional(),
+    questionBanks: z.array(backupQuestionBankSchema).max(MAX_BACKUP_QUESTION_BANKS).optional(),
+    importTasks: z.array(z.unknown()).max(MAX_BACKUP_ERROR_ITEMS).optional(),
+    importBatches: z.array(z.unknown()).max(MAX_BACKUP_EXAM_PAPERS).optional(),
 }).passthrough();
 
 export type ParseBackupFileResult =
