@@ -1,8 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { requireAdmin } from '@/lib/auth-utils';
-import { forbidden } from '@/lib/api-errors';
+import { NextResponse } from 'next/server';
+import { withAdmin } from '@/lib/api-handler';
 import { aiModelsBodySchema } from '@/lib/schemas/ai';
 import { DEFAULT_ANTHROPIC_BASE_URL } from '@/lib/ai/anthropic-provider';
 import { isVendorProvider, VENDOR_PRESETS } from '@/lib/ai/vendor-presets';
@@ -99,12 +96,7 @@ async function fetchAnthropicModels(apiKey: string, baseUrl: string): Promise<Mo
  * 用填写的 API Key 拉取模型列表（仅管理员；服务端会请求调用方给出的地址，必须限制使用者）。
  * 用 POST 传参，避免 API Key 出现在 URL 和访问日志中。
  */
-export async function POST(req: NextRequest) {
-    const session = await getServerSession(authOptions);
-    if (!requireAdmin(session)) {
-        return forbidden('Admin access required');
-    }
-
+export const POST = withAdmin(async (req: Request) => {
     try {
         const parsed = aiModelsBodySchema.safeParse(await req.json().catch(() => null));
         if (!parsed.success) {
@@ -139,4 +131,4 @@ export async function POST(req: NextRequest) {
             { status: 200 } // Return 200 with empty models to allow manual input
         );
     }
-}
+});

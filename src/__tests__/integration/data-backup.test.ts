@@ -164,6 +164,22 @@ afterAll(async () => {
 });
 
 describe('数据导出后再导入（真实 SQLite）', () => {
+    it('数据库已降权时，旧的管理员 session 不能执行全量导出或导入', async () => {
+        mocks.session = { user: { id: 'user-1', email: 'backup-test@example.com', role: 'admin' }, expires: '2099-01-01' };
+
+        const exportResponse = await EXPORT(new Request('http://localhost/api/export?all=true'));
+        expect(exportResponse.status).toBe(403);
+        expect(await exportResponse.json()).toMatchObject({ code: 'FORBIDDEN' });
+
+        const importResponse = await IMPORT(new Request('http://localhost/api/import?all=true', {
+            method: 'POST',
+            body: '{}',
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        expect(importResponse.status).toBe(403);
+        expect(await importResponse.json()).toMatchObject({ code: 'FORBIDDEN' });
+    });
+
     it('完整语文课程备份往返保留同名章节的层级及题目关联，兼容乱序与重复导入', async () => {
         await seedChineseTags(database);
         const scope = { subject: 'chinese', isSystem: true, tagSet: 'default' };
@@ -241,6 +257,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
 
     it('真题库与题目随备份往返，按 ID 去重且不影响错题', async () => {
         mocks.session = { user: { id: 'user-1', email: 'backup-test@example.com', role: 'admin' }, expires: '2099-01-01' };
+        await database.user.update({ where: { id: 'user-1' }, data: { role: 'admin' } });
         await database.questionBank.create({
             data: {
                 id: 'bank-1', name: '小学数学题库', stage: 'primary', subjectKey: 'math',

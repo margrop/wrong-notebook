@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
 import { gzipSync } from "node:zlib";
-import { unauthorized, internalError, forbidden } from "@/lib/api-errors";
+import { internalError, forbidden } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { getAppTimeZone } from "@/lib/config";
 import { formatDateTime } from "@/lib/date-time";
 import { normalizeFigureAlign, normalizeFigureScale } from "@/lib/figure-scale";
@@ -20,21 +20,7 @@ import { recordEvent } from "@/lib/telemetry/server";
 
 const logger = createLogger('api:export');
 
-export async function GET(req: Request) {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
-        return unauthorized("Not authenticated");
-    }
-
-    const user = await prisma.user.findUnique({
-        where: session.user.id ? { id: session.user.id } : { email: session.user.email },
-    });
-
-    if (!user) {
-        return unauthorized("User not found");
-    }
-
+export const GET = withUser(async (req: Request, { user, session }: AuthenticatedContext) => {
     const { searchParams } = new URL(req.url);
     const exportAll = searchParams.get('all') === 'true';
     // 备份含题目原图与云端语音，网页导出默认请求 gzip 压缩，导入时自动解压
@@ -203,4 +189,4 @@ export async function GET(req: Request) {
         logger.error({ error, userId: user.id }, 'Export failed');
         return internalError("Failed to export data", { error, scope: "api:export" });
     }
-}
+});

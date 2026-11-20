@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
 import { gunzipSync } from "node:zlib";
-import { unauthorized, internalError, badRequest, forbidden, taskAlreadyRunning } from "@/lib/api-errors";
+import { internalError, badRequest, forbidden, taskAlreadyRunning } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { withUser } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import { findRunningTask, reserveBackgroundTask } from "@/lib/background-tasks";
 import { importSpeeches } from "@/lib/tts/speech-cache";
 import { parseBackupFile } from "@/lib/backup/format";
@@ -16,21 +16,7 @@ import { recordEvent } from "@/lib/telemetry/server";
 
 const logger = createLogger('api:import');
 
-export async function POST(req: Request) {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
-        return unauthorized("Not authenticated");
-    }
-
-    const user = await prisma.user.findUnique({
-        where: session.user.id ? { id: session.user.id } : { email: session.user.email },
-    });
-
-    if (!user) {
-        return unauthorized("User not found");
-    }
-
+export const POST = withUser(async (req: Request, { user, session }: AuthenticatedContext) => {
     const { searchParams } = new URL(req.url);
     const importAll = searchParams.get('all') === 'true';
     // 合并其他账号的备份：非本人邮箱时也允许导入，数据全部归到当前账号，偏好设置不还原
@@ -113,4 +99,4 @@ export async function POST(req: Request) {
         logger.error({ error, userId: user.id }, 'Import failed');
         return internalError("Failed to import data", { error, scope: "api:import" });
     }
-}
+});

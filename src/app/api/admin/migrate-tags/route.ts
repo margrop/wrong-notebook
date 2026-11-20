@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
-import { internalError, unauthorized, forbidden } from "@/lib/api-errors";
+import { internalError } from "@/lib/api-errors";
+import { withAdmin } from "@/lib/api-handler";
+import type { AuthenticatedContext } from "@/lib/api-handler";
 import {
     MATH_CURRICULUM, MATH_GRADE_ORDER,
     PHYSICS_CURRICULUM, PHYSICS_GRADE_ORDER,
@@ -28,17 +28,7 @@ interface TagAssociation {
     subject: string;
 }
 
-export async function POST() {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user) {
-        return unauthorized();
-    }
-
-    if (session.user.role !== 'admin') {
-        return forbidden("Admin access required for tag migration");
-    }
-
+export const POST = withAdmin(async (_req: Request, { session }: AuthenticatedContext) => {
     try {
         logger.info({ email: session.user.email }, 'Tag migration initiated');
         let totalCreated = 0;
@@ -235,4 +225,4 @@ export async function POST() {
         logger.error({ error }, 'Tag migration error');
         return internalError("Failed to migrate tags");
     }
-}
+});
