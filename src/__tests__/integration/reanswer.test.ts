@@ -484,7 +484,7 @@ describe('/api/reanswer', () => {
 
             expect(response.status).toBe(200);
             expect(scopeMocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-                where: { id: 'nb-1', user: { email: 'user@example.com' } },
+                where: { id: 'nb-1', userId: 'user-1' },
             }));
             expect(scopeMocks.getNotebookCandidateTags).toHaveBeenCalledWith({ stage: 'primary', subject: 'math' }, 'default', 'user-1');
             expect(mocks.mockAIService.reanswerQuestion.mock.calls[0][5]).toEqual(candidateTags);

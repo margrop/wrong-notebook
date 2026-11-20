@@ -19,7 +19,7 @@ import { trackReanswer } from "@/lib/telemetry/events";
 
 const logger = createLogger('api:reanswer');
 
-async function handlePost(req: Request, { user, session }: AuthenticatedContext) {
+async function handlePost(req: Request, { user }: AuthenticatedContext) {
     logger.info('Reanswer API called');
 
     try {
@@ -47,9 +47,9 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
 
         // 指定了错题本时，知识点只能从该错题本学段 + 学科下的全部标签中选择
         let candidateTags: CandidateTags | undefined;
-        if (subjectId && session.user?.email) {
+        if (subjectId) {
             const notebook = await prisma.subject.findFirst({
-                where: { id: subjectId, user: { email: session.user.email } },
+                where: { id: subjectId, userId: user.id },
                 select: { name: true, stage: true, subjectKey: true, tagSet: true },
             });
             if (notebook) {
@@ -57,12 +57,12 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
             }
         }
 
-        const limited = await consumeAiQuota(session.user, 'reanswer');
+        const limited = await consumeAiQuota(user, 'reanswer');
         if (limited) return limited;
 
         const aiService = await getAIService({ userId: user.id, kind: 'reanswer' });
         // 新录入的文字题遵循账户规则，已有题目的重新解题沿用其手工年级。
-        const gradeProfile = forImport === true && session.user?.email
+        const gradeProfile = forImport === true
             ? user : null;
         const targetGrade = gradeSemester ?? (gradeProfile ? getFixedQuestionGrade(gradeProfile, getAppTimeZone()) : undefined);
 

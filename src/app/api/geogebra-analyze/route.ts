@@ -15,7 +15,7 @@ const logger = createLogger('api:geogebra-analyze');
  * Used by the correction editor where the error item hasn't been saved yet.
  * Does NOT require an item ID.
  */
-async function handlePost(req: Request, { user, session }: AuthenticatedContext) {
+async function handlePost(req: Request, { user }: AuthenticatedContext) {
     try {
         const parsed = geogebraAnalyzeBodySchema.safeParse(await req.json().catch(() => null));
         if (!parsed.success) {
@@ -26,7 +26,7 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
         }
         const { questionText, answerText, analysis } = parsed.data;
 
-        const limited = await consumeAiQuota(session.user, 'geogebra');
+        const limited = await consumeAiQuota(user, 'geogebra');
         if (limited) return limited;
 
         const aiService = await getAIService({ userId: user.id, kind: 'geogebra' });

@@ -16,7 +16,7 @@ const logger = createLogger('api:analyze');
  * 同步识别接口：在请求内等待 AI 返回识别结果。
  * 网页拍照导入改用 /api/import-tasks（服务端持久任务）；本接口保留给 API 调用方与旧版客户端。
  */
-async function handlePost(req: Request, { user, session }: AuthenticatedContext) {
+async function handlePost(req: Request, { user }: AuthenticatedContext) {
     logger.info('Analyze API called');
 
     try {
@@ -41,11 +41,11 @@ async function handlePost(req: Request, { user, session }: AuthenticatedContext)
             subjectId
         }, 'Request received');
 
-        const limited = await consumeAiQuota(session.user, 'analyze');
+        const limited = await consumeAiQuota(user, 'analyze');
         if (limited) return limited;
 
         const analysisResult = await analyzeQuestionForUser({
-            email: session.user?.email,
+            email: user.email,
             userId: user.id,
             imageBase64,
             mimeType,
