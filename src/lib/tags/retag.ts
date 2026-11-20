@@ -213,7 +213,6 @@ export async function retagErrorItem(errorItemId: string, userId: string): Promi
         await tx.errorItem.update({
             where: { id: errorItemId },
             data: {
-                knowledgePoints: JSON.stringify(tagNames),
                 ...(difficultyStars !== null ? { difficultyStars } : {}),
                 ...(questionType ? { questionType } : {}),
                 ...(defaultPaperLevel ? { paperLevel: defaultPaperLevel } : {}),

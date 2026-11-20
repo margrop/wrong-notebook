@@ -164,7 +164,8 @@ export async function importErrorItems(ctx: ImportContext): Promise<void> {
                 wrongAnswerText: raw.wrongAnswerText,
                 mistakeAnalysis: raw.mistakeAnalysis,
                 mistakeStatus: raw.mistakeStatus,
-                knowledgePoints: raw.knowledgePoints,
+                // 新版备份以 tags 关系为准；没有关系时保留旧版字段供兼容读取。
+                knowledgePoints: raw.tags && raw.tags.length > 0 ? null : raw.knowledgePoints,
                 source: raw.source,
                 errorType: raw.errorType,
                 userNotes: raw.userNotes,

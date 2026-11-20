@@ -173,8 +173,6 @@ export const PUT = withUser(async (req: Request, { user, params }: RouteContext 
                     connect: tagConnections,
                 };
 
-                // 保留旧字段兼容
-                updateData.knowledgePoints = JSON.stringify(tagNames);
             }
 
             return tx.errorItem.update({

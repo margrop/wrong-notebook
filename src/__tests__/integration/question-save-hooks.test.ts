@@ -91,6 +91,21 @@ function captureEvents(): QuestionSaveEvent[] {
 }
 
 describe('题目保存全局钩子', () => {
+    it('新题以标签关系为唯一来源，不再双写旧 knowledgePoints 字段', async () => {
+        const response = await SAVE_QUESTION(saveRequest({
+            questionText,
+            subjectId: 'math',
+            knowledgePoints: ['一元一次方程'],
+            originalImageUrl: '',
+        }));
+        expect(response.status).toBe(201);
+
+        const body = await response.json() as { id: string };
+        const item = await database.errorItem.findUniqueOrThrow({ where: { id: body.id }, include: { tags: true } });
+        expect(item.knowledgePoints).toBeNull();
+        expect(item.tags.map((tag) => tag.name)).toEqual(['一元一次方程']);
+    });
+
     it('注册表初始为空，注册后可取消注册，测试清理函数清空全部', () => {
         expect(QUESTION_SAVE_HOOKS).toHaveLength(0);
         const hook = vi.fn();

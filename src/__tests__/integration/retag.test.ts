@@ -144,7 +144,6 @@ describe('知识点重新生成', () => {
         expect(mocks.errorItem.update).toHaveBeenCalledWith({
             where: { id: 'e1' },
             data: {
-                knowledgePoints: JSON.stringify(['假设法解鸡兔同笼', '鸡兔同笼', '易错']),
                 difficultyStars: 2,
                 questionType: 'solution',
                 paperLevel: 'group-a',
@@ -168,7 +167,6 @@ describe('知识点重新生成', () => {
         expect(mocks.errorItem.update).toHaveBeenCalledWith({
             where: { id: 'e1' },
             data: {
-                knowledgePoints: JSON.stringify(['鸡兔同笼', '易错']),
                 difficultyStars: 2,
                 paperLevel: 'group-a',
                 tags: { disconnect: [{ id: 'old-sys' }], connect: [{ id: 'tag-b' }] },

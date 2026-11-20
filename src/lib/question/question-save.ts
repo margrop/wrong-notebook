@@ -234,7 +234,6 @@ async function saveQuestionInner(user: User, body: ImportQuestionInput, options:
                     wrongAnswerText: wrongAnswerText || null,
                     mistakeAnalysis: mistakeAnalysis || null,
                     mistakeStatus: normalizeMistakeStatusForSave(mistakeStatus, wrongAnswerText),
-                    knowledgePoints: JSON.stringify(tagNames),
                     gradeSemester: finalGradeSemester,
                     paperLevel: resolvedPaperLevel,
                     difficultyStars: difficultyStars ?? null,
