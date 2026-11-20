@@ -1,21 +1,47 @@
 import { NextResponse } from "next/server";
 import { compare } from "bcryptjs";
+import { timingSafeEqual } from "node:crypto";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createLogger } from "@/lib/logger";
 import { startBackgroundTask } from "@/lib/background-tasks";
 import type { BackgroundTaskHandle } from "@/lib/background-tasks";
-import { createErrorResponse, ErrorCode } from "@/lib/api-errors";
+import { badRequest, createErrorResponse, ErrorCode, tooManyRequests } from "@/lib/api-errors";
 import { importSchema, saveQuestion } from "@/lib/question/question-save";
 import { parseDifficultyStars } from "@/lib/ai/schema";
 import { isAiRejectionCode } from "@/lib/ai-limit-message";
 import { getErrorMessage } from "@/lib/error-message";
-import { validateImage } from "@/lib/openclaw/image-validation";
+import { MAX_IMAGE_BASE64_LENGTH, validateImage } from "@/lib/openclaw/image-validation";
 import { callOpenclawAgent } from "@/lib/openclaw/agent-client";
 import type { OpenclawRecognizedData } from "@/lib/openclaw/agent-client";
+import { getClientIp, openclawIpLimiter } from "@/lib/rate-limit";
+import { readJsonBody, RequestBodyTooLargeError } from "@/lib/request-body";
 
 const logger = createLogger('api:openclaw:batch-upload');
 
 const MAX_IMAGES = 20;
+const MAX_REQUEST_BODY_BYTES = 128 * 1024 * 1024;
+
+const imageSchema = z.object({
+    base64: z.string().min(1).max(MAX_IMAGE_BASE64_LENGTH),
+    mimeType: z.string().trim().max(100),
+    filename: z.string().trim().min(1).max(255),
+});
+
+const requestSchema = z.object({
+    username: z.string().trim().max(320).optional(),
+    password: z.string().max(500).optional(),
+    userEmail: z.string().trim().max(320).optional(),
+    subjectId: z.string().trim().max(100).optional(),
+    images: z.array(imageSchema).min(1).max(MAX_IMAGES),
+});
+
+const authRequestSchema = z.object({
+    username: z.string().trim().max(320).optional(),
+    password: z.string().max(500).optional(),
+    userEmail: z.string().trim().max(320).optional(),
+    subjectId: z.string().trim().max(100).optional(),
+});
 
 interface ImageData {
     base64: string;
@@ -25,6 +51,13 @@ interface ImageData {
 
 export async function POST(req: Request) {
     logger.info('POST /api/openclaw/batch-upload called');
+
+    const clientIp = getClientIp(req.headers);
+    if (clientIp) {
+        const retryAfter = openclawIpLimiter.retryAfter(clientIp);
+        if (retryAfter > 0) return tooManyRequests(retryAfter);
+        openclawIpLimiter.hit(clientIp);
+    }
 
     // 获取请求头中的 API Key
     const apiKey = req.headers.get('x-api-key');
@@ -39,8 +72,16 @@ export async function POST(req: Request) {
     let task: BackgroundTaskHandle | null = null;
 
     try {
-        const body = await req.json();
-        const requestData = body;
+        let rawBody: unknown;
+        try {
+            rawBody = await readJsonBody(req, MAX_REQUEST_BODY_BYTES);
+        } catch (error) {
+            if (error instanceof RequestBodyTooLargeError) return badRequest('OPENCLAW_REQUEST_TOO_LARGE');
+            throw error;
+        }
+        const parsedAuthRequest = authRequestSchema.safeParse(rawBody);
+        if (!parsedAuthRequest.success) return badRequest('OPENCLAW_INVALID_REQUEST', parsedAuthRequest.error.issues);
+        const authRequestData = parsedAuthRequest.data;
 
         // 根据认证模式选择验证方式
         if (authMode === 'apikey' && expectedApiKey) {
@@ -55,7 +96,9 @@ export async function POST(req: Request) {
                 );
             }
 
-            if (apiKey !== expectedApiKey) {
+            const candidate = Buffer.from(apiKey);
+            const expected = Buffer.from(expectedApiKey);
+            if (candidate.length !== expected.length || !timingSafeEqual(candidate, expected)) {
                 logger.warn('Invalid API key provided');
                 return createErrorResponse(
                     'API密钥无效',
@@ -65,11 +108,12 @@ export async function POST(req: Request) {
                 );
             }
 
-            userEmail = requestData.userEmail;
-            subjectId = requestData.subjectId;
+            userEmail = authRequestData.userEmail;
+            subjectId = authRequestData.subjectId;
+            if (!userEmail) return badRequest('OPENCLAW_USER_REQUIRED');
         } else {
             // 用户名密码认证模式（默认）
-            const { username, password } = requestData;
+            const { username, password } = authRequestData;
 
             if (!username || !password) {
                 return createErrorResponse(
@@ -86,7 +130,8 @@ export async function POST(req: Request) {
                     OR: [
                         { email: username },
                         { name: username }
-                    ]
+                    ],
+                    isActive: true,
                 }
             });
 
@@ -113,9 +158,13 @@ export async function POST(req: Request) {
             }
 
             userEmail = user.email;
-            subjectId = requestData.subjectId;
+            subjectId = authRequestData.subjectId;
             logger.info({ userId: user.id, email: user.email }, 'User authenticated via credentials');
         }
+
+        const parsedRequest = requestSchema.safeParse(rawBody);
+        if (!parsedRequest.success) return badRequest('OPENCLAW_INVALID_REQUEST', parsedRequest.error.issues);
+        const requestData = parsedRequest.data;
 
         // 获取图片数组
         const { images } = requestData;
@@ -144,7 +193,7 @@ export async function POST(req: Request) {
         let dbUser = user;
         if (!dbUser) {
             dbUser = await prisma.user.findUnique({
-                where: { email: userEmail },
+                where: { email: userEmail, isActive: true },
             });
         }
 

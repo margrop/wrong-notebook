@@ -1,6 +1,7 @@
 /** Openclaw 批量上传图片校验 */
 
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+export const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+export const MAX_IMAGE_BASE64_LENGTH = Math.ceil(MAX_IMAGE_SIZE * 4 / 3) + 4;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
 const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
 

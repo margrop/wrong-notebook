@@ -111,3 +111,5 @@ export const loginIpLimiter = new RateLimiter({ limit: 20, windowMs: FIFTEEN_MIN
 export const registerIpLimiter = new RateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 });
 /** 匿名遥测上报：同一 IP 每分钟最多 60 次；取不到 IP 时共用 unknown 计数 */
 export const telemetryIpLimiter = new RateLimiter({ limit: 60, windowMs: 60 * 1000 });
+/** Openclaw 批量上传：同一来源 IP 每分钟最多 30 个请求 */
+export const openclawIpLimiter = new RateLimiter({ limit: 30, windowMs: 60 * 1000 });

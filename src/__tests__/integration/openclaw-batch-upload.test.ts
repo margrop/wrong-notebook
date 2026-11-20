@@ -129,6 +129,30 @@ describe('Openclaw 批量上传', () => {
         expect(data).toMatchObject({ message: '未提供API密钥', code: 'UNAUTHORIZED' });
     });
 
+    it('请求体超过上限返回 400', async () => {
+        const response = await BATCH_UPLOAD(new Request('http://localhost/api/openclaw/batch-upload', {
+            method: 'POST',
+            body: '{}',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': String(128 * 1024 * 1024 + 1),
+                'x-api-key': 'test-only-key',
+            },
+        }));
+        expect(response.status).toBe(400);
+        expect(await response.json()).toMatchObject({ code: 'BAD_REQUEST', message: 'OPENCLAW_REQUEST_TOO_LARGE' });
+    });
+
+    it('停用账号不能通过 API Key 上传', async () => {
+        await database.user.update({ where: { id: 'user-1' }, data: { isActive: false } });
+        const response = await BATCH_UPLOAD(request({
+            userEmail: 'openclaw@example.com',
+            images: [{ base64: BASE64, mimeType: 'image/png', filename: 'q1.png' }],
+        }, { 'x-api-key': 'test-only-key' }));
+        expect(response.status).toBe(404);
+        expect(await response.json()).toMatchObject({ code: 'USER_NOT_FOUND' });
+    });
+
     it('图片校验失败（扩展名不合法）不调用 AI，返回逐题错误', async () => {
         const fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);
