@@ -18,41 +18,72 @@ interface DuplicateQuestion {
     similarity: number;
 }
 
-/** 分页比较当前用户的完整题库；不同错题本也参与判重，不受导入时间限制。 */
-export async function findDuplicateQuestion(
+export interface DuplicateQuestionCandidate {
+    id: string;
+    questionText: string | null;
+    ocrText: string | null;
+}
+
+export interface DuplicateCandidateSet {
+    candidates: DuplicateQuestionCandidate[];
+    threshold: number;
+}
+
+/** 分页加载当前用户的完整题库；不同错题本也参与判重，不受导入时间限制。 */
+export async function loadDuplicateCandidates(
     client: Prisma.TransactionClient,
     userId: string,
-    content: ImportedQuestionContent,
-): Promise<DuplicateQuestion | null> {
-    const text = content.questionText?.trim() || content.ocrText?.trim();
-    if (!text) return null;
+): Promise<DuplicateCandidateSet> {
     const user = await client.user.findUnique({ where: { id: userId }, select: { questionDuplicateThreshold: true } });
     const threshold = user?.questionDuplicateThreshold ?? DEFAULT_QUESTION_DUPLICATE_THRESHOLD;
-    if (threshold >= 100) return null;
+    if (threshold >= 100) return { candidates: [], threshold };
 
     const pageSize = 200;
     let cursor: string | undefined;
-    let bestMatch: DuplicateQuestion | null = null;
+    const candidates: DuplicateQuestionCandidate[] = [];
     while (true) {
-        const candidates = await client.errorItem.findMany({
+        const page = await client.errorItem.findMany({
             where: { userId },
             select: { id: true, questionText: true, ocrText: true },
             orderBy: { id: 'asc' },
             take: pageSize,
             ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         });
-        for (const candidate of candidates) {
-            const candidateText = candidate.questionText?.trim() || candidate.ocrText?.trim();
-            if (!candidateText) continue;
-            const similarity = duplicateQuestionSimilarity(text, candidateText, threshold);
-            if (similarity !== null && (!bestMatch || similarity > bestMatch.similarity)) {
-                bestMatch = { id: candidate.id, similarity };
-                if (similarity === 1) return bestMatch;
-            }
-        }
-        if (candidates.length < pageSize) return bestMatch;
-        cursor = candidates[candidates.length - 1].id;
+        candidates.push(...page);
+        if (page.length < pageSize) break;
+        cursor = page[page.length - 1].id;
     }
+    return { candidates, threshold };
+}
+
+/** 在已经加载的候选集中比较一道题，供批量导入复用同一候选集。 */
+export function findDuplicateInCandidates(
+    content: ImportedQuestionContent,
+    candidateSet: DuplicateCandidateSet,
+): DuplicateQuestion | null {
+    const text = content.questionText?.trim() || content.ocrText?.trim();
+    if (!text || candidateSet.threshold >= 100) return null;
+    let bestMatch: DuplicateQuestion | null = null;
+    for (const candidate of candidateSet.candidates) {
+        const candidateText = candidate.questionText?.trim() || candidate.ocrText?.trim();
+        if (!candidateText) continue;
+        const similarity = duplicateQuestionSimilarity(text, candidateText, candidateSet.threshold);
+        if (similarity !== null && (!bestMatch || similarity > bestMatch.similarity)) {
+            bestMatch = { id: candidate.id, similarity };
+            if (similarity === 1) return bestMatch;
+        }
+    }
+    return bestMatch;
+}
+
+/** 分页比较当前用户的完整题库；不同错题本也参与判重，不受导入时间限制。 */
+export async function findDuplicateQuestion(
+    client: Prisma.TransactionClient,
+    userId: string,
+    content: ImportedQuestionContent,
+): Promise<DuplicateQuestion | null> {
+    const candidateSet = await loadDuplicateCandidates(client, userId);
+    return findDuplicateInCandidates(content, candidateSet);
 }
 
 /** 与判重处于同一事务内，保存本次做错快照，原题内容和历史记录均保留。 */
