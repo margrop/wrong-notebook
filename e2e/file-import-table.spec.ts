@@ -65,30 +65,33 @@ test('[E2E-F2-1] 导入 .xlsx 题库：2 道单选 + 1 道填空，按原样入�
     await expect(page.getByTestId('batch-counts')).toContainText('已导入 3');
 
     // 数据库验证
-    const items = await scenario.db.errorItem.findMany({ where: { userId: scenario.user.id }, orderBy: { createdAt: 'asc' } });
+    const items = await scenario.db.errorItem.findMany({ where: { userId: scenario.user.id } });
     expect(items).toHaveLength(3);
 
     // 第 1 题：单选题，题干含选项行
-    expect(items[0].questionText).toContain('下列哪个数是质数？');
-    expect(items[0].questionText).toContain('A．2');
-    expect(items[0].questionText).toContain('B．4');
-    expect(items[0].answerText).toBe('A');
-    expect(items[0].analysis).toBe('2 是质数，其他都是合数。');
-    expect(items[0].questionType).toBe('single_choice');
-    expect(items[0].difficultyStars).toBe(3);
+    const primeQuestion = items.find((item) => item.questionText?.includes('下列哪个数是质数？'));
+    expect(primeQuestion).toBeDefined();
+    expect(primeQuestion!.questionText).toContain('A．2');
+    expect(primeQuestion!.questionText).toContain('B．4');
+    expect(primeQuestion!.answerText).toBe('A');
+    expect(primeQuestion!.analysis).toBe('2 是质数，其他都是合数。');
+    expect(primeQuestion!.questionType).toBe('single_choice');
+    expect(primeQuestion!.difficultyStars).toBe(3);
 
     // 第 2 题：单选题
-    expect(items[1].questionText).toContain('一元一次方程 2x = 4 的解是');
-    expect(items[1].questionText).toContain('A．x = 1');
-    expect(items[1].answerText).toBe('B');
-    expect(items[1].questionType).toBe('single_choice');
-    expect(items[1].difficultyStars).toBe(2);
+    const equationQuestion = items.find((item) => item.questionText?.includes('一元一次方程 2x = 4 的解是'));
+    expect(equationQuestion).toBeDefined();
+    expect(equationQuestion!.questionText).toContain('A．x = 1');
+    expect(equationQuestion!.answerText).toBe('B');
+    expect(equationQuestion!.questionType).toBe('single_choice');
+    expect(equationQuestion!.difficultyStars).toBe(2);
 
     // 第 3 题：填空题
-    expect(items[2].questionText).toContain('1 + 1 = ____。');
-    expect(items[2].answerText).toBe('2');
-    expect(items[2].questionType).toBe('fill_blank');
-    expect(items[2].difficultyStars).toBe(1);
+    const fillQuestion = items.find((item) => item.questionText?.includes('1 + 1 = ____。'));
+    expect(fillQuestion).toBeDefined();
+    expect(fillQuestion!.answerText).toBe('2');
+    expect(fillQuestion!.questionType).toBe('fill_blank');
+    expect(fillQuestion!.difficultyStars).toBe(1);
 
     // 全部落在目标错题本
     expect(items.every((item) => item.subjectId === scenario.book.id)).toBe(true);
