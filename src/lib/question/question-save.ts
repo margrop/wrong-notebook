@@ -155,6 +155,26 @@ async function saveQuestionInner(user: User, body: ImportQuestionInput, options:
         resolvedPaperLevel = group.id;
     }
 
+    // subjectId 来自多个入口（网页、Openclaw、导入任务等），必须在领域层确认错题本属于当前用户。
+    // 只依赖路由层校验会让共用保存函数产生跨用户的 ErrorItem → Subject 关联。
+    if (requestedSubjectId) {
+        const subject = await prisma.subject.findFirst({
+            where: { id: requestedSubjectId, userId: user.id },
+            select: { id: true },
+        });
+        if (!subject) {
+            return {
+                ok: false,
+                error: {
+                    code: 'QUESTION_SAVE_REFERENCE_INVALID',
+                    stage: 'save',
+                    status: 409,
+                    errorCode: 'DATABASE_ERROR',
+                },
+            };
+        }
+    }
+
     const duplicateBeforeRecognition = needsQuestionGradeRecognition(user, body)
         ? await findDuplicateQuestion(prisma, user.id, body) : null;
     setStage(needsQuestionGradeRecognition(user, body) && !duplicateBeforeRecognition ? 'grade' : 'save');

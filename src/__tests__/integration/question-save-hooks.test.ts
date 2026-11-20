@@ -122,6 +122,21 @@ describe('题目保存全局钩子', () => {
         expect(await database.errorItem.count()).toBe(1);
     });
 
+    it('拒绝把题目保存到其他用户的错题本', async () => {
+        await database.user.create({ data: { id: 'user-2', email: 'other@example.com', password: 'test-only' } });
+        await database.subject.create({ data: { id: 'other-math', name: '他人的数学', userId: 'user-2' } });
+
+        const response = await SAVE_QUESTION(saveRequest({
+            questionText,
+            subjectId: 'other-math',
+            originalImageUrl: '',
+        }));
+
+        expect(response.status).toBe(409);
+        expect(await response.json()).toMatchObject({ message: 'QUESTION_SAVE_REFERENCE_INVALID' });
+        expect(await database.errorItem.count({ where: { userId: 'user-1' } })).toBe(0);
+    });
+
     it('saveQuestion 直接调用缺省 origin 为 manual', async () => {
         const events = captureEvents();
         const user = await database.user.findUniqueOrThrow({ where: { id: 'user-1' } });
