@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult } from "./types";
+import type { AIService, GradeLevel, ParsedQuestion, DifficultyLevel, ReanswerQuestionResult, GeogebraAnalysisResult, MasteryEvaluationInput, MasteryEvaluationResult, AnswerGradingInput, AnswerGradingResult, TagSuggestionInput, TagSuggestionResult, CandidateTags, FigureResult, ReanswerContext } from "./types";
 import type { LatexFixInput, LatexFixResult } from './latex-fix';
 import type { QuestionSplitInput, QuestionSplitResult } from './question-split';
 import type { TextFixInput, TextFixResult } from './text-fix';
@@ -28,6 +28,7 @@ import { isImageUnsupportedError, parseQuestionSplit, splitImagePages, AI_IMAGE_
 import { parseTextFix } from './text-fix';
 import type { CompletionObserver, CompletionResult } from './completion';
 import { completionErrorCode } from './completion';
+import { resolveTeachingRule } from './teaching-rules/router';
 
 const logger = createLogger('ai:base');
 
@@ -238,17 +239,25 @@ export abstract class BaseAIProvider implements AIService {
         }
     }
 
-    async reanswerQuestion(questionText: string, language: 'zh' | 'en' = 'zh', subject?: string | null, imageBase64?: string, gradeSemester?: string | null, candidateTags?: CandidateTags): Promise<ReanswerQuestionResult> {
+    async reanswerQuestion(questionText: string, language: 'zh' | 'en' = 'zh', subject?: string | null, imageBase64?: string, gradeSemester?: string | null, candidateTags?: CandidateTags, context?: ReanswerContext): Promise<ReanswerQuestionResult> {
+        const teachingRule = resolveTeachingRule({
+            subject,
+            questionType: context?.questionType,
+            knowledgePoints: context?.knowledgePoints,
+            gradeSemester,
+        }, language);
         const prompt = generateReanswerRequest(language, questionText, subject, {
             candidateTags,
             customTemplate: getAppConfig().prompts?.reanswer,
-        }, gradeSemester);
+        }, gradeSemester, teachingRule);
 
         logger.info({
             provider: this.providerName,
             questionLength: questionText.length,
             subject: subject || 'auto',
-            hasImage: !!imageBase64
+            hasImage: !!imageBase64,
+            ruleId: teachingRule.ruleId,
+            ruleMatched: teachingRule.matched,
         }, 'Reanswer Question Request');
 
         try {

@@ -15,6 +15,7 @@ import type { LatexFixInput } from './latex-fix';
 import type { QuestionSplitInput } from './question-split';
 import { splitImagePages } from './question-split';
 import type { TextFixInput } from './text-fix';
+import type { TeachingRuleResolution } from './teaching-rules/types';
 
 // 只有受限的控制值可以进入系统规则；所有自由文本通过 JSON 数据消息传递。
 function safeGrade(value?: string | null): string | null {
@@ -84,9 +85,9 @@ export function generateSimilarQuestionRequest(language: 'zh' | 'en', originalQu
     );
 }
 
-export function generateReanswerRequest(language: 'zh' | 'en', questionText: string, subject?: string | null, options: PromptOptions = {}, gradeSemester?: string | null): PromptRequest {
+export function generateReanswerRequest(language: 'zh' | 'en', questionText: string, subject?: string | null, options: PromptOptions = {}, gradeSemester?: string | null, teachingRule?: TeachingRuleResolution): PromptRequest {
     return createPromptRequest(
-        generateReanswerPrompt(language, ref('questionText'), safeSubject(subject), referenceOptions(options), safeGrade(gradeSemester)),
+        generateReanswerPrompt(language, ref('questionText'), safeSubject(subject), referenceOptions(options), safeGrade(gradeSemester), teachingRule),
         { questionText, subject, gradeSemester, tagOptions: inputOptions(options) },
     );
 }

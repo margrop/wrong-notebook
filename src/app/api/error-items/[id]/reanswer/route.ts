@@ -36,6 +36,8 @@ async function handlePost(
                 questionText: true,
                 originalImageUrl: true,
                 gradeSemester: true,
+                questionType: true,
+                tags: { select: { name: true } },
                 subject: { select: { name: true, stage: true, subjectKey: true } },
             },
         });
@@ -75,7 +77,15 @@ async function handlePost(
         }
 
         const result = await runReservedTask(handle, async () =>
-            trackReanswer(async () => (await getAIService({ userId: user.id, kind: 'reanswer' })).reanswerQuestion(questionText, language, subject, image, item.gradeSemester))
+            trackReanswer(async () => (await getAIService({ userId: user.id, kind: 'reanswer' })).reanswerQuestion(
+                questionText,
+                language,
+                subject,
+                image,
+                item.gradeSemester,
+                undefined,
+                { questionType: item.questionType, knowledgePoints: item.tags?.map((tag) => tag.name) ?? [] },
+            ))
         );
         if (!result.answerText.trim() && !result.analysis.trim()) {
             return badRequest("EMPTY_ANSWER");

@@ -216,6 +216,17 @@ describe('BaseAIProvider', () => {
                 image: undefined,
             }));
         });
+
+        it('按受控题型上下文注入专属讲解规则', async () => {
+            await provider.reanswerQuestion('求 1+1', 'zh', '数学', undefined, '三年级上', undefined, {
+                questionType: 'calculation',
+                knowledgePoints: ['加法'],
+            });
+
+            const request = provider.completeText.mock.calls[0][0];
+            expect(request.system).toContain('math.calculation.v1');
+            expect(request.system).toContain('单位、正负号、数量级');
+        });
     });
 
     describe('analyzeForGeogebra', () => {

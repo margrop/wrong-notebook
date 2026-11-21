@@ -14,6 +14,7 @@ import {
     replaceVariables,
 } from './shared';
 import type { PromptOptions } from './shared';
+import type { TeachingRuleResolution } from '../teaching-rules/types';
 
 /**
  * 重新解题提示词模板
@@ -99,7 +100,8 @@ export function generateReanswerPrompt(
   questionText: string,
   subject?: string | null,
   options?: PromptOptions,
-  gradeSemester?: string | null
+  gradeSemester?: string | null,
+  teachingRule?: TeachingRuleResolution,
 ): string {
   const langInstruction = generateFieldLanguageInstruction(language);
 
@@ -109,7 +111,7 @@ export function generateReanswerPrompt(
 
   const template = options?.customTemplate || DEFAULT_REANSWER_TEMPLATE;
 
-  return replaceVariables(template, {
+  const basePrompt = replaceVariables(template, {
     language_instruction: langInstruction,
     question_text: questionText,
     subject_hint: subjectHint,
@@ -120,7 +122,14 @@ export function generateReanswerPrompt(
         : '',
     grade_instruction: generateGradeInstruction(gradeSemester),
     provider_hints: options?.providerHints || ''
-  }).trim() + '\n\n' + [
+  }).trim();
+
+  const teachingRulePrompt = teachingRule?.matched && teachingRule.instructions.trim()
+    ? `【当前题型专属讲解规范｜${teachingRule.ruleId}】\n${teachingRule.instructions.trim()}\n\n以上规范只决定讲解方法；仍须遵守后面的统一输出协议。`
+    : '';
+
+  return basePrompt + '\n\n' + [
+    teachingRulePrompt,
     '请以校正后的题目文本为准重新解答，图片仅用于补充图形及可见的正式作答，过滤掉草稿与人的思考过程。',
     generateOutputContract('reanswer'), DRAFT_FILTER_RULES, langInstruction, LATEX_RULES,
     generateGradeInstruction(gradeSemester), generateGradeRecognitionInstruction(gradeSemester),

@@ -92,6 +92,8 @@ describe('POST /api/error-items/:id/reanswer', () => {
         questionText: '求 1+1',
         originalImageUrl: 'data:image/png;base64,QUJD',
         gradeSemester: '三年级上',
+        questionType: 'calculation',
+        tags: [{ name: '加法' }],
         subject: { name: '我的数学', stage: 'primary', subjectKey: 'math' },
     };
 
@@ -102,18 +104,34 @@ describe('POST /api/error-items/:id/reanswer', () => {
         const response = await reanswer({ language: 'zh' });
 
         expect(response.status).toBe(200);
-        expect(mocks.reanswerQuestion).toHaveBeenCalledWith('求 1+1', 'zh', '数学', 'data:image/png;base64,QUJD', '三年级上');
+        expect(mocks.reanswerQuestion).toHaveBeenCalledWith(
+            '求 1+1',
+            'zh',
+            '数学',
+            'data:image/png;base64,QUJD',
+            '三年级上',
+            undefined,
+            { questionType: 'calculation', knowledgePoints: ['加法'] },
+        );
         expect(mocks.errorItem.update).toHaveBeenCalledWith(expect.objectContaining({ data: { answerText: '$2$', analysis: '1 加 1 等于 2' } }));
         expect(await response.json()).toEqual({ answerText: '$2$', analysis: '1 加 1 等于 2' });
     });
 
     it('文字录入（无原图）时只用题目文字', async () => {
-        mocks.errorItem.findUnique.mockResolvedValue({ ...item, originalImageUrl: '', subject: null });
+        mocks.errorItem.findUnique.mockResolvedValue({ ...item, originalImageUrl: '', subject: null, questionType: null, tags: [] });
         mocks.reanswerQuestion.mockResolvedValue({ answerText: '2', analysis: '计算' });
 
         await reanswer();
 
-        expect(mocks.reanswerQuestion).toHaveBeenCalledWith('求 1+1', 'zh', null, undefined, '三年级上');
+        expect(mocks.reanswerQuestion).toHaveBeenCalledWith(
+            '求 1+1',
+            'zh',
+            null,
+            undefined,
+            '三年级上',
+            undefined,
+            { questionType: null, knowledgePoints: [] },
+        );
     });
 
     it('题目为空或 AI 没有返回解答时不覆盖', async () => {

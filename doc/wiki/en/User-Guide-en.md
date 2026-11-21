@@ -164,6 +164,7 @@ When editing the question text, use the **Pinyin** tool below the box: it opens 
 | Paper level | When not set, 1–3 stars default to the "Paper A" group and 4–5 stars to the "Paper B" group; a manual choice takes priority. Customize groups in **Settings → General → Paper Groups**: rename defaults, add custom groups (e.g. Unit Test, Midterm, Final), deactivate or delete custom groups |
 | Knowledge points | Tags from the matching stage and subject; re-recognize one question or a whole notebook |
 | Regenerate full solution | Generates a new answer and analysis; asks for confirmation before overwriting |
+| Question-type-specific explanation (preview) | Regenerating a solution loads a teaching pattern for the recognized subject and question type; the first pilot covers math calculations, math solutions and English reading comprehension, with a general-rule fallback |
 | Fix LaTeX | Appears when formula syntax issues are detected, letting the AI correct the formulas |
 | Original image | View, replace or add it to check the recognition |
 
