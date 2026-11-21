@@ -29,6 +29,28 @@ interface PrintableQuestionProps {
     onRemove?: (id: string) => void;
 }
 
+interface OriginalQuestionImageProps {
+    src: string;
+    alt: string;
+    scale: number;
+}
+
+/** 打印题目原图；文字层没有可用配图时也用它保留题目中的图形与版式。 */
+function OriginalQuestionImage({ src, alt, scale }: OriginalQuestionImageProps) {
+    return (
+        <div className="mb-4">
+            <img
+                src={src}
+                alt={alt}
+                loading="lazy"
+                decoding="async"
+                className="h-auto border rounded"
+                style={{ maxWidth: `${scale}%` }}
+            />
+        </div>
+    );
+}
+
 /**
  * 打印页中的一道题：题号、来源信息、原图或文字，以及可选的答案和解析。
  * 使用 memo：勾选或调整其他题目时不重新渲染本题的公式与 Markdown。
@@ -49,6 +71,10 @@ export const PrintableQuestion = memo(function PrintableQuestion({
     const answerSpacePx = reserveAnswerSpace
         ? resolveQuestionAnswerSpacePx(options.answerSpace ?? "auto", item.questionText || "", customAnswerSpacePx)
         : 0;
+    const hasQuestionFigure = Boolean(item.figureSvg || item.figureImage);
+    const originalImage = item.originalImageUrl
+        ? <OriginalQuestionImage src={item.originalImageUrl} alt={t.detail?.originalProblem || 'Question Image'} scale={options.imageScale} />
+        : null;
 
     return (
         // content-visibility：屏幕外的题目跳过排版绘制，题目多时滚动和切换选项更流畅；打印时全部渲染
@@ -93,22 +119,12 @@ export const PrintableQuestion = memo(function PrintableQuestion({
             {options.showQuestionText && item.questionText ? (
                 <div className="mb-4">
                     <PrintQuestionText content={item.questionText} />
-                    {/* 有 SVG 配图时打印配图，不再打印拍照原图 */}
-                    <QuestionFigure svg={item.figureSvg} image={item.figureImage} source={item.figureSource} scale={item.figureScale} align={item.figureAlign} />
+                    {hasQuestionFigure
+                        ? <QuestionFigure svg={item.figureSvg} image={item.figureImage} source={item.figureSource} scale={item.figureScale} align={item.figureAlign} />
+                        : originalImage}
                 </div>
             ) : (
-                item.originalImageUrl && (
-                    <div className="mb-4">
-                        <img
-                            src={item.originalImageUrl}
-                            alt={t.detail?.originalProblem || 'Question Image'}
-                            loading="lazy"
-                            decoding="async"
-                            className="h-auto border rounded"
-                            style={{ maxWidth: `${options.imageScale}%` }}
-                        />
-                    </div>
-                )
+                originalImage
             )}
 
             {options.showAnswers && item.answerText && (

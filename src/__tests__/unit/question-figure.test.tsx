@@ -51,6 +51,19 @@ describe('题目配图', () => {
         expect(markup(false)).toContain('max-width:70%');
         expect(markup(false)).not.toContain('question-figure');
 
+        const textWithoutFigure = renderToStaticMarkup(
+            <LanguageProvider>
+                <PrintableQuestion
+                    item={{ ...item, figureSvg: null, figureImage: null, figureSource: null }}
+                    index={0}
+                    reserveAnswerSpace={false}
+                    options={{ showQuestionText: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }}
+                />
+            </LanguageProvider>,
+        );
+        expect(textWithoutFigure).toContain('src="/photo.png"');
+        expect(textWithoutFigure).toContain('max-width:70%');
+
         const fillMarkup = renderToStaticMarkup(
             <LanguageProvider>
                 <PrintableQuestion item={{ ...item, questionText: '1 + 1 = ____' }} index={0} reserveAnswerSpace={true} options={{ showQuestionText: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }} />
