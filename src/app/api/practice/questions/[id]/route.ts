@@ -53,3 +53,23 @@ export const GET = withUser(async (_req: Request, { user, params }: Authenticate
         return internalError("Failed to read practice question", { error, scope: "api:practice:questions" });
     }
 });
+
+/** DELETE /api/practice/questions/:id：删除自己保存的历史练习题，作答记录由数据库保留 */
+export const DELETE = withUser(async (_req: Request, { user, params }: AuthenticatedContext & RouteContext) => {
+    try {
+        const { id } = await params;
+        const question = await prisma.practiceQuestion.findUnique({
+            where: { id },
+            select: { id: true, userId: true },
+        });
+        if (!question || question.userId !== user.id) {
+            return notFound("Practice question not found");
+        }
+
+        await prisma.practiceQuestion.delete({ where: { id } });
+        return NextResponse.json({ deleted: true, id });
+    } catch (error) {
+        logger.error({ error }, 'Error deleting practice question');
+        return internalError("Failed to delete practice question", { error, scope: "api:practice:questions" });
+    }
+});

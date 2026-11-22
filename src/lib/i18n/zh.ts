@@ -643,6 +643,10 @@ export const zh = {
                 viewOriginal: "查看原题",
                 generatedAt: "生成于 {time}",
                 notFound: "这道历史题不存在或不属于当前账户。",
+                delete: "删除",
+                deleteConfirm: "确定删除这道历史练习题？作答记录会保留，仍计入原题掌握情况。",
+                deleteSuccess: "已删除历史练习题",
+                deleteFailed: "删除历史练习题失败，请重试。",
             },
             // practiceProblem: "练习题", // Moved to app
             // yourAnswer: "你的答案", // Moved to app

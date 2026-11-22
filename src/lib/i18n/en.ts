@@ -643,6 +643,10 @@ export const en = {
                 viewOriginal: "View original",
                 generatedAt: "Generated at {time}",
                 notFound: "This practice question does not exist or does not belong to you.",
+                delete: "Delete",
+                deleteConfirm: "Delete this practice question? Its attempt records stay and still count toward the original question's mastery.",
+                deleteSuccess: "Practice question deleted",
+                deleteFailed: "Failed to delete the practice question. Please try again.",
             },
             // practiceProblem: "Practice Problem", // Moved to app
             // yourAnswer: "Your Answer", // Moved to app

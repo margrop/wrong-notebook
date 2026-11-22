@@ -111,6 +111,24 @@ export function PracticeQuestionDetailView({ questionId }: PracticeQuestionDetai
                         onSaved={session.onSaved}
                     />
 
+                    <Card className="bg-muted/50">
+                        <CardHeader>
+                            <CardTitle className="text-green-600">{t.practice.correctAnswer}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <MarkdownRenderer content={question.answerText} className="font-bold" />
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{t.practice.detailedAnalysis}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <MarkdownRenderer content={question.analysis} />
+                        </CardContent>
+                    </Card>
+
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-base">

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Loader2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
+import { getApiErrorMessage } from "@/lib/error-message";
+import { confirmDialog, toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import type { Notebook, PracticeQuestionListResponse, PracticeQuestionSummary } from "@/types/api";
 const PAGE_SIZE = 20;
@@ -33,6 +35,7 @@ export function PracticeHistory() {
     const [tag, setTag] = useState("");
     const [difficulty, setDifficulty] = useState("");
     const [status, setStatus] = useState<Status>("all");
+    const [busyId, setBusyId] = useState<string | null>(null);
 
     const fetchPage = useCallback(async (targetPage: number, append = false) => {
         if (targetPage === 1) setLoading(true);
@@ -67,6 +70,20 @@ export function PracticeHistory() {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- 数据请求：筛选条件变化时重新读取第一页
         void fetchPage(1);
     }, [fetchPage]);
+
+    const handleDelete = async (id: string) => {
+        if (!(await confirmDialog(t.practice.history?.deleteConfirm || "Delete this practice question?", { destructive: true }))) return;
+        setBusyId(id);
+        try {
+            await apiClient.delete(`/api/practice/questions/${id}`);
+            toast.success(t.practice.history?.deleteSuccess || "Practice question deleted");
+            await fetchPage(1);
+        } catch (err) {
+            toast.error(getApiErrorMessage(err) || t.practice.history?.deleteFailed || "Failed to delete the practice question. Please try again.");
+        } finally {
+            setBusyId(null);
+        }
+    };
 
     const resultLabel = (attempt: PracticeQuestionSummary["lastAttempt"]): string => {
         if (!attempt) return t.practice.history?.noAttempt || "Not attempted";
@@ -138,27 +155,40 @@ export function PracticeHistory() {
             ) : (
                 <div className="grid gap-3 md:grid-cols-2">
                     {items.map((item) => (
-                        <Link key={item.id} href={`/practice?questionId=${item.id}`}>
-                            <Card className="h-full rounded-2xl transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
-                                <CardContent className="space-y-2 pt-4">
-                                    <div className="flex items-start justify-between gap-2">
-                                        <span className="line-clamp-2 font-medium">{item.questionText}</span>
-                                        <span className="shrink-0 text-xs text-muted-foreground">
-                                            {item.errorItem?.seqNo ? `#${item.errorItem.seqNo}` : item.errorItem?.shortId ?? ""}
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                        {item.errorItem?.subject?.name && <span>{item.errorItem.subject.name}</span>}
-                                        <span>{item.difficulty ? t.practice.difficulty[item.difficulty as keyof typeof t.practice.difficulty] ?? item.difficulty : t.practice.difficulty.Unknown}</span>
-                                        <span>{(t.practice.history?.attempts || "Attempts: {count}").replace("{count}", String(item.attemptCount))}</span>
-                                        <span>{resultLabel(item.lastAttempt)}</span>
-                                    </div>
-                                    {!item.errorItem && (
-                                        <p className="text-xs text-muted-foreground">{t.practice.history?.originalDeleted || "The original question was deleted"}</p>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Link>
+                        <div key={item.id} className="relative">
+                            <Link href={`/practice?questionId=${item.id}`}>
+                                <Card className="h-full rounded-2xl transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+                                    <CardContent className="space-y-2 pb-9 pt-4">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <span className="line-clamp-2 font-medium">{item.questionText}</span>
+                                            <span className="shrink-0 text-xs text-muted-foreground">
+                                                {item.errorItem?.seqNo ? `#${item.errorItem.seqNo}` : item.errorItem?.shortId ?? ""}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                            {item.errorItem?.subject?.name && <span>{item.errorItem.subject.name}</span>}
+                                            <span>{item.difficulty ? t.practice.difficulty[item.difficulty as keyof typeof t.practice.difficulty] ?? item.difficulty : t.practice.difficulty.Unknown}</span>
+                                            <span>{(t.practice.history?.attempts || "Attempts: {count}").replace("{count}", String(item.attemptCount))}</span>
+                                            <span>{resultLabel(item.lastAttempt)}</span>
+                                        </div>
+                                        {!item.errorItem && (
+                                            <p className="text-xs text-muted-foreground">{t.practice.history?.originalDeleted || "The original question was deleted"}</p>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </Link>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="absolute bottom-1 right-1"
+                                onClick={() => void handleDelete(item.id)}
+                                disabled={busyId === item.id}
+                            >
+                                <Trash2 className="mr-1 h-4 w-4" />
+                                {t.practice.history?.delete || "Delete"}
+                            </Button>
+                        </div>
                     ))}
                 </div>
             )}

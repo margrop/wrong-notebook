@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
         count: vi.fn(),
         findMany: vi.fn(),
         findUnique: vi.fn(),
+        delete: vi.fn(),
     },
     errorItem: { findUnique: vi.fn() },
     practiceRecord: { create: vi.fn() },
@@ -33,7 +34,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import { GET as LIST_GET } from '@/app/api/practice/questions/route';
-import { GET as DETAIL_GET } from '@/app/api/practice/questions/[id]/route';
+import { GET as DETAIL_GET, DELETE as DETAIL_DELETE } from '@/app/api/practice/questions/[id]/route';
 import { POST as RECORD_POST } from '@/app/api/practice/record/route';
 
 const questionRow = {
@@ -119,5 +120,59 @@ describe('/api/practice/questions', () => {
             data: expect.objectContaining({ practiceQuestionId: 'pq-1', result: 'correct', isCorrect: true }),
         });
         expect(mocks.errorItem.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('读取自己的题目返回答案与详细解析', async () => {
+        mocks.practiceQuestion.findUnique.mockResolvedValue(questionRow);
+
+        const response = await DETAIL_GET(new Request('http://localhost/api/practice/questions/pq-1'), { params: Promise.resolve({ id: 'pq-1' }) });
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data).toMatchObject({ id: 'pq-1', answerText: 'x = 4', analysis: '两边除以 2' });
+        expect(data.userId).toBeUndefined();
+    });
+
+    it('删除自己的历史练习题', async () => {
+        mocks.practiceQuestion.findUnique.mockResolvedValue({ id: 'pq-1', userId: 'user-123' });
+        mocks.practiceQuestion.delete.mockResolvedValue({ id: 'pq-1' });
+
+        const response = await DETAIL_DELETE(new Request('http://localhost/api/practice/questions/pq-1', { method: 'DELETE' }), { params: Promise.resolve({ id: 'pq-1' }) });
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data).toEqual({ deleted: true, id: 'pq-1' });
+        expect(mocks.practiceQuestion.findUnique).toHaveBeenCalledWith({
+            where: { id: 'pq-1' },
+            select: { id: true, userId: true },
+        });
+        expect(mocks.practiceQuestion.delete).toHaveBeenCalledWith({ where: { id: 'pq-1' } });
+    });
+
+    it('删除他人的历史练习题返回 404 且不删除', async () => {
+        mocks.practiceQuestion.findUnique.mockResolvedValue({ id: 'pq-1', userId: 'other-user' });
+
+        const response = await DETAIL_DELETE(new Request('http://localhost/api/practice/questions/pq-1', { method: 'DELETE' }), { params: Promise.resolve({ id: 'pq-1' }) });
+
+        expect(response.status).toBe(404);
+        expect(mocks.practiceQuestion.delete).not.toHaveBeenCalled();
+    });
+
+    it('删除不存在的历史练习题返回 404 且不删除', async () => {
+        mocks.practiceQuestion.findUnique.mockResolvedValue(null);
+
+        const response = await DETAIL_DELETE(new Request('http://localhost/api/practice/questions/pq-1', { method: 'DELETE' }), { params: Promise.resolve({ id: 'pq-1' }) });
+
+        expect(response.status).toBe(404);
+        expect(mocks.practiceQuestion.delete).not.toHaveBeenCalled();
+    });
+
+    it('删除时数据库出错返回 500', async () => {
+        mocks.practiceQuestion.findUnique.mockResolvedValue({ id: 'pq-1', userId: 'user-123' });
+        mocks.practiceQuestion.delete.mockRejectedValue(new Error('database down'));
+
+        const response = await DETAIL_DELETE(new Request('http://localhost/api/practice/questions/pq-1', { method: 'DELETE' }), { params: Promise.resolve({ id: 'pq-1' }) });
+
+        expect(response.status).toBe(500);
     });
 });
