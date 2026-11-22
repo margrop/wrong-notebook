@@ -13,10 +13,21 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 const mocks = vi.hoisted(() => ({
     prisma: undefined as PrismaClient | undefined,
     scheduleMasteryEvaluation: vi.fn(),
+    generateSimilarQuestion: vi.fn(),
+    gradeAnswer: vi.fn(),
+    consumeAiQuota: vi.fn(),
+    selectBankQuestion: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => ({ get prisma() { return mocks.prisma; } }));
-vi.mock('@/lib/ai', () => ({ getAIService: () => ({}) }));
+vi.mock('@/lib/ai', () => ({
+    getAIService: () => ({
+        generateSimilarQuestion: mocks.generateSimilarQuestion,
+        gradeAnswer: mocks.gradeAnswer,
+    }),
+}));
+vi.mock('@/lib/ai-quota', () => ({ consumeAiQuota: mocks.consumeAiQuota }));
+vi.mock('@/lib/question-bank/selection', () => ({ selectBankQuestion: mocks.selectBankQuestion }));
 vi.mock('@/lib/logger', () => ({ createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }) }));
 vi.mock('@/lib/mastery', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/lib/mastery')>()),
@@ -24,12 +35,35 @@ vi.mock('@/lib/mastery', async (importOriginal) => ({
 }));
 
 import { POST as MCP_POST, GET as MCP_GET } from '@/app/api/mcp/route';
+import { createErrorResponse } from '@/lib/api-errors';
+import { resetBackgroundTasksForTest } from '@/lib/background-tasks';
 
 let database: PrismaClient;
 let directory: string;
 
 const API_KEY = 'test-mcp-key';
 const PNG_DATA_URI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+/** 完整的 AI 题目结果（ParsedQuestion），供 generate_variant 的 AI mock 使用 */
+function aiQuestion(overrides: Record<string, unknown> = {}) {
+    return {
+        questionText: '求解 3x = 9',
+        answerText: 'x = 3',
+        analysis: '两边除以 3 得 x = 3',
+        wrongAnswerText: '',
+        mistakeAnalysis: '',
+        mistakeStatus: 'unknown',
+        subject: '数学',
+        knowledgePoints: ['一元一次方程'],
+        requiresImage: false,
+        difficultyStars: 2,
+        questionType: 'calculation',
+        gradeSemester: '七年级上',
+        hasFigure: false,
+        figureSvg: null,
+        ...overrides,
+    };
+}
 
 function mcpRequest(body: object, headers: Record<string, string> = {}) {
     return new Request('http://localhost/api/mcp', {
@@ -63,6 +97,21 @@ function toolJson(result: { content: { type: string; text: string }[] }) {
     return JSON.parse(result.content[0].text) as Record<string, unknown>;
 }
 
+/** 通过 add_question 创建一道错题，返回其 id */
+async function addErrorItem(questionText = '解方程 x+1=2') {
+    const response = await callTool('add_question', {
+        notebookId: 'math',
+        questionText,
+        answerText: 'x=1',
+        analysis: '移项后得到 x=1',
+        knowledgePoints: ['一元一次方程'],
+        gradeSemester: '七年级上',
+        difficultyStars: 2,
+    });
+    const data = toolJson(response.result!) as { question: { id: string } };
+    return data.question.id;
+}
+
 beforeAll(async () => {
     directory = mkdtempSync(join(tmpdir(), 'wrong-notebook-mcp-test-'));
     const url = `file:${join(directory, 'test.db')}`;
@@ -75,6 +124,12 @@ beforeAll(async () => {
 
 beforeEach(async () => {
     mocks.scheduleMasteryEvaluation.mockReset();
+    mocks.generateSimilarQuestion.mockReset();
+    mocks.gradeAnswer.mockReset();
+    mocks.consumeAiQuota.mockReset();
+    mocks.selectBankQuestion.mockReset();
+    mocks.consumeAiQuota.mockResolvedValue(null);
+    resetBackgroundTasksForTest();
     vi.stubEnv('MCP_API_KEY', API_KEY);
     vi.stubEnv('MCP_USER_EMAIL', 'mcp@example.com');
     await database.user.deleteMany();
@@ -136,6 +191,10 @@ describe('MCP 服务', () => {
             'list_tags',
             'list_due_reviews',
             'get_weak_tags',
+            'record_practice_result',
+            'generate_variant',
+            'get_variant',
+            'grade_answer',
         ]));
     });
 
@@ -234,6 +293,209 @@ describe('MCP 服务', () => {
         const response = await callTool('get_question', { id: 'missing-question' });
         expect(response.result?.isError).toBe(true);
         expect(response.result?.content[0].text).toContain('not found');
+    });
+
+    it('generate_variant → get_variant → grade_answer → record_practice_result 端到端', async () => {
+        const itemId = await addErrorItem();
+        mocks.generateSimilarQuestion.mockResolvedValue(aiQuestion());
+        mocks.gradeAnswer.mockResolvedValue({ correct: true, reason: 'x=3 正确' });
+
+        const generated = await callTool('generate_variant', { errorItemId: itemId, difficulty: 'easy' });
+        expect(generated.result?.isError).toBeFalsy();
+        const generatedData = toolJson(generated.result!) as {
+            questionText: string;
+            subject: string;
+            difficulty: string;
+            source: string;
+            generatedAt: string;
+            practiceQuestionId: string;
+            saved: boolean;
+        };
+        expect(generatedData.questionText).toBe('求解 3x = 9');
+        expect(generatedData.subject).toBe('数学');
+        expect(generatedData.difficulty).toBe('easy');
+        expect(generatedData.source).toBe('ai');
+        expect(generatedData.saved).toBe(true);
+        expect(generatedData.practiceQuestionId).toBeTruthy();
+        expect(mocks.consumeAiQuota).toHaveBeenCalledWith(expect.objectContaining({ id: 'user-1' }), 'practice');
+        expect(mocks.generateSimilarQuestion).toHaveBeenCalledWith(
+            '解方程 x+1=2', ['一元一次方程'], undefined, 'easy', '七年级上', null,
+        );
+
+        const variant = await callTool('get_variant', { errorItemId: itemId });
+        const variantData = toolJson(variant.result!) as { practice: Record<string, unknown> | null };
+        expect(variantData.practice).toEqual(expect.objectContaining({
+            questionText: '求解 3x = 9',
+            answerText: 'x = 3',
+            subject: '数学',
+            difficulty: 'easy',
+            source: 'ai',
+        }));
+        expect(variantData.practice?.generatedAt).toBe(generatedData.generatedAt);
+
+        const graded = await callTool('grade_answer', {
+            practiceQuestionId: generatedData.practiceQuestionId,
+            userAnswer: 'x=3',
+            language: 'zh',
+        });
+        expect(graded.result?.isError).toBeFalsy();
+        expect(toolJson(graded.result!)).toEqual({ correct: true, reason: 'x=3 正确' });
+        expect(mocks.consumeAiQuota).toHaveBeenCalledWith(expect.objectContaining({ id: 'user-1' }), 'grade');
+        expect(mocks.gradeAnswer).toHaveBeenCalledWith({
+            questionText: '求解 3x = 9',
+            answerText: 'x = 3',
+            analysis: '两边除以 3 得 x = 3',
+            userAnswer: 'x=3',
+            language: 'zh',
+        });
+
+        const recorded = await callTool('record_practice_result', {
+            practiceQuestionId: generatedData.practiceQuestionId,
+            result: 'correct',
+            source: 'practice',
+        });
+        expect(recorded.result?.isError).toBeFalsy();
+        const recordData = toolJson(recorded.result!) as {
+            id: string;
+            errorItemId: string;
+            practiceQuestionId: string;
+            result: string;
+            source: string;
+            isCorrect: boolean;
+            questionText: string;
+            difficulty: string;
+        };
+        expect(recordData).toEqual(expect.objectContaining({
+            errorItemId: itemId,
+            practiceQuestionId: generatedData.practiceQuestionId,
+            result: 'correct',
+            source: 'practice',
+            isCorrect: true,
+            questionText: '求解 3x = 9',
+            difficulty: 'easy',
+        }));
+        const stored = await database.practiceRecord.findUnique({ where: { id: recordData.id } });
+        expect(stored?.result).toBe('correct');
+        expect(stored?.source).toBe('practice');
+        expect(stored?.practiceQuestionId).toBe(generatedData.practiceQuestionId);
+        expect(mocks.scheduleMasteryEvaluation).toHaveBeenCalledWith([itemId]);
+    });
+
+    it('record_practice_result 顺序复习做对直接标记为已掌握', async () => {
+        const itemId = await addErrorItem('解方程 2x=4');
+        const response = await callTool('record_practice_result', {
+            errorItemId: itemId,
+            result: 'correct',
+            source: 'review',
+        });
+        expect(response.result?.isError).toBeFalsy();
+        expect(toolJson(response.result!)).toEqual(expect.objectContaining({
+            result: 'correct',
+            source: 'review',
+            isCorrect: true,
+        }));
+
+        const item = await database.errorItem.findUnique({ where: { id: itemId } });
+        expect(item?.masteryProbability).toBe(1);
+        expect(item?.masteryLevel).toBe(2);
+        expect(item?.masterySource).toBe('rule');
+        expect(mocks.scheduleMasteryEvaluation).not.toHaveBeenCalled();
+    });
+
+    it('get_variant 无生成结果时返回 practice: null', async () => {
+        const itemId = await addErrorItem();
+        const response = await callTool('get_variant', { errorItemId: itemId });
+        expect(toolJson(response.result!)).toEqual({ practice: null });
+    });
+
+    it('generate_variant source=bank 从真题库选题，不消耗额度并写入历史题', async () => {
+        const itemId = await addErrorItem();
+        mocks.selectBankQuestion.mockResolvedValue({
+            question: aiQuestion({
+                questionText: '4 的后面一个数是几？',
+                answerText: '5',
+                analysis: '从 2 往后数。',
+            }),
+            bankId: 'bank-1',
+            bankName: '小学数学题库',
+            bankQuestionId: 'q1',
+        });
+
+        const response = await callTool('generate_variant', {
+            errorItemId: itemId,
+            source: 'bank',
+            difficulty: 'medium',
+        });
+        expect(response.result?.isError).toBeFalsy();
+        const data = toolJson(response.result!) as { source: string; saved: boolean; practiceQuestionId: string };
+        expect(data.source).toBe('bank');
+        expect(data.saved).toBe(true);
+        expect(data.practiceQuestionId).toBeTruthy();
+        expect(mocks.consumeAiQuota).not.toHaveBeenCalled();
+        expect(mocks.generateSimilarQuestion).not.toHaveBeenCalled();
+        expect(mocks.selectBankQuestion).toHaveBeenCalledWith(expect.objectContaining({
+            tagNames: ['一元一次方程'],
+            difficulty: 'medium',
+            bankId: null,
+        }));
+
+        const stored = await database.practiceQuestion.findUnique({ where: { id: data.practiceQuestionId } });
+        expect(stored?.source).toBe('bank');
+        expect(stored?.questionText).toBe('4 的后面一个数是几？');
+        const item = await database.errorItem.findUnique({ where: { id: itemId } });
+        expect(JSON.parse(item?.lastPractice ?? '{}')).toEqual(expect.objectContaining({ source: 'bank' }));
+    });
+
+    it('generate_variant 额度拒绝返回含 code 的工具错误', async () => {
+        const itemId = await addErrorItem();
+        mocks.consumeAiQuota.mockResolvedValue(createErrorResponse('AI quota exhausted', 429, 'AI_QUOTA_INSUFFICIENT'));
+
+        const response = await callTool('generate_variant', { errorItemId: itemId });
+        expect(response.result?.isError).toBe(true);
+        expect(response.result?.content[0].text).toContain('AI_QUOTA_INSUFFICIENT');
+        expect(mocks.generateSimilarQuestion).not.toHaveBeenCalled();
+        expect(mocks.consumeAiQuota).toHaveBeenCalledWith(expect.objectContaining({ id: 'user-1' }), 'practice');
+    });
+
+    it('grade_answer 额度拒绝返回含 code 的工具错误', async () => {
+        const itemId = await addErrorItem();
+        mocks.generateSimilarQuestion.mockResolvedValue(aiQuestion());
+        const generated = await callTool('generate_variant', { errorItemId: itemId });
+        const generatedData = toolJson(generated.result!) as { practiceQuestionId: string };
+        mocks.consumeAiQuota.mockResolvedValue(createErrorResponse('AI quota exhausted', 429, 'AI_QUOTA_INSUFFICIENT'));
+
+        const response = await callTool('grade_answer', {
+            practiceQuestionId: generatedData.practiceQuestionId,
+            userAnswer: 'x=3',
+        });
+        expect(response.result?.isError).toBe(true);
+        expect(response.result?.content[0].text).toContain('AI_QUOTA_INSUFFICIENT');
+        expect(mocks.gradeAnswer).not.toHaveBeenCalled();
+    });
+
+    it('generate_variant 找不到错题或他人错题时返回工具错误', async () => {
+        const missing = await callTool('generate_variant', { errorItemId: 'missing-item' });
+        expect(missing.result?.isError).toBe(true);
+        expect(missing.result?.content[0].text).toContain('not found');
+
+        await database.user.create({
+            data: { id: 'user-2', email: 'other@example.com', password: 'test-only' },
+        });
+        await database.errorItem.create({
+            data: { id: 'other-item', userId: 'user-2', originalImageUrl: '', questionText: '他人错题' },
+        });
+        const other = await callTool('generate_variant', { errorItemId: 'other-item' });
+        expect(other.result?.isError).toBe(true);
+        expect(other.result?.content[0].text).toContain('not found');
+        expect(mocks.consumeAiQuota).not.toHaveBeenCalled();
+    });
+
+    it('grade_answer 没有已存题目时返回工具错误', async () => {
+        const itemId = await addErrorItem();
+        const response = await callTool('grade_answer', { errorItemId: itemId, userAnswer: 'x=1' });
+        expect(response.result?.isError).toBe(true);
+        expect(response.result?.content[0].text).toContain('Practice question not found');
+        expect(mocks.consumeAiQuota).not.toHaveBeenCalled();
     });
 
     it('未知工具返回 isError', async () => {

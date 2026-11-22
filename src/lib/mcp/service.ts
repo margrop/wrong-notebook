@@ -1,7 +1,21 @@
 import "server-only";
 
+import { z } from "zod";
 import type { KnowledgeTag, Prisma, User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getAIService } from "@/lib/ai";
+import type { ParsedQuestion } from "@/lib/ai";
+import { consumeAiQuota } from "@/lib/ai-quota";
+import { describeQuestion, findRunningTask, reserveBackgroundTask, runReservedTask } from "@/lib/background-tasks";
+import { runSerializedTransaction, serializeWrite } from "@/lib/db-write-queue";
+import { MAX_FIGURE_SVG_LENGTH, sanitizeFigureSvg } from "@/lib/figure-svg";
+import { parseLastPractice, serializeLastPractice } from "@/lib/last-practice";
+import type { LastPractice } from "@/lib/last-practice";
+import { createLogger } from "@/lib/logger";
+import { PRACTICE_RESULTS, scheduleMasteryEvaluation } from "@/lib/mastery";
+import { masteryLevelOf } from "@/lib/mastery-status";
+import { generatePracticeSchema } from "@/lib/schemas/practice";
+import { selectBankQuestion } from "@/lib/question-bank/selection";
 import { createNotebookSchema } from "@/lib/schemas/notebooks";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/lib/constants/pagination";
 import { ERROR_ITEM_LIST_SELECT } from "@/lib/error-list/error-list-select";
@@ -440,5 +454,412 @@ export async function getWeakTags(userId: string, input: GetWeakTagsInput) {
         weakTags: buildWeakTags(sourceItems, { masteryThreshold }, Math.min(50, Math.max(1, input.limit ?? 10))),
         range,
     };
+}
+
+const logger = createLogger('mcp:service');
+
+const DIFFICULTIES = ['easy', 'medium', 'hard', 'harder'] as const;
+const PRACTICE_SOURCES = ['practice', 'manual', 'review'] as const;
+
+/** 把 consumeAiQuota 的拒绝响应转成工具错误；文本带上 code，供客户端识别（如 AI_QUOTA_INSUFFICIENT） */
+async function quotaRejectionError(rejection: Response): Promise<McpToolError> {
+    const body = await rejection.clone().json().catch(() => null) as { code?: unknown; message?: unknown } | null;
+    const code = typeof body?.code === 'string' ? body.code : 'AI_QUOTA_INSUFFICIENT';
+    const message = typeof body?.message === 'string' ? body.message : 'AI quota is insufficient';
+    return new McpToolError(`${code}: ${message}`);
+}
+
+const recordPracticeSchema = z.object({
+    errorItemId: z.string().min(1).optional(),
+    practiceQuestionId: z.string().min(1).optional(),
+    result: z.enum(PRACTICE_RESULTS as [string, ...string[]]).optional(),
+    isCorrect: z.boolean().nullable().optional(),
+    subject: z.string().max(50).nullable().optional(),
+    difficulty: z.string().max(20).nullable().optional(),
+    questionText: z.string().max(20000).nullable().optional(),
+    answerText: z.string().max(20000).nullable().optional(),
+    analysis: z.string().max(50000).nullable().optional(),
+    mistakeAnalysis: z.string().max(50000).nullable().optional(),
+    figureSvg: z.string().max(MAX_FIGURE_SVG_LENGTH).nullable().optional(),
+    // manual：在错题详情中直接录入结果，不附带新题；review：在今日复习中按顺序作答
+    source: z.enum(PRACTICE_SOURCES).optional(),
+    takenAt: z.string().datetime({ offset: true }).optional(),
+}).refine((value) => value.errorItemId || value.practiceQuestionId, {
+    message: 'errorItemId or practiceQuestionId is required',
+    path: ['errorItemId'],
+});
+
+export type RecordPracticeResultInput = z.input<typeof recordPracticeSchema>;
+
+/** 记录一次作答结果：校验题目归属、补齐题目字段，并更新掌握概率与复习排期 */
+export async function recordPracticeResult(user: User, input: RecordPracticeResultInput) {
+    const parsed = recordPracticeSchema.safeParse(input);
+    if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        throw new McpToolError(`Invalid practice record: ${issue?.message ?? 'unknown error'}`);
+    }
+
+    let errorItemId = parsed.data.errorItemId;
+    const practiceQuestionId = parsed.data.practiceQuestionId;
+    let { difficulty, questionText, answerText, analysis } = parsed.data;
+    const mistakeAnalysis = parsed.data.mistakeAnalysis;
+    let questionFigureSvg: string | null = null;
+    let subject = parsed.data.subject;
+    const source = parsed.data.source ?? 'practice';
+    const figureSvg = sanitizeFigureSvg(parsed.data.figureSvg);
+    // 兼容只传 isCorrect 的调用方
+    const result = parsed.data.result
+        ?? (parsed.data.isCorrect === true ? 'correct' : parsed.data.isCorrect === false ? 'wrong' : undefined);
+
+    const userId = user.id;
+
+    // 历史题作答：校验题目归属，并从题目补齐原题、学科与难度
+    if (practiceQuestionId) {
+        const question = await prisma.practiceQuestion.findUnique({
+            where: { id: practiceQuestionId },
+            select: {
+                userId: true,
+                errorItemId: true,
+                subject: true,
+                difficulty: true,
+                questionText: true,
+                answerText: true,
+                analysis: true,
+                figureSvg: true,
+            },
+        });
+        if (!question || question.userId !== userId) {
+            throw new McpToolError(`Practice question "${practiceQuestionId}" not found for this user`);
+        }
+        if (errorItemId && question.errorItemId && errorItemId !== question.errorItemId) {
+            throw new McpToolError('Practice question does not belong to this item');
+        }
+        errorItemId ??= question.errorItemId ?? undefined;
+        subject ??= question.subject;
+        difficulty ??= question.difficulty;
+        questionText ??= question.questionText;
+        answerText ??= question.answerText;
+        analysis ??= question.analysis;
+        questionFigureSvg = sanitizeFigureSvg(question.figureSvg);
+    }
+
+    // 关联原题时校验归属，防止写入他人的错题
+    if (errorItemId) {
+        const item = await prisma.errorItem.findUnique({
+            where: { id: errorItemId },
+            select: { userId: true, subject: { select: { name: true } } },
+        });
+        if (!item || item.userId !== userId) {
+            throw new McpToolError(`Item "${errorItemId}" not found for this user`);
+        }
+        subject ??= item.subject?.name ?? null;
+    }
+
+    const isCorrect = result ? result === 'correct' : parsed.data.isCorrect;
+
+    const record = await prisma.practiceRecord.create({
+        data: {
+            userId,
+            subject,
+            difficulty,
+            isCorrect,
+            ...(practiceQuestionId ? { practiceQuestionId } : {}),
+            ...(errorItemId ? { errorItemId } : {}),
+            ...((errorItemId || practiceQuestionId) ? {
+                result,
+                questionText,
+                answerText,
+                analysis,
+                mistakeAnalysis,
+                figureSvg: figureSvg ?? questionFigureSvg,
+                source,
+            } : {}),
+            ...(parsed.data.takenAt ? { createdAt: new Date(parsed.data.takenAt) } : {}),
+        },
+    });
+
+    if (errorItemId && result) {
+        if (source === 'review' && result === 'correct') {
+            // 顺序复习中明确做对，直接标记为已掌握，不必等待后台评估
+            await prisma.errorItem.update({
+                where: { id: errorItemId },
+                data: {
+                    masteryProbability: 1,
+                    masteryLevel: masteryLevelOf('mastered'),
+                    masterySource: 'rule',
+                    masteryReason: '顺序复习做对，标记为已掌握',
+                    masteryEvaluatedAt: new Date(),
+                },
+            });
+        } else {
+            scheduleMasteryEvaluation([errorItemId]);
+        }
+    }
+
+    return record;
+}
+
+export interface GenerateVariantInput {
+    errorItemId: string;
+    language?: 'zh' | 'en';
+    difficulty?: 'easy' | 'medium' | 'hard' | 'harder';
+    source?: 'ai' | 'bank' | 'bankVariant';
+    bankId?: string;
+}
+
+/** 同步生成一道变式题（AI 或真题库），消耗一次 practice 额度并暂存为最近一次练习 */
+export async function generateVariant(user: User, input: GenerateVariantInput) {
+    const parsed = generatePracticeSchema.safeParse(input);
+    if (!parsed.success) {
+        throw new McpToolError(parsed.error.issues[0]?.message ?? 'Invalid generate variant input');
+    }
+    const { errorItemId, language, difficulty, source, bankId } = parsed.data;
+
+    const errorItemWithSubject = await prisma.errorItem.findUnique({
+        where: { id: errorItemId },
+        include: { subject: true, tags: { select: { name: true } } },
+    });
+    // 只能基于自己的错题生成，否则等于间接读取他人题目
+    if (!errorItemWithSubject || errorItemWithSubject.userId !== user.id) {
+        throw new McpToolError(`Item "${errorItemId}" not found for this user`);
+    }
+
+    let tags: string[] = Array.isArray(errorItemWithSubject.tags)
+        ? errorItemWithSubject.tags.map((tag) => tag.name)
+        : [];
+    if (tags.length === 0) {
+        try {
+            const parsedTags: unknown = JSON.parse(errorItemWithSubject.knowledgePoints || "[]");
+            tags = Array.isArray(parsedTags) ? parsedTags.filter((tag): tag is string => typeof tag === 'string') : [];
+        } catch {
+            tags = [];
+        }
+    }
+
+    // 按目标防重复：同一错题同一时刻只允许一个「举一反三」任务，预占失败时不扣额度、不调用 AI
+    const target = `error-item:${errorItemId}:practice`;
+    const handle = reserveBackgroundTask({
+        userId: user.id,
+        kind: 'practice',
+        subject: describeQuestion(errorItemWithSubject),
+        link: `/error-items/${errorItemId}`,
+        target,
+    });
+    if (!handle) {
+        throw new McpToolError(
+            `TASK_ALREADY_RUNNING: another practice task is running for this item (${findRunningTask(user.id, target)?.id ?? 'unknown'})`,
+        );
+    }
+
+    const selectionInput = {
+        errorItem: {
+            id: errorItemWithSubject.id,
+            questionText: errorItemWithSubject.questionText,
+            subject: errorItemWithSubject.subject
+                ? {
+                    name: errorItemWithSubject.subject.name,
+                    stage: errorItemWithSubject.subject.stage,
+                    subjectKey: errorItemWithSubject.subject.subjectKey,
+                }
+                : null,
+        },
+        tagNames: tags,
+        difficulty: difficulty ?? 'medium',
+        bankId: bankId ?? null,
+    };
+
+    let practiceQuestion: ParsedQuestion;
+    if (source === 'bank') {
+        // 真题库选题不调用 AI、不消耗额度
+        const selected = await runReservedTask(handle, () => selectBankQuestion(selectionInput));
+        if (!selected) {
+            handle.cancel();
+            throw new McpToolError('BANK_NO_MATCH: no bank question matches this item');
+        }
+        practiceQuestion = selected.question;
+    } else if (source === 'bankVariant') {
+        // 先按知识点选题库题目，再让 AI 以该题为原题生成变式题：选题失败时不扣额度
+        const outcome = await runReservedTask(handle, async () => {
+            const selected = await selectBankQuestion(selectionInput);
+            if (!selected) {
+                handle.cancel();
+                return { kind: 'no-match' as const };
+            }
+            const limited = await serializeWrite(() => consumeAiQuota(user, 'practice'));
+            if (limited) {
+                handle.cancel();
+                return { kind: 'limited' as const, limited };
+            }
+            const aiService = await getAIService({ userId: user.id, kind: 'practice' });
+            const similarQuestion = await aiService.generateSimilarQuestion(
+                selected.question.questionText,
+                selected.question.knowledgePoints.length > 0 ? selected.question.knowledgePoints : tags,
+                language,
+                difficulty || 'medium',
+                selected.question.gradeSemester,
+                selected.question.figureSvg,
+            );
+            similarQuestion.subject = selected.question.subject;
+            return { kind: 'ok' as const, question: similarQuestion };
+        });
+        if (outcome.kind === 'no-match') {
+            throw new McpToolError('BANK_NO_MATCH: no bank question matches this item');
+        }
+        if (outcome.kind === 'limited') {
+            throw await quotaRejectionError(outcome.limited);
+        }
+        practiceQuestion = outcome.question;
+    } else {
+        const outcome = await runReservedTask(handle, async () => {
+            const limited = await serializeWrite(() => consumeAiQuota(user, 'practice'));
+            if (limited) {
+                handle.cancel();
+                return { kind: 'limited' as const, limited };
+            }
+            const aiService = await getAIService({ userId: user.id, kind: 'practice' });
+            const similarQuestion = await aiService.generateSimilarQuestion(
+                errorItemWithSubject.questionText || "",
+                tags,
+                language,
+                difficulty || 'medium',
+                errorItemWithSubject.gradeSemester,
+                errorItemWithSubject.figureSvg,
+            );
+            // 学科取数据库中的真实学科名；AI 输出不在学科列表内时按「其他」
+            const validSubjects = ["数学", "科学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"] as const;
+            const subjectName = errorItemWithSubject.subject?.name || "其他";
+            similarQuestion.subject = (validSubjects as readonly string[]).includes(subjectName)
+                ? subjectName as typeof validSubjects[number]
+                : "其他";
+            return { kind: 'ok' as const, question: similarQuestion };
+        });
+        if (outcome.kind === 'limited') {
+            throw await quotaRejectionError(outcome.limited);
+        }
+        practiceQuestion = outcome.question;
+    }
+
+    // 暂存本次生成结果，下次进入练习页直接显示
+    const lastPractice: LastPractice = {
+        questionText: practiceQuestion.questionText,
+        answerText: practiceQuestion.answerText,
+        analysis: practiceQuestion.analysis,
+        subject: practiceQuestion.subject,
+        figureSvg: practiceQuestion.figureSvg ?? null,
+        difficulty: DIFFICULTIES.find((value) => value === difficulty) ?? 'medium',
+        source: source === 'bank' ? 'bank' : source === 'bankVariant' ? 'bankVariant' : 'ai',
+        generatedAt: new Date().toISOString(),
+    };
+    // 每次生成都新增一条历史题，并同步暂存字段；写入失败时明确返回 saved: false
+    let practiceQuestionId: string | null = null;
+    let saved = false;
+    try {
+        const created = await runSerializedTransaction(async (tx) => {
+            const question = await tx.practiceQuestion.create({
+                data: {
+                    userId: user.id,
+                    errorItemId,
+                    subject: lastPractice.subject ?? null,
+                    difficulty: lastPractice.difficulty,
+                    source: lastPractice.source ?? 'ai',
+                    questionText: lastPractice.questionText,
+                    answerText: lastPractice.answerText,
+                    analysis: lastPractice.analysis,
+                    figureSvg: lastPractice.figureSvg ?? null,
+                    generatedAt: new Date(lastPractice.generatedAt),
+                },
+            });
+            await tx.errorItem.update({
+                where: { id: errorItemId },
+                data: { lastPractice: serializeLastPractice(lastPractice) },
+            });
+            return question;
+        });
+        practiceQuestionId = created.id;
+        saved = true;
+    } catch (error) {
+        logger.warn({ error, errorItemId }, 'Failed to persist generated practice question');
+    }
+
+    return {
+        ...practiceQuestion,
+        difficulty: lastPractice.difficulty,
+        source: lastPractice.source,
+        generatedAt: lastPractice.generatedAt,
+        practiceQuestionId,
+        saved,
+    };
+}
+
+export interface GetVariantInput {
+    errorItemId: string;
+}
+
+/** 读取该错题最近一次生成的变式题；没有时返回 { practice: null } */
+export async function getVariant(userId: string, input: GetVariantInput): Promise<{ practice: LastPractice | null }> {
+    const item = await prisma.errorItem.findUnique({
+        where: { id: input.errorItemId },
+        select: { userId: true, lastPractice: true },
+    });
+    if (!item || item.userId !== userId) {
+        throw new McpToolError(`Item "${input.errorItemId}" not found for this user`);
+    }
+    return { practice: parseLastPractice(item.lastPractice) };
+}
+
+const gradeAnswerSchema = z.object({
+    errorItemId: z.string().trim().min(1).optional(),
+    practiceQuestionId: z.string().trim().min(1).optional(),
+    userAnswer: z.string().trim().min(1).max(5000),
+    language: z.enum(['zh', 'en']).optional(),
+}).refine((value) => value.errorItemId || value.practiceQuestionId, {
+    message: 'errorItemId or practiceQuestionId is required',
+    path: ['errorItemId'],
+});
+
+export type GradeAnswerInput = z.input<typeof gradeAnswerSchema>;
+
+/** 由 AI 对照已存题目与标准答案判定作答；消耗一次 grade 额度 */
+export async function gradeAnswer(user: User, input: GradeAnswerInput) {
+    const parsed = gradeAnswerSchema.safeParse(input);
+    if (!parsed.success) {
+        throw new McpToolError(parsed.error.issues[0]?.message ?? 'Invalid grading request');
+    }
+    const { errorItemId, practiceQuestionId, userAnswer, language } = parsed.data;
+
+    // 历史题直接读取已保存的题目与答案；旧流程仍读取错题的最近一次生成结果
+    let practice: { questionText: string; answerText: string; analysis: string } | null = null;
+    if (practiceQuestionId) {
+        const stored = await prisma.practiceQuestion.findUnique({
+            where: { id: practiceQuestionId },
+            select: { userId: true, questionText: true, answerText: true, analysis: true },
+        });
+        practice = stored && stored.userId === user.id
+            ? { questionText: stored.questionText, answerText: stored.answerText, analysis: stored.analysis }
+            : null;
+    } else if (errorItemId) {
+        const item = await prisma.errorItem.findUnique({
+            where: { id: errorItemId },
+            select: { userId: true, lastPractice: true },
+        });
+        practice = item && item.userId === user.id ? parseLastPractice(item.lastPractice) : null;
+    }
+    if (!practice) {
+        throw new McpToolError('Practice question not found');
+    }
+
+    const limited = await consumeAiQuota(user, 'grade');
+    if (limited) {
+        throw await quotaRejectionError(limited);
+    }
+
+    const aiService = await getAIService({ userId: user.id, kind: 'grade' });
+    return aiService.gradeAnswer({
+        questionText: practice.questionText,
+        answerText: practice.answerText,
+        analysis: practice.analysis,
+        userAnswer,
+        language,
+    });
 }
 

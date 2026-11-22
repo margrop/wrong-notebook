@@ -10,16 +10,22 @@ import {
     NOTEBOOK_SUBJECTS,
 } from "@/lib/notebook-scope";
 import { MASTERY_STATUSES } from "@/lib/mastery-status";
+import { PRACTICE_RESULTS } from "@/lib/mastery";
 import { QUESTION_TYPES } from "@/lib/question/question-type";
+import { MAX_FIGURE_SVG_LENGTH } from "@/lib/figure-svg";
 import {
     addQuestion,
     createNotebook,
+    generateVariant,
     getQuestion,
+    getVariant,
     getWeakTags,
+    gradeAnswer,
     listDueReviews,
     listNotebooks,
     listQuestions,
     listTags,
+    recordPracticeResult,
 } from "@/lib/mcp/service";
 
 /** 把工具结果序列化为 MCP 文本内容；客户端按 JSON 解析 */
@@ -32,6 +38,8 @@ function toolError(message: string): CallToolResult {
 }
 
 const QUESTION_TYPE_FILTERS = [...QUESTION_TYPES, "none"] as const;
+const DIFFICULTIES = ["easy", "medium", "hard", "harder"] as const;
+const PRACTICE_SOURCES = ["practice", "manual", "review"] as const;
 
 /**
  * 为固定账号创建 MCP 服务器并注册全部工具。
@@ -206,6 +214,74 @@ export function createMcpServer(user: User): McpServer {
             annotations: { readOnlyHint: true },
         },
         async (args) => jsonResult(await getWeakTags(user.id, args)),
+    );
+
+    server.registerTool(
+        "record_practice_result",
+        {
+            title: "Record practice result",
+            description: "Record one answer attempt for an error question or a stored practice question. The result updates the mastery probability and review schedule; source=review with result=correct marks the item mastered immediately. Provide errorItemId or practiceQuestionId; question fields are filled from the stored practice question. Returns JSON practice record.",
+            inputSchema: {
+                errorItemId: z.string().optional().describe("Error question id; provide this or practiceQuestionId"),
+                practiceQuestionId: z.string().optional().describe("Stored practice question id from generate_variant; its item, text, answer and difficulty are reused"),
+                result: z.enum(PRACTICE_RESULTS as [string, ...string[]]).optional().describe("correct, wrong or not_attempted"),
+                isCorrect: z.boolean().nullable().optional().describe("Legacy shortcut; ignored when result is provided"),
+                subject: z.string().max(50).nullable().optional(),
+                difficulty: z.string().max(20).nullable().optional(),
+                questionText: z.string().max(20000).nullable().optional(),
+                answerText: z.string().max(20000).nullable().optional(),
+                analysis: z.string().max(50000).nullable().optional(),
+                mistakeAnalysis: z.string().max(50000).nullable().optional(),
+                figureSvg: z.string().max(MAX_FIGURE_SVG_LENGTH).nullable().optional().describe("Figure for this attempt; falls back to the stored practice question's figure"),
+                source: z.enum(PRACTICE_SOURCES).optional().describe("practice (default), manual or review"),
+                takenAt: z.string().datetime({ offset: true }).optional().describe("Attempt time with offset, e.g. 2026-11-22T10:00:00+08:00"),
+            },
+        },
+        async (args) => jsonResult(await recordPracticeResult(user, args)),
+    );
+
+    server.registerTool(
+        "generate_variant",
+        {
+            title: "Generate variant question",
+            description: "Generate one variant (举一反三) question for an owned error question and store it as the latest practice. Waits synchronously for the result (no task id is returned) and consumes one practice AI quota; source=bank or source=bankVariant with bankId picks from the question bank first, and source=bank consumes no quota. A concurrent generate for the same item returns TASK_ALREADY_RUNNING. Returns JSON with the question, difficulty, source, generatedAt, practiceQuestionId and saved.",
+            inputSchema: {
+                errorItemId: z.string().trim().min(1).describe("Owned error question id"),
+                language: z.enum(["zh", "en"]).optional(),
+                difficulty: z.enum(DIFFICULTIES).optional().describe("Defaults to medium"),
+                source: z.enum(["ai", "bank", "bankVariant"]).optional().describe("ai (default), bank or bankVariant"),
+                bankId: z.string().trim().min(1).optional().describe("Question bank id for source=bank or bankVariant"),
+            },
+        },
+        async (args) => jsonResult(await generateVariant(user, args)),
+    );
+
+    server.registerTool(
+        "get_variant",
+        {
+            title: "Get latest variant question",
+            description: "Read the latest generated variant question for an owned error question. Returns { practice: null } when nothing has been generated yet. Returns JSON.",
+            inputSchema: {
+                errorItemId: z.string().trim().min(1).describe("Owned error question id"),
+            },
+            annotations: { readOnlyHint: true },
+        },
+        async (args) => jsonResult(await getVariant(user.id, args)),
+    );
+
+    server.registerTool(
+        "grade_answer",
+        {
+            title: "Grade answer",
+            description: "Grade a student answer against a stored practice question (practiceQuestionId) or the latest variant of an error question (errorItemId), using AI. Consumes one grade AI quota. Returns JSON { correct, reason }.",
+            inputSchema: {
+                errorItemId: z.string().trim().min(1).optional().describe("Error question id; reads its latest generated variant"),
+                practiceQuestionId: z.string().trim().min(1).optional().describe("Stored practice question id; takes precedence over errorItemId"),
+                userAnswer: z.string().trim().min(1).max(5000).describe("Student answer to grade"),
+                language: z.enum(["zh", "en"]).optional(),
+            },
+        },
+        async (args) => jsonResult(await gradeAnswer(user, args)),
     );
 
     return server;
