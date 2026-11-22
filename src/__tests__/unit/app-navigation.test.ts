@@ -58,9 +58,9 @@ describe("app-navigation", () => {
         }
     });
 
-    it("手机底部导航只有 4 个主入口，复习/试卷/真题库不在底部", () => {
-        expect(MOBILE_NAV_ITEMS.map((item) => item.key)).toEqual(["home", "notebooks", "practice", "stats"]);
-        // 底部各项均来自完整导航列表（href、图标一致），仅练习项扩展了高亮规则
+    it("手机底部导航保留复习独立入口", () => {
+        expect(MOBILE_NAV_ITEMS.map((item) => item.key)).toEqual(["home", "notebooks", "practice", "review", "stats"]);
+        // 底部各项均来自完整导航列表（href、图标一致）
         for (const item of MOBILE_NAV_ITEMS) {
             const source = NAV_ITEMS.find((nav) => nav.key === item.key);
             expect(source).toBeDefined();
@@ -69,12 +69,15 @@ describe("app-navigation", () => {
         }
     });
 
-    it("手机上复习页与练习页共用底部「练习」按钮高亮", () => {
+    it("手机上复习页与练习页分别高亮对应入口", () => {
         const practice = MOBILE_NAV_ITEMS.find((item) => item.key === "practice")!;
-        expect(practice.match("/review")).toBe(true);
-        expect(practice.match("/review/today")).toBe(true);
         expect(practice.match("/practice")).toBe(true);
         expect(practice.match("/practice/x")).toBe(true);
+        expect(practice.match("/review")).toBe(false);
+        const review = MOBILE_NAV_ITEMS.find((item) => item.key === "review")!;
+        expect(review.match("/review")).toBe(true);
+        expect(review.match("/review/today")).toBe(true);
+        expect(review.match("/practice")).toBe(false);
         // 试卷/真题库是练习页内的子入口，不占用底部按钮
         expect(practice.match("/exams")).toBe(false);
         expect(practice.match("/banks")).toBe(false);

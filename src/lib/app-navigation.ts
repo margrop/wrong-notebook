@@ -31,15 +31,12 @@ export const NAV_ITEMS: NavItem[] = [
     { key: "banks", href: "/banks", icon: LibraryBig, match: (p) => p.startsWith("/banks") },
 ];
 
-/** 手机底部标签栏：只保留 4 个高频入口，复习/试卷/真题库从练习页与首页卡片进入 */
+/** 手机底部标签栏：保留录入、错题本、练习、复习和统计五个高频入口。 */
 export const MOBILE_NAV_ITEMS: NavItem[] = [
     NAV_ITEMS[0],
     NAV_ITEMS[1],
-    {
-        ...NAV_ITEMS[2],
-        // 手机端练习与复习共用一个按钮，进入复习页时同样高亮「练习」
-        match: (p) => p.startsWith("/practice") || p.startsWith("/review"),
-    },
+    NAV_ITEMS[2],
+    NAV_ITEMS[3],
     NAV_ITEMS[4],
 ];
 

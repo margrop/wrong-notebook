@@ -50,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <span className="hidden text-base font-semibold tracking-tight sm:inline">{t.pageTitle.base}</span>
                     </Link>
 
-                    <nav className="ml-4 hidden items-center gap-1 md:flex">
+                    <nav className="ml-2 min-w-0 flex-1 overflow-x-auto hidden items-center gap-1 md:flex lg:ml-4">
                         {NAV_ITEMS.map((item) => {
                             const active = item.match(pathname);
                             const Icon = item.icon;
@@ -59,7 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                     key={item.key}
                                     href={item.href}
                                     className={cn(
-                                        "flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                                        "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2 text-sm font-medium transition-colors lg:px-3",
                                         active
                                             ? "bg-accent text-accent-foreground"
                                             : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
                     <div className="ml-auto flex items-center gap-1">
                         {userName && (
-                            <span className="mr-2 hidden max-w-40 items-center gap-2 truncate text-sm text-muted-foreground lg:flex">
+                            <span className="mr-2 hidden max-w-40 items-center gap-2 truncate text-sm text-muted-foreground xl:flex">
                                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                                     {userName.slice(0, 1).toUpperCase()}
                                 </span>
@@ -108,7 +108,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <TelemetryNoticeBanner enabled={isAdmin && status === "authenticated" && !eulaGate.pending} />
             <AdminViewAsBanner />
 
-            <div className="pb-20 md:pb-0">{children}</div>
+            <div className="pb-mobile-nav md:pb-0">{children}</div>
             {gate}
 
             <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t bg-card/90 backdrop-blur-md md:hidden print:hidden">

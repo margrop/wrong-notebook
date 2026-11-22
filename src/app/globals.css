@@ -148,6 +148,11 @@
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* 固定底部导航不会遮住页面最后一段内容，并兼容带 Home Indicator 的设备。 */
+.pb-mobile-nav {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+}
+
 /* Print Styles for PDF Export */
 @media print {
   @page {
