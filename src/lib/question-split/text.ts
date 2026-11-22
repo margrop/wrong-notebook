@@ -106,6 +106,12 @@ function chineseToNumber(text: string): number {
     return tens * 10 + ones;
 }
 
+/**
+ * 行首题型前缀标记，如「（选做）」「（多选）」「（答选）」；右括号可有可无（如「（多选6．」）。
+ * 前缀不是题号本身，但要计入 prefixLength，便于 stripQuestionNumber 一并去掉。
+ */
+const QUESTION_PREFIX_MARKER = /^（\s*(?:选做|多选|答选|单选|不定项|判断|填空|解答|计算|简答|综合|作图|实验|探究|阅读|听力|作文|操作)\s*(?:）)?\s*/;
+
 const NUMBER_PATTERNS: Array<{ family: NumberFamily; pattern: RegExp }> = [
     // 1. 1．（不把半角 1.5 这样的小数当题号；全角「．」是题号分隔符，后面紧跟数字（如 2．3×4=）也算题号）
     { family: 'dot', pattern: /^(\d{1,3})\s*(?:．|\.(?!\d))\s*/ },
@@ -118,15 +124,17 @@ const NUMBER_PATTERNS: Array<{ family: NumberFamily; pattern: RegExp }> = [
     { family: 'cn', pattern: /^([一二三四五六七八九十]{1,3})\s*[、.．]\s*/ },
 ];
 
-/** 识别行首的题号；行内容必须在题号后还有文字 */
+/** 识别行首的题号；行内容必须在题号后还有文字。行首题型前缀（如「（选做）」）一并计入 prefixLength */
 export function matchQuestionNumber(line: string): NumberMatch | null {
     const trimmed = line.replace(LEADING_SPACE, '');
+    const prefix = trimmed.match(QUESTION_PREFIX_MARKER)?.[0] ?? '';
+    const rest = trimmed.slice(prefix.length);
     for (const { family, pattern } of NUMBER_PATTERNS) {
-        const match = trimmed.match(pattern);
-        if (!match || trimmed.length <= match[0].length) continue;
+        const match = rest.match(pattern);
+        if (!match || rest.length <= match[0].length) continue;
         const value = chineseToNumber(match[1]);
         if (!Number.isFinite(value) || value <= 0) continue;
-        return { value, family, prefixLength: match[0].length, label: match[1] };
+        return { value, family, prefixLength: prefix.length + match[0].length, label: match[1] };
     }
     return null;
 }
@@ -180,6 +188,14 @@ const NOISE_PATTERN = /(姓名|班级|学号|日期|得分|分数|评分|考号|
 const MATERIAL_PATTERN = /(阅读|材料|短文|文章|选文|诗歌|古诗|文言文|下[面列]的?(表格|图表|统计|信息)|根据.{0,20}(回答|完成)|passage|read the|according to the)/i;
 const ANSWER_HEADING = /^(参考答案|答案与解析|答案|Answers?|Answer Key)\s*[:：]?$/i;
 const SECTION_PATTERN = /^(第[一二三四五六七八九十]+(部分|大题|节)|(Part|Section)\s+[A-Z0-9IVX]+\b)/i;
+/** 第X章/第X节开头的作业标题（X 可汉字或数字；后接空白、行尾或括号，避免把正文「第一章介绍了…」当标题） */
+const CHAPTER_HEADING = /^第\s*[一二三四五六七八九十\d]{1,3}\s*[章节](?:\s|$|[（(])/;
+/** 作业卷/晚课卷等卷面标题，可带日期括号（如「晚课卷 （10月26日-30日）」） */
+const VOLUME_HEADING = /^(?:作业卷|晚课卷|练习卷|测试卷|周测卷|月考卷|期中卷|期末卷)(?:\s*[（(][^）)]{1,30}[）)])?$/;
+/** 分组标题的最大长度；过长的一行按正文处理 */
+const GROUP_HEADING_MAX_LENGTH = 40;
+/** 同段内允许的最大题号缺口（8 → 10 缺 9） */
+const CHAIN_GAP_MAX = 3;
 const SECTION_KEYWORD = /(选择|填空|判断|计算|解答|应用|解决问题|操作|作图|阅读|写作|作文|综合|口算|听力|单项|完形|题)/;
 /** 「完成 1～3 题」「回答第 6-8 题」「Questions 1-3」 */
 const RANGE_PATTERN = /(\d{1,3})\s*[~～\-—–至到]\s*(\d{1,3})\s*(?:小?题|questions?)/i;
@@ -241,8 +257,22 @@ function isShortSectionHeading(line: string, followingLines: string[] = []): boo
 }
 
 /**
+ * 判断一行是否是明确的「分组标题」：无题号，且为第X章/第X节作业标题、作业卷/晚课卷等卷面标题，
+ * 或现有的短分组标题（篇/章/节/部分/组、Part/Section X）。题干正文行不满足这些形式。
+ */
+function isGroupHeadingLine(line: string): boolean {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.length > GROUP_HEADING_MAX_LENGTH) return false;
+    // 有题号的行是题干（如「1. 第一章介绍了…」），不是标题
+    if (matchQuestionNumber(trimmed)) return false;
+    if (CHAPTER_HEADING.test(trimmed) || VOLUME_HEADING.test(trimmed)) return true;
+    return isShortSectionHeading(trimmed);
+}
+
+/**
  * 从每个候选出发，取同一写法、编号逐个加一的最长序列；分组标题后允许重新从 1 开始。
  * 允许多段编号链：一条链结束后出现分组标题，之后同写法的题号重新从 1 开始递增时开启新段。
+ * 同段内允许重复题号（如试卷印刷错误重复「9.」）与少量跳号（如 8 → 10 缺 9），只对同一写法生效。
  */
 function longestChain(candidates: Candidate[], sectionLines: Set<number>): Candidate[] {
     let best: Candidate[] = [];
@@ -254,7 +284,12 @@ function longestChain(candidates: Candidate[], sectionLines: Set<number>): Candi
             const last = chain[chain.length - 1];
             if (candidate.family !== first.family) continue;
             const restarted = candidate.value === 1 && [...sectionLines].some((line) => line > last.line && line < candidate.line);
-            if (candidate.value === last.value + 1 || restarted) chain.push(candidate);
+            // 同一写法、同一题号连续重复最多两次（避免把大段重复编号全部吞进一条链）
+            const duplicate = candidate.value === last.value
+                && (chain.length < 2 || chain[chain.length - 2].value !== candidate.value);
+            // 同段内允许小缺口，缺号上限 3
+            const gapContinues = candidate.value > last.value && candidate.value - last.value <= CHAIN_GAP_MAX;
+            if (candidate.value === last.value + 1 || duplicate || gapContinues || restarted) chain.push(candidate);
         }
         if (chain.length > best.length) best = chain;
     }
@@ -262,7 +297,7 @@ function longestChain(candidates: Candidate[], sectionLines: Set<number>): Candi
 }
 
 function isSectionLine(line: string, match: NumberMatch | null, chainFamily: NumberFamily | null): boolean {
-    if (SECTION_PATTERN.test(line)) return true;
+    if (isGroupHeadingLine(line) || SECTION_PATTERN.test(line)) return true;
     // 有阿拉伯题号时，「一、选择题」这样的汉字序号是大题标题
     return !!match && match.family === 'cn' && chainFamily !== 'cn' && chainFamily !== null
         && (line.length <= 40 || SECTION_KEYWORD.test(line.slice(0, 20)));
@@ -311,7 +346,7 @@ function collectSegments(
     return segments.filter((segment) => segment.chain.length > 0);
 }
 
-/** 在一行之前找分组标题（向上扫描） */
+/** 在一行之前找分组标题（向上扫描；相邻标题被正文行挡住时跳过正文行，但只接受明确分组标题） */
 function findHeadingBefore(
     lineIndex: number,
     lines: string[],
@@ -321,11 +356,11 @@ function findHeadingBefore(
 ): string | null {
     for (let i = lineIndex - 1; i >= 0; i--) {
         if (!lines[i]) continue;
-        if (sectionLines.has(i) || isSectionLine(lines[i], matches[i], family) || isShortSectionHeading(lines[i])) {
+        if (sectionLines.has(i) || isSectionLine(lines[i], matches[i], family) || isGroupHeadingLine(lines[i]) || isShortSectionHeading(lines[i])) {
             return lines[i];
         }
-        // 遇到非空非标题行就停止（标题应紧挨题号）
-        break;
+        // 题号行说明已越过首题前正文；普通正文行可继续向上找被挡住的标题
+        if (matches[i]) break;
     }
     return null;
 }
@@ -341,7 +376,7 @@ function findHeadingBetween(
 ): string | null {
     for (let i = afterLine + 1; i < beforeLine; i++) {
         if (!lines[i]) continue;
-        if (sectionLines.has(i) || isSectionLine(lines[i], matches[i], family) || isShortSectionHeading(lines[i])) {
+        if (sectionLines.has(i) || isSectionLine(lines[i], matches[i], family) || isGroupHeadingLine(lines[i]) || isShortSectionHeading(lines[i])) {
             return lines[i];
         }
     }
@@ -454,7 +489,7 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
     }
     const sectionCandidates = new Set<number>();
     for (let index = 0; index < end; index++) {
-        if (SECTION_PATTERN.test(lines[index]) || matches[index]?.family === 'cn' || isShortSectionHeading(lines[index], lines.slice(index + 1, index + 5))) sectionCandidates.add(index);
+        if (isGroupHeadingLine(lines[index]) || SECTION_PATTERN.test(lines[index]) || matches[index]?.family === 'cn' || isShortSectionHeading(lines[index], lines.slice(index + 1, index + 5))) sectionCandidates.add(index);
     }
     // 多段编号链：段内同写法连续递增，段间由分组标题分隔且题号重新从 1 开始
     let segments: Array<{ chain: Candidate[]; sectionHeading: string | null }> = [];
@@ -530,7 +565,7 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
     // 首题之前：分组标题、材料、标题/姓名栏
     const preamble: string[] = [];
     for (let index = 0; index < firstLine; index++) {
-        if (lines[index] && (isSectionLine(lines[index], matches[index], chainFamily) || isShortSectionHeading(lines[index], lines.slice(index + 1, index + 5)))) {
+        if (lines[index] && (isSectionLine(lines[index], matches[index], chainFamily) || isGroupHeadingLine(lines[index]) || isShortSectionHeading(lines[index], lines.slice(index + 1, index + 5)))) {
             takeInterlude(preamble.splice(0), true);
             section = lines[index];
             materialsForSection = [];
@@ -573,7 +608,7 @@ export function splitQuestionText(raw: string, options: TextSplitOptions = {}): 
         let bodyEnd = stop;
         let nextSection: string | null = null;
         for (let index = start + 1; index < stop; index++) {
-            if (lines[index] && !chainLines.has(index) && isSectionLine(lines[index], matches[index], chainFamily)) {
+            if (lines[index] && !chainLines.has(index) && (isSectionLine(lines[index], matches[index], chainFamily) || isGroupHeadingLine(lines[index]))) {
                 bodyEnd = index;
                 nextSection = lines[index];
                 break;
