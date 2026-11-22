@@ -51,9 +51,9 @@ interface SettingsTabProps {
 
 function SettingsTab({ value, icon, label }: SettingsTabProps) {
     return (
-        <TabsTrigger value={value} className="px-2 sm:px-3">
+        <TabsTrigger value={value} className="shrink-0 gap-1 px-2 text-xs sm:gap-2 sm:px-3 sm:text-sm">
             {icon}
-            <span className="hidden sm:inline">{label}</span>
+            <span className="whitespace-nowrap">{label}</span>
         </TabsTrigger>
     );
 }
@@ -140,18 +140,18 @@ export function SettingsDialog() {
                 </DialogHeader>
 
                 <Tabs defaultValue="general" className="w-full">
-                    <TabsList className={`grid w-full grid-cols-4 ${isAdmin ? 'sm:grid-cols-7' : 'sm:grid-cols-4'} gap-1 h-auto`}>
-                        <SettingsTab value="general" icon={<Languages className="h-4 w-4 sm:mr-2" />} label={t.settings?.tabs?.general || "General"} />
-                        <SettingsTab value="account" icon={<User className="h-4 w-4 sm:mr-2" />} label={t.settings?.tabs?.account || "Account"} />
+                    <TabsList className="sticky top-0 z-10 flex h-auto w-full max-w-full justify-start gap-1 overflow-x-auto bg-card py-1 sm:justify-center">
+                        <SettingsTab value="general" icon={<Languages className="h-4 w-4" />} label={t.settings?.tabs?.general || "General"} />
+                        <SettingsTab value="account" icon={<User className="h-4 w-4" />} label={t.settings?.tabs?.account || "Account"} />
                         {isAdmin && (
                             <>
-                                <SettingsTab value="ai" icon={<Bot className="h-4 w-4 sm:mr-2" />} label={t.settings?.tabs?.ai || "AI Provider"} />
-                                <SettingsTab value="prompts" icon={<MessageSquareText className="h-4 w-4 sm:mr-2" />} label={t.settings?.tabs?.prompts || "Prompts"} />
-                                <SettingsTab value="admin" icon={<Shield className="h-4 w-4 sm:mr-2" />} label={t.settings?.tabs?.admin || "User Management"} />
+                                <SettingsTab value="ai" icon={<Bot className="h-4 w-4" />} label={t.settings?.tabs?.ai || "AI Provider"} />
+                                <SettingsTab value="prompts" icon={<MessageSquareText className="h-4 w-4" />} label={t.settings?.tabs?.prompts || "Prompts"} />
+                                <SettingsTab value="admin" icon={<Shield className="h-4 w-4" />} label={t.settings?.tabs?.admin || "User Management"} />
                             </>
                         )}
-                        <SettingsTab value="danger" icon={<AlertTriangle className="h-4 w-4 sm:mr-2" />} label={t.settings?.tabs?.danger || "Danger"} />
-                        <SettingsTab value="about" icon={<Info className="h-4 w-4 sm:mr-2" />} label={t.settings?.tabs?.about || "About"} />
+                        <SettingsTab value="danger" icon={<AlertTriangle className="h-4 w-4" />} label={t.settings?.tabs?.danger || "Danger"} />
+                        <SettingsTab value="about" icon={<Info className="h-4 w-4" />} label={t.settings?.tabs?.about || "About"} />
                     </TabsList>
 
                     <TabsContent value="general" className="space-y-4 py-4">
