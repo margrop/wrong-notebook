@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { LibraryBig, Loader2 } from "lucide-react";
 import { BankDetail } from "@/components/banks/bank-detail";
@@ -31,7 +31,16 @@ export default function BanksPage() {
     const [banks, setBanks] = useState<QuestionBankSummary[]>([]);
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const detailRef = useRef<HTMLElement>(null);
     const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!selectedId) return;
+        const timer = window.setTimeout(() => {
+            detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 0);
+        return () => window.clearTimeout(timer);
+    }, [selectedId]);
 
     const fetchBanks = useCallback(async () => {
         try {
@@ -103,7 +112,7 @@ export default function BanksPage() {
                 </section>
 
                 {selectedId && (
-                    <section className="space-y-3">
+                    <section ref={detailRef} className="scroll-mt-20 space-y-3">
                         <h2 className="text-lg font-semibold">{t.banks.detailTitle}</h2>
                         <BankDetail
                             bankId={selectedId}
