@@ -273,6 +273,19 @@ describe('分组后题号重新从 1 开始（多段编号链）', () => {
         expect(result.ignored.join('\n')).toContain('1．6');
     });
 
+    it('题号缺口超过 2 时不合链：OCR 错号不会被并入前一题', () => {
+        const text = [
+            '9. 计算 1 + 1。',
+            '19. 计算 2 + 2。',
+            '山.计算 3 + 3。',
+            '12.计算 4 + 4。',
+            '13.计算 5 + 5。',
+        ].join('\n');
+        const result = splitQuestionText(text);
+        expect(result.questions.map((question) => question.label)).toEqual(['12', '13']);
+        expect(result.ignored.join('\n')).toContain('19. 计算 2 + 2');
+    });
+
     it('长文字自动分批（MAX_CLIENT_SPLIT_*）下多段也能正确分题', () => {
         const filler = '字'.repeat(500);
         const text = [

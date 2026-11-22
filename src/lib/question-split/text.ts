@@ -194,8 +194,8 @@ const CHAPTER_HEADING = /^第\s*[一二三四五六七八九十\d]{1,3}\s*[章�
 const VOLUME_HEADING = /^(?:作业卷|晚课卷|练习卷|测试卷|周测卷|月考卷|期中卷|期末卷)(?:\s*[（(][^）)]{1,30}[）)])?$/;
 /** 分组标题的最大长度；过长的一行按正文处理 */
 const GROUP_HEADING_MAX_LENGTH = 40;
-/** 同段内允许的最大题号缺口（8 → 10 缺 9） */
-const CHAIN_GAP_MAX = 3;
+/** 同段内允许的最大题号缺口（8 → 10 缺 9，缺口 2）；缺口 3 易把 OCR 错号吞入前一题 */
+const CHAIN_GAP_MAX = 2;
 const SECTION_KEYWORD = /(选择|填空|判断|计算|解答|应用|解决问题|操作|作图|阅读|写作|作文|综合|口算|听力|单项|完形|题)/;
 /** 「完成 1～3 题」「回答第 6-8 题」「Questions 1-3」 */
 const RANGE_PATTERN = /(\d{1,3})\s*[~～\-—–至到]\s*(\d{1,3})\s*(?:小?题|questions?)/i;
