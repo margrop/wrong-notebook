@@ -14,7 +14,7 @@ interface EditButtonProps {
 export function EditButton({ onClick, label, ariaLabel }: EditButtonProps) {
     const { t } = useLanguage();
     return (
-        <Button variant="ghost" size="sm" onClick={onClick} aria-label={ariaLabel}>
+        <Button variant="ghost" size="sm" onClick={onClick} title={ariaLabel}>
             <Edit className="h-4 w-4 mr-1" />{label || t.common?.edit || "Edit"}
         </Button>
     );
