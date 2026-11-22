@@ -131,10 +131,12 @@ test('[E2E-F2-2] 导入 CSV（UTF-8 BOM）：引号字段内含逗号与换行�
     await page.getByRole('button', { name: '按原样导入 2 题' }).click();
     await expect(page.getByTestId('batch-progress')).toHaveAttribute('data-phase', 'done', { timeout: 30000 });
 
-    const items = await scenario.db.errorItem.findMany({ where: { userId: scenario.user.id }, orderBy: { createdAt: 'asc' } });
+    const items = await scenario.db.errorItem.findMany({ where: { userId: scenario.user.id } });
     expect(items).toHaveLength(2);
-    expect(items[0].questionText).toContain('小明有 3 个苹果，又买了 5 个');
-    expect(items[1].questionText).toContain('① 1+1=2');
+    // 两题在同一毫秒入库时 createdAt 相同，数据库顺序不稳定，按内容断言
+    const texts = items.map((item) => item.questionText ?? '');
+    expect(texts.some((text) => text.includes('小明有 3 个苹果，又买了 5 个'))).toBe(true);
+    expect(texts.some((text) => text.includes('① 1+1=2'))).toBe(true);
 });
 
 test('[E2E-F2-3] 模板下载：Excel 与 CSV 模板均可下载且非空', async ({ page, scenario }) => {
