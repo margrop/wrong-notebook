@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { BarChart3, BookOpen, CalendarCheck, FileText, LibraryBig, PlusCircle, Sparkles } from "lucide-react";
 import type { translations } from "@/lib/translations";
+import { DEFAULT_MOBILE_NAV_FOURTH, isMobileNavFourth, type MobileNavFourth } from "@/lib/mobile-nav";
 
 /** 导航项 key：对应 translations 中 t.nav 的翻译 key */
 export type NavKey = keyof typeof translations.en.nav;
@@ -31,14 +32,17 @@ export const NAV_ITEMS: NavItem[] = [
     { key: "banks", href: "/banks", icon: LibraryBig, match: (p) => p.startsWith("/banks") },
 ];
 
-/** 手机底部标签栏：保留录入、错题本、练习、复习和统计五个高频入口。 */
-export const MOBILE_NAV_ITEMS: NavItem[] = [
-    NAV_ITEMS[0],
-    NAV_ITEMS[1],
-    NAV_ITEMS[2],
-    NAV_ITEMS[3],
-    NAV_ITEMS[4],
-];
+/** 按个人偏好生成手机底部标签栏；第 4 个入口默认为试卷。 */
+export function getMobileNavItems(fourth: MobileNavFourth = DEFAULT_MOBILE_NAV_FOURTH): NavItem[] {
+    const fourthItem = fourth === "review" ? NAV_ITEMS[3] : NAV_ITEMS[5];
+    return [NAV_ITEMS[0], NAV_ITEMS[1], NAV_ITEMS[2], fourthItem, NAV_ITEMS[4]];
+}
+
+/** 默认手机底部标签栏。 */
+export const MOBILE_NAV_ITEMS: NavItem[] = getMobileNavItems();
+
+export { DEFAULT_MOBILE_NAV_FOURTH, isMobileNavFourth };
+export type { MobileNavFourth };
 
 /** 品牌配置：fork 项目可替换图标路径 */
 export const APP_BRAND = { iconSrc: "/icons/icon.png" } as const;

@@ -223,9 +223,9 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(await database.knowledgeTag.count({ where: { name: '我的句式笔记' } })).toBe(1);
     });
 
-    it('导出文件使用第 19 版格式，包含 tagSet、练习生成题、试卷配图与空的 extensions', async () => {
+    it('导出文件使用第 20 版格式，包含 tagSet、练习生成题、试卷配图与空的 extensions', async () => {
         const backup = await exportBackup();
-        expect(backup.version).toBe(19);
+        expect(backup.version).toBe(20);
         expect(backup.extensions).toEqual({});
         expect(backup.paperGroups).toContainEqual(expect.objectContaining({ id: 'group-b', key: 'b', name: 'B卷' }));
         expect(backup.systemTags).toBeDefined();
@@ -785,20 +785,20 @@ describe('数据导出后再导入（真实 SQLite）', () => {
     it('还原本人的偏好设置，不合法的单项跳过', async () => {
         await database.user.update({
             where: { id: 'user-1' },
-            data: { confirmBeforeImport: true, questionDuplicateThreshold: 75.5, masteryThreshold: 70, enableGeogebra: true, enableSvgAnimation: false, themePreference: 'dark', gradeRecognitionMode: 'ai', fixedGradeSemester: '四年级上' },
+            data: { confirmBeforeImport: true, questionDuplicateThreshold: 75.5, masteryThreshold: 70, enableGeogebra: true, enableSvgAnimation: false, themePreference: 'dark', mobileNavFourth: 'review', gradeRecognitionMode: 'ai', fixedGradeSemester: '四年级上' },
         });
         const backup = await exportBackup();
-        expect(backup.user).toMatchObject({ confirmBeforeImport: true, questionDuplicateThreshold: 75.5, masteryThreshold: 70, enableGeogebra: true, enableSvgAnimation: false, themePreference: 'dark', gradeRecognitionMode: 'ai', fixedGradeSemester: '四年级上' });
+        expect(backup.user).toMatchObject({ confirmBeforeImport: true, questionDuplicateThreshold: 75.5, masteryThreshold: 70, enableGeogebra: true, enableSvgAnimation: false, themePreference: 'dark', mobileNavFourth: 'review', gradeRecognitionMode: 'ai', fixedGradeSemester: '四年级上' });
 
         await database.user.update({
             where: { id: 'user-1' },
-            data: { confirmBeforeImport: false, questionDuplicateThreshold: 90, masteryThreshold: 50, enableGeogebra: false, enableSvgAnimation: true, themePreference: 'system', gradeRecognitionMode: 'fixed', fixedGradeSemester: null },
+            data: { confirmBeforeImport: false, questionDuplicateThreshold: 90, masteryThreshold: 50, enableGeogebra: false, enableSvgAnimation: true, themePreference: 'system', mobileNavFourth: 'exams', gradeRecognitionMode: 'fixed', fixedGradeSemester: null },
         });
         backup.user.questionDuplicateThreshold = 500;
         const { stats } = await importBackup(backup);
         expect(stats.preferencesRestored).toBe(true);
         expect(await database.user.findUniqueOrThrow({ where: { id: 'user-1' } })).toMatchObject({
-            confirmBeforeImport: true, questionDuplicateThreshold: 90, masteryThreshold: 70, enableGeogebra: true, enableSvgAnimation: false, themePreference: 'dark',
+            confirmBeforeImport: true, questionDuplicateThreshold: 90, masteryThreshold: 70, enableGeogebra: true, enableSvgAnimation: false, mobileNavFourth: 'review', themePreference: 'dark',
             gradeRecognitionMode: 'ai', fixedGradeSemester: '四年级上',
         });
     });
@@ -941,7 +941,7 @@ describe('数据导出后再导入（真实 SQLite）', () => {
         expect(response.status).toBe(200);
         const compressed = Buffer.from(await response.arrayBuffer());
         expect([compressed[0], compressed[1]]).toEqual([0x1f, 0x8b]);
-        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(19);
+        expect(JSON.parse(gunzipSync(compressed).toString('utf8')).version).toBe(20);
 
         await clearUserData();
         const imported = await IMPORT(new Request('http://localhost/api/import', {

@@ -13,7 +13,8 @@ import { TelemetryNoticeBanner } from "@/components/telemetry-notice-banner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { APP_BRAND, MOBILE_NAV_ITEMS, NAV_ITEMS, isBarePath } from "@/lib/app-navigation";
+import { useMobileNav } from "@/contexts/MobileNavContext";
+import { APP_BRAND, getMobileNavItems, NAV_ITEMS, isBarePath } from "@/lib/app-navigation";
 import { useEulaGate } from "@/lib/hooks/use-eula-gate";
 import { usePageTelemetry } from "@/lib/hooks/use-page-telemetry";
 import { useSetupRedirect } from "@/lib/hooks/use-setup-redirect";
@@ -23,6 +24,8 @@ import { cn } from "@/lib/utils";
 export function AppShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname() || "/";
     const { t } = useLanguage();
+    const { fourth } = useMobileNav();
+    const mobileNavItems = getMobileNavItems(fourth);
     const { data: session, status } = useSession();
     const isAdmin = session?.user?.role === "admin";
     const isBare = isBarePath(pathname);
@@ -113,8 +116,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {gate}
 
             <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t bg-card/90 backdrop-blur-md md:hidden print:hidden">
-                <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${MOBILE_NAV_ITEMS.length}, minmax(0, 1fr))` }}>
-                    {MOBILE_NAV_ITEMS.map((item) => {
+                <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${mobileNavItems.length}, minmax(0, 1fr))` }}>
+                    {mobileNavItems.map((item) => {
                         const active = item.match(pathname);
                         const Icon = item.icon;
                         return (

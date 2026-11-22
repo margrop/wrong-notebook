@@ -84,6 +84,7 @@ describe("parsePreferences", () => {
             enableGeogebra: false,
             enableSvgAnimation: true,
             themePreference: "system",
+            mobileNavFourth: "review",
         } as ImportableBackupFile["user"]);
         expect(prefs).toEqual({
             gradeRecognitionMode: "ai",
@@ -94,6 +95,7 @@ describe("parsePreferences", () => {
             enableGeogebra: false,
             enableSvgAnimation: true,
             themePreference: "system",
+            mobileNavFourth: "review",
         });
     });
 
@@ -108,6 +110,7 @@ describe("parsePreferences", () => {
             gradeRecognitionMode: "bogus",
             masteryThreshold: 1000,
             themePreference: "dark",
+            mobileNavFourth: "bogus",
         } as ImportableBackupFile["user"]);
         expect(prefs).toEqual({ themePreference: "dark" });
     });

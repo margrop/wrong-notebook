@@ -878,6 +878,12 @@ export const zh = {
                     shortId: "6 位 ID（如 oYMCZa）",
                     seqNo: "流水号（如 #1000）",
                 },
+                mobileNavFourthLabel: "手机底部第 4 个按钮",
+                mobileNavFourthDesc: "选择手机底部导航栏第 4 个入口，默认为试卷；修改后立即生效。",
+                mobileNavFourthOptions: {
+                    exams: "试卷",
+                    review: "复习",
+                },
                 figureReviewLabel: "AI 配图比对校正",
                 figureReviewDesc: "重绘配图后把原图与重绘结果并排交给 AI 比对，修正箭头方向、连线和标注等差异。每张配图多一次 AI 调用，耗时更长，默认关闭。",
                 invalidTimeZone: "请输入有效的 IANA 时区，例如 Asia/Shanghai。",

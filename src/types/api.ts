@@ -154,6 +154,8 @@ export interface UserProfile {
     enableSvgAnimation?: boolean;
     /** 界面主题偏好：system / light / dark */
     themePreference?: string;
+    /** 手机底部第 4 个入口：exams / review */
+    mobileNavFourth?: 'exams' | 'review';
     questionDuplicateThreshold?: number;
     masteryThreshold?: number;
 }
@@ -163,6 +165,7 @@ export interface UpdateUserProfileRequest {
     fixedGradeSemester?: string | null;
     questionDuplicateThreshold?: number;
     masteryThreshold?: number;
+    mobileNavFourth?: 'exams' | 'review';
     name?: string;
     email?: string;
     educationStage?: string;

@@ -16,6 +16,7 @@ import { MAX_MASTERY_THRESHOLD, MIN_MASTERY_THRESHOLD } from "@/lib/mastery-stat
 import { THEME_PREFERENCES } from "@/lib/theme";
 import { GRADE_RECOGNITION_MODES } from "@/lib/question/question-grade";
 import { GRADE_SEMESTERS } from "@/lib/grade-options";
+import { MOBILE_NAV_FOURTH_OPTIONS } from "@/lib/mobile-nav";
 
 const logger = createLogger('api:user');
 
@@ -31,6 +32,7 @@ const userUpdateSchema = z.object({
     enableGeogebra: z.boolean().optional(),
     enableSvgAnimation: z.boolean().optional(),
     themePreference: z.enum(THEME_PREFERENCES).optional(),
+    mobileNavFourth: z.enum(MOBILE_NAV_FOURTH_OPTIONS).optional(),
     questionDuplicateThreshold: z.number().min(1).max(100).multipleOf(0.01).optional(),
     masteryThreshold: z.number().int().min(MIN_MASTERY_THRESHOLD).max(MAX_MASTERY_THRESHOLD).optional(),
 });
@@ -60,6 +62,7 @@ export async function GET() {
                 enableGeogebra: true,
                 enableSvgAnimation: true,
                 themePreference: true,
+                mobileNavFourth: true,
                 questionDuplicateThreshold: true,
                 masteryThreshold: true,
                 aiDataConsentAt: true,
@@ -83,7 +86,7 @@ export async function GET() {
 async function handlePatch(req: Request, { session, user }: AuthenticatedContext) {
     try {
         const body = await req.json();
-        const { name, email, password, educationStage, enrollmentYear, gradeRecognitionMode, fixedGradeSemester, confirmBeforeImport, enableGeogebra, enableSvgAnimation, themePreference, questionDuplicateThreshold, masteryThreshold } = userUpdateSchema.parse(body);
+        const { name, email, password, educationStage, enrollmentYear, gradeRecognitionMode, fixedGradeSemester, confirmBeforeImport, enableGeogebra, enableSvgAnimation, themePreference, mobileNavFourth, questionDuplicateThreshold, masteryThreshold } = userUpdateSchema.parse(body);
 
         const updateData: Prisma.UserUpdateInput = {};
         if (gradeRecognitionMode !== undefined) updateData.gradeRecognitionMode = gradeRecognitionMode;
@@ -106,6 +109,9 @@ async function handlePatch(req: Request, { session, user }: AuthenticatedContext
         }
         if (themePreference) {
             updateData.themePreference = themePreference;
+        }
+        if (mobileNavFourth) {
+            updateData.mobileNavFourth = mobileNavFourth;
         }
         if (typeof questionDuplicateThreshold === 'number') {
             updateData.questionDuplicateThreshold = questionDuplicateThreshold;
@@ -151,6 +157,7 @@ async function handlePatch(req: Request, { session, user }: AuthenticatedContext
                     enableGeogebra: true,
                     enableSvgAnimation: true,
                     themePreference: true,
+                    mobileNavFourth: true,
                     questionDuplicateThreshold: true,
                     masteryThreshold: true,
                 }

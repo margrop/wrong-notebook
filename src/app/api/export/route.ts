@@ -124,6 +124,7 @@ export const GET = withUser(async (req: Request, { user, session }: Authenticate
                 enableGeogebra: user.enableGeogebra,
                 enableSvgAnimation: user.enableSvgAnimation,
                 themePreference: user.themePreference,
+                mobileNavFourth: user.mobileNavFourth,
             },
             subjects,
             systemTags: sortTagsByParent(systemTags),

@@ -23,7 +23,7 @@ import {
  */
 
 /** 当前备份文件版本号 */
-export const BACKUP_VERSION = 19;
+export const BACKUP_VERSION = 20;
 
 /** 备份文件中的用户对象 */
 export interface BackupUser {
@@ -42,6 +42,8 @@ export interface BackupUser {
     enableGeogebra?: boolean;
     enableSvgAnimation?: boolean;
     themePreference?: string;
+    /** version 20 起导出；旧版缺失时按试卷处理 */
+    mobileNavFourth?: string;
 }
 
 /** 备份文件中的学科 */

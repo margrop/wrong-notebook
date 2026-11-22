@@ -12,6 +12,7 @@ After signing in, open "Settings → General" to adjust your own preferences:
 | GeoGebra interactive demos | Off |
 | Duplicate similarity threshold | 90%; a question is a duplicate when the similarity is strictly greater |
 | Mastered threshold | 50%; a question counts as mastered once its mastery probability reaches it |
+| 4th mobile bottom button | **Exams** by default; can be switched to **Review** |
 
 The interface theme is not in Settings; switch it with the theme button in the top navigation bar: Auto (follow system, the default), Light or Dark. It is also saved per user and carries over when you sign in on another device.
 

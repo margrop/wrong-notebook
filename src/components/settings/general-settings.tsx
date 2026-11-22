@@ -8,6 +8,7 @@ import { DuplicateThresholdSetting } from "@/components/settings/duplicate-thres
 import { GeogebraPreferenceSetting } from "@/components/settings/geogebra-preference-setting";
 import { ImportPreferenceSetting } from "@/components/settings/import-preference-setting";
 import { MasteryThresholdSetting } from "@/components/settings/mastery-threshold-setting";
+import { MobileNavPreferenceSetting } from "@/components/settings/mobile-nav-preference-setting";
 import { QuestionGradeSetting } from "@/components/settings/question-grade-setting";
 import { SvgAnimationPreferenceSetting } from "@/components/settings/svg-animation-preference-setting";
 import { QuestionNumberingSetting } from "@/components/settings/question-numbering-setting";
@@ -55,6 +56,8 @@ export function GeneralSettings({ config, setConfig, isAdmin, disabled }: Genera
             <TimeZoneSetting value={config.timeZone ?? timeZone} onChange={(value) => setConfig((current) => ({ ...current, timeZone: value }))} disabled={!isAdmin || disabled} />
 
             <QuestionNumberingSetting value={config.questionNumbering ?? numbering} onChange={(value) => setConfig((current) => ({ ...current, questionNumbering: value }))} disabled={!isAdmin || disabled} />
+
+            <MobileNavPreferenceSetting />
 
             <FigureReviewSetting value={config.figureReview === true} onChange={(value) => setConfig((current) => ({ ...current, figureReview: value }))} disabled={!isAdmin || disabled} />
             {/* AI 超时是全局配置，只有管理员可以修改 */}

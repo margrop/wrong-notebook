@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { MobileNavProvider } from "@/contexts/MobileNavContext";
 import { QuestionNumberingProvider } from "@/contexts/QuestionNumberingContext";
 import { TimeZoneProvider } from "@/contexts/TimeZoneContext";
 import { AiConsentDialog } from "@/components/ai-consent-dialog";
@@ -22,18 +23,20 @@ export function Providers({ children, timeZone, questionNumbering }: { children:
     return (
         <SessionProvider>
             <ThemeProvider>
-                <LanguageProvider>
-                    <TimeZoneProvider initialTimeZone={timeZone}>
-                        <QuestionNumberingProvider initialNumbering={questionNumbering}>
-                            <OutdatedBrowserNotice />
-                            <AppShell>{children}</AppShell>
-                            <BackgroundTasksButton />
-                            <AiConsentDialog />
-                            <FeedbackHost />
-                            <ServiceWorkerRegister />
-                        </QuestionNumberingProvider>
-                    </TimeZoneProvider>
-                </LanguageProvider>
+                <MobileNavProvider>
+                    <LanguageProvider>
+                        <TimeZoneProvider initialTimeZone={timeZone}>
+                            <QuestionNumberingProvider initialNumbering={questionNumbering}>
+                                <OutdatedBrowserNotice />
+                                <AppShell>{children}</AppShell>
+                                <BackgroundTasksButton />
+                                <AiConsentDialog />
+                                <FeedbackHost />
+                                <ServiceWorkerRegister />
+                            </QuestionNumberingProvider>
+                        </TimeZoneProvider>
+                    </LanguageProvider>
+                </MobileNavProvider>
             </ThemeProvider>
         </SessionProvider>
     );

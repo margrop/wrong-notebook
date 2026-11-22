@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "mobileNavFourth" TEXT NOT NULL DEFAULT 'exams';

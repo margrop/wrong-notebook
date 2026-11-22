@@ -165,6 +165,31 @@ describe('/api/user', () => {
             expect(mocks.mockPrismaUser.update.mock.calls[0][0].select.themePreference).toBe(true);
         });
 
+        it('应该更新手机底部第 4 个入口偏好', async () => {
+            mocks.mockPrismaUser.update.mockResolvedValue({ mobileNavFourth: 'review' });
+
+            const response = await PATCH(new Request('http://localhost/api/user', {
+                method: 'PATCH',
+                body: JSON.stringify({ mobileNavFourth: 'review' }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect(response.status).toBe(200);
+            expect(mocks.mockPrismaUser.update.mock.calls[0][0].data).toEqual({ mobileNavFourth: 'review' });
+            expect(mocks.mockPrismaUser.update.mock.calls[0][0].select.mobileNavFourth).toBe(true);
+        });
+
+        it.each(['paper', '', null])('应该拒绝非法的手机底部第 4 个入口 %s', async (mobileNavFourth) => {
+            const response = await PATCH(new Request('http://localhost/api/user', {
+                method: 'PATCH',
+                body: JSON.stringify({ mobileNavFourth }),
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+            expect(response.status).toBeGreaterThanOrEqual(400);
+            expect(mocks.mockPrismaUser.update).not.toHaveBeenCalled();
+        });
+
         it('应该拒绝不支持的主题偏好', async () => {
             const response = await PATCH(new Request('http://localhost/api/user', {
                 method: 'PATCH',

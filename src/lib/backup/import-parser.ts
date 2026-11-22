@@ -27,6 +27,7 @@ import { sanitizeSvgAnimation } from "@/lib/svg-animation";
 import { normalizeQuestionType } from "@/lib/question/question-type";
 import { EXAM_DIFFICULTIES, EXAM_MODES, EXAM_SCOPES } from "@/lib/exam/exam";
 import { isPracticeResult } from "@/lib/mastery";
+import { MOBILE_NAV_FOURTH_OPTIONS } from "@/lib/mobile-nav";
 
 export type ImportData = ImportableBackupFile;
 
@@ -40,6 +41,7 @@ const PREFERENCE_SCHEMAS = {
     enableGeogebra: z.boolean(),
     enableSvgAnimation: z.boolean(),
     themePreference: z.enum(THEME_PREFERENCES),
+    mobileNavFourth: z.enum(MOBILE_NAV_FOURTH_OPTIONS),
 };
 
 /** Validate and parse a date string, returning undefined if invalid */
