@@ -339,10 +339,12 @@ export function ExamCreateForm({ onClose }: ExamCreateFormProps) {
                     {error && <p className="text-sm text-destructive">{error}</p>}
                     {notice && <p className="text-sm text-primary">{notice}</p>}
 
-                    <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-                        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                        {submitting ? t.exam.creating : mode === "original" ? t.exam.createOriginal : t.exam.generate}
-                    </Button>
+                    <div className="sticky bottom-0 z-10 -mx-4 border-t bg-card/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:static sm:m-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+                        <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
+                            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                            {submitting ? t.exam.creating : mode === "original" ? t.exam.createOriginal : t.exam.generate}
+                        </Button>
+                    </div>
                 </form>
             </CardContent>
         </Card>
