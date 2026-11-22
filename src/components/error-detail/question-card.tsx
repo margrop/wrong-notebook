@@ -41,7 +41,7 @@ export function QuestionCard({ item, educationStage, saveFields, onUpdate, reloa
 
     return (
         <Card>
-            <CardHeader><SectionHeader title={<CardTitle>{t.detail.question}</CardTitle>} actions={!question.editing && <EditButton onClick={question.start} />} /></CardHeader>
+            <CardHeader><SectionHeader title={<CardTitle>{t.detail.question}</CardTitle>} actions={!question.editing && <EditButton onClick={question.start} ariaLabel={`${t.common?.edit || "Edit"} ${t.detail.question}`} />} /></CardHeader>
             <CardContent className="space-y-4">
                 {question.editing ? (
                     <div className="space-y-3">

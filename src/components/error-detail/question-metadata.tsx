@@ -74,7 +74,7 @@ export function QuestionMetadata({ item, onChanged }: QuestionMetadataProps) {
         <div className="space-y-2 pt-4 border-t">
             <SectionHeader
                 title={<h4 className="text-sm font-semibold">{t.detail?.questionInfo || "Question Info"}</h4>}
-                actions={!field.editing && <EditButton onClick={field.start} />}
+                actions={!field.editing && <EditButton onClick={field.start} ariaLabel={`${t.common?.edit || "Edit"} ${t.detail?.questionInfo || "Question Info"}`} />}
             />
             {field.editing ? (
                 <div className="space-y-3">

@@ -31,7 +31,7 @@ export function WrongAnswerCard({ item, saveFields, onEnlarge }: WrongAnswerCard
 
     return (
         <Card>
-            <CardHeader><SectionHeader title={<CardTitle>{t.editor?.wrongAnswerText || "Wrong Answer / Work"}</CardTitle>} actions={!field.editing && <EditButton onClick={field.start} />} /></CardHeader>
+            <CardHeader><SectionHeader title={<CardTitle>{t.editor?.wrongAnswerText || "Wrong Answer / Work"}</CardTitle>} actions={!field.editing && <EditButton onClick={field.start} ariaLabel={`${t.common?.edit || "Edit"} ${t.editor?.wrongAnswerText || "Wrong Answer / Work"}`} />} /></CardHeader>
             <CardContent className="space-y-4">
                 {field.editing ? (
                     <div className="space-y-4">

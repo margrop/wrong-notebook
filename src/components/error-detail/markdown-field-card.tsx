@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { EditButton, SaveCancelButtons, SectionHeader } from "./edit-controls";
 import { useEditableField } from "./use-editable-field";
 
@@ -29,6 +30,7 @@ interface MarkdownFieldCardProps {
 
 /** 可编辑的 Markdown 字段卡片：答案、解析、错因分析等 */
 export function MarkdownFieldCard({ title, value, onSave, logLabel, rows, placeholder, editorLabel, emptyText, cardClassName, titleClassName, contentClassName, headerActions, children }: MarkdownFieldCardProps) {
+    const { t } = useLanguage();
     const field = useEditableField({ read: () => value || "", save: onSave, logLabel });
     const editor = <MarkdownEditor value={field.value} onChange={field.setValue} placeholder={placeholder} rows={rows} className="w-full font-mono text-sm" />;
 
@@ -37,7 +39,7 @@ export function MarkdownFieldCard({ title, value, onSave, logLabel, rows, placeh
             <CardHeader>
                 <SectionHeader
                     title={<CardTitle className={titleClassName}>{title}</CardTitle>}
-                    actions={!field.editing && <div className="flex flex-wrap justify-end">{headerActions}<EditButton onClick={field.start} /></div>}
+                    actions={!field.editing && <div className="flex flex-wrap justify-end">{headerActions}<EditButton onClick={field.start} ariaLabel={`${t.common?.edit || "Edit"} ${title}`} /></div>}
                 />
             </CardHeader>
             <CardContent className="space-y-4">

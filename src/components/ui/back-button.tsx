@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { ArrowLeft } from "lucide-react";
 
 interface BackButtonProps {
@@ -15,6 +16,7 @@ interface BackButtonProps {
  */
 export function BackButton({ fallbackUrl, className }: BackButtonProps) {
     const router = useRouter();
+    const { t } = useLanguage();
 
     const handleBack = () => {
         router.push(fallbackUrl);
@@ -26,6 +28,7 @@ export function BackButton({ fallbackUrl, className }: BackButtonProps) {
             size="icon"
             onClick={handleBack}
             className={className}
+            aria-label={t.common?.back || "Back"}
         >
             <ArrowLeft className="h-5 w-5" />
         </Button>

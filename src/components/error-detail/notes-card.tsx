@@ -28,7 +28,7 @@ export function NotesCard({ item, onUpdate }: NotesCardProps) {
 
     return (
         <Card>
-            <CardHeader><SectionHeader title={<CardTitle>{t.detail.yourNotes}</CardTitle>} actions={!field.editing && <EditButton onClick={field.start} label={t.detail.editNotes} />} /></CardHeader>
+            <CardHeader><SectionHeader title={<CardTitle>{t.detail.yourNotes}</CardTitle>} actions={!field.editing && <EditButton onClick={field.start} label={t.detail.editNotes} ariaLabel={`${t.common?.edit || "Edit"} ${t.detail.yourNotes}`} />} /></CardHeader>
             <CardContent>
                 {field.editing ? (
                     <div className="space-y-3">
