@@ -532,6 +532,8 @@ export interface ExamQuestionDetail {
     errorItemQuestionType?: QuestionType | null;
     error: string | null;
     notebookName: string | null;
+    /** 来源错题流水号，用于按编号设置显示 */
+    sourceSeqNo?: number | null;
     /** 历次录入的结果，按时间正序 */
     attempts: ExamQuestionAttempt[];
 }

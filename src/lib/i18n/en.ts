@@ -1994,7 +1994,7 @@ export const en = {
             answerKey: "Answer Key",
             answerLabel: "Answer",
             analysisLabel: "Analysis",
-            sourceLabel: "Source ID",
+            sourceLabel: "Source",
             notReadyHint: "Questions that failed to generate are left out of the printout.",
             uniformFigureScale: "Uniform figure scale",
             uniformFigureScaleSlider: "Adjust figure scale for all questions",

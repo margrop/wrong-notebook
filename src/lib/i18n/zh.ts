@@ -1993,7 +1993,7 @@ export const zh = {
             answerKey: "参考答案与解析",
             answerLabel: "答案",
             analysisLabel: "解析",
-            sourceLabel: "来源 ID",
+            sourceLabel: "来源",
             notReadyHint: "生成失败的题目不会出现在打印稿中。",
             uniformFigureScale: "统一配图比例",
             uniformFigureScaleSlider: "统一调整全卷配图比例",

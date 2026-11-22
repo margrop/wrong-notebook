@@ -330,6 +330,40 @@ describe('/api/exams', () => {
         expect(response.status).toBe(404);
     });
 
+    it('GET 详情返回来源短 ID 与流水号', async () => {
+        mocks.examPaper.findUnique.mockResolvedValue({
+            id: 'p1',
+            userId: 'user-1',
+            status: 'ready',
+            groupByType: false,
+            questions: [{
+                id: 'q1',
+                order: 0,
+                sourceShortId: 'AbC234',
+                errorItem: { id: 'ei1', shortId: 'AbC234', seqNo: 42, questionType: null, subject: { name: '数学' } },
+                practiceRecords: [],
+            }],
+        });
+
+        const response = await DETAIL(new Request('http://localhost'), params('p1'));
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.questions[0].sourceSeqNo).toBe(42);
+        expect(data.questions[0].sourceShortId).toBe('AbC234');
+        expect(mocks.examPaper.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+            include: expect.objectContaining({
+                questions: expect.objectContaining({
+                    include: expect.objectContaining({
+                        errorItem: expect.objectContaining({
+                            select: expect.objectContaining({ shortId: true, seqNo: true }),
+                        }),
+                    }),
+                }),
+            }),
+        }));
+    });
+
     it('DELETE 只删除自己的试卷', async () => {
         mocks.examPaper.findUnique.mockResolvedValue({ userId: 'user-1' });
 

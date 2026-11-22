@@ -2,9 +2,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { ExamPrintSheet } from '@/app/exams/[id]/print/exam-print-sheet';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { QuestionNumberingProvider } from '@/contexts/QuestionNumberingContext';
+import type { QuestionNumbering } from '@/lib/seq-no/seq-no-format';
 import type { ExamPaperDetail } from '@/types/api';
 
-const render = (element: React.ReactElement) => renderToStaticMarkup(<LanguageProvider>{element}</LanguageProvider>);
+const render = (element: React.ReactElement, numbering: QuestionNumbering = 'shortId') => renderToStaticMarkup(
+    <LanguageProvider>
+        <QuestionNumberingProvider initialNumbering={numbering}>{element}</QuestionNumberingProvider>
+    </LanguageProvider>
+);
 
 function buildPaper(questions: Partial<ExamPaperDetail['questions'][number]>[]): ExamPaperDetail {
     return {
@@ -23,6 +29,7 @@ function buildPaper(questions: Partial<ExamPaperDetail['questions'][number]>[]):
             order: index,
             errorItemId: null,
             sourceShortId: `S${index + 1}`,
+            sourceSeqNo: index + 101,
             status: 'ready',
             questionText: `题目 ${index + 1}`,
             answerText: null,
@@ -62,6 +69,43 @@ describe('ExamPrintSheet 分值打印', () => {
         expect(html).toContain('（2 分）');
         expect(html).toContain('（2.5 分）');
         expect(html).toContain('满分 4.5 分');
+    });
+
+    it('来源编号默认按短 ID 显示', () => {
+        const paper = buildPaper([{}]);
+        const html = render(
+            <ExamPrintSheet
+                paper={paper}
+                includeAnswers={false}
+                answerSpace="none"
+                customSpaces={{}}
+                uniformPreview={{ scale: null, align: null }}
+                onSaveFigureScale={NOOP}
+                onSaveFigureSource={NOOP}
+                onChangeCustomSpace={() => {}}
+            />
+        );
+        expect(html).toContain('来源: S1');
+        expect(html).not.toContain('#101');
+    });
+
+    it('来源编号随题目编号设置显示流水号', () => {
+        const paper = buildPaper([{}]);
+        const html = render(
+            <ExamPrintSheet
+                paper={paper}
+                includeAnswers={false}
+                answerSpace="none"
+                customSpaces={{}}
+                uniformPreview={{ scale: null, align: null }}
+                onSaveFigureScale={NOOP}
+                onSaveFigureSource={NOOP}
+                onChangeCustomSpace={() => {}}
+            />,
+            'seqNo',
+        );
+        expect(html).toContain('来源: #101');
+        expect(html).not.toContain('S1');
     });
 
     it('未设分值时打印与旧版一致：无满分行、题号后无分值', () => {

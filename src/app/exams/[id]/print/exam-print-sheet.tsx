@@ -6,6 +6,7 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AnswerSpaceControl } from "@/components/print-preview/answer-space-control";
 import { PrintQuestionText } from "@/components/print-preview/print-question-text";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuestionNo } from "@/contexts/QuestionNumberingContext";
 import { stripFigureDescriptions } from "@/lib/question/question-similarity";
 import { resolveQuestionAnswerSpacePx } from "@/lib/exam/exam-answer-space";
 import type { AnswerSpaceMode } from "@/lib/exam/exam-answer-space";
@@ -52,6 +53,8 @@ function ExamPrintQuestion({
     onChangeCustomSpace,
 }: ExamPrintQuestionProps) {
     const { t } = useLanguage();
+    const questionNo = useQuestionNo();
+    const sourceNo = questionNo({ shortId: question.sourceShortId, seqNo: question.sourceSeqNo }) ?? question.sourceShortId;
     return (
         <section className="exam-question">
             <div className="exam-question-head">
@@ -59,7 +62,7 @@ function ExamPrintQuestion({
                     {displayNumber}.
                     {typeof question.score === 'number' && `（${formatExamScore(question.score)} ${scoreUnit}）`}
                 </span>
-                <span className="exam-source">{t.exam.sourceLabel}: {question.sourceShortId}</span>
+                <span className="exam-source">{t.exam.sourceLabel}: {sourceNo}</span>
             </div>
             <PrintQuestionText content={question.figureSvg || question.figureImage
                 ? stripFigureDescriptions(question.questionText!)
@@ -130,6 +133,7 @@ export const ExamPrintSheet = forwardRef<HTMLDivElement, ExamPrintSheetProps>(fu
     onChangeCustomSpace,
 }, ref) {
     const { t, language } = useLanguage();
+    const questionNo = useQuestionNo();
     const questions = paper.questions.filter((question) => question.status === "ready" && question.questionText);
     // 满分只统计已设分值的题目；全部未设时不显示满分行，打印与旧版一致
     const fullScore = summarizeExamScores(questions.map((question) => question.score ?? null)).total;
@@ -153,28 +157,30 @@ export const ExamPrintSheet = forwardRef<HTMLDivElement, ExamPrintSheetProps>(fu
     );
 
     // 答案页同样按大题分组，题号与正文一致
-    const renderAnswerKey = (items: ExamSectionItem<ExamQuestionDetail>[]) => (
-        items.map((item) => (
-            <div key={item.question.id} className="exam-question">
-                <div className="exam-question-head">
-                    <span>{item.displayNumber}.</span>
-                    <span className="exam-source">{t.exam.sourceLabel}: {item.question.sourceShortId}</span>
+    const renderAnswerKey = (items: ExamSectionItem<ExamQuestionDetail>[]) =>
+        items.map((item) => {
+            const sourceNo = questionNo({ shortId: item.question.sourceShortId, seqNo: item.question.sourceSeqNo }) ?? item.question.sourceShortId;
+            return (
+                <div key={item.question.id} className="exam-question">
+                    <div className="exam-question-head">
+                        <span>{item.displayNumber}.</span>
+                        <span className="exam-source">{t.exam.sourceLabel}: {sourceNo}</span>
+                    </div>
+                    {item.question.answerText && (
+                        <div>
+                            <span className="exam-label">{t.exam.answerLabel}{t.common.colon}</span>
+                            <MarkdownRenderer content={item.question.answerText} />
+                        </div>
+                    )}
+                    {item.question.analysis && (
+                        <div>
+                            <span className="exam-label">{t.exam.analysisLabel}{t.common.colon}</span>
+                            <MarkdownRenderer content={item.question.analysis} />
+                        </div>
+                    )}
                 </div>
-                {item.question.answerText && (
-                    <div>
-                        <span className="exam-label">{t.exam.answerLabel}{t.common.colon}</span>
-                        <MarkdownRenderer content={item.question.answerText} />
-                    </div>
-                )}
-                {item.question.analysis && (
-                    <div>
-                        <span className="exam-label">{t.exam.analysisLabel}{t.common.colon}</span>
-                        <MarkdownRenderer content={item.question.analysis} />
-                    </div>
-                )}
-            </div>
-        ))
-    );
+            );
+        });
 
     return (
         <div ref={ref} className="exam-sheet">

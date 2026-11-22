@@ -15,6 +15,7 @@ import { FigureScaleEditor } from "@/components/error-detail/figure-scale-editor
 import { ExamQuestionRegenerate } from "@/components/exam/exam-question-regenerate";
 import { ExamQuestionScoreInput } from "@/components/exam/exam-question-score-input";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuestionNo } from "@/contexts/QuestionNumberingContext";
 import { stripFigureDescriptions } from "@/lib/question/question-similarity";
 import type { FigureAlign } from "@/lib/figure-scale";
 import type { ExamMode, ExamQuestionDetail, PracticeResult } from "@/types/api";
@@ -61,6 +62,8 @@ export function ExamQuestionCard({
 }: ExamQuestionCardProps) {
     const { t } = useLanguage();
     const { timeZone } = useTimeZone();
+    const questionNo = useQuestionNo();
+    const sourceNo = questionNo({ shortId: question.sourceShortId, seqNo: question.sourceSeqNo }) ?? question.sourceShortId;
     const [showAnswer, setShowAnswer] = useState(false);
     const isEditing = editingResult !== undefined;
     // AI 错误码（如 AI_AUTH_ERROR: ...）映射为界面提示
@@ -79,11 +82,11 @@ export function ExamQuestionCard({
                     <span className="font-semibold">{displayNumber ?? question.order}.</span>
                     {question.errorItemId ? (
                         <Link href={`/error-items/${question.errorItemId}`} className="font-mono text-xs text-primary hover:underline">
-                            {t.exam.source} {question.sourceShortId}
+                            {t.exam.source} {sourceNo}
                         </Link>
                     ) : (
                         <span className="font-mono text-xs text-muted-foreground">
-                            {question.sourceShortId} · {t.exam.sourceDeleted}
+                            {sourceNo} · {t.exam.sourceDeleted}
                         </span>
                     )}
                     {question.notebookName && <Badge variant="secondary">{question.notebookName}</Badge>}

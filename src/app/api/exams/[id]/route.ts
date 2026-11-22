@@ -48,7 +48,7 @@ const updateGroupByTypeSchema = z.object({
 
 /**
  * GET /api/exams/:id
- * 试卷详情，含每题内容、来源短 ID 与历次录入的结果
+ * 试卷详情，含每题内容、来源编号（按题目编号设置显示）与历次录入的结果
  */
 export const GET = withUser(async (
     _req: Request,
@@ -63,7 +63,7 @@ export const GET = withUser(async (
                 questions: {
                     orderBy: { order: 'asc' },
                     include: {
-                        errorItem: { select: { id: true, questionType: true, subject: { select: { name: true } } } },
+                        errorItem: { select: { id: true, shortId: true, seqNo: true, questionType: true, subject: { select: { name: true } } } },
                         practiceRecords: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true, result: true, createdAt: true } },
                     },
                 },
@@ -90,6 +90,7 @@ export const GET = withUser(async (
                 questionType: normalizeQuestionType(question.questionType),
                 errorItemQuestionType: normalizeQuestionType(errorItem?.questionType),
                 notebookName: errorItem?.subject?.name ?? null,
+                sourceSeqNo: errorItem?.seqNo ?? null,
                 attempts: practiceRecords,
             })),
         });
