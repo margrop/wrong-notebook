@@ -126,7 +126,7 @@ export function SettingsDialog() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
+                <Button variant="ghost" size="icon" className="rounded-full text-foreground">
                     <Settings className="h-5 w-5" />
                     <span className="sr-only">{t.settings?.title || "Settings"}</span>
                 </Button>

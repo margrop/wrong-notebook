@@ -31,7 +31,7 @@ export function ThemeToggle() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full" title={label} aria-label={label}>
+                <Button variant="ghost" size="icon" className="rounded-full text-foreground" title={label} aria-label={label}>
                     <CurrentIcon className="h-5 w-5" />
                 </Button>
             </DropdownMenuTrigger>

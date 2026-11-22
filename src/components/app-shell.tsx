@@ -84,7 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         )}
                         {isAdmin && (
                             <Link href="/admin" title={t.nav.admin}>
-                                <Button variant="ghost" size="icon" className="rounded-full">
+                                <Button variant="ghost" size="icon" className="rounded-full text-foreground">
                                     <Shield className="h-5 w-5" />
                                     <span className="sr-only">{t.nav.admin}</span>
                                 </Button>
@@ -96,11 +96,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="rounded-full text-muted-foreground hover:text-destructive"
+                            className="rounded-full text-foreground hover:text-destructive"
                             onClick={() => signOut({ callbackUrl: "/login" })}
                             title={t.app.logout}
                         >
                             <LogOut className="h-5 w-5" />
+                            <span className="sr-only">{t.app.logout}</span>
                         </Button>
                     </div>
                 </div>
