@@ -7,6 +7,7 @@
 - Node.js 22 或更新版本（推荐 24），以及 npm。
 - Git；运行完整 CI 时还需要 Python 3。
 - 可访问所选 AI 服务的网络，以及相应的 API 凭据。
+- 访问页面的浏览器：Chrome / Edge 111、Firefox 111、Safari 16.4（iOS 16.4）及以上；图片导入与扫描版 PDF 转图片还要求 Chrome 119 / Safari 17.4 / Firefox 121 及以上。旧 iOS 设备可能无法打开，详见[常见问题](FAQ)。
 
 数据库默认使用 SQLite，不需要额外部署数据库服务。
 

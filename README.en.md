@@ -606,6 +606,10 @@ When served over HTTPS (or `localhost`), a service worker caches scripts, styles
 
 Screen capture requires a secure browser context (HTTPS). When running in Docker or on a LAN, follow the **[HTTPS setup guide](doc/HTTPS_SETUP.md)** (Chinese) to enable the built-in HTTPS support.
 
+### Browser requirements
+
+The app is built on Next.js 16, whose browser engines must be Chrome / Edge 111, Firefox 111 or Safari 16.4 (iOS 16.4) and later. Every browser on iOS, including Chrome, uses the system WebKit engine, so what matters is the iOS version; an old device on iOS 15 or earlier (such as an iPad stuck on iOS 15) may show a blank page or a sign-in button that does nothing, and there is currently no compatibility fallback, so use another phone, tablet or computer to open the same address. Photo import and scanned-PDF rendering also rely on `Promise.withResolvers` (Chrome 119 / Safari 17.4 / Firefox 121 or later). See the [FAQ](doc/wiki/en/FAQ-en.md).
+
 ### Tech stack
 
 - **Framework**: [Next.js 16](https://nextjs.org/) (App Router) + [React 19](https://react.dev/) + TypeScript

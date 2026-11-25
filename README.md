@@ -604,6 +604,10 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 
 屏幕截图依赖浏览器的安全上下文（HTTPS）。在 Docker 或局域网环境中使用时，请参考 **[HTTPS 配置指南](doc/HTTPS_SETUP.md)** 启用内置 HTTPS 支持。
 
+### 浏览器要求
+
+应用基于 Next.js 16 构建，浏览器引擎最低要求为 Chrome / Edge 111、Firefox 111、Safari 16.4（iOS 16.4）及以上。iOS 上所有浏览器（包括 Chrome）都使用系统 WebKit 引擎，因此取决于 iOS 版本；iOS 15 及更早的旧设备（如只能停留在 iOS 15 的 iPad）可能页面空白或登录按钮无响应，目前没有兼容方案，请改用其他手机、平板或电脑访问同一地址。图片导入与扫描版 PDF 转图片还依赖 `Promise.withResolvers`（Chrome 119 / Safari 17.4 / Firefox 121 及以上）。详见[常见问题](doc/wiki/FAQ.md)。
+
 ### 技术栈
 
 - **框架**：[Next.js 16](https://nextjs.org/)（App Router）+ [React 19](https://react.dev/) + TypeScript

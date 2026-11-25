@@ -7,6 +7,7 @@ For regular deployments the [Docker image](Deployment-en) is recommended. Follow
 - Node.js 22 or later (24 recommended), with npm.
 - Git; Python 3 is also needed to run the full CI.
 - Network access to your chosen AI service, plus its API credentials.
+- A browser engine of Chrome / Edge 111, Firefox 111 or Safari 16.4 (iOS 16.4) or later to open the app; photo import and scanned-PDF rendering also need Chrome 119 / Safari 17.4 / Firefox 121 or later. Old iOS devices may fail to open it; see the [FAQ](FAQ-en).
 
 The database is SQLite by default, so no separate database server is needed.
 

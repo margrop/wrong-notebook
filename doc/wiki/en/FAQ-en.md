@@ -19,6 +19,14 @@ Instances installed with earlier versions have the default admin `admin@localhos
 Check that `NEXTAUTH_URL` equals the full address the browser actually uses, that `NEXTAUTH_SECRET` is set and stays the same after recreating the container, and that the proxy forwards the host and protocol correctly. Sign in again once the configuration takes effect.
 
 
+## Old devices cannot open the page, or the sign-in button does nothing?
+
+The app is built on Next.js 16, whose browser engines must be Chrome / Edge 111, Firefox 111 or Safari 16.4 (iOS 16.4) and later.
+
+Every browser on iOS, including Chrome, uses the system WebKit engine, so what matters is the iOS version, not the browser name or version number shown. Devices on iOS 15 or earlier (such as an old iPad stuck on iOS 15) fall below that baseline: the page may render blank, the sign-in button may not respond, or the console may report `Promise.withResolvers is not a function`. There is currently no compatibility fallback; use another phone, tablet or computer browser to open the same server address. The interface is responsive and works in phone browsers.
+
+In addition, photo import and scanned-PDF rendering use `Promise.withResolvers` directly, which needs Chrome 119 / Safari 17.4 / Firefox 121 or later. Browsers that meet the Next.js baseline but are older than these versions may still fail in those features.
+
 ## "Too many failed attempts" when signing in?
 
 To stop brute-force attacks, sign-in is paused for 15 minutes after 5 wrong passwords for one account, or 20 failed sign-ins from one IP, within 15 minutes; during the pause even the correct password is rejected. Sign-up and the setup link allow at most 10 attempts per IP per hour. Try again after the wait, or restart the service to clear the counters. Behind a reverse proxy, forward `X-Real-IP` or `X-Forwarded-For`; otherwise every visitor counts as the same IP.
