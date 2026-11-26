@@ -129,6 +129,7 @@ export function buildTextBatchParams(params: TextBatchParams, ctx: TargetSubject
         language: params.language,
         subjectId: params.analyzeSubjectId ?? params.textNotebookId,
         targetSubjectId: resolveTargetSubjectId(ctx),
+        questionSource: ctx.source?.trim() || undefined,
     };
 }
 

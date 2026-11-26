@@ -147,6 +147,11 @@ export function ErrorListContent({ subjectId, subjectName, tagSet = 'default', i
         fetchItems();
     };
 
+    /** 批量编辑后刷新卡片；保留选中状态，方便继续修改另一字段 */
+    const handleBatchEdited = () => {
+        fetchItems();
+    };
+
     // 追踪筛选条件是否变化（用于判断是否需要重置页码）
     const prevFiltersRef = useRef(filters);
 
@@ -256,7 +261,7 @@ export function ErrorListContent({ subjectId, subjectName, tagSet = 'default', i
             <Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} onPageChange={setPage} />
 
             {isSelectMode && (
-                <ErrorListSelectionBar selectedIds={[...selectedIds]} deleting={isDeleting} onCancel={toggleSelectMode} onDelete={handleBatchDelete} onMoved={handleBatchMoved} />
+                <ErrorListSelectionBar selectedIds={[...selectedIds]} deleting={isDeleting} onCancel={toggleSelectMode} onDelete={handleBatchDelete} onMoved={handleBatchMoved} onEdited={handleBatchEdited} />
             )}
         </div>
     );

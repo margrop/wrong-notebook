@@ -24,6 +24,7 @@ vi.mock('next-auth', () => ({ getServerSession: vi.fn(() => Promise.resolve(mock
 
 import { POST as BATCH_DELETE } from '@/app/api/error-items/batch-delete/route';
 import { POST as BATCH_MOVE } from '@/app/api/error-items/batch-move/route';
+import { POST as BATCH_UPDATE } from '@/app/api/error-items/batch-update/route';
 import { POST as SYSTEM_RESET } from '@/app/api/admin/system-reset/route';
 import { GET as DASHBOARD } from '@/app/api/admin/dashboard/route';
 import { GET as USER_DETAIL } from '@/app/api/admin/users/[id]/detail/route';
@@ -152,6 +153,71 @@ describe('POST /api/error-items/batch-move', () => {
         expect((await send({ ids: [], subjectId: target.id })).status).toBe(400);
         expect((await send({ ids: ['a'] })).status).toBe(400);
         expect((await send({ ids: Array.from({ length: 101 }, (_, i) => `id-${i}`), subjectId: target.id })).status).toBe(400);
+    });
+});
+
+describe('POST /api/error-items/batch-update', () => {
+    const send = (body: unknown) => BATCH_UPDATE(new Request('http://localhost/api/error-items/batch-update', json(body)));
+
+    it('未登录时拒绝，不修改任何错题', async () => {
+        const item = await createItem(alice.id);
+
+        expect((await send({ ids: [item.id], source: '期中卷' })).status).toBe(401);
+        const unchanged = await database.errorItem.findUnique({ where: { id: item.id } });
+        expect(unchanged?.source).toBe(null);
+    });
+
+    it('只更新自己的来源与年级，其他用户的和不存在的 ID 列为失败', async () => {
+        const mine = await createItem(alice.id);
+        const theirs = await createItem(bob.id);
+        signInAs(alice);
+
+        const response = await send({ ids: [mine.id, theirs.id, 'missing'], source: '期中卷', gradeSemester: '初二上' });
+
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toEqual({ updated: 1, failed: [theirs.id, 'missing'] });
+        const updated = await database.errorItem.findUnique({ where: { id: mine.id } });
+        expect(updated).toMatchObject({ source: '期中卷', gradeSemester: '初二上' });
+        const untouched = await database.errorItem.findUnique({ where: { id: theirs.id } });
+        expect(untouched).toMatchObject({ source: null, gradeSemester: null });
+    });
+
+    it('只提交来源时保留已有年级，只提交年级时保留已有来源', async () => {
+        const item = await createItem(alice.id);
+        await database.errorItem.update({ where: { id: item.id }, data: { source: '旧来源', gradeSemester: '初三下' } });
+        signInAs(alice);
+
+        expect((await send({ ids: [item.id], source: '新来源' })).status).toBe(200);
+        expect(await database.errorItem.findUnique({ where: { id: item.id } })).toMatchObject({
+            source: '新来源',
+            gradeSemester: '初三下',
+        });
+
+        expect((await send({ ids: [item.id], gradeSemester: '高一上' })).status).toBe(200);
+        expect(await database.errorItem.findUnique({ where: { id: item.id } })).toMatchObject({
+            source: '新来源',
+            gradeSemester: '高一上',
+        });
+    });
+
+    it('空来源与空年级可清空字段', async () => {
+        const item = await createItem(alice.id);
+        await database.errorItem.update({ where: { id: item.id }, data: { source: '期中卷', gradeSemester: '初二上' } });
+        signInAs(alice);
+
+        expect((await send({ ids: [item.id], source: null, gradeSemester: null })).status).toBe(200);
+        expect(await database.errorItem.findUnique({ where: { id: item.id } })).toMatchObject({
+            source: null,
+            gradeSemester: null,
+        });
+    });
+
+    it('拒绝空列表、超过 100 条和未指定任何字段', async () => {
+        signInAs(alice);
+
+        expect((await send({ ids: [], source: '期中卷' })).status).toBe(400);
+        expect((await send({ ids: ['a'] })).status).toBe(400);
+        expect((await send({ ids: Array.from({ length: 101 }, (_, i) => `id-${i}`), source: '期中卷' })).status).toBe(400);
     });
 });
 

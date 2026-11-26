@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batchDraftSchema, boundingRegion, draftFromTextSplit, readyItems } from '@/lib/question-split/draft';
+import { applyDraftSource, applyDraftSourceToAll, batchDraftSchema, boundingRegion, draftFromTextSplit, readyItems, setBatchSource } from '@/lib/question-split/draft';
 import type { BatchDraft } from '@/lib/question-split/draft';
 import { addImageItem, duplicateItem, mergeWithPrevious, moveItem, removeItem, restoreIgnored, setAllSelected, splitItemAt, updateItem } from '@/lib/question-split/draft-ops';
 import { splitQuestionText } from '@/lib/question-split/text';
@@ -75,6 +75,29 @@ describe('分题草稿编辑', () => {
         const added = addImageItem(copied, { x: 0.1, y: 0.7, width: 0.8, height: 0.2 });
         expect(added.items.at(-1)).toMatchObject({ selected: true, regions: [{ x: 0.1, y: 0.7, width: 0.8, height: 0.2 }] });
         expect(updateItem(added, 'qa', { regions: [] }).items[0].flags).toContain('unlocated');
+    });
+
+    it('批次来源只写入无来源的题，应用到全部时覆盖，空值可清空', () => {
+        const draft = textDraft();
+        expect(batchDraftSchema.safeParse({ ...draft, source: '期中卷' }).success).toBe(true);
+
+        const withBatch = setBatchSource(draft, '期中卷');
+        expect(withBatch.source).toBe('期中卷');
+        expect(withBatch.items.map((item) => item.source)).toEqual([null, null, null]);
+
+        const applied = applyDraftSource(withBatch, '期中卷');
+        expect(applied.items.map((item) => item.source)).toEqual(['期中卷', '期中卷', '期中卷']);
+        const overridden = updateItem(applied, applied.items[0].key, { source: '单独来源' });
+        // 已有来源（包括先前填入的批次来源）保持不变，只有空来源的题会更新
+        const batchChanged = applyDraftSource({ ...overridden, source: '新卷' }, '新卷');
+        expect(batchChanged.items.map((item) => item.source)).toEqual(['单独来源', '期中卷', '期中卷']);
+
+        const all = applyDraftSourceToAll(batchChanged, '统一来源');
+        expect(all.source).toBe('统一来源');
+        expect(all.items.map((item) => item.source)).toEqual(['统一来源', '统一来源', '统一来源']);
+        const cleared = applyDraftSourceToAll(all, null);
+        expect(cleared.source).toBe(null);
+        expect(cleared.items.map((item) => item.source)).toEqual([null, null, null]);
     });
 
     it('草稿校验拒绝越界区域与重复标识', () => {

@@ -38,7 +38,7 @@ import { parsedQuestionToSavePayload } from "@/lib/question/parsed-question-payl
 import { runSerializedTransaction, serializeWrite } from "@/lib/db-write-queue";
 import { prisma } from "@/lib/prisma";
 import { mapAnalysisError, parseImageDataUrl, splitQuestionsForUser } from "@/lib/question/question-analysis";
-import { applyDraftSource, batchDraftSchema, draftFromTextSplit, draftImageSchema, MAX_DRAFT_TEXT_LENGTH, MAX_ITEM_KNOWLEDGE_POINTS, newItemKey, readyItems } from "@/lib/question-split/draft";
+import { applyDraftSource, batchDraftSchema, draftFromTextSplit, draftImageSchema, MAX_DRAFT_TEXT_LENGTH, MAX_ITEM_KNOWLEDGE_POINTS, newItemKey, readyItems, setBatchSource } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftItem } from "@/lib/question-split/draft";
 import { compactLines, composeQuestionInput, MAX_SPLIT_QUESTIONS, MAX_SPLIT_TEXT_LENGTH, splitQuestionText } from "@/lib/question-split/text";
 import { normalizeQuestionType } from "@/lib/question/question-type";
@@ -429,7 +429,8 @@ export async function createImportBatch(user: User, raw: unknown): Promise<Creat
         draft = draftFromTextSplit(split.questions, split.ignored, split.overflow);
     }
 
-    draft = draft ? applyDraftSource(draft, input.questionSource) : draft;
+    // 来源先记在批次上，开始解析时统一写入尚无来源的题，避免逐字输入时覆盖用户已填的来源
+    draft = draft ? setBatchSource(draft, input.questionSource) : draft;
 
     const id = randomUUID().replace(/-/g, '');
     const release = splitter === 'ai' ? register(id) : () => undefined;
@@ -538,7 +539,9 @@ export async function startImportBatch(user: User, id: string, raw: unknown): Pr
     if (batch.status === 'started') return NextResponse.json({ batch: toDetail(batch), alreadyStarted: true });
     if (batch.status !== 'draft') return conflict('IMPORT_BATCH_NOT_EDITABLE', batch);
     if (batch.version !== parsed.data.version) return conflict('IMPORT_BATCH_VERSION_CONFLICT', batch);
-    const draft = parseDraft(batch.draft);
+    const parsedDraft = parseDraft(batch.draft);
+    // 开始前把批次统一来源写入尚无来源的题；逐题单独设置优先
+    const draft = parsedDraft ? applyDraftSource(parsedDraft, parsedDraft.source) : null;
     const source = batch.source as ImportBatchSource;
     const items = draft ? readyItems(draft, source) : [];
     if (items.length === 0) return validationError('IMPORT_BATCH_EMPTY');
