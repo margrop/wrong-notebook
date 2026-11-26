@@ -192,6 +192,17 @@ describe("buildDocxParagraphs", () => {
         const allText = JSON.stringify(paragraphs);
         expect(allText).not.toContain("image");
     });
+
+    it("默认包含题目配图且不包含拍照原图", async () => {
+        const { buildQuestionsDocx } = await import("@/lib/question-format/to-docx");
+        const withFigureOnly: StructuredQuestion[] = [
+            { text: "如图计算。", figureImage: pngDataUrl(), images: [{ dataUrl: pngDataUrl() }] },
+        ];
+        const blob = await buildQuestionsDocx(withFigureOnly, { includeImages: false });
+        const entries = unzipSync(new Uint8Array(await blob.arrayBuffer()));
+        const mediaFiles = Object.keys(entries).filter((n) => n.startsWith("word/media/"));
+        expect(mediaFiles).toHaveLength(1);
+    }, 20000);
 });
 
 describe("导出→导入往返", () => {

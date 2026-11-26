@@ -186,6 +186,15 @@ function normalizeQuestion(raw: unknown): { question: StructuredQuestion } | { e
     const figureSvgError = checkMax(figureSvg, MAX_FIGURE_SVG_LENGTH_EXCHANGE, "FIGURE_SVG_TOO_LONG");
     if (figureSvgError) return { error: figureSvgError };
 
+    const figureImage = normalizeOptionalString(record.figureImage);
+    if (figureImage !== undefined) {
+        if (!/^data:image\/(png|jpeg|webp);base64,/.test(figureImage)) return { error: INVALID_IMAGE_DATA_URL };
+        if (figureImage.length > MAX_IMAGE_DATA_URL_LENGTH) return { error: IMAGE_TOO_LARGE };
+    }
+    const figureSource = record.figureSource === "svg" || record.figureSource === "image"
+        ? record.figureSource
+        : undefined;
+
     const knowledgePointsResult = normalizeKnowledgePoints(record.knowledgePoints);
     if ("error" in knowledgePointsResult) return { error: knowledgePointsResult.error };
 
@@ -214,6 +223,8 @@ function normalizeQuestion(raw: unknown): { question: StructuredQuestion } | { e
     if (source !== undefined) question.source = source;
     if (questionType !== undefined) question.questionType = questionType;
     if (figureSvg !== undefined) question.figureSvg = figureSvg;
+    if (figureImage !== undefined) question.figureImage = figureImage;
+    if (figureSource !== undefined) question.figureSource = figureSource;
     if (imagesResult.images.length > 0) question.images = imagesResult.images;
     if (extensions !== undefined) question.extensions = extensions;
     return { question };

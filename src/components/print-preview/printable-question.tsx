@@ -119,9 +119,9 @@ export const PrintableQuestion = memo(function PrintableQuestion({
             {options.showQuestionText && item.questionText ? (
                 <div className="mb-4">
                     <PrintQuestionText content={item.questionText} />
-                    {hasQuestionFigure
-                        ? <QuestionFigure svg={item.figureSvg} image={item.figureImage} source={item.figureSource} scale={item.figureScale} align={item.figureAlign} />
-                        : originalImage}
+                    {hasQuestionFigure && (
+                        <QuestionFigure svg={item.figureSvg} image={item.figureImage} source={item.figureSource} scale={item.figureScale} align={item.figureAlign} />
+                    )}
                 </div>
             ) : (
                 originalImage

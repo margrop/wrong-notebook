@@ -20,6 +20,25 @@ export type ExportFormat = "json" | "excel" | "word";
 const FORMAT_STORAGE_KEY = "error-list-export-format";
 
 const ANSWERS_STORAGE_KEY = "error-list-export-include-answers";
+const FIGURES_STORAGE_KEY = "error-list-export-include-figures";
+
+/** 记住上次是否勾选「包含题目配图」（默认开启） */
+function loadSavedFigures(): boolean {
+    try {
+        const saved = window.localStorage.getItem(FIGURES_STORAGE_KEY);
+        return saved === null ? true : saved === "1";
+    } catch {
+        return true;
+    }
+}
+
+function saveFigures(include: boolean): void {
+    try {
+        window.localStorage.setItem(FIGURES_STORAGE_KEY, include ? "1" : "0");
+    } catch {
+        // localStorage 不可用时忽略
+    }
+}
 
 /** 记住上次选择的导出格式（失败时静默回退默认值） */
 function saveFormat(format: ExportFormat): void {
@@ -72,6 +91,7 @@ interface ExportQuestionsDialogProps {
 export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: ExportQuestionsDialogProps) {
     const { t } = useLanguage();
     const [format, setFormat] = useState<ExportFormat>(loadSavedFormat);
+    const [includeFigures, setIncludeFigures] = useState<boolean>(loadSavedFigures);
     const [includeImages, setIncludeImages] = useState(false);
     const [includeAnswers, setIncludeAnswers] = useState<boolean>(loadSavedAnswers);
     const [docxTitle, setDocxTitle] = useState("");
@@ -86,7 +106,11 @@ export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: Expor
         const res = await fetch("/api/error-items/export-questions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ids: selectedIds, includeImages }),
+            body: JSON.stringify({
+                ids: selectedIds,
+                includeImages,
+                includeFigures: format === "word" ? includeFigures : false,
+            }),
         });
         if (!res.ok) {
             const data = await res.json().catch(() => ({}));
@@ -117,6 +141,7 @@ export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: Expor
                 const blob = await buildQuestionsDocx(questions, {
                     title,
                     includeAnswers,
+                    includeFigures,
                     includeImages,
                 });
                 saved = await downloadBlobFile(blob, `wrong-notebook-questions-${dateStr}.docx`);
@@ -195,6 +220,16 @@ export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: Expor
                             />
                             <label htmlFor="include-answers" className="text-sm cursor-pointer">
                                 {t.notebook.exportJsonDialog.includeAnswers}
+                            </label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <Checkbox
+                                id="include-figures"
+                                checked={includeFigures}
+                                onCheckedChange={(checked) => { setIncludeFigures(checked === true); saveFigures(checked === true); }}
+                            />
+                            <label htmlFor="include-figures" className="text-sm cursor-pointer">
+                                {t.notebook.exportJsonDialog.includeFigures}
                             </label>
                         </div>
                         <div className="flex items-center space-x-2">

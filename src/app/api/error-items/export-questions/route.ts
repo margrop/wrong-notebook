@@ -15,6 +15,7 @@ const logger = createLogger("api:error-items/export-questions");
 const exportQuestionsSchema = z.object({
     ids: z.array(z.string().min(1)).min(1).max(2000),
     includeImages: z.boolean().optional(),
+    includeFigures: z.boolean().optional(),
 });
 
 export const POST = withUser(async (req: Request, { user }: AuthenticatedContext) => {
@@ -23,7 +24,7 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
         if (!parsed.success) {
             return validationError("EXPORT_QUESTIONS_INVALID_INPUT", parsed.error.issues);
         }
-        const { ids, includeImages } = parsed.data;
+        const { ids, includeImages, includeFigures } = parsed.data;
 
         // 只查询属于当前用户的错题，不存在的 id 静默忽略
         const items = await prisma.errorItem.findMany({
@@ -39,6 +40,8 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
                 gradeSemester: true,
                 source: true,
                 figureSvg: true,
+                figureImage: true,
+                figureSource: true,
                 originalImageUrl: true,
                 subject: { select: { name: true } },
                 tags: { select: { name: true } },
@@ -67,10 +70,12 @@ export const POST = withUser(async (req: Request, { user }: AuthenticatedContext
                 gradeSemester: item.gradeSemester,
                 source: item.source,
                 figureSvg: item.figureSvg,
+                figureImage: item.figureImage,
+                figureSource: item.figureSource,
                 originalImageUrl: item.originalImageUrl,
                 subjectName: item.subject?.name ?? null,
                 tags: item.tags,
-            }, includeImages);
+            }, includeImages, includeFigures);
             if (mapped === null) {
                 skipped += 1;
             } else {

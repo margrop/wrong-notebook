@@ -90,6 +90,21 @@ describe('fromErrorItem', () => {
         expect(result!.images).toBeUndefined();
     });
 
+    it('includeImages=false 且 includeFigures=true 时导出题目配图且不导出拍照原图', () => {
+        const result = fromErrorItem(
+            makeSource({
+                originalImageUrl: TINY_PNG_DATA_URL,
+                figureImage: TINY_PNG_DATA_URL,
+                figureSource: 'image',
+            }),
+            false,
+            true,
+        );
+        expect(result!.images).toBeUndefined();
+        expect(result!.figureImage).toBe(TINY_PNG_DATA_URL);
+        expect(result!.figureSource).toBe('image');
+    });
+
     it('includeImages=true 且 originalImageUrl 是 data:image/png 时放入 images', () => {
         const result = fromErrorItem(makeSource({ originalImageUrl: TINY_PNG_DATA_URL }), true);
         expect(result!.images).toEqual([{ dataUrl: TINY_PNG_DATA_URL }]);

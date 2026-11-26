@@ -5,7 +5,7 @@ import type { PrintDisplayOptions } from "@/components/print-preview/print-optio
 export const PRINT_OPTIONS_STORAGE_KEY = "print-preview-options";
 
 export const DEFAULT_PRINT_OPTIONS: PrintDisplayOptions = {
-    showQuestionText: false,
+    showQuestionText: true,
     showAnswers: false,
     showAnalysis: false,
     showTags: false,
