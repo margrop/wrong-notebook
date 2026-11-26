@@ -23,9 +23,9 @@
 
 应用基于 Next.js 16 构建，浏览器引擎最低要求为 Chrome / Edge 111、Firefox 111、Safari 16.4（即 iOS 16.4）及以上。
 
-iOS 上的所有浏览器（包括套壳的 Chrome）都使用系统内置的 WebKit 引擎，实际能否使用取决于 iOS 版本，而不是浏览器名称显示的版本号。iOS 15 及更早的设备（如只能升级到 iOS 15 的旧 iPad）低于上述基线，打开页面可能出现页面空白、登录按钮无响应，或控制台报 `Promise.withResolvers is not a function`。当前没有兼容方案，请改用其他手机、平板或电脑浏览器访问同一服务地址；界面为响应式布局，手机浏览器可正常使用。
+iOS 上的所有浏览器（包括套壳的 Chrome）都使用系统内置的 WebKit 引擎，实际能否使用取决于 iOS 版本，而不是浏览器名称显示的版本号。iOS 15 及更早的设备（如只能升级到 iOS 15 的旧 iPad）低于上述基线，打开页面可能出现页面空白、登录按钮无响应。当前没有兼容方案，请改用其他手机、平板或电脑浏览器访问同一服务地址；界面为响应式布局，手机浏览器可正常使用。
 
-此外，图片导入和扫描版 PDF 转图片等功能直接使用 `Promise.withResolvers`，该 API 需要 Chrome 119 / Safari 17.4 / Firefox 121 及以上。符合 Next.js 基线但低于这些版本的浏览器，在这些功能上仍可能报错。
+图片导入和扫描版 PDF 转图片使用的 `Promise.withResolvers`（ES2024）已在首屏脚本中内置兜底。低于 Chrome 119 / Safari 17.4 / Firefox 121 的内核（如 HarmonyOS 4.3 的 ArkWeb / Chromium 114）不再因缺少该 API 报错，可正常导入；页面本身低于 Next.js 基线时仍可能空白。
 
 ## 提示“密码错误次数过多”？
 
