@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { getAppTimeZone, getQuestionNumbering } from "@/lib/config";
+import { PROMISE_WITH_RESOLVERS_POLYFILL_SCRIPT } from "@/lib/promise-with-resolvers-polyfill";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 export const dynamic = 'force-dynamic';
@@ -56,6 +57,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <title>AI智能错题本</title>
+        {/* 旧内核（HarmonyOS ArkWeb / Chromium < 119）缺少 Promise.withResolvers，图片导入依赖该 API */}
+        <script dangerouslySetInnerHTML={{ __html: PROMISE_WITH_RESOLVERS_POLYFILL_SCRIPT }} />
         {/* 首屏绘制前按本地缓存的主题偏好设置 dark 类，避免深色模式下先闪现浅色页面 */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>

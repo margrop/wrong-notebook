@@ -608,7 +608,7 @@ Screen capture requires a secure browser context (HTTPS). When running in Docker
 
 ### Browser requirements
 
-The app is built on Next.js 16, whose browser engines must be Chrome / Edge 111, Firefox 111 or Safari 16.4 (iOS 16.4) and later. Every browser on iOS, including Chrome, uses the system WebKit engine, so what matters is the iOS version; an old device on iOS 15 or earlier (such as an iPad stuck on iOS 15) may show a blank page or a sign-in button that does nothing, and there is currently no compatibility fallback, so use another phone, tablet or computer to open the same address. Photo import and scanned-PDF rendering also rely on `Promise.withResolvers` (Chrome 119 / Safari 17.4 / Firefox 121 or later). See the [FAQ](doc/wiki/en/FAQ-en.md).
+The app is built on Next.js 16, whose browser engines must be Chrome / Edge 111, Firefox 111 or Safari 16.4 (iOS 16.4) and later. Every browser on iOS, including Chrome, uses the system WebKit engine, so what matters is the iOS version; an old device on iOS 15 or earlier (such as an iPad stuck on iOS 15) may show a blank page or a sign-in button that does nothing, and there is currently no compatibility fallback, so use another phone, tablet or computer to open the same address. `Promise.withResolvers`, used by photo import and scanned-PDF rendering, is polyfilled in the first inline script, so engines below Chrome 119 / Safari 17.4 / Firefox 121 (such as HarmonyOS 4.3 ArkWeb / Chromium 114) can also import normally. See the [FAQ](doc/wiki/en/FAQ-en.md).
 
 ### Tech stack
 

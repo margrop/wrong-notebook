@@ -606,7 +606,7 @@ GeoGebra 的文字、不等式和标签参数按共用命令清单校验，重�
 
 ### 浏览器要求
 
-应用基于 Next.js 16 构建，浏览器引擎最低要求为 Chrome / Edge 111、Firefox 111、Safari 16.4（iOS 16.4）及以上。iOS 上所有浏览器（包括 Chrome）都使用系统 WebKit 引擎，因此取决于 iOS 版本；iOS 15 及更早的旧设备（如只能停留在 iOS 15 的 iPad）可能页面空白或登录按钮无响应，目前没有兼容方案，请改用其他手机、平板或电脑访问同一地址。图片导入与扫描版 PDF 转图片还依赖 `Promise.withResolvers`（Chrome 119 / Safari 17.4 / Firefox 121 及以上）。详见[常见问题](doc/wiki/FAQ.md)。
+应用基于 Next.js 16 构建，浏览器引擎最低要求为 Chrome / Edge 111、Firefox 111、Safari 16.4（iOS 16.4）及以上。iOS 上所有浏览器（包括 Chrome）都使用系统 WebKit 引擎，因此取决于 iOS 版本；iOS 15 及更早的旧设备（如只能停留在 iOS 15 的 iPad）可能页面空白或登录按钮无响应，目前没有兼容方案，请改用其他手机、平板或电脑访问同一地址。图片导入与扫描版 PDF 转图片使用的 `Promise.withResolvers` 已在首屏脚本中内置兜底，低于 Chrome 119 / Safari 17.4 / Firefox 121 的内核（如 HarmonyOS 4.3 的 ArkWeb / Chromium 114）也能正常导入。详见[常见问题](doc/wiki/FAQ.md)。
 
 ### 技术栈
 

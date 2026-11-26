@@ -23,9 +23,9 @@ Check that `NEXTAUTH_URL` equals the full address the browser actually uses, tha
 
 The app is built on Next.js 16, whose browser engines must be Chrome / Edge 111, Firefox 111 or Safari 16.4 (iOS 16.4) and later.
 
-Every browser on iOS, including Chrome, uses the system WebKit engine, so what matters is the iOS version, not the browser name or version number shown. Devices on iOS 15 or earlier (such as an old iPad stuck on iOS 15) fall below that baseline: the page may render blank, the sign-in button may not respond, or the console may report `Promise.withResolvers is not a function`. There is currently no compatibility fallback; use another phone, tablet or computer browser to open the same server address. The interface is responsive and works in phone browsers.
+Every browser on iOS, including Chrome, uses the system WebKit engine, so what matters is the iOS version, not the browser name or version number shown. Devices on iOS 15 or earlier (such as an old iPad stuck on iOS 15) fall below that baseline: the page may render blank or the sign-in button may not respond. There is currently no compatibility fallback; use another phone, tablet or computer browser to open the same server address. The interface is responsive and works in phone browsers.
 
-In addition, photo import and scanned-PDF rendering use `Promise.withResolvers` directly, which needs Chrome 119 / Safari 17.4 / Firefox 121 or later. Browsers that meet the Next.js baseline but are older than these versions may still fail in those features.
+`Promise.withResolvers` (ES2024), used by photo import and scanned-PDF rendering, is polyfilled in the first inline script. Engines below Chrome 119 / Safari 17.4 / Firefox 121 (such as HarmonyOS 4.3 ArkWeb / Chromium 114) no longer fail because the API is missing and can import normally; a page below the Next.js baseline may still render blank.
 
 ## "Too many failed attempts" when signing in?
 
