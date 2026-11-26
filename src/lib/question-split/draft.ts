@@ -89,6 +89,8 @@ export const batchDraftSchema = z.object({
     items: z.array(draftItemSchema).max(MAX_SPLIT_QUESTIONS),
     ignored: z.array(z.string().max(MAX_DRAFT_TEXT_LENGTH)).max(200),
     warnings: z.array(z.enum(DRAFT_WARNINGS)).max(DRAFT_WARNINGS.length),
+    /** 批次级统一来源（选填）；开始解析时写入尚无来源的题目，旧草稿没有此字段 */
+    source: z.string().trim().max(200).nullish(),
 }).superRefine((draft, context) => {
     const keys = new Set<string>();
     for (const item of draft.items) {
@@ -135,13 +137,29 @@ export function draftFromTextSplit(questions: SplitTextQuestion[], ignored: stri
     return { items, ignored: ignored.slice(0, 200), warnings: overflow > 0 || questions.length > MAX_SPLIT_QUESTIONS ? ['tooMany'] : [] };
 }
 
+/** 只记录批次级来源，不改动各题已有来源；旧草稿没有此字段时补 null */
+export function setBatchSource(draft: BatchDraft, source: string | null | undefined): BatchDraft {
+    return { ...draft, source: source?.trim() || null };
+}
+
 /** 批次级来源填入尚无来源的题目；已有来源（用户逐题修改）保持不变 */
 export function applyDraftSource(draft: BatchDraft, source: string | null | undefined): BatchDraft {
     const value = source?.trim();
     if (!value) return draft;
     return {
         ...draft,
+        source: value,
         items: draft.items.map((item) => (item.source?.trim() ? item : { ...item, source: value })),
+    };
+}
+
+/** 把批次级来源应用到全部题目：覆盖每题已有来源，来源为空时清空 */
+export function applyDraftSourceToAll(draft: BatchDraft, source: string | null | undefined): BatchDraft {
+    const value = source?.trim() || null;
+    return {
+        ...draft,
+        source: value,
+        items: draft.items.map((item) => ({ ...item, source: value })),
     };
 }
 

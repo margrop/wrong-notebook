@@ -10,9 +10,10 @@ import { PageImageOverview } from "@/components/import-batch/page-image-overview
 import { RegionEditorDialog } from "@/components/import-batch/region-editor-dialog";
 import { TextFixToolbar } from "@/components/import-batch/text-fix-toolbar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { ImportBatchDetail } from "@/lib/import/import-batch-types";
-import { isItemReady } from "@/lib/question-split/draft";
+import { applyDraftSourceToAll, isItemReady } from "@/lib/question-split/draft";
 import type { BatchDraft, DraftRegion } from "@/lib/question-split/draft";
 import { acceptTextFixes, addImageItem, pendingTextFixes, restoreIgnored, setAllSelected, updateItem } from "@/lib/question-split/draft-ops";
 import { canContinueOnNextPage, useBatchContinuation } from "@/lib/hooks/use-batch-continuation";
@@ -90,6 +91,32 @@ export function BatchDraftEditor({ batch, draft, onEdit, onUndo, canUndo, saveSt
                     </Button>
                 </div>
             </div>
+
+            {draft.items.length > 0 && (
+                <div className="space-y-2 rounded-xl border bg-card p-3">
+                    <div className="flex flex-wrap items-end gap-2">
+                        <label htmlFor="batch-source" className="min-w-0 flex-1 space-y-1 text-sm">
+                            <span className="font-medium">{t.importBatch.batchSource.label}</span>
+                            <Input
+                                id="batch-source"
+                                value={draft.source ?? ""}
+                                onChange={(event) => onEdit((current) => ({ ...current, source: event.target.value.trim() || null }), "batch-source")}
+                                maxLength={200}
+                                placeholder={t.importBatch.batchSource.placeholder}
+                            />
+                        </label>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onEdit((current) => applyDraftSourceToAll(current, current.source ?? null))}
+                        >
+                            {t.importBatch.batchSource.applyAll}
+                        </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{t.importBatch.batchSource.hint}</p>
+                </div>
+            )}
 
             {hasConflictCopy && (
                 <div className="space-y-2 rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm" role="status" data-testid="draft-conflict">

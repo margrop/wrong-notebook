@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRightLeft, FileJson, Trash2, X } from "lucide-react";
+import { ArrowRightLeft, FileJson, PencilLine, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BatchEditDialog } from "@/components/error-list/batch-edit-dialog";
 import { ExportQuestionsDialog } from "@/components/error-list/export-questions-dialog";
 import { MoveToNotebookDialog } from "@/components/error-list/move-to-notebook-dialog";
 import { QuestionSimilarityDialog } from "@/components/question-similarity-dialog";
@@ -15,12 +16,15 @@ interface ErrorListSelectionBarProps {
     onDelete: () => void;
     /** 批量移动成功后由列表退出多选模式并刷新 */
     onMoved: () => void;
+    /** 批量编辑成功后由列表刷新卡片，选中状态保留 */
+    onEdited: () => void;
 }
 
-export function ErrorListSelectionBar({ selectedIds, deleting, onCancel, onDelete, onMoved }: ErrorListSelectionBarProps) {
+export function ErrorListSelectionBar({ selectedIds, deleting, onCancel, onDelete, onMoved, onEdited }: ErrorListSelectionBarProps) {
     const { t } = useLanguage();
     const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
 
     return (
         <div className="pb-safe fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 p-4 shadow-lg backdrop-blur">
@@ -47,6 +51,14 @@ export function ErrorListSelectionBar({ selectedIds, deleting, onCancel, onDelet
                         <ArrowRightLeft className="mr-2 h-4 w-4" />
                         {t.notebook.moveToNotebook}
                     </Button>
+                    <Button
+                        variant="outline"
+                        onClick={() => setEditDialogOpen(true)}
+                        disabled={selectedIds.length === 0}
+                    >
+                        <PencilLine className="mr-2 h-4 w-4" />
+                        {t.notebook.batchEdit}
+                    </Button>
                     <Button variant="outline" onClick={onCancel}><X className="mr-2 h-4 w-4" />{t.notebook.cancelSelect}</Button>
                     <Button variant="destructive" onClick={onDelete} disabled={selectedIds.length === 0 || deleting}>
                         <Trash2 className="mr-2 h-4 w-4" />{t.notebook.deleteSelected}
@@ -65,6 +77,13 @@ export function ErrorListSelectionBar({ selectedIds, deleting, onCancel, onDelet
                 open={moveDialogOpen}
                 onOpenChange={setMoveDialogOpen}
                 onMoved={onMoved}
+            />
+
+            <BatchEditDialog
+                ids={selectedIds}
+                open={editDialogOpen}
+                onOpenChange={setEditDialogOpen}
+                onEdited={onEdited}
             />
         </div>
     );

@@ -355,6 +355,21 @@ describe('文字多题批次', () => {
         expect(items.map((item) => item.source)).toEqual(['期中数学试卷', '期中数学试卷']);
     });
 
+    it('在预览页设置统一来源后开始解析，只写入尚无来源的题，逐题来源优先', async () => {
+        const { batch } = await create({ source: 'text', text: '1．计算 1 + 1。\n2．计算 2 + 2。', targetSubjectId: 'math' });
+        const draft = structuredClone(batch.draft);
+        draft.source = '期末数学试卷';
+        draft.items[0].source = '单独来源';
+        const saved = await PATCH(json({ version: batch.version, draft }, 'PATCH'), params(batch.id));
+        expect(saved.status).toBe(200);
+        const { batch: updated } = await saved.json();
+
+        await start(batch.id, { version: updated.version });
+        await waitForImportBatchTasksForTest(batch.id);
+        const items = await savedItemsInDraftOrder(batch.id);
+        expect(items.map((item) => item.source)).toEqual(['单独来源', '期末数学试卷']);
+    });
+
     it('公共材料只作用于所属题组，解析时拼在题干前', async () => {
         const text = '1．计算 1 + 1。\n\n阅读下面的材料，回答 2～3 题。\n某商店上午卖出 30 件，下午卖出 45 件。\n2．全天卖出多少件？\n3．下午比上午多卖多少件？\n4．计算 9 - 3。';
         const { batch } = await create({ source: 'text', text, targetSubjectId: 'math' });

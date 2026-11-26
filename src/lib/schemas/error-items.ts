@@ -45,6 +45,15 @@ export const batchMoveSchema = z.object({
     subjectId: z.string().min(1),
 });
 
+/** POST /api/error-items/batch-update 请求体：至少修改来源或年级学期之一 */
+export const batchUpdateSchema = z.object({
+    ids: z.array(z.string().min(1)).min(1).max(100),
+    source: z.string().trim().max(200).nullable().optional(),
+    gradeSemester: z.string().trim().max(200).nullable().optional(),
+}).refine((value) => value.source !== undefined || value.gradeSemester !== undefined, {
+    message: "source or gradeSemester is required",
+});
+
 /** POST /api/error-items/:id/geogebra 请求体（所有字段可选，后端从 DB fallback） */
 export const geogebraAnalyzeSchema = z.object({
     questionText: z.string().optional(),
