@@ -106,10 +106,10 @@ Change `method` to `tools/list` to list tools. Call a tool:
 | `list_tags` | List knowledge tags | `subject`, `tagSet`, `query`, `flat` (leaf list by default) |
 | `list_due_reviews` | Questions due for review today | `notebookId`, `page`, `pageSize` |
 | `get_weak_tags` | Rank weak knowledge points | `notebookId`, `range` (`7d`/`30d`/`6m`/`all`), `limit` |
-| `record_practice_result` | Record one answer attempt and update mastery probability and review schedule | `errorItemId` or `practiceQuestionId`, `result` (`correct`/`wrong`/`not_attempted`), `source` (`practice`/`manual`/`review`), `takenAt`, question fields |
-| `generate_variant` | Generate one variant question synchronously and store it as the latest practice | `errorItemId`, `language`, `difficulty`, `source` (`ai`/`bank`/`bankVariant`), `bankId` |
-| `get_variant` | Read the latest generated variant of an error question | `errorItemId` |
-| `grade_answer` | Grade a student answer with AI | `practiceQuestionId` or `errorItemId`, `userAnswer`, `language` |
+| `record_practice_result` | Record one answer attempt and update mastery probability and review schedule | `errorItemId` (CUID or 6-character short ID) or `practiceQuestionId`, `result` (`correct`/`wrong`/`not_attempted`), `source` (`practice`/`manual`/`review`), `takenAt`, question fields |
+| `generate_variant` | Generate one variant question synchronously and store it as the latest practice | `errorItemId` (CUID or 6-character short ID), `language`, `difficulty`, `source` (`ai`/`bank`/`bankVariant`), `bankId` |
+| `get_variant` | Read the latest generated variant of an error question | `errorItemId` (CUID or 6-character short ID) |
+| `grade_answer` | Grade a student answer with AI | `practiceQuestionId` or `errorItemId` (CUID or 6-character short ID), `userAnswer`, `language` |
 
 Notes:
 
