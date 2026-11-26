@@ -220,9 +220,9 @@ export function createMcpServer(user: User): McpServer {
         "record_practice_result",
         {
             title: "Record practice result",
-            description: "Record one answer attempt for an error question or a stored practice question. The result updates the mastery probability and review schedule; source=review with result=correct marks the item mastered immediately. Provide errorItemId or practiceQuestionId; question fields are filled from the stored practice question. Returns JSON practice record.",
+            description: "Record one answer attempt for an error question or a stored practice question. The result updates the mastery probability and review schedule; source=review with result=correct marks the item mastered immediately. Provide errorItemId (CUID or 6-character shortId) or practiceQuestionId; question fields are filled from the stored practice question. Returns JSON practice record.",
             inputSchema: {
-                errorItemId: z.string().optional().describe("Error question id; provide this or practiceQuestionId"),
+                errorItemId: z.string().optional().describe("Error question CUID or 6-character shortId; provide this or practiceQuestionId"),
                 practiceQuestionId: z.string().optional().describe("Stored practice question id from generate_variant; its item, text, answer and difficulty are reused"),
                 result: z.enum(PRACTICE_RESULTS as [string, ...string[]]).optional().describe("correct, wrong or not_attempted"),
                 isCorrect: z.boolean().nullable().optional().describe("Legacy shortcut; ignored when result is provided"),
@@ -246,7 +246,7 @@ export function createMcpServer(user: User): McpServer {
             title: "Generate variant question",
             description: "Generate one variant (举一反三) question for an owned error question and store it as the latest practice. Waits synchronously for the result (no task id is returned) and consumes one practice AI quota; source=bank or source=bankVariant with bankId picks from the question bank first, and source=bank consumes no quota. A concurrent generate for the same item returns TASK_ALREADY_RUNNING. Returns JSON with the question, difficulty, source, generatedAt, practiceQuestionId and saved.",
             inputSchema: {
-                errorItemId: z.string().trim().min(1).describe("Owned error question id"),
+                errorItemId: z.string().trim().min(1).describe("Owned error question CUID or 6-character shortId"),
                 language: z.enum(["zh", "en"]).optional(),
                 difficulty: z.enum(DIFFICULTIES).optional().describe("Defaults to medium"),
                 source: z.enum(["ai", "bank", "bankVariant"]).optional().describe("ai (default), bank or bankVariant"),
@@ -262,7 +262,7 @@ export function createMcpServer(user: User): McpServer {
             title: "Get latest variant question",
             description: "Read the latest generated variant question for an owned error question. Returns { practice: null } when nothing has been generated yet. Returns JSON.",
             inputSchema: {
-                errorItemId: z.string().trim().min(1).describe("Owned error question id"),
+                errorItemId: z.string().trim().min(1).describe("Owned error question CUID or 6-character shortId"),
             },
             annotations: { readOnlyHint: true },
         },
@@ -275,7 +275,7 @@ export function createMcpServer(user: User): McpServer {
             title: "Grade answer",
             description: "Grade a student answer against a stored practice question (practiceQuestionId) or the latest variant of an error question (errorItemId), using AI. Consumes one grade AI quota. Returns JSON { correct, reason }.",
             inputSchema: {
-                errorItemId: z.string().trim().min(1).optional().describe("Error question id; reads its latest generated variant"),
+                errorItemId: z.string().trim().min(1).optional().describe("Error question CUID or 6-character shortId; reads its latest generated variant"),
                 practiceQuestionId: z.string().trim().min(1).optional().describe("Stored practice question id; takes precedence over errorItemId"),
                 userAnswer: z.string().trim().min(1).max(5000).describe("Student answer to grade"),
                 language: z.enum(["zh", "en"]).optional(),

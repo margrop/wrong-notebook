@@ -106,10 +106,10 @@ curl --fail-with-body http://localhost:3000/api/mcp \
 | `list_tags` | 列出知识点标签 | `subject`、`tagSet`、`query`、`flat`（默认叶子列表） |
 | `list_due_reviews` | 今日待复习错题 | `notebookId`、`page`、`pageSize` |
 | `get_weak_tags` | 薄弱知识点排行 | `notebookId`、`range`（`7d`/`30d`/`6m`/`all`）、`limit` |
-| `record_practice_result` | 记录一次作答结果，更新掌握概率与复习排期 | `errorItemId` 或 `practiceQuestionId`、`result`（`correct`/`wrong`/`not_attempted`）、`source`（`practice`/`manual`/`review`）、`takenAt`、题目字段 |
-| `generate_variant` | 为错题同步生成一道变式题并暂存为最近一次练习 | `errorItemId`、`language`、`difficulty`、`source`（`ai`/`bank`/`bankVariant`）、`bankId` |
-| `get_variant` | 读取错题最近一次生成的变式题 | `errorItemId` |
-| `grade_answer` | 用 AI 判定学生作答是否正确 | `practiceQuestionId` 或 `errorItemId`、`userAnswer`、`language` |
+| `record_practice_result` | 记录一次作答结果，更新掌握概率与复习排期 | `errorItemId`（CUID 或 6 位短 ID）或 `practiceQuestionId`、`result`（`correct`/`wrong`/`not_attempted`）、`source`（`practice`/`manual`/`review`）、`takenAt`、题目字段 |
+| `generate_variant` | 为错题同步生成一道变式题并暂存为最近一次练习 | `errorItemId`（CUID 或 6 位短 ID）、`language`、`difficulty`、`source`（`ai`/`bank`/`bankVariant`）、`bankId` |
+| `get_variant` | 读取错题最近一次生成的变式题 | `errorItemId`（CUID 或 6 位短 ID） |
+| `grade_answer` | 用 AI 判定学生作答是否正确 | `practiceQuestionId` 或 `errorItemId`（CUID 或 6 位短 ID）、`userAnswer`、`language` |
 
 补充约定：
 

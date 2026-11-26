@@ -408,6 +408,46 @@ describe('MCP 服务', () => {
         expect(toolJson(response.result!)).toEqual({ practice: null });
     });
 
+    it('generate_variant / get_variant / grade_answer / record_practice_result 接受 6 位短 ID', async () => {
+        const itemId = await addErrorItem('解方程 2x=4');
+        const stored = await database.errorItem.findUnique({ where: { id: itemId }, select: { shortId: true } });
+        expect(stored?.shortId).toMatch(/^[1-9A-HJ-NP-Za-km-z]{6}$/);
+        const shortId = stored!.shortId!;
+        mocks.generateSimilarQuestion.mockResolvedValue(aiQuestion());
+        mocks.gradeAnswer.mockResolvedValue({ correct: true, reason: 'x=2 正确' });
+
+        const generated = await callTool('generate_variant', { errorItemId: shortId, difficulty: 'easy' });
+        expect(generated.result?.isError).toBeFalsy();
+        const generatedData = toolJson(generated.result!) as {
+            questionText: string;
+            practiceQuestionId: string;
+            saved: boolean;
+        };
+        expect(generatedData.saved).toBe(true);
+        const practiceQuestion = await database.practiceQuestion.findUnique({
+            where: { id: generatedData.practiceQuestionId },
+            select: { errorItemId: true },
+        });
+        expect(practiceQuestion?.errorItemId).toBe(itemId);
+
+        const variant = await callTool('get_variant', { errorItemId: shortId });
+        expect(toolJson(variant.result!)).toEqual(expect.objectContaining({
+            practice: expect.objectContaining({ questionText: generatedData.questionText }),
+        }));
+
+        const graded = await callTool('grade_answer', { errorItemId: shortId, userAnswer: 'x=2' });
+        expect(graded.result?.isError).toBeFalsy();
+        expect(toolJson(graded.result!)).toEqual({ correct: true, reason: 'x=2 正确' });
+
+        const recorded = await callTool('record_practice_result', { errorItemId: shortId, result: 'correct', source: 'review' });
+        expect(recorded.result?.isError).toBeFalsy();
+        const recordData = toolJson(recorded.result!) as { errorItemId: string; isCorrect: boolean };
+        expect(recordData.errorItemId).toBe(itemId);
+        expect(recordData.isCorrect).toBe(true);
+        const item = await database.errorItem.findUnique({ where: { id: itemId } });
+        expect(item?.masteryLevel).toBe(2);
+    });
+
     it('generate_variant source=bank 从真题库选题，不消耗额度并写入历史题', async () => {
         const itemId = await addErrorItem();
         mocks.selectBankQuestion.mockResolvedValue({

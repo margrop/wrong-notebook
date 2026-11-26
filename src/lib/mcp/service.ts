@@ -512,6 +512,19 @@ export async function recordPracticeResult(user: User, input: RecordPracticeResu
         ?? (parsed.data.isCorrect === true ? 'correct' : parsed.data.isCorrect === false ? 'wrong' : undefined);
 
     const userId = user.id;
+    const requestedErrorItemId = errorItemId;
+
+    // errorItemId 同时接受 CUID 与 6 位短 ID；先解析为 CUID，再与练习题目的关联比对
+    if (errorItemId) {
+        const resolved = await prisma.errorItem.findFirst({
+            where: { userId, OR: [{ id: errorItemId }, { shortId: errorItemId }] },
+            select: { id: true },
+        });
+        if (!resolved) {
+            throw new McpToolError(`Item "${requestedErrorItemId}" not found for this user`);
+        }
+        errorItemId = resolved.id;
+    }
 
     // 历史题作答：校验题目归属，并从题目补齐原题、学科与难度
     if (practiceQuestionId) {
@@ -615,14 +628,16 @@ export async function generateVariant(user: User, input: GenerateVariantInput) {
     }
     const { errorItemId, language, difficulty, source, bankId } = parsed.data;
 
-    const errorItemWithSubject = await prisma.errorItem.findUnique({
-        where: { id: errorItemId },
+    // errorItemId 同时接受 CUID 与 6 位短 ID；后续写入一律使用解析出的 CUID
+    const errorItemWithSubject = await prisma.errorItem.findFirst({
+        where: { userId: user.id, OR: [{ id: errorItemId }, { shortId: errorItemId }] },
         include: { subject: true, tags: { select: { name: true } } },
     });
     // 只能基于自己的错题生成，否则等于间接读取他人题目
-    if (!errorItemWithSubject || errorItemWithSubject.userId !== user.id) {
+    if (!errorItemWithSubject) {
         throw new McpToolError(`Item "${errorItemId}" not found for this user`);
     }
+    const resolvedErrorItemId = errorItemWithSubject.id;
 
     let tags: string[] = Array.isArray(errorItemWithSubject.tags)
         ? errorItemWithSubject.tags.map((tag) => tag.name)
@@ -637,12 +652,12 @@ export async function generateVariant(user: User, input: GenerateVariantInput) {
     }
 
     // 按目标防重复：同一错题同一时刻只允许一个「举一反三」任务，预占失败时不扣额度、不调用 AI
-    const target = `error-item:${errorItemId}:practice`;
+    const target = `error-item:${resolvedErrorItemId}:practice`;
     const handle = reserveBackgroundTask({
         userId: user.id,
         kind: 'practice',
         subject: describeQuestion(errorItemWithSubject),
-        link: `/error-items/${errorItemId}`,
+        link: `/error-items/${resolvedErrorItemId}`,
         target,
     });
     if (!handle) {
@@ -758,7 +773,7 @@ export async function generateVariant(user: User, input: GenerateVariantInput) {
             const question = await tx.practiceQuestion.create({
                 data: {
                     userId: user.id,
-                    errorItemId,
+                    errorItemId: resolvedErrorItemId,
                     subject: lastPractice.subject ?? null,
                     difficulty: lastPractice.difficulty,
                     source: lastPractice.source ?? 'ai',
@@ -770,7 +785,7 @@ export async function generateVariant(user: User, input: GenerateVariantInput) {
                 },
             });
             await tx.errorItem.update({
-                where: { id: errorItemId },
+                where: { id: resolvedErrorItemId },
                 data: { lastPractice: serializeLastPractice(lastPractice) },
             });
             return question;
@@ -778,7 +793,7 @@ export async function generateVariant(user: User, input: GenerateVariantInput) {
         practiceQuestionId = created.id;
         saved = true;
     } catch (error) {
-        logger.warn({ error, errorItemId }, 'Failed to persist generated practice question');
+        logger.warn({ error, errorItemId: resolvedErrorItemId }, 'Failed to persist generated practice question');
     }
 
     return {
@@ -797,11 +812,11 @@ export interface GetVariantInput {
 
 /** 读取该错题最近一次生成的变式题；没有时返回 { practice: null } */
 export async function getVariant(userId: string, input: GetVariantInput): Promise<{ practice: LastPractice | null }> {
-    const item = await prisma.errorItem.findUnique({
-        where: { id: input.errorItemId },
-        select: { userId: true, lastPractice: true },
+    const item = await prisma.errorItem.findFirst({
+        where: { userId, OR: [{ id: input.errorItemId }, { shortId: input.errorItemId }] },
+        select: { lastPractice: true },
     });
-    if (!item || item.userId !== userId) {
+    if (!item) {
         throw new McpToolError(`Item "${input.errorItemId}" not found for this user`);
     }
     return { practice: parseLastPractice(item.lastPractice) };
@@ -838,11 +853,12 @@ export async function gradeAnswer(user: User, input: GradeAnswerInput) {
             ? { questionText: stored.questionText, answerText: stored.answerText, analysis: stored.analysis }
             : null;
     } else if (errorItemId) {
-        const item = await prisma.errorItem.findUnique({
-            where: { id: errorItemId },
-            select: { userId: true, lastPractice: true },
+        // errorItemId 同时接受 CUID 与 6 位短 ID
+        const item = await prisma.errorItem.findFirst({
+            where: { userId: user.id, OR: [{ id: errorItemId }, { shortId: errorItemId }] },
+            select: { lastPractice: true },
         });
-        practice = item && item.userId === user.id ? parseLastPractice(item.lastPractice) : null;
+        practice = item ? parseLastPractice(item.lastPractice) : null;
     }
     if (!practice) {
         throw new McpToolError('Practice question not found');
