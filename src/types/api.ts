@@ -112,7 +112,18 @@ export interface ErrorItem {
 export type ErrorItemSummary = Pick<ErrorItem,
     'id' | 'shortId' | 'seqNo' | 'questionText' | 'mistakeStatus' | 'knowledgePoints' |
     'difficultyStars' | 'masteryStatus' | 'masteryProbability' | 'createdAt' | 'questionType'
-> & { tags?: Pick<Tag, 'name'>[] };
+> & { tags?: Pick<Tag, 'name'>[]; practiceStats?: ErrorItemPracticeStats };
+
+/** 单道错题在某个难度下的练习进度 */
+export interface ErrorItemPracticeStat {
+    /** 答对次数 */
+    correct: number;
+    /** 作答次数 */
+    total: number;
+}
+
+/** 按难度汇总的练习进度；四个难度始终存在，未练习为 0/0 */
+export type ErrorItemPracticeStats = Record<'easy' | 'medium' | 'hard' | 'harder', ErrorItemPracticeStat>;
 
 /** 打印所需内容，独立于完整详情与列表卡片的数据类型。 */
 export type PrintableErrorItem = ErrorItemSummary & Pick<ErrorItem,

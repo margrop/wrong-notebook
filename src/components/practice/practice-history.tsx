@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { QuestionSummary } from "@/components/error-list/question-summary";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,10 +16,25 @@ import { confirmDialog, toast } from "@/lib/feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import type { Notebook, PracticeQuestionListResponse, PracticeQuestionSummary } from "@/types/api";
 const PAGE_SIZE = 20;
+/** 卡片里题干摘要的最大字符数（公式按渲染后长度折算，见 buildQuestionSummary） */
+const SUMMARY_LENGTH = 100;
 const DIFFICULTIES = ["easy", "medium", "hard", "harder"] as const;
 
 
-type Status = "all" | "attempted" | "unattempted";
+type Status = "all" | "correct" | "wrong" | "unattempted";
+
+/** 两种色调：作对用绿色，作错与未作答用黄色（与错题本的复习状态配色一致） */
+const TONE_CLASS = {
+    correct: { card: "border-l-green-500", text: "text-green-600 dark:text-green-400" },
+    wrong: { card: "border-l-amber-500", text: "text-amber-600 dark:text-amber-400" },
+} as const;
+
+/** 按最后一次作答结果决定色调：作对 → 绿色；作错、未作答 → 黄色 */
+function attemptTone(attempt: PracticeQuestionSummary["lastAttempt"]): "correct" | "wrong" {
+    if (!attempt) return "wrong";
+    if (attempt.result) return attempt.result === "correct" ? "correct" : "wrong";
+    return attempt.isCorrect === true ? "correct" : "wrong";
+}
 
 /** 智能练习独立入口：按错题本、知识点、难度与作答状态浏览已生成的变式题 */
 export function PracticeHistory() {
@@ -133,7 +149,8 @@ export function PracticeHistory() {
                         <SelectTrigger className="min-w-32"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">{t.practice.history?.statusAll || "All"}</SelectItem>
-                            <SelectItem value="attempted">{t.practice.history?.statusAttempted || "Attempted"}</SelectItem>
+                            <SelectItem value="correct">{t.practice.history?.statusCorrect || "Correct"}</SelectItem>
+                            <SelectItem value="wrong">{t.practice.history?.statusWrong || "Wrong"}</SelectItem>
                             <SelectItem value="unattempted">{t.practice.history?.statusUnattempted || "Not attempted"}</SelectItem>
                         </SelectContent>
                     </Select>
@@ -154,13 +171,19 @@ export function PracticeHistory() {
                 <EmptyState icon={Sparkles} title={t.practice.history?.empty || "No generated practice questions yet"} />
             ) : (
                 <div className="grid gap-3 md:grid-cols-2">
-                    {items.map((item) => (
+                    {items.map((item) => {
+                        const tone = attemptTone(item.lastAttempt);
+                        return (
                         <div key={item.id} className="relative">
                             <Link href={`/practice?questionId=${item.id}`}>
-                                <Card className="h-full rounded-2xl transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+                                <Card className={`h-full rounded-2xl border-l-4 transition-all hover:-translate-y-0.5 hover:border-r-primary/40 hover:border-y-primary/40 hover:shadow-md ${TONE_CLASS[tone].card}`}>
                                     <CardContent className="space-y-2 pb-9 pt-4">
                                         <div className="flex items-start justify-between gap-2">
-                                            <span className="line-clamp-2 font-medium">{item.questionText}</span>
+                                            <QuestionSummary
+                                                text={item.questionText}
+                                                maxLength={SUMMARY_LENGTH}
+                                                className="min-w-0 flex-1 font-medium line-clamp-2"
+                                            />
                                             <span className="shrink-0 text-xs text-muted-foreground">
                                                 {item.errorItem?.seqNo ? `#${item.errorItem.seqNo}` : item.errorItem?.shortId ?? ""}
                                             </span>
@@ -169,7 +192,7 @@ export function PracticeHistory() {
                                             {item.errorItem?.subject?.name && <span>{item.errorItem.subject.name}</span>}
                                             <span>{item.difficulty ? t.practice.difficulty[item.difficulty as keyof typeof t.practice.difficulty] ?? item.difficulty : t.practice.difficulty.Unknown}</span>
                                             <span>{(t.practice.history?.attempts || "Attempts: {count}").replace("{count}", String(item.attemptCount))}</span>
-                                            <span>{resultLabel(item.lastAttempt)}</span>
+                                            <span className={TONE_CLASS[tone].text}>{resultLabel(item.lastAttempt)}</span>
                                         </div>
                                         {!item.errorItem && (
                                             <p className="text-xs text-muted-foreground">{t.practice.history?.originalDeleted || "The original question was deleted"}</p>
@@ -189,7 +212,8 @@ export function PracticeHistory() {
                                 {t.practice.history?.delete || "Delete"}
                             </Button>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 

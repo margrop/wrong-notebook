@@ -21,6 +21,15 @@ const VISIBLE_TAGS = 3;
 /** 题干摘要的最大字数 */
 const SUMMARY_LENGTH = 80;
 
+const PRACTICE_DIFFICULTIES = ['easy', 'medium', 'hard', 'harder'] as const;
+
+/** 练习进度配色：全对绿色、有对有错黄色、全错或未练习红色 */
+function practiceTone(stat: { correct: number; total: number }): string {
+    if (stat.total > 0 && stat.correct === stat.total) return "text-green-600 dark:text-green-400";
+    if (stat.correct > 0) return "text-amber-600 dark:text-amber-400";
+    return "text-red-600 dark:text-red-400";
+}
+
 interface ErrorItemCardProps {
     item: ErrorItemSummary;
     selectMode: boolean;
@@ -83,6 +92,18 @@ export function ErrorItemCard({ item, selectMode, selected, onToggleSelect, sele
                             </Badge>
                             <DifficultyStars value={item.difficultyStars} showUnrated={false} />
                         </div>
+                        {item.practiceStats && (
+                            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular-nums">
+                                {PRACTICE_DIFFICULTIES.map((difficulty) => {
+                                    const stat = item.practiceStats![difficulty];
+                                    return (
+                                        <span key={difficulty} className={practiceTone(stat)}>
+                                            {t.practice.difficulty[difficulty]}: {stat.correct}/{stat.total}
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        )}
                         <div className="flex flex-wrap gap-2 mt-3">
                             {(tagsExpanded ? tags : tags.slice(0, VISIBLE_TAGS)).map((tag) => (
                                 <Badge

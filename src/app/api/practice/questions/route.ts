@@ -14,11 +14,33 @@ const querySchema = z.object({
     notebookId: z.string().min(1).optional(),
     tag: z.string().trim().min(1).max(100).optional(),
     difficulty: z.enum(['easy', 'medium', 'hard', 'harder']).optional(),
-    // attempted：至少作答过一次；unattempted：还没有作答
-    status: z.enum(['attempted', 'unattempted']).optional(),
+    // attempted/unattempted：是否作答过；correct/wrong：按「最后一次作答结果」筛选
+    status: z.enum(['attempted', 'unattempted', 'correct', 'wrong']).optional(),
     page: z.coerce.number().int().min(1).max(100000).default(1),
     pageSize: z.coerce.number().int().min(1).max(50).default(PAGE_SIZE),
 });
+
+/**
+ * 取出「最后一次作答结果为 result」的练习题的 ID。
+ *
+ * Prisma 的关联过滤无法表达「关联记录中最新的一条」，因此用一段子查询先把 ID 取出来，
+ * 再交给 Prisma 与其余筛选条件求交集（分页与计数仍由 Prisma 负责）。
+ */
+async function findIdsByLastResult(userId: string, result: 'correct' | 'wrong'): Promise<string[]> {
+    const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT q.id
+        FROM PracticeQuestion q
+        WHERE q.userId = ${userId}
+          AND (
+              SELECT r.result
+              FROM PracticeRecord r
+              WHERE r.practiceQuestionId = q.id
+              ORDER BY r.createdAt DESC, r.id DESC
+              LIMIT 1
+          ) = ${result}
+    `;
+    return rows.map((row) => row.id);
+}
 
 /** GET /api/practice/questions：当前用户已生成的智能练习历史题，可按错题本、知识点、难度与作答状态筛选 */
 export const GET = withUser(async (req: Request, { user }: AuthenticatedContext) => {
@@ -30,11 +52,17 @@ export const GET = withUser(async (req: Request, { user }: AuthenticatedContext)
         }
         const { notebookId, tag, difficulty, status, page, pageSize } = parsed.data;
 
+        // 「作对 / 作错」按最后一次作答结果判定
+        const lastResultIds = status === 'correct' || status === 'wrong'
+            ? await findIdsByLastResult(user.id, status)
+            : undefined;
+
         const where = {
             userId: user.id,
             ...(difficulty ? { difficulty } : {}),
             ...(status === 'attempted' ? { attempts: { some: {} } } : {}),
             ...(status === 'unattempted' ? { attempts: { none: {} } } : {}),
+            ...(lastResultIds ? { id: { in: lastResultIds } } : {}),
             ...(notebookId || tag ? {
                 errorItem: {
                     ...(notebookId ? { subjectId: notebookId } : {}),

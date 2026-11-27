@@ -628,6 +628,8 @@ export const zh = {
                 allDifficulties: "全部难度",
                 status: "作答状态",
                 statusAll: "全部",
+                statusCorrect: "作对",
+                statusWrong: "作错",
                 statusAttempted: "已作答",
                 statusUnattempted: "未作答",
                 refresh: "刷新",

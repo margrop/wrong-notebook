@@ -628,6 +628,8 @@ export const en = {
                 allDifficulties: "All difficulties",
                 status: "Attempt status",
                 statusAll: "All",
+                statusCorrect: "Correct",
+                statusWrong: "Wrong",
                 statusAttempted: "Attempted",
                 statusUnattempted: "Not attempted",
                 refresh: "Refresh",
