@@ -318,7 +318,7 @@ describe('/api/exams', () => {
 
         const data = await (await LIST()).json();
 
-        expect(data[0]).toMatchObject({ questionCount: 2, readyCount: 1, recordedCount: 1 });
+        expect(data[0]).toMatchObject({ questionCount: 2, readyCount: 1, gradedCount: 1 });
         expect(data[0]).not.toHaveProperty('questions');
     });
 

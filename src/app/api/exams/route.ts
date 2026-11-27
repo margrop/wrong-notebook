@@ -64,7 +64,8 @@ export const GET = withUser(async (_req: Request, { user }: AuthenticatedContext
             ...paper,
             questionCount: questions.length,
             readyCount: questions.filter((question) => question.status === 'ready').length,
-            recordedCount: questions.filter((question) => question._count.practiceRecords > 0).length,
+            // 只统计已生成题目中录入过结果的题数，与试卷详情的批改进度一致
+            gradedCount: questions.filter((question) => question.status === 'ready' && question._count.practiceRecords > 0).length,
         })));
     } catch (error) {
         logger.error({ error }, 'Error listing exam papers');

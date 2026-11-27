@@ -501,7 +501,8 @@ export interface ExamPaperSummary {
     requestedCount: number;
     questionCount: number;
     readyCount: number;
-    recordedCount: number;
+    /** 已生成题目中录入过结果的题数（批改进度） */
+    gradedCount: number;
     resultsRecordedAt: string | null;
     createdAt: string;
 }

@@ -69,7 +69,7 @@ export default function ExamsPage() {
                                                     <FileText className="h-4 w-4 shrink-0 text-primary" />
                                                     {paper.title}
                                                 </span>
-                                                <ExamStatusBadge status={paper.status} recorded={paper.recordedCount > 0} />
+                                                <ExamStatusBadge status={paper.status} gradedCount={paper.gradedCount} totalCount={paper.readyCount} />
                                             </div>
                                             <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                                                 <span>{formatDateTime(paper.createdAt, "yyyy-MM-dd HH:mm", timeZone)}</span>
@@ -80,7 +80,9 @@ export default function ExamsPage() {
                                                 ) : (
                                                     <span>{difficultyLabels[paper.difficulty] || paper.difficulty}</span>
                                                 )}
-                                                <span>{paper.recordedCount > 0 ? t.exam.recorded : t.exam.notRecorded}</span>
+                                                {paper.readyCount > 0 && (
+                                                    <span>{t.exam.gradedProgress.replace("{graded}", String(paper.gradedCount)).replace("{total}", String(paper.readyCount))}</span>
+                                                )}
                                             </div>
                                         </CardContent>
                                     </Card>

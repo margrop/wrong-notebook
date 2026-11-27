@@ -69,7 +69,8 @@ export default function ExamDetailPage() {
     if (!paper) return <PageLoading label={t.common.loading} />;
 
     const readyCount = paper.questions.filter((question) => question.status === "ready").length;
-    const recorded = paper.questions.some((question) => question.attempts.length > 0);
+    // 批改进度只计已生成的题；失败题无法录入结果，不算在分母里
+    const gradedCount = paper.questions.filter((question) => question.status === "ready" && question.attempts.length > 0).length;
     const hasFailed = paper.questions.some((question) => question.status === "failed");
     const recordable = paper.questions.filter((question) => question.status === "ready" && question.errorItemId);
     const figureQuestions = paper.questions.filter((question) => question.status === "ready" && Boolean(question.figureSvg || question.figureImage));
@@ -191,9 +192,12 @@ export default function ExamDetailPage() {
                     <div className="flex-1 min-w-0 space-y-2">
                         <h1 className="text-xl sm:text-2xl font-bold tracking-tight break-words">{paper.title}</h1>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                            <ExamStatusBadge status={paper.status} recorded={recorded} />
+                            <ExamStatusBadge status={paper.status} gradedCount={gradedCount} totalCount={readyCount} />
                             {paper.mode === 'original' && <Badge variant="secondary">{t.exam.modes.original}</Badge>}
                             <span>{t.exam.progress.replace("{ready}", String(readyCount)).replace("{total}", String(paper.questions.length))}</span>
+                            {readyCount > 0 && (
+                                <span>{t.exam.gradedProgress.replace("{graded}", String(gradedCount)).replace("{total}", String(readyCount))}</span>
+                            )}
                             {readyScoreSummary.total !== null && (
                                 <span>
                                     {t.exam.totalScore.replace("{total}", formatExamScore(readyScoreSummary.total))}
