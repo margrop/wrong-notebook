@@ -1493,6 +1493,7 @@ export const zh = {
             questionCount: "{count} 道题",
             imageScale: "图片比例",
             showQuestionText: "原题文字",
+            showOriginalImage: "原题图片",
             showAnswers: "显示答案",
             showAnalysis: "显示解析",
             showTags: "显示知识点",

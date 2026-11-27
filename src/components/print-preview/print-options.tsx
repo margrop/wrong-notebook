@@ -7,6 +7,8 @@ import type { AnswerSpaceMode } from "@/lib/exam/exam-answer-space";
 
 export interface PrintDisplayOptions {
     showQuestionText: boolean;
+    /** 是否打印拍照原图；题干已含配图时只控制无配图题的补充原图 */
+    showOriginalImage: boolean;
     showAnswers: boolean;
     showAnalysis: boolean;
     showTags: boolean;
@@ -89,6 +91,7 @@ export function PrintOptions({ options, onChange, hasCustomSpaces, onResetCustom
 
             <div className="flex flex-wrap gap-x-3 gap-y-1 sm:gap-4">
                 <ToggleOption checked={options.showQuestionText} onChange={(v) => onChange({ showQuestionText: v })} label={t.printPreview?.showQuestionText || 'Question Text'} />
+                <ToggleOption checked={options.showOriginalImage} onChange={(v) => onChange({ showOriginalImage: v })} label={t.printPreview?.showOriginalImage || 'Original Image'} />
                 <ToggleOption checked={options.showAnswers} onChange={(v) => onChange({ showAnswers: v })} label={t.printPreview?.showAnswers || 'Show Answers'} />
                 <ToggleOption checked={options.showAnalysis} onChange={(v) => onChange({ showAnalysis: v })} label={t.printPreview?.showAnalysis || 'Show Analysis'} />
                 <ToggleOption checked={options.showTags} onChange={(v) => onChange({ showTags: v })} label={t.printPreview?.showTags || 'Show Tags'} />

@@ -40,7 +40,7 @@ describe('题目配图', () => {
         const item = { id: 'q1', createdAt: '2026-11-01T00:00:00Z', questionText: '如图求面积', figureSvg: '<svg viewBox="0 0 200 100"/>', figureScale: 60, figureAlign: 'right', originalImageUrl: '/photo.png' };
         const markup = (showQuestionText: boolean) => renderToStaticMarkup(
             <LanguageProvider>
-                <PrintableQuestion item={item} index={0} reserveAnswerSpace={false} options={{ showQuestionText, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }} />
+                <PrintableQuestion item={item} index={0} reserveAnswerSpace={false} options={{ showQuestionText, showOriginalImage: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }} />
             </LanguageProvider>,
         );
         expect(markup(true)).toContain('zoom:0.6;max-width:60%');
@@ -57,21 +57,47 @@ describe('题目配图', () => {
                     item={{ ...item, figureSvg: null, figureImage: null, figureSource: null }}
                     index={0}
                     reserveAnswerSpace={false}
-                    options={{ showQuestionText: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }}
+                    options={{ showQuestionText: true, showOriginalImage: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }}
                 />
             </LanguageProvider>,
         );
         expect(textWithoutFigure).toContain('src="/photo.png"');
         expect(textWithoutFigure).toContain('max-width:70%');
 
+        // 关闭「原题图片」后，题干无配图时不再补拍原图，仅图片模式也不渲染原图
+        const textWithoutOriginal = renderToStaticMarkup(
+            <LanguageProvider>
+                <PrintableQuestion
+                    item={{ ...item, figureSvg: null, figureImage: null, figureSource: null }}
+                    index={0}
+                    reserveAnswerSpace={false}
+                    options={{ showQuestionText: true, showOriginalImage: false, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }}
+                />
+            </LanguageProvider>,
+        );
+        expect(textWithoutOriginal).toContain('如图求面积');
+        expect(textWithoutOriginal).not.toContain('src="/photo.png"');
+
+        const imageOnlyWithoutOriginal = renderToStaticMarkup(
+            <LanguageProvider>
+                <PrintableQuestion
+                    item={item}
+                    index={0}
+                    reserveAnswerSpace={false}
+                    options={{ showQuestionText: false, showOriginalImage: false, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }}
+                />
+            </LanguageProvider>,
+        );
+        expect(imageOnlyWithoutOriginal).not.toContain('src="/photo.png"');
+
         const fillMarkup = renderToStaticMarkup(
             <LanguageProvider>
-                <PrintableQuestion item={{ ...item, questionText: '1 + 1 = ____' }} index={0} reserveAnswerSpace={true} options={{ showQuestionText: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }} />
+                <PrintableQuestion item={{ ...item, questionText: '1 + 1 = ____' }} index={0} reserveAnswerSpace={true} options={{ showQuestionText: true, showOriginalImage: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }} />
             </LanguageProvider>,
         );
         const solutionMarkup = renderToStaticMarkup(
             <LanguageProvider>
-                <PrintableQuestion item={{ ...item, questionText: '已知二次函数，求其最小值及对称轴。' }} index={0} reserveAnswerSpace={true} options={{ showQuestionText: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }} />
+                <PrintableQuestion item={{ ...item, questionText: '已知二次函数，求其最小值及对称轴。' }} index={0} reserveAnswerSpace={true} options={{ showQuestionText: true, showOriginalImage: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70 }} />
             </LanguageProvider>,
         );
         const customSpaceMarkup = renderToStaticMarkup(
@@ -82,7 +108,7 @@ describe('题目配图', () => {
                     reserveAnswerSpace={true}
                     customAnswerSpacePx={180}
                     onCustomAnswerSpaceChange={vi.fn()}
-                    options={{ showQuestionText: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70, answerSpace: 'auto' }}
+                    options={{ showQuestionText: true, showOriginalImage: true, showAnswers: false, showAnalysis: false, showTags: false, imageScale: 70, answerSpace: 'auto' }}
                 />
             </LanguageProvider>,
         );

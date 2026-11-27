@@ -106,8 +106,15 @@ describe('打印选题搜索与批量选择', () => {
 
 describe('打印显示选项本地保存', () => {
     it('读取合法字段，缺失或非法字段回退默认值', () => {
-        expect(parseStoredPrintOptions(JSON.stringify({ showAnswers: true, imageScale: 55, answerSpace: 'large', showTags: 'yes' })))
-            .toEqual({ ...DEFAULT_PRINT_OPTIONS, showAnswers: true, imageScale: 55, answerSpace: 'large' });
+        expect(parseStoredPrintOptions(JSON.stringify({ showAnswers: true, showOriginalImage: false, imageScale: 55, answerSpace: 'large', showTags: 'yes' })))
+            .toEqual({ ...DEFAULT_PRINT_OPTIONS, showAnswers: true, showOriginalImage: false, imageScale: 55, answerSpace: 'large' });
+    });
+
+    it('旧版保存值默认带原图，非法开关回退为带原图', () => {
+        expect(DEFAULT_PRINT_OPTIONS.showOriginalImage).toBe(true);
+        expect(parseStoredPrintOptions(JSON.stringify({ showQuestionText: true })).showOriginalImage).toBe(true);
+        expect(parseStoredPrintOptions(JSON.stringify({ showOriginalImage: 'no' })).showOriginalImage).toBe(true);
+        expect(parseStoredPrintOptions(JSON.stringify({ showOriginalImage: false })).showOriginalImage).toBe(false);
     });
 
     it('图片比例限制在 30%～100%，损坏数据返回默认值', () => {
