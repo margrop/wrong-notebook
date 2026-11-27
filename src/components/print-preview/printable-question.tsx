@@ -72,7 +72,7 @@ export const PrintableQuestion = memo(function PrintableQuestion({
         ? resolveQuestionAnswerSpacePx(options.answerSpace ?? "auto", item.questionText || "", customAnswerSpacePx)
         : 0;
     const hasQuestionFigure = Boolean(item.figureSvg || item.figureImage);
-    const originalImage = item.originalImageUrl
+    const originalImage = options.showOriginalImage && item.originalImageUrl
         ? <OriginalQuestionImage src={item.originalImageUrl} alt={t.detail?.originalProblem || 'Question Image'} scale={options.imageScale} />
         : null;
 

@@ -1494,6 +1494,7 @@ export const en = {
             questionCount: "{count} questions",
             imageScale: "Image Scale",
             showQuestionText: "Question Text",
+            showOriginalImage: "Original Image",
             showAnswers: "Show Answers",
             showAnalysis: "Show Analysis",
             showTags: "Show Tags",

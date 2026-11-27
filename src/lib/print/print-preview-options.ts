@@ -6,6 +6,8 @@ export const PRINT_OPTIONS_STORAGE_KEY = "print-preview-options";
 
 export const DEFAULT_PRINT_OPTIONS: PrintDisplayOptions = {
     showQuestionText: false,
+    // 旧版本总是带原图；新增开关默认保持原行为
+    showOriginalImage: true,
     showAnswers: false,
     showAnalysis: false,
     showTags: false,
@@ -13,7 +15,7 @@ export const DEFAULT_PRINT_OPTIONS: PrintDisplayOptions = {
     answerSpace: "auto",
 };
 
-const BOOLEAN_KEYS = ["showQuestionText", "showAnswers", "showAnalysis", "showTags"] as const;
+const BOOLEAN_KEYS = ["showQuestionText", "showOriginalImage", "showAnswers", "showAnalysis", "showTags"] as const;
 
 /** 解析本地保存的显示选项；字段缺失或不合法时回退默认值 */
 export function parseStoredPrintOptions(raw: string | null): PrintDisplayOptions {
