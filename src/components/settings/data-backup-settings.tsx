@@ -7,6 +7,7 @@ import { gunzipSync } from "fflate";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient, ApiError } from "@/lib/api-client";
+import { getApiErrorMessage } from "@/lib/error-message";
 import { MAX_BACKUP_IMPORT_BYTES } from "@/lib/backup/limits";
 import { useRunningTask } from "@/lib/hooks/use-running-task";
 import { downloadFile } from "@/lib/download-file";
@@ -125,7 +126,10 @@ export function DataBackupSettings({ isAdmin, userId, userEmail }: DataBackupSet
                 await refreshImportTask();
             } else {
                 frontendLogger.error('[DataBackupSettings]', all ? 'Import all failed' : merging ? 'Merge import failed' : 'Import failed', { error });
-                toast.error(t.settings?.importFailed || "Import failed");
+                // 后端在「导入全部」遇到缺失用户等问题时会给出具体原因，直接展示比统一文案更有用
+                const detail = getApiErrorMessage(error);
+                const base = t.settings?.importFailed || "Import failed";
+                toast.error(detail ? `${base}: ${detail}` : base);
             }
         } finally {
             setImporting(false);
