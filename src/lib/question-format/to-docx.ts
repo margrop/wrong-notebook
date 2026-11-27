@@ -20,6 +20,7 @@ import {
     Paragraph,
     TextRun,
 } from "docx";
+import { figureSvgToDataUri } from "@/lib/figure-svg";
 import type { StructuredQuestion } from "@/lib/question-format/types";
 import { normalizeQuestionType, QUESTION_TYPE_NAMES_ZH } from "@/lib/question/question-type";
 
@@ -29,7 +30,9 @@ export interface DocxExportOptions {
     title?: string;
     /** 是否包含答案与解析（默认 true），放在文末「参考答案」部分 */
     includeAnswers?: boolean;
-    /** 是否包含原图（默认 false） */
+    /** 是否包含题目配图（默认 true，不含整题拍照原图） */
+    includeFigures?: boolean;
+    /** 是否包含拍照原图（默认 false） */
     includeImages?: boolean;
     /** 图片显示宽度上限（像素），超出等比缩放（默认 480） */
     maxImageWidthPx?: number;
@@ -89,6 +92,44 @@ async function docxCompatibleDataUrl(dataUrl: string): Promise<string> {
     } catch {
         return dataUrl;
     }
+}
+
+/** 浏览器端将题目 SVG 配图渲染为白底 PNG data URL；非浏览器环境或失败返回 null */
+async function svgToPngDataUrl(svg: string, maxWidthPx: number = 960): Promise<string | null> {
+    if (typeof document === "undefined" || typeof Image === "undefined") return null;
+    const dataUri = figureSvgToDataUri(svg);
+    return new Promise((resolve) => {
+        const img = new Image();
+        const timer = setTimeout(() => resolve(null), 3000);
+        img.onload = () => {
+            clearTimeout(timer);
+            try {
+                const rawWidth = img.naturalWidth || img.width || 480;
+                const rawHeight = img.naturalHeight || img.height || 320;
+                const targetWidth = Math.min(maxWidthPx, Math.max(1, Math.round(rawWidth * 2)));
+                const targetHeight = Math.max(1, Math.round((rawHeight * targetWidth) / rawWidth));
+                const canvas = document.createElement("canvas");
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+                const context = canvas.getContext("2d");
+                if (!context) {
+                    resolve(null);
+                    return;
+                }
+                context.fillStyle = "#ffffff";
+                context.fillRect(0, 0, targetWidth, targetHeight);
+                context.drawImage(img, 0, 0, targetWidth, targetHeight);
+                resolve(canvas.toDataURL("image/png"));
+            } catch {
+                resolve(null);
+            }
+        };
+        img.onerror = () => {
+            clearTimeout(timer);
+            resolve(null);
+        };
+        img.src = dataUri;
+    });
 }
 
 /**
@@ -216,6 +257,7 @@ export function groupQuestions(questions: StructuredQuestion[]): QuestionGroup[]
  */
 export function buildDocxParagraphs(questions: StructuredQuestion[], options: DocxExportOptions): Paragraph[] {
     const includeAnswers = options.includeAnswers ?? true;
+    const includeFigures = options.includeFigures ?? true;
     const includeImages = options.includeImages ?? false;
     const maxImageWidth = options.maxImageWidthPx ?? DEFAULT_MAX_IMAGE_WIDTH_PX;
 
@@ -249,6 +291,20 @@ export function buildDocxParagraphs(questions: StructuredQuestion[], options: Do
                     children: [new TextRun(lineIndex === 0 ? `${number}．${line}` : line)],
                 }));
             });
+
+            if (includeFigures && question.figureImage) {
+                const decoded = dataUrlToImageBytes(question.figureImage);
+                if (decoded) {
+                    const scaled = scaleToMaxWidth(decoded.widthPx, decoded.heightPx, maxImageWidth);
+                    paragraphs.push(new Paragraph({
+                        children: [new ImageRun({
+                            type: decoded.type,
+                            data: decoded.bytes,
+                            transformation: { width: scaled.width, height: scaled.height },
+                        })],
+                    }));
+                }
+            }
 
             if (includeImages && question.images?.length) {
                 for (const image of question.images) {
@@ -296,12 +352,36 @@ export function buildDocxParagraphs(questions: StructuredQuestion[], options: Do
  */
 export async function buildQuestionsDocx(questions: StructuredQuestion[], options: DocxExportOptions): Promise<Blob> {
     const { Document, Packer } = await import("docx");
-    // 原图可能存为 WebP；先在浏览器转为 JPEG，再由同步的段落构建器嵌入
-    const prepared = options.includeImages
-        ? await Promise.all(questions.map(async (question) => question.images?.length
-            ? { ...question, images: await Promise.all(question.images.map(async (image) => ({ ...image, dataUrl: await docxCompatibleDataUrl(image.dataUrl) }))) }
-            : question))
-        : questions;
+    const includeFigures = options.includeFigures ?? true;
+    // 预处理题目配图（按 figureSource 选择 SVG 转 PNG 或原配图转换）以及可选的拍照原图（WebP → JPEG）
+    const prepared = await Promise.all(questions.map(async (question) => {
+        let nextQuestion = question;
+        if (includeFigures) {
+            const preferOriginalFigure = Boolean(question.figureImage) && (question.figureSource === "image" || !question.figureSvg);
+            let resolvedFigure: string | undefined;
+            if (preferOriginalFigure && question.figureImage) {
+                resolvedFigure = await docxCompatibleDataUrl(question.figureImage);
+            } else if (question.figureSvg) {
+                resolvedFigure = (await svgToPngDataUrl(question.figureSvg)) ?? undefined;
+                if (!resolvedFigure && question.figureImage) {
+                    resolvedFigure = await docxCompatibleDataUrl(question.figureImage);
+                }
+            }
+            if (resolvedFigure && resolvedFigure !== nextQuestion.figureImage) {
+                nextQuestion = { ...nextQuestion, figureImage: resolvedFigure };
+            }
+        }
+        if (options.includeImages && nextQuestion.images?.length) {
+            nextQuestion = {
+                ...nextQuestion,
+                images: await Promise.all(nextQuestion.images.map(async (image) => ({
+                    ...image,
+                    dataUrl: await docxCompatibleDataUrl(image.dataUrl),
+                }))),
+            };
+        }
+        return nextQuestion;
+    }));
     const paragraphs = buildDocxParagraphs(prepared, options);
     const doc = new Document({ sections: [{ children: paragraphs }] });
     return Packer.toBlob(doc);

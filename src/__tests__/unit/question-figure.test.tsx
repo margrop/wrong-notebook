@@ -61,8 +61,7 @@ describe('题目配图', () => {
                 />
             </LanguageProvider>,
         );
-        expect(textWithoutFigure).toContain('src="/photo.png"');
-        expect(textWithoutFigure).toContain('max-width:70%');
+        expect(textWithoutFigure).not.toContain('/photo.png');
 
         const fillMarkup = renderToStaticMarkup(
             <LanguageProvider>

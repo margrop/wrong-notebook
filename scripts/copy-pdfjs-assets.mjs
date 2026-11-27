@@ -16,14 +16,54 @@ const OUT_DIR = path.join(ROOT, "public", "pdfjs");
 
 const ASSETS = ["cmaps", "standard_fonts"];
 
+/** 递归删除：只用 readdir/unlink/rmdir，不使用 rmSync */
+function removeTree(target) {
+    if (!fs.existsSync(target)) return;
+    for (const entry of fs.readdirSync(target, { withFileTypes: true })) {
+        const full = path.join(target, entry.name);
+        if (entry.isDirectory()) removeTree(full);
+        else fs.unlinkSync(full);
+    }
+    fs.rmdirSync(target);
+}
+
+/**
+ * 逐文件把 src 同步到 dest，并删除 dest 中多余的条目。
+ *
+ * 不使用 fs.cpSync / fs.rmSync：在 Windows 上，当仓库路径含非 ASCII 字符
+ * （例如放在中文目录下）且机器装有文件监控类安全软件时，这两个 API 会抛
+ * EPERM/EIO（`fs.rmSync` 连空目录都删不掉，`fs.cpSync` 报 Access is denied），
+ * 而 copyFileSync / unlinkSync 工作正常。
+ */
+function syncTree(src, dest) {
+    fs.mkdirSync(dest, { recursive: true });
+
+    const sourceEntries = new Map(
+        fs.readdirSync(src, { withFileTypes: true }).map((entry) => [entry.name, entry]),
+    );
+
+    for (const [name, entry] of sourceEntries) {
+        const from = path.join(src, name);
+        const to = path.join(dest, name);
+        if (entry.isDirectory()) syncTree(from, to);
+        else fs.copyFileSync(from, to);
+    }
+
+    for (const entry of fs.readdirSync(dest, { withFileTypes: true })) {
+        if (sourceEntries.has(entry.name)) continue;
+        const full = path.join(dest, entry.name);
+        if (entry.isDirectory()) removeTree(full);
+        else fs.unlinkSync(full);
+    }
+}
+
 function copyAsset(name) {
     const src = path.join(PDFJS_DIST, name);
     const dest = path.join(OUT_DIR, name);
     if (!fs.existsSync(src)) {
         throw new Error(`未找到 pdfjs-dist 目录：${src}（请先 npm ci）`);
     }
-    fs.rmSync(dest, { recursive: true, force: true });
-    fs.cpSync(src, dest, { recursive: true });
+    syncTree(src, dest);
     const count = fs.readdirSync(dest).length;
     console.log(`[copy-pdfjs-assets] ${name} → public/pdfjs/${name}（${count} 个文件）`);
 }

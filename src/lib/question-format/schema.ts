@@ -66,6 +66,8 @@ export const structuredQuestionSchema = z.object({
     source: z.string().max(MAX_SOURCE_LENGTH).optional(),
     questionType: z.string().max(MAX_QUESTION_TYPE_LENGTH).optional(),
     figureSvg: z.string().max(MAX_FIGURE_SVG_LENGTH_EXCHANGE).optional(),
+    figureImage: z.string().regex(IMAGE_DATA_URL_PATTERN, "INVALID_IMAGE_DATA_URL").max(MAX_IMAGE_DATA_URL_LENGTH, "IMAGE_TOO_LARGE").optional(),
+    figureSource: z.enum(["svg", "image"]).optional(),
     images: z.array(questionImageSchema).max(MAX_IMAGES_PER_QUESTION).optional(),
     extensions: z.record(z.string(), z.unknown()).optional(),
 });

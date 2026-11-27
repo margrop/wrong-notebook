@@ -39,6 +39,10 @@ export interface StructuredQuestion {
     questionType?: string;
     /** 配图 SVG */
     figureSvg?: string;
+    /** 裁剪后的题目原配图（data URL，不含整题拍照原图） */
+    figureImage?: string;
+    /** 配图显示来源：svg | image */
+    figureSource?: "svg" | "image";
     /** 内嵌图片 */
     images?: QuestionImage[];
     /** 第三方扩展字段 */

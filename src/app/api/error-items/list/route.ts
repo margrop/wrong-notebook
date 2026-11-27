@@ -8,8 +8,47 @@ import { createLogger } from "@/lib/logger";
 import { ERROR_ITEM_LIST_SELECT, ERROR_ITEM_PRINT_SELECT, printImageUrl } from "@/lib/error-list/error-list-select";
 import { parseErrorListQueryParams, buildErrorListWhere } from "@/lib/error-list/error-list-query";
 import { masteryStatusOf } from "@/lib/mastery-status";
+import type { ErrorItemPracticeStats } from "@/types/api";
 
 const logger = createLogger('api:error-items:list');
+
+const PRACTICE_DIFFICULTIES = ['easy', 'medium', 'hard', 'harder'] as const;
+
+/** 空进度：四个难度始终存在，未练习记 0/0 */
+function emptyPracticeStats(): ErrorItemPracticeStats {
+    return {
+        easy: { correct: 0, total: 0 },
+        medium: { correct: 0, total: 0 },
+        hard: { correct: 0, total: 0 },
+        harder: { correct: 0, total: 0 },
+    };
+}
+
+/** 按难度汇总当前页错题的练习进度（答对次数 / 作答次数），一次 groupBy 取完 */
+async function loadPracticeStats(ids: string[]): Promise<Map<string, ErrorItemPracticeStats>> {
+    const stats = new Map<string, ErrorItemPracticeStats>();
+    for (const id of ids) stats.set(id, emptyPracticeStats());
+    if (ids.length === 0) return stats;
+
+    const rows = await prisma.practiceRecord.groupBy({
+        by: ['errorItemId', 'difficulty', 'result'],
+        where: {
+            errorItemId: { in: ids },
+            result: { in: ['correct', 'wrong', 'not_attempted'] },
+        },
+        _count: { _all: true },
+    });
+
+    for (const row of rows) {
+        const entry = stats.get(row.errorItemId ?? '');
+        const difficulty = row.difficulty;
+        if (!entry || !PRACTICE_DIFFICULTIES.includes(difficulty as typeof PRACTICE_DIFFICULTIES[number])) continue;
+        const target = entry[difficulty as typeof PRACTICE_DIFFICULTIES[number]];
+        target.total += row._count._all;
+        if (row.result === 'correct') target.correct += row._count._all;
+    }
+    return stats;
+}
 
 export const GET = withUser(async (req: Request, { user }: AuthenticatedContext) => {
     const { searchParams } = new URL(req.url);
@@ -31,10 +70,14 @@ export const GET = withUser(async (req: Request, { user }: AuthenticatedContext)
 
         const totalPages = Math.ceil(total / params.pageSize);
 
+        // 练习进度只用于列表卡片，打印视图不需要
+        const practiceStats = params.view === "print" ? null : await loadPracticeStats(items.map((item) => item.id));
+
         return NextResponse.json({
             items: items.map(({ _count, ...item }) => ({
                 ...item,
                 masteryStatus: masteryStatusOf(_count.practiceRecords, item.masteryProbability, user.masteryThreshold),
+                ...(practiceStats ? { practiceStats: practiceStats.get(item.id) } : {}),
             })),
             total,
             page: params.page,

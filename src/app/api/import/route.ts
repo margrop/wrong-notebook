@@ -10,11 +10,40 @@ import { importSpeeches } from "@/lib/tts/speech-cache";
 import { parseBackupFile } from "@/lib/backup/format";
 import { MAX_BACKUP_IMPORT_BYTES } from "@/lib/backup/limits";
 import { normalizeBackupForImport } from "@/lib/backup/import-parser";
+import type { NormalizedImportData } from "@/lib/backup/import-parser";
 import { importBackupData, scheduleImportMasteryEvaluation } from "@/lib/backup/import-writer";
 import { rowsBucket } from "@/lib/telemetry/schema";
 import { recordEvent } from "@/lib/telemetry/server";
 
 const logger = createLogger('api:import');
+
+/**
+ * 「导入全部」按导出文件里的原始 userId 写回，目标实例必须已有这些用户；
+ * 否则写入阶段只会抛一个难以理解的外键错误，这里提前找出缺失的用户。
+ */
+async function findUnknownImportUsers(normalized: NormalizedImportData): Promise<string[]> {
+    const referenced = new Set<string>();
+    const collect = (rows: Array<{ userId?: string | null }> | undefined) => {
+        for (const row of rows ?? []) {
+            if (row.userId) referenced.add(row.userId);
+        }
+    };
+    collect(normalized.subjects);
+    collect(normalized.customTags);
+    collect(normalized.paperGroups);
+    collect(normalized.errorItems.map((item) => item.raw));
+    collect(normalized.practiceRecords.map((item) => item.raw));
+    collect(normalized.practiceQuestions.map((item) => item.raw));
+    collect(normalized.examPapers.map((item) => item.raw));
+
+    if (referenced.size === 0) return [];
+    const existing = await prisma.user.findMany({
+        where: { id: { in: [...referenced] } },
+        select: { id: true },
+    });
+    const existingIds = new Set(existing.map((row) => row.id));
+    return [...referenced].filter((id) => !existingIds.has(id));
+}
 
 export const POST = withUser(async (req: Request, { user, session }: AuthenticatedContext) => {
     const { searchParams } = new URL(req.url);
@@ -53,6 +82,24 @@ export const POST = withUser(async (req: Request, { user, session }: Authenticat
         }
 
         const normalized = normalizeBackupForImport(body, body.user.email === user.email);
+
+        // 「导入全部」保留导出文件中的原始 userId，只能还原到原实例或其克隆；
+        // 目标实例缺少这些用户时，提前给出明确原因，而不是让写入阶段报外键错误。
+        if (importAll) {
+            const unknownUserIds = await findUnknownImportUsers(normalized);
+            if (unknownUserIds.length > 0) {
+                logger.warn({
+                    userId: user.id,
+                    unknownUserCount: unknownUserIds.length,
+                    sample: unknownUserIds.slice(0, 5),
+                }, 'Import all references users missing in this instance');
+                return badRequest(
+                    `Backup contains data for ${unknownUserIds.length} user(s) that do not exist in this instance. `
+                    + 'Import-all restores records under their original user IDs, so it only works on the original instance or a clone of it. '
+                    + 'Use the regular import to bring data into the current account instead.',
+                );
+            }
+        }
 
         // 按目标防重复：同一用户同一时刻只允许一个数据导入任务（reserve 失败返回 409，不写库）
         const target = `user:${user.id}:data-import`;
