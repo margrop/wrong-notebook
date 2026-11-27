@@ -31,7 +31,7 @@ function removeTree(target) {
  * 逐文件把 src 同步到 dest，并删除 dest 中多余的条目。
  *
  * 不使用 fs.cpSync / fs.rmSync：在 Windows 上，当仓库路径含非 ASCII 字符
- * （例如 D:\高中学习\...）且机器装有文件监控类安全软件时，这两个 API 会抛
+ * （例如放在中文目录下）且机器装有文件监控类安全软件时，这两个 API 会抛
  * EPERM/EIO（`fs.rmSync` 连空目录都删不掉，`fs.cpSync` 报 Access is denied），
  * 而 copyFileSync / unlinkSync 工作正常。
  */
