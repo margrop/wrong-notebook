@@ -72,6 +72,9 @@ export const PrintableQuestion = memo(function PrintableQuestion({
         ? resolveQuestionAnswerSpacePx(options.answerSpace ?? "auto", item.questionText || "", customAnswerSpacePx)
         : 0;
     const hasQuestionFigure = Boolean(item.figureSvg || item.figureImage);
+    // 历史题目兜底：拍照导入时标记了 hasFigure，但尚未生成 SVG 或裁剪出配图。
+    // 这种情况文字模式仍回退显示拍照原图，避免出现「如图所示」却没有图。
+    const needsLegacyFigureFallback = !hasQuestionFigure && item.hasFigure === true && Boolean(item.originalImageUrl);
     const originalImage = item.originalImageUrl
         ? <OriginalQuestionImage src={item.originalImageUrl} alt={t.detail?.originalProblem || 'Question Image'} scale={options.imageScale} />
         : null;
@@ -119,9 +122,11 @@ export const PrintableQuestion = memo(function PrintableQuestion({
             {options.showQuestionText && item.questionText ? (
                 <div className="mb-4">
                     <PrintQuestionText content={item.questionText} />
-                    {hasQuestionFigure && (
-                        <QuestionFigure svg={item.figureSvg} image={item.figureImage} source={item.figureSource} scale={item.figureScale} align={item.figureAlign} />
-                    )}
+                    {hasQuestionFigure
+                        ? <QuestionFigure svg={item.figureSvg} image={item.figureImage} source={item.figureSource} scale={item.figureScale} align={item.figureAlign} />
+                        : needsLegacyFigureFallback
+                            ? originalImage
+                            : null}
                 </div>
             ) : (
                 originalImage

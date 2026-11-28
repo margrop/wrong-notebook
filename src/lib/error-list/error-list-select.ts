@@ -28,6 +28,8 @@ export const ERROR_ITEM_PRINT_SELECT = {
     figureSvg: true,
     figureImage: true,
     figureSource: true,
+    // 历史题目可能标记了「有配图」但尚未生成 SVG 或裁剪出配图，打印时需要据此兜底
+    hasFigure: true,
     figureScale: true,
     figureAlign: true,
     answerSpacePx: true,

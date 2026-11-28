@@ -149,7 +149,9 @@ export function ExportQuestionsDialog({ open, onOpenChange, selectedIds }: Expor
                 const res = await fetch("/api/error-items/export-questions", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ ids: selectedIds, includeImages }),
+                    // JSON 是数据交换格式：始终保留题目配图（figureSvg / figureImage / figureSource），
+                    // 与 Word 导出的「包含题目配图」勾选无关
+                    body: JSON.stringify({ ids: selectedIds, includeImages, includeFigures: true }),
                 });
                 if (!res.ok) {
                     const data = await res.json().catch(() => ({}));

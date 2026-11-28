@@ -116,7 +116,7 @@ export type ErrorItemSummary = Pick<ErrorItem,
 
 /** 打印所需内容，独立于完整详情与列表卡片的数据类型。 */
 export type PrintableErrorItem = ErrorItemSummary & Pick<ErrorItem,
-    'originalImageUrl' | 'answerText' | 'analysis' | 'figureSvg' | 'figureImage' | 'figureSource' | 'figureScale' | 'figureAlign' | 'answerSpacePx' | 'gradeSemester' | 'paperLevel'
+    'originalImageUrl' | 'answerText' | 'analysis' | 'figureSvg' | 'figureImage' | 'figureSource' | 'figureScale' | 'figureAlign' | 'answerSpacePx' | 'gradeSemester' | 'paperLevel' | 'hasFigure'
 > & { subject?: Pick<Notebook, 'name'> | null };
 
 // For creation/updates

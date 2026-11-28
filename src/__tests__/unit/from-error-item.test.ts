@@ -40,7 +40,7 @@ describe('fromErrorItem', () => {
     });
 
     it('完整字段映射正确', () => {
-        const result = fromErrorItem(makeSource());
+        const result = fromErrorItem(makeSource(), false, true);
         expect(result).not.toBeNull();
         expect(result!.text).toBe('计算：1+1=？');
         expect(result!.answer).toBe('2');
@@ -53,6 +53,11 @@ describe('fromErrorItem', () => {
         expect(result!.figureSvg).toBe('<svg xmlns="http://www.w3.org/2000/svg"/>');
         expect(result!.subject).toBe('数学');
         expect(result!.knowledgePoints).toEqual(['整数加法', '计算']);
+    });
+
+    it('未请求题目配图时省略 figureSvg', () => {
+        const result = fromErrorItem(makeSource());
+        expect(result!.figureSvg).toBeUndefined();
     });
 
     it('可选字段为空时省略', () => {
