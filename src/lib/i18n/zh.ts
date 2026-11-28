@@ -1670,6 +1670,15 @@ export const zh = {
                 save: "保存",
             },
             elapsed: "用时 {time}",
+            filter: {
+                label: "按状态筛选",
+                all: "全部",
+                active: "进行中",
+                review: "待校对",
+                saved: "已保存",
+                failed: "失败",
+                empty: "没有符合此筛选的任务",
+            },
         },
         importBatch: {
             title: "多题录入",
