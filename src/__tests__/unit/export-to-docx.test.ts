@@ -200,7 +200,8 @@ describe("buildDocxParagraphs", () => {
         ];
         const blob = await buildQuestionsDocx(withFigureOnly, { includeImages: false });
         const entries = unzipSync(new Uint8Array(await blob.arrayBuffer()));
-        const mediaFiles = Object.keys(entries).filter((n) => n.startsWith("word/media/"));
+        // 解压结果里有 "word/media/" 目录条目，只统计真正的图片文件
+        const mediaFiles = Object.keys(entries).filter((n) => n.startsWith("word/media/") && !n.endsWith("/"));
         expect(mediaFiles).toHaveLength(1);
     }, 20000);
 });
