@@ -1671,6 +1671,15 @@ export const en = {
                 save: "Save",
             },
             elapsed: "Elapsed {time}",
+            filter: {
+                label: "Filter by status",
+                all: "All",
+                active: "In progress",
+                review: "Ready for review",
+                saved: "Saved",
+                failed: "Failed",
+                empty: "No tasks match this filter",
+            },
         },
         importBatch: {
             title: "Multiple questions",

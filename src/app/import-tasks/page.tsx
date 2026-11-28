@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ScanText } from "lucide-react";
 import { ImportBatchCard } from "@/components/import-batch/import-batch-card";
@@ -10,6 +11,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageLoading } from "@/components/ui/page-loading";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageTitle } from "@/lib/page-title";
+import { IMPORT_TASK_FILTERS, filterImportCenter } from "@/lib/import/import-task-filter";
+import type { ImportTaskFilter } from "@/lib/import/import-task-filter";
 import { useImportTaskActions } from "@/lib/hooks/use-import-task-actions";
 import { useImportTaskList } from "@/lib/hooks/use-import-tasks";
 import { useNow } from "@/lib/hooks/use-now";
@@ -21,6 +24,8 @@ export default function ImportTasksPage() {
     const { data, refresh } = useImportTaskList();
     const actions = useImportTaskActions(refresh);
     const now = useNow((data?.activeCount ?? 0) > 0);
+    const [filter, setFilter] = useState<ImportTaskFilter>("all");
+    const view = useMemo(() => data ? filterImportCenter(data, filter) : null, [data, filter]);
 
     return (
         <main className="mx-auto max-w-3xl space-y-4 px-4 py-6 md:px-8 md:py-8">
@@ -34,11 +39,35 @@ export default function ImportTasksPage() {
                     action={<Link href="/"><Button>{t.importTasks.backHome}</Button></Link>}
                 />
             ) : (
-                <ul className="space-y-3">
-                    {[
-                        ...(data.batches ?? []).map((batch) => ({ kind: "batch" as const, createdAt: batch.createdAt, batch })),
-                        ...data.tasks.map((task) => ({ kind: "task" as const, createdAt: task.createdAt, task })),
-                    ].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((entry) => entry.kind === "batch" ? (
+                <>
+                    <div role="group" aria-label={t.importTasks.filter.label} className="flex flex-wrap gap-2">
+                        {IMPORT_TASK_FILTERS.map((value) => (
+                            <button
+                                key={value}
+                                type="button"
+                                aria-pressed={filter === value}
+                                onClick={() => setFilter(value)}
+                                className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                                    filter === value
+                                        ? "border-primary bg-primary text-primary-foreground"
+                                        : "border-border bg-background hover:bg-muted"
+                                }`}
+                            >
+                                {t.importTasks.filter[value]}
+                                <span className="ml-1.5 tabular-nums opacity-80">{view?.counts[value] ?? 0}</span>
+                            </button>
+                        ))}
+                    </div>
+                    {view && view.tasks.length === 0 && view.batches.length === 0 ? (
+                        <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                            {t.importTasks.filter.empty}
+                        </p>
+                    ) : (
+                        <ul className="space-y-3">
+                            {[
+                                ...(view?.batches ?? []).map((batch) => ({ kind: "batch" as const, createdAt: batch.createdAt, batch })),
+                                ...(view?.tasks ?? []).map((task) => ({ kind: "task" as const, createdAt: task.createdAt, task })),
+                            ].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((entry) => entry.kind === "batch" ? (
                         <li key={`batch-${entry.batch.id}`}>
                             <ImportBatchCard batch={entry.batch} />
                         </li>
@@ -54,7 +83,9 @@ export default function ImportTasksPage() {
                             />
                         </li>
                     ))}
-                </ul>
+                        </ul>
+                    )}
+                </>
             )}
             <p className="text-xs text-muted-foreground">{t.importTasks.retentionHint}</p>
         </main>
